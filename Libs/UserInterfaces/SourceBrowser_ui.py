@@ -80,15 +80,15 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_sourceFooter = QHBoxLayout()
         self.lo_sourceFooter.setObjectName(u"lo_sourceFooter")
-        self.b_source1 = QPushButton(self.w_source)
-        self.b_source1.setObjectName(u"b_source1")
+        self.b_source_checkAll = QPushButton(self.w_source)
+        self.b_source_checkAll.setObjectName(u"b_source_checkAll")
 
-        self.lo_sourceFooter.addWidget(self.b_source1)
+        self.lo_sourceFooter.addWidget(self.b_source_checkAll)
 
-        self.b_source2 = QPushButton(self.w_source)
-        self.b_source2.setObjectName(u"b_source2")
+        self.b_source_uncheckAll = QPushButton(self.w_source)
+        self.b_source_uncheckAll.setObjectName(u"b_source_uncheckAll")
 
-        self.lo_sourceFooter.addWidget(self.b_source2)
+        self.lo_sourceFooter.addWidget(self.b_source_uncheckAll)
 
         self.b_source_addSel = QPushButton(self.w_source)
         self.b_source_addSel.setObjectName(u"b_source_addSel")
@@ -182,8 +182,8 @@ class Ui_w_sourceBrowser(object):
         self.l_identifier.setText(QCoreApplication.translate("w_sourceBrowser", u"Source", None))
         self.b_sourcePathUp.setText("")
         self.b_browseSource.setText("")
-        self.b_source1.setText(QCoreApplication.translate("w_sourceBrowser", u"B 1", None))
-        self.b_source2.setText(QCoreApplication.translate("w_sourceBrowser", u"B 2", None))
+        self.b_source_checkAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Select All", None))
+        self.b_source_uncheckAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Unselect All", None))
         self.b_source_addSel.setText(QCoreApplication.translate("w_sourceBrowser", u"Add Selected", None))
         self.l_version.setText(QCoreApplication.translate("w_sourceBrowser", u"Destination", None))
         self.b_destPathUp.setText("")
@@ -192,4 +192,5 @@ class Ui_w_sourceBrowser(object):
         self.b_dest2.setText(QCoreApplication.translate("w_sourceBrowser", u"B 2", None))
         self.b_dest3.setText(QCoreApplication.translate("w_sourceBrowser", u"B 3", None))
     # retranslateUi
+
 

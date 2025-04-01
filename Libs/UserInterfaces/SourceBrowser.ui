@@ -87,16 +87,16 @@
        <item>
         <layout class="QHBoxLayout" name="lo_sourceFooter">
          <item>
-          <widget class="QPushButton" name="b_source1">
+          <widget class="QPushButton" name="b_source_checkAll">
            <property name="text">
-            <string>B 1</string>
+            <string>Select All</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="b_source2">
+          <widget class="QPushButton" name="b_source_uncheckAll">
            <property name="text">
-            <string>B 2</string>
+            <string>Unselect All</string>
            </property>
           </widget>
          </item>

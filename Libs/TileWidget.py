@@ -439,7 +439,13 @@ class SourceFileItem(QWidget):
     
 
     @err_catcher(name=__name__)
-    def setSelected(self, checked):
+    def setChecked(self, checked):
+        self.chb_selected.setChecked(checked)
+        self.setSelected()
+
+
+    @err_catcher(name=__name__)
+    def setSelected(self, checked=None):
         self.isSelected = self.chb_selected.isChecked()
 
 

@@ -284,6 +284,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.b_destClearList.clicked.connect(self.clearTransferList)
 
+        self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
+        self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
+
 
 
 
@@ -354,6 +357,24 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.entityChanged()
         self.refreshStatus = "valid"
+
+
+    @err_catcher(name=__name__)
+    def selectAll(self, checked=True, mode=None):
+        if mode == "source":
+            table = self.tw_source
+            col = 1
+        elif mode == "dest":
+            col = 2
+            table = self.tw_destination
+
+        row_count = table.rowCount()
+
+        for row in range(row_count):
+            fileItem = table.cellWidget(row, col)
+            if fileItem is not None:
+                fileItem.setChecked(checked)
+
 
 
     @err_catcher(name=__name__)
@@ -531,10 +552,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
-
-        # testDir = r"N:/Data/Footage/Raw Video/Exterior/5th Ave South Corner Lot"
-        # self.sourceDir = testDir
-
         self.tw_source.setRowCount(0)  # Clear existing rows
 
         if not hasattr(self, "sourceDir"):
@@ -555,9 +572,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             fileType = self.getFileType(fullPath)
 
             if fileType == "folder":
-                # dirIcon = self.getIconByType(fullPath)
-                # fileItems["folder"].append((dirIcon, file))  # Store the icon and folder name
-
                 folderItem = self.createFolderTile(fullPath)
                 fileItems[fileType].append(folderItem)
 
@@ -567,11 +581,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         # Define column mappings for the different types
         columnMapping = {
-            "folder": 0,  # Folder goes to column 0
-            "video": 1,   # Video goes to column 1
-            "image": 1,   # Image goes to column 1
-            "audio": 1,   # Audio goes to column 1
-            "other": 1    # Other goes to column 1
+            "folder": 0,
+            "video": 1,
+            "image": 1,
+            "audio": 1,
+            "other": 1
         }
 
         row = 0
@@ -582,21 +596,27 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 col = columnMapping[fileType]
 
                 if fileType == "folder":
-                    self.tw_source.setSpan(row, 0, 1, 2)  # Span across column 0 and column 1
+                    #   Span across column 0 and column 1
+                    self.tw_source.setSpan(row, 0, 1, 2)
                     self.tw_source.setRowHeight(row, SOURCE_DIR_HEIGHT)
-                    self.tw_source.setCellWidget(row, col, item)  # Only add the widget for folders
+                    
+                    self.tw_source.setCellWidget(row, col, item)
 
                 else:
                     self.tw_source.setRowHeight(row, SOURCE_ITEM_HEIGHT)
 
                     # Create an invisible item for selection
                     table_item = QTableWidgetItem()
-                    table_item.setData(Qt.UserRole, item)  # Store item data
-                    self.tw_source.setItem(row, col, table_item)  # Assign item to cell
+                    table_item.setData(Qt.UserRole, item)
+                    self.tw_source.setItem(row, col, table_item)
+                    #   Add Tile Widget
+                    self.tw_source.setCellWidget(row, col, item)
 
-                    self.tw_source.setCellWidget(row, col, item)  # Set the widget
+                row += 1
 
-                row += 1  # Move to the next row
+        #   Add extra empty row to bottom
+        self.tw_source.insertRow(row)
+
 
 
 
@@ -693,10 +713,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
-
-        # testDir = r"N:/Data/Footage/Raw Video/Exterior/5th Ave South Corner Lot"
-        # self.sourceDir = testDir
-
         self.tw_destination.setRowCount(0)  # Clear existing rows
 
         row = 0
@@ -708,14 +724,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             filePath = iData["filePath"]
             fileItem = self.createDestFileTile(filePath)
 
-            # Create an invisible item for selection
-
+            #   Add Tile Widget
             self.tw_destination.setCellWidget(row, 0, fileItem)
 
+            row += 1
 
-            row += 1  # Move to the next row
-
-
+        #   Add extra empty row to bottom
+        self.tw_destination.insertRow(row)
 
 
     @err_catcher(name=__name__)
