@@ -274,13 +274,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #     lambda x: self.rclList(x, self.tw_destination)
         # )
 
-
+        self.b_source_addSel.clicked.connect(self.addSelected)
 
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
 
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
+
+        self.b_destClearList.clicked.connect(self.clearTransferList)
 
 
 
@@ -851,6 +853,19 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def addToDestList(self, data):
         self.destList.append(data)
+        self.refreshDestItems()
+
+
+    @err_catcher(name=__name__)
+    def addSelected(self):
+        row_count = self.tw_source.rowCount()
+
+        for row in range(row_count):
+            fileItem = self.tw_source.cellWidget(row, 1)
+            if fileItem is not None:
+                # if fileItem.isSelected:
+                self.addToDestList(fileItem.getData())
+
         self.refreshDestItems()
 
 

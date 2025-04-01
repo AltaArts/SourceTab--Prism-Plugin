@@ -17,7 +17,7 @@
    <item>
     <widget class="QSplitter" name="splitter">
      <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+      <enum>Qt::Orientation::Horizontal</enum>
      </property>
      <widget class="QWidget" name="w_source" native="true">
       <property name="sizePolicy">
@@ -77,12 +77,37 @@
        <item>
         <widget class="QTableWidget" name="tw_source">
          <property name="contextMenuPolicy">
-          <enum>Qt::CustomContextMenu</enum>
+          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
          </property>
          <property name="selectionMode">
-          <enum>QAbstractItemView::ExtendedSelection</enum>
+          <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
          </property>
         </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="lo_sourceFooter">
+         <item>
+          <widget class="QPushButton" name="b_source1">
+           <property name="text">
+            <string>B 1</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_source2">
+           <property name="text">
+            <string>B 2</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_source_addSel">
+           <property name="text">
+            <string>Add Selected</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </widget>
@@ -147,12 +172,37 @@
           </size>
          </property>
          <property name="contextMenuPolicy">
-          <enum>Qt::CustomContextMenu</enum>
+          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
          </property>
          <property name="selectionMode">
-          <enum>QAbstractItemView::ExtendedSelection</enum>
+          <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
          </property>
         </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="lo_destFooter">
+         <item>
+          <widget class="QPushButton" name="b_destClearList">
+           <property name="text">
+            <string>Clear List</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_dest2">
+           <property name="text">
+            <string>B 2</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_dest3">
+           <property name="text">
+            <string>B 3</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </widget>

@@ -1,17 +1,24 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'SourceBrowserAosdHI.ui'
+## Form generated from reading UI file 'SourceBrowser.ui'
 ##
-## Created by: Qt User Interface Compiler version 5.15.2
+## Created by: Qt User Interface Compiler version 6.7.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
-
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QHBoxLayout, QHeaderView,
+    QLabel, QLineEdit, QPushButton, QSizePolicy,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QWidget)
 
 class Ui_w_sourceBrowser(object):
     def setupUi(self, w_sourceBrowser):
@@ -22,10 +29,10 @@ class Ui_w_sourceBrowser(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceBrowser)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Horizontal)
+        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_source = QWidget(self.splitter)
         self.w_source.setObjectName(u"w_source")
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(8)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.w_source.sizePolicy().hasHeightForWidth())
@@ -66,15 +73,35 @@ class Ui_w_sourceBrowser(object):
 
         self.tw_source = QTableWidget(self.w_source)
         self.tw_source.setObjectName(u"tw_source")
-        self.tw_source.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tw_source.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.tw_source.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tw_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
 
         self.verticalLayout_8.addWidget(self.tw_source)
+
+        self.lo_sourceFooter = QHBoxLayout()
+        self.lo_sourceFooter.setObjectName(u"lo_sourceFooter")
+        self.b_source1 = QPushButton(self.w_source)
+        self.b_source1.setObjectName(u"b_source1")
+
+        self.lo_sourceFooter.addWidget(self.b_source1)
+
+        self.b_source2 = QPushButton(self.w_source)
+        self.b_source2.setObjectName(u"b_source2")
+
+        self.lo_sourceFooter.addWidget(self.b_source2)
+
+        self.b_source_addSel = QPushButton(self.w_source)
+        self.b_source_addSel.setObjectName(u"b_source_addSel")
+
+        self.lo_sourceFooter.addWidget(self.b_source_addSel)
+
+
+        self.verticalLayout_8.addLayout(self.lo_sourceFooter)
 
         self.splitter.addWidget(self.w_source)
         self.w_destination = QWidget(self.splitter)
         self.w_destination.setObjectName(u"w_destination")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy1.setHorizontalStretch(9)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.w_destination.sizePolicy().hasHeightForWidth())
@@ -115,10 +142,30 @@ class Ui_w_sourceBrowser(object):
         self.tw_destination = QTableWidget(self.w_destination)
         self.tw_destination.setObjectName(u"tw_destination")
         self.tw_destination.setMaximumSize(QSize(16777215, 9999))
-        self.tw_destination.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tw_destination.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.tw_destination.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tw_destination.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
 
         self.verticalLayout_11.addWidget(self.tw_destination)
+
+        self.lo_destFooter = QHBoxLayout()
+        self.lo_destFooter.setObjectName(u"lo_destFooter")
+        self.b_destClearList = QPushButton(self.w_destination)
+        self.b_destClearList.setObjectName(u"b_destClearList")
+
+        self.lo_destFooter.addWidget(self.b_destClearList)
+
+        self.b_dest2 = QPushButton(self.w_destination)
+        self.b_dest2.setObjectName(u"b_dest2")
+
+        self.lo_destFooter.addWidget(self.b_dest2)
+
+        self.b_dest3 = QPushButton(self.w_destination)
+        self.b_dest3.setObjectName(u"b_dest3")
+
+        self.lo_destFooter.addWidget(self.b_dest3)
+
+
+        self.verticalLayout_11.addLayout(self.lo_destFooter)
 
         self.splitter.addWidget(self.w_destination)
 
@@ -135,8 +182,14 @@ class Ui_w_sourceBrowser(object):
         self.l_identifier.setText(QCoreApplication.translate("w_sourceBrowser", u"Source", None))
         self.b_sourcePathUp.setText("")
         self.b_browseSource.setText("")
+        self.b_source1.setText(QCoreApplication.translate("w_sourceBrowser", u"B 1", None))
+        self.b_source2.setText(QCoreApplication.translate("w_sourceBrowser", u"B 2", None))
+        self.b_source_addSel.setText(QCoreApplication.translate("w_sourceBrowser", u"Add Selected", None))
         self.l_version.setText(QCoreApplication.translate("w_sourceBrowser", u"Destination", None))
         self.b_destPathUp.setText("")
         self.b_browseDest.setText("")
+        self.b_destClearList.setText(QCoreApplication.translate("w_sourceBrowser", u"Clear List", None))
+        self.b_dest2.setText(QCoreApplication.translate("w_sourceBrowser", u"B 2", None))
+        self.b_dest3.setText(QCoreApplication.translate("w_sourceBrowser", u"B 3", None))
     # retranslateUi
 

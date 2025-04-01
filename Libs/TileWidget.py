@@ -84,12 +84,16 @@ class SourceFileItem(QWidget):
         self.browser = browser
         self.data = data
 
-        self.state = "deselected"
+        self.getPixmapFromPath = self.core.media.getPixmapFromPath
+
+        self.isSelected = False
+
         self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
         self.itemPreviewWidth = 120
         self.itemPreviewHeight = 69
         self.setupUi()
         self.refreshUi()
+
 
     def mouseReleaseEvent(self, event):
         super(SourceFileItem, self).mouseReleaseEvent(event)
@@ -102,7 +106,7 @@ class SourceFileItem(QWidget):
     @err_catcher(name=__name__)
     def setupUi(self):
         self.setObjectName("texture")
-        self.applyStyle(self.state)
+        self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.lo_main = QHBoxLayout()
         self.setLayout(self.lo_main)
@@ -202,6 +206,7 @@ class SourceFileItem(QWidget):
 
 
 
+
     @err_catcher(name=__name__)
     def setIcon(self, icon):
         self.l_icon.setToolTip(os.path.basename(self.data["filePath"]))
@@ -221,11 +226,38 @@ class SourceFileItem(QWidget):
 
     @err_catcher(name=__name__)
     def refreshPreview(self):
-        ppixmap = self.getPreviewImage()
-        ppixmap = self.core.media.scalePixmap(
-            ppixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
-        )
-        self.l_preview.setPixmap(ppixmap)
+        ppixmap = self.getPixmap()
+        if ppixmap:
+            ppixmap = self.core.media.scalePixmap(
+                ppixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
+                )
+            self.l_preview.setPixmap(ppixmap)
+
+
+    @err_catcher(name=__name__)
+    def getPixmap(self):
+        # pm = self.getPreviewImage()
+        # self.core.entities.setEntityPreview(self.data, pm)
+        # self.browser.refreshEntityInfo()
+
+        filePath = self.getFilepath()
+        extension = self.getFileExtension()
+
+        if not extension.lower() in self.core.media.supportedFormats:
+            logger.debug(f"Cannot createthumbnail for {extension}")
+            return None
+        
+        pixmap = self.getPixmapFromPath(filePath,
+                                        width=self.itemPreviewWidth,
+                                        height=self.itemPreviewHeight,
+                                        colorAdjust=False)
+
+
+        if pixmap:
+            return pixmap
+        else:
+            return None
+
 
 
     @err_catcher(name=__name__)
@@ -240,9 +272,24 @@ class SourceFileItem(QWidget):
 
 
     @err_catcher(name=__name__)
+    def getData(self):
+        return self.data
+
+
+    @err_catcher(name=__name__)
     def getFilepath(self):
         version = self.data.get("filePath", "")
         return version
+    
+
+    @err_catcher(name=__name__)
+    def getFileExtension(self):
+        filePath = self.getFilepath()
+        basefile = os.path.basename(filePath)
+        _, extension = os.path.splitext(basefile)
+
+        return extension
+
     
     @err_catcher(name=__name__)
     def getUid(self):
@@ -295,7 +342,7 @@ class SourceFileItem(QWidget):
     @err_catcher(name=__name__)
     def applyStyle(self, styleType):
         borderColor = (
-            "rgb(70, 90, 120)" if self.state == "selected" else "rgb(70, 90, 120)"
+            "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
         )
         ssheet = (
             """
@@ -306,9 +353,9 @@ class SourceFileItem(QWidget):
         """
             % borderColor
         )
-        if styleType == "deselected":
+        if styleType is not True:
             pass
-        elif styleType == "selected":
+        elif styleType is True:
             ssheet = """
                 QWidget#texture {
                     border: 1px solid rgb(70, 90, 120);
@@ -345,22 +392,22 @@ class SourceFileItem(QWidget):
         self.setStyleSheet(ssheet)
 
 
-    @err_catcher(name=__name__)
-    def mousePressEvent(self, event):
-        self.select()
+    # @err_catcher(name=__name__)
+    # def mousePressEvent(self, event):
+    #     self.select()
 
 
-    @err_catcher(name=__name__)
-    def enterEvent(self, event):
-        if self.isSelected():
-            self.applyStyle("hoverSelected")
-        else:
-            self.applyStyle("hover")
+    # @err_catcher(name=__name__)
+    # def enterEvent(self, event):
+    #     if self.isSelected():
+    #         self.applyStyle("hoverSelected")
+    #     else:
+    #         self.applyStyle("hover")
 
 
-    @err_catcher(name=__name__)
-    def leaveEvent(self, event):
-        self.applyStyle(self.state)
+    # @err_catcher(name=__name__)
+    # def leaveEvent(self, event):
+    #     self.applyStyle(self.isSelected)
 
 
     @err_catcher(name=__name__)
@@ -373,21 +420,21 @@ class SourceFileItem(QWidget):
         wasSelected = self.isSelected()
         self.signalSelect.emit(self)
         if not wasSelected:
-            self.state = "selected"
-            self.applyStyle(self.state)
+            self.isSelected = True
+            self.applyStyle(self.isSelected)
             self.setFocus()
 
 
     @err_catcher(name=__name__)
     def deselect(self):
-        if self.state != "deselected":
-            self.state = "deselected"
-            self.applyStyle(self.state)
+        if self.isSelected == True:
+            self.isSelected = False
+            self.applyStyle(self.isSelected)
 
 
     @err_catcher(name=__name__)
-    def isSelected(self):
-        return self.state == "selected"
+    def getSelected(self):
+        return self.isSelected
 
 
     @err_catcher(name=__name__)
@@ -426,13 +473,6 @@ class SourceFileItem(QWidget):
     def addToDestList(self):
         self.browser.addToDestList(self.data)
 
-
-
-    @err_catcher(name=__name__)
-    def setPreview(self):
-        pm = self.getPreviewImage()
-        self.core.entities.setEntityPreview(self.data, pm)
-        self.browser.refreshEntityInfo()
 
 
 
