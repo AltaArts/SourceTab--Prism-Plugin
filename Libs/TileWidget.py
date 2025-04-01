@@ -114,9 +114,11 @@ class BaseTileItem(QWidget):
     def refreshPreview(self):
         #   Gets thumb path
         thumbPath = self.getThumbnailPath(self.data["filePath"])
+        
         #   If thumb already exists it uses the .jpog
         if os.path.exists(thumbPath):
             ppixmap = QPixmap(thumbPath)
+
         #   If it doesn't it call a new pixmap
         else:
             ppixmap = self.getPixmap()

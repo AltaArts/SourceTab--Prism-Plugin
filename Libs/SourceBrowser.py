@@ -854,10 +854,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
-    def addToDestList(self, data):
+    def addToDestList(self, data, refresh=False):
         if not self.checkDuplicate(data):
             self.transferList.append(data)
-            self.refreshDestItems()
+            
+            if refresh:
+                self.refreshDestItems()
 
 
     @err_catcher(name=__name__)
