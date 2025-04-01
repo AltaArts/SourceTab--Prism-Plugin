@@ -292,13 +292,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def saveSettings(self, data):
-        data["browser"]["autoUpdateRenders"] = self.chb_autoUpdate.isChecked()
         data["browser"]["previewDisabled"] = self.w_preview.mediaPlayer.state == "disabled"
 
 
     #	Creates UUID
     @err_catcher(name=__name__)
-    def createUUID(simple:bool=False, length:int=8) -> str:
+    def createUUID(self, simple=False, length=8):
         #	Creates simple Date/Time UID
         if simple:
             # Get the current date and time
@@ -721,8 +720,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.tw_destination.insertRow(row)  # Insert a new row
             self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
 
-            filePath = iData["filePath"]
-            fileItem = self.createDestFileTile(filePath)
+            fileItem = self.createDestFileTile(iData)
 
             #   Add Tile Widget
             self.tw_destination.setCellWidget(row, 0, fileItem)
@@ -752,17 +750,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
-    def createDestFileTile(self, filePath):
-
-        data = {}
-        data["filePath"] = os.path.normpath(filePath)
-        data["uuid"] = self.createUUID()
-        data["icon"] = self.getIconByType(filePath)
-
-        # Get file details
-        data["date"] = os.path.getmtime(filePath)
-        data["size"] = os.stat(filePath).st_size
-
+    def createDestFileTile(self, data):
         # Create the custom widget
         fileItem = TileWidget.DestFileItem(self, data)
 
@@ -1194,7 +1182,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def getSelectedContext(self):
-        return self.getCurrentData()
+        # return self.getCurrentData()
+        pass
 
     @err_catcher(name=__name__)
     def getCurrentNavData(self):

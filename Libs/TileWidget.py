@@ -72,35 +72,204 @@ from UserInterfaces import SceneBrowser_ui
 logger = logging.getLogger(__name__)
 
 
-
-class SourceFileItem(QWidget):
+#   BASE FILE TILE FOR SHARED METHODS
+class BaseTileItem(QWidget):
 
     signalSelect = Signal(object)
     signalReleased = Signal(object)
 
     def __init__(self, browser, data):
-        super(SourceFileItem, self).__init__()
+        super(BaseTileItem, self).__init__()
         self.core = browser.core
         self.browser = browser
         self.data = data
 
         self.getPixmapFromPath = self.core.media.getPixmapFromPath
+        self.getThumbnailPath = self.core.media.getThumbnailPath
 
         self.isSelected = False
 
         self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
         self.itemPreviewWidth = 120
         self.itemPreviewHeight = 69
+
         self.setupUi()
         self.refreshUi()
+
+
+    #   Returns the Tile Data
+    @err_catcher(name=__name__)
+    def getData(self):
+        return self.data
+    
+
+    #   Returns the Filepath
+    @err_catcher(name=__name__)
+    def getFilepath(self):
+        return self.data.get("filePath", "")
+
+
+        #   Gets and Sets Thumbnail
+    @err_catcher(name=__name__)
+    def refreshPreview(self):
+        #   Gets thumb path
+        thumbPath = self.getThumbnailPath(self.data["filePath"])
+        #   If thumb already exists it uses the .jpog
+        if os.path.exists(thumbPath):
+            ppixmap = QPixmap(thumbPath)
+        #   If it doesn't it call a new pixmap
+        else:
+            ppixmap = self.getPixmap()
+
+        if ppixmap:
+            #   Scales pixmap
+            pmap = self.core.media.scalePixmap(
+                ppixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
+                )
+            #   Sets pixmap to Tile label
+            self.l_preview.setPixmap(pmap)
+
+
+    #   Gets Pixmap from Prism function
+    @err_catcher(name=__name__)
+    def getPixmap(self):
+        filePath = self.getFilepath()
+        extension = self.getFileExtension()
+
+        if not extension.lower() in self.core.media.supportedFormats:
+            logger.debug(f"Cannot createthumbnail for {extension}")
+            return None
+        
+        self.data["thumbPath"] = self.getThumbnailPath(filePath)
+
+        pixmap = self.getPixmapFromPath(filePath,
+                                        width=self.itemPreviewWidth,
+                                        height=self.itemPreviewHeight,
+                                        colorAdjust=False)
+
+        if pixmap:
+            return pixmap
+        else:
+            return None
+
+
+    #   Returns File's Extension
+    @err_catcher(name=__name__)
+    def getFileExtension(self):
+        filePath = self.getFilepath()
+        basefile = os.path.basename(filePath)
+        _, extension = os.path.splitext(basefile)
+
+        return extension
+
+    
+    #   Returns UUID
+    @err_catcher(name=__name__)
+    def getUid(self):
+        return self.data.get("uuid", "")
+    
+
+    #   Returns Date String
+    @err_catcher(name=__name__)
+    def getDate(self):
+        date = self.data.get("date")
+        dateStr = self.core.getFormattedDate(date) if date else ""
+
+        return dateStr
+    
+
+    #   Returns File Size (can be slower)
+    @err_catcher(name=__name__)
+    def getSize(self):
+        if self.browser.projectBrowser.act_filesizes.isChecked():
+            if "size" in self.data:
+                size_bytes = self.data["size"]
+            else:
+                size_bytes = os.stat(self.data["filePath"]).st_size
+
+            size_mb = size_bytes / 1024.0 / 1024.0
+
+            if size_mb < 1:
+                size_kb = size_bytes / 1024.0
+                sizeStr = "%.2f KB" % size_kb
+
+            elif size_mb < 1024:
+                sizeStr = "%.2f MB" % size_mb
+
+            else:
+                size_gb = size_mb / 1024.0
+                sizeStr = "%.2f GB" % size_gb
+
+            return sizeStr
+
+
+    #   Returns the Tile Icon
+    @err_catcher(name=__name__)
+    def getIcon(self):
+        if self.data.get("icon", ""):
+            return self.data["icon"]
+        else:
+            return self.data["color"]
+
+
+    #   Launches the Double-click File Action from the Main plugin
+    @err_catcher(name=__name__)
+    def mouseDoubleClickEvent(self, event):
+        self.browser.doubleClickFile(self.data["filePath"])
+
+
+    #   Sets the Tile State Selected
+    @err_catcher(name=__name__)
+    def select(self):
+        wasSelected = self.isSelected()
+        self.signalSelect.emit(self)
+        if not wasSelected:
+            self.isSelected = True
+            self.applyStyle(self.isSelected)
+            self.setFocus()
+
+
+    #   Sets the Tile State UnSelected
+    @err_catcher(name=__name__)
+    def deselect(self):
+        if self.isSelected == True:
+            self.isSelected = False
+            self.applyStyle(self.isSelected)
+
+
+    #   Returns if the State is Selected
+    @err_catcher(name=__name__)
+    def getSelected(self):
+        return self.isSelected
+    
+
+    #   Sets the State Selected based on the Checkbox
+    @err_catcher(name=__name__)
+    def setSelected(self, checked=None):
+        self.isSelected = self.chb_selected.isChecked()
+
+
+    #   Sets the Checkbox and sets the State
+    @err_catcher(name=__name__)
+    def setChecked(self, checked):
+        self.chb_selected.setChecked(checked)
+        self.setSelected()
+
+
+
+
+
+
+#   FILE TILES ON THE SOURCE SIDE
+class SourceFileItem(BaseTileItem):
+    def __init__(self, browser, data):
+        super(SourceFileItem, self).__init__(browser, data)
 
 
     def mouseReleaseEvent(self, event):
         super(SourceFileItem, self).mouseReleaseEvent(event)
         self.signalReleased.emit(self)
         event.accept()
-
-
 
 
     @err_catcher(name=__name__)
@@ -190,8 +359,6 @@ class SourceFileItem(QWidget):
         self.customContextMenuRequested.connect(self.rightClicked)
 
 
-
-
     @err_catcher(name=__name__)
     def refreshUi(self):
         icon = self.getIcon()
@@ -204,8 +371,6 @@ class SourceFileItem(QWidget):
         self.l_fileName.setToolTip(self.data.get("filePath", ""))
         self.l_date.setText(date)
         self.l_fileSize.setText(size)
-
-
 
 
     @err_catcher(name=__name__)
@@ -223,121 +388,6 @@ class SourceFileItem(QWidget):
             painter.setRenderHint(QPainter.Antialiasing, True)
             painter.end()
             self.l_icon.setPixmap(pmap)
-
-
-    @err_catcher(name=__name__)
-    def refreshPreview(self):
-        ppixmap = self.getPixmap()
-        if ppixmap:
-            ppixmap = self.core.media.scalePixmap(
-                ppixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
-                )
-            self.l_preview.setPixmap(ppixmap)
-
-
-    @err_catcher(name=__name__)
-    def getPixmap(self):
-        # pm = self.getPreviewImage()
-        # self.core.entities.setEntityPreview(self.data, pm)
-        # self.browser.refreshEntityInfo()
-
-        filePath = self.getFilepath()
-        extension = self.getFileExtension()
-
-        if not extension.lower() in self.core.media.supportedFormats:
-            logger.debug(f"Cannot createthumbnail for {extension}")
-            return None
-        
-        pixmap = self.getPixmapFromPath(filePath,
-                                        width=self.itemPreviewWidth,
-                                        height=self.itemPreviewHeight,
-                                        colorAdjust=False)
-
-
-        if pixmap:
-            return pixmap
-        else:
-            return None
-
-
-
-    @err_catcher(name=__name__)
-    def getPreviewImage(self):
-        if self.data.get("preview", ""):
-            pixmap = self.core.media.getPixmapFromPath(self.data.get("preview", ""))
-        else:
-            pixmap = QPixmap(300, 169)
-            pixmap.fill(Qt.black)
-
-        return pixmap
-
-
-    @err_catcher(name=__name__)
-    def getData(self):
-        return self.data
-
-
-    @err_catcher(name=__name__)
-    def getFilepath(self):
-        version = self.data.get("filePath", "")
-        return version
-    
-
-    @err_catcher(name=__name__)
-    def getFileExtension(self):
-        filePath = self.getFilepath()
-        basefile = os.path.basename(filePath)
-        _, extension = os.path.splitext(basefile)
-
-        return extension
-
-    
-    @err_catcher(name=__name__)
-    def getUid(self):
-        uid = self.data.get("uuid", "")
-        return uid
-    
-
-    @err_catcher(name=__name__)
-    def getDate(self):
-        date = self.data.get("date")
-        dateStr = self.core.getFormattedDate(date) if date else ""
-
-        return dateStr
-    
-
-    @err_catcher(name=__name__)
-    def getSize(self):
-
-        if self.browser.projectBrowser.act_filesizes.isChecked():
-            if "size" in self.data:
-                size_bytes = self.data["size"]
-            else:
-                size_bytes = os.stat(self.data["filePath"]).st_size
-
-            size_mb = size_bytes / 1024.0 / 1024.0
-
-            if size_mb < 1:
-                size_kb = size_bytes / 1024.0
-                sizeStr = "%.2f KB" % size_kb
-
-            elif size_mb < 1024:
-                sizeStr = "%.2f MB" % size_mb
-
-            else:
-                size_gb = size_mb / 1024.0
-                sizeStr = "%.2f GB" % size_gb
-
-            return sizeStr
-
-
-
-    @err_catcher(name=__name__)
-    def getIcon(self):
-        if self.data.get("icon", ""):
-            return self.data["icon"]
-        else:
-            return self.data["color"]
 
 
     @err_catcher(name=__name__)
@@ -393,62 +443,6 @@ class SourceFileItem(QWidget):
         self.setStyleSheet(ssheet)
 
 
-    # @err_catcher(name=__name__)
-    # def mousePressEvent(self, event):
-    #     self.select()
-
-
-    # @err_catcher(name=__name__)
-    # def enterEvent(self, event):
-    #     if self.isSelected():
-    #         self.applyStyle("hoverSelected")
-    #     else:
-    #         self.applyStyle("hover")
-
-
-    # @err_catcher(name=__name__)
-    # def leaveEvent(self, event):
-    #     self.applyStyle(self.isSelected)
-
-
-    @err_catcher(name=__name__)
-    def mouseDoubleClickEvent(self, event):
-        self.browser.doubleClickFile(self.data["filePath"])
-
-
-    @err_catcher(name=__name__)
-    def select(self):
-        wasSelected = self.isSelected()
-        self.signalSelect.emit(self)
-        if not wasSelected:
-            self.isSelected = True
-            self.applyStyle(self.isSelected)
-            self.setFocus()
-
-
-    @err_catcher(name=__name__)
-    def deselect(self):
-        if self.isSelected == True:
-            self.isSelected = False
-            self.applyStyle(self.isSelected)
-
-
-    @err_catcher(name=__name__)
-    def getSelected(self):
-        return self.isSelected
-    
-
-    @err_catcher(name=__name__)
-    def setChecked(self, checked):
-        self.chb_selected.setChecked(checked)
-        self.setSelected()
-
-
-    @err_catcher(name=__name__)
-    def setSelected(self, checked=None):
-        self.isSelected = self.chb_selected.isChecked()
-
-
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
@@ -489,24 +483,11 @@ class SourceFileItem(QWidget):
 
 
 
-
-class DestFileItem(QWidget):
-
-    signalSelect = Signal(object)
-    signalReleased = Signal(object)
-
+#   FILE TILES ON THE DESTINATION SIDE
+class DestFileItem(BaseTileItem):
     def __init__(self, browser, data):
-        super(DestFileItem, self).__init__()
-        self.core = browser.core
-        self.browser = browser
-        self.data = data
+        super(DestFileItem, self).__init__(browser, data)
 
-        self.state = "deselected"
-        self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
-        self.itemPreviewWidth = 120
-        self.itemPreviewHeight = 69
-        self.setupUi()
-        self.refreshUi()
 
     def mouseReleaseEvent(self, event):
         super(DestFileItem, self).mouseReleaseEvent(event)
@@ -514,12 +495,10 @@ class DestFileItem(QWidget):
         event.accept()
 
 
-
-
     @err_catcher(name=__name__)
     def setupUi(self):
         self.setObjectName("texture")
-        self.applyStyle(self.state)
+        self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.lo_main = QHBoxLayout()
         self.setLayout(self.lo_main)
@@ -602,8 +581,6 @@ class DestFileItem(QWidget):
         self.customContextMenuRequested.connect(self.rightClicked)
 
 
-
-
     @err_catcher(name=__name__)
     def refreshUi(self):
         icon = self.getIcon()
@@ -616,7 +593,6 @@ class DestFileItem(QWidget):
         self.l_fileName.setToolTip(self.data.get("filePath", ""))
         self.l_date.setText(date)
         self.l_fileSize.setText(size)
-
 
 
     @err_catcher(name=__name__)
@@ -637,81 +613,9 @@ class DestFileItem(QWidget):
 
 
     @err_catcher(name=__name__)
-    def refreshPreview(self):
-        ppixmap = self.getPreviewImage()
-        ppixmap = self.core.media.scalePixmap(
-            ppixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
-        )
-        self.l_preview.setPixmap(ppixmap)
-
-
-    @err_catcher(name=__name__)
-    def getPreviewImage(self):
-        if self.data.get("preview", ""):
-            pixmap = self.core.media.getPixmapFromPath(self.data.get("preview", ""))
-        else:
-            pixmap = QPixmap(300, 169)
-            pixmap.fill(Qt.black)
-
-        return pixmap
-
-
-    @err_catcher(name=__name__)
-    def getFilepath(self):
-        version = self.data.get("filePath", "")
-        return version
-    
-
-    @err_catcher(name=__name__)
-    def getUid(self):
-        uid = self.data.get("uuid", "")
-        return uid
-
-    @err_catcher(name=__name__)
-    def getDate(self):
-        date = self.data.get("date")
-        dateStr = self.core.getFormattedDate(date) if date else ""
-
-        return dateStr
-    
-
-    @err_catcher(name=__name__)
-    def getSize(self):
-
-        if self.browser.projectBrowser.act_filesizes.isChecked():
-            if "size" in self.data:
-                size_bytes = self.data["size"]
-            else:
-                size_bytes = os.stat(self.data["filePath"]).st_size
-
-            size_mb = size_bytes / 1024.0 / 1024.0
-
-            if size_mb < 1:
-                size_kb = size_bytes / 1024.0
-                sizeStr = "%.2f KB" % size_kb
-
-            elif size_mb < 1024:
-                sizeStr = "%.2f MB" % size_mb
-
-            else:
-                size_gb = size_mb / 1024.0
-                sizeStr = "%.2f GB" % size_gb
-
-            return sizeStr
-
-
-    @err_catcher(name=__name__)
-    def getIcon(self):
-        if self.data.get("icon", ""):
-            return self.data["icon"]
-        else:
-            return self.data["color"]
-
-
-    @err_catcher(name=__name__)
     def applyStyle(self, styleType):
         borderColor = (
-            "rgb(70, 90, 120)" if self.state == "selected" else "rgb(70, 90, 120)"
+            "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
         )
         ssheet = (
             """
@@ -722,9 +626,9 @@ class DestFileItem(QWidget):
         """
             % borderColor
         )
-        if styleType == "deselected":
+        if styleType is not True:
             pass
-        elif styleType == "selected":
+        elif styleType is True:
             ssheet = """
                 QWidget#texture {
                     border: 1px solid rgb(70, 90, 120);
@@ -760,50 +664,6 @@ class DestFileItem(QWidget):
 
         self.setStyleSheet(ssheet)
 
-
-    @err_catcher(name=__name__)
-    def mousePressEvent(self, event):
-        self.select()
-
-
-    @err_catcher(name=__name__)
-    def enterEvent(self, event):
-        if self.isSelected():
-            self.applyStyle("hoverSelected")
-        else:
-            self.applyStyle("hover")
-
-
-    @err_catcher(name=__name__)
-    def leaveEvent(self, event):
-        self.applyStyle(self.state)
-
-
-    @err_catcher(name=__name__)
-    def mouseDoubleClickEvent(self, event):
-        self.browser.doubleClickFile(self.data["filePath"])
-
-
-    @err_catcher(name=__name__)
-    def select(self):
-        wasSelected = self.isSelected()
-        self.signalSelect.emit(self)
-        if not wasSelected:
-            self.state = "selected"
-            self.applyStyle(self.state)
-            self.setFocus()
-
-
-    @err_catcher(name=__name__)
-    def deselect(self):
-        if self.state != "deselected":
-            self.state = "deselected"
-            self.applyStyle(self.state)
-
-
-    @err_catcher(name=__name__)
-    def isSelected(self):
-        return self.state == "selected"
 
 
     @err_catcher(name=__name__)
@@ -844,40 +704,23 @@ class DestFileItem(QWidget):
 
 
 
-    @err_catcher(name=__name__)
-    def setPreview(self):
-        pm = self.getPreviewImage()
-        self.core.entities.setEntityPreview(self.data, pm)
-        self.browser.refreshEntityInfo()
 
-
-
-
-
-class FolderItem(QWidget):
-
-    signalSelect = Signal(object)
-    signalReleased = Signal(object)
-
+#   FOLDER
+class FolderItem(BaseTileItem):
     def __init__(self, browser, data):
-        super(FolderItem, self).__init__()
-        self.core = browser.core
-        self.browser = browser
-        self.data = data
+        super(FolderItem, self).__init__(browser, data)
 
-        self.state = "deselected"
-        self.setupUi()
-        self.refreshUi()
 
     def mouseReleaseEvent(self, event):
         super(FolderItem, self).mouseReleaseEvent(event)
         self.signalReleased.emit(self)
         event.accept()
 
+
     @err_catcher(name=__name__)
     def setupUi(self):
         self.setObjectName("texture")
-        self.applyStyle(self.state)
+        self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
 
         # Main horizontal layout
@@ -936,24 +779,11 @@ class FolderItem(QWidget):
             self.l_icon.setPixmap(pmap)
 
 
-    @err_catcher(name=__name__)
-    def getUid(self):
-        uid = self.data.get("uuid", "")
-        return uid
-
-
-    @err_catcher(name=__name__)
-    def getIcon(self):
-        if self.data.get("icon", ""):
-            return self.data["icon"]
-        else:
-            return self.data["color"]
-
 
     @err_catcher(name=__name__)
     def applyStyle(self, styleType):
         borderColor = (
-            "rgb(70, 90, 120)" if self.state == "selected" else "rgb(70, 90, 120)"
+            "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
         )
         ssheet = (
             """
@@ -964,9 +794,9 @@ class FolderItem(QWidget):
         """
             % borderColor
         )
-        if styleType == "deselected":
+        if styleType is not True:
             pass
-        elif styleType == "selected":
+        elif styleType is True:
             ssheet = """
                 QWidget#texture {
                     border: 1px solid rgb(70, 90, 120);
@@ -1002,50 +832,11 @@ class FolderItem(QWidget):
 
         self.setStyleSheet(ssheet)
 
-    @err_catcher(name=__name__)
-    def mousePressEvent(self, event):
-        self.select()
-
-
-    @err_catcher(name=__name__)
-    def enterEvent(self, event):
-        if self.isSelected():
-            self.applyStyle("hoverSelected")
-        else:
-            self.applyStyle("hover")
-
-
-    @err_catcher(name=__name__)
-    def leaveEvent(self, event):
-        self.applyStyle(self.state)
-
 
     @err_catcher(name=__name__)
     def mouseDoubleClickEvent(self, event):
         self.browser.doubleClickFolder(self.data["dirPath"], mode="source")
 
-
-    @err_catcher(name=__name__)
-    def select(self):
-        wasSelected = self.isSelected()
-        self.signalSelect.emit(self)
-        if not wasSelected:
-            self.state = "selected"
-            self.applyStyle(self.state)
-            self.setFocus()
-
-
-    @err_catcher(name=__name__)
-    def deselect(self):
-        if self.state != "deselected":
-            self.state = "deselected"
-            self.applyStyle(self.state)
-
-
-    @err_catcher(name=__name__)
-    def isSelected(self):
-        return self.state == "selected"
-    
 
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
