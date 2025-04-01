@@ -131,6 +131,7 @@ class SourceFileItem(QWidget):
         self.lo_info.setSpacing(0)
         self.l_icon = QLabel()
         self.chb_selected = QCheckBox()
+        self.chb_selected.toggled.connect(self.setSelected)
 
         self.lo_info.addItem(self.spacer1)
         self.lo_info.addWidget(self.chb_selected)
@@ -435,6 +436,11 @@ class SourceFileItem(QWidget):
     @err_catcher(name=__name__)
     def getSelected(self):
         return self.isSelected
+    
+
+    @err_catcher(name=__name__)
+    def setSelected(self, checked):
+        self.isSelected = self.chb_selected.isChecked()
 
 
     @err_catcher(name=__name__)

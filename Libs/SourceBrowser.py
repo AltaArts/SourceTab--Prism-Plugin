@@ -112,7 +112,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff", ".flac", ".alac", ".ogg", ".wma"]
 
-        self.destList = []
+        self.transferList = []
 
         self.initialized = False
         self.closeParm = "closeafterload"
@@ -701,7 +701,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         row = 0
         # Iterate over the categories and add them to the table
-        for iData in self.destList:
+        for iData in self.transferList:
             self.tw_destination.insertRow(row)  # Insert a new row
             self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
 
@@ -852,9 +852,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def addToDestList(self, data):
-        self.destList.append(data)
-        self.refreshDestItems()
+        if not self.checkDuplicate(data):
+            self.transferList.append(data)
+            self.refreshDestItems()
 
+
+    @err_catcher(name=__name__)
+    def checkDuplicate(self, data):
+        return data in self.transferList 
+    
 
     @err_catcher(name=__name__)
     def addSelected(self):
@@ -863,8 +869,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         for row in range(row_count):
             fileItem = self.tw_source.cellWidget(row, 1)
             if fileItem is not None:
-                # if fileItem.isSelected:
-                self.addToDestList(fileItem.getData())
+                if fileItem.isSelected:
+                    self.addToDestList(fileItem.getData())
 
         self.refreshDestItems()
 
@@ -873,9 +879,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def removeFromDestList(self, data):
         delUid = data["uuid"]
 
-        for item in self.destList:
+        for item in self.transferList:
             if delUid == item["uuid"]:
-                self.destList.remove(item)
+                self.transferList.remove(item)
                 break
 
         self.refreshDestItems()
@@ -883,7 +889,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def clearTransferList(self):
-        self.destList = []
+        self.transferList = []
 
         self.refreshDestItems()
 
