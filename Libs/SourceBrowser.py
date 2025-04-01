@@ -617,99 +617,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_source.insertRow(row)
 
 
-
-
-
-
-
-
-
-
-
-        # if restoreSelection:
-        #     curTask = None
-        #     identifier = self.getCurrentIdentifier()
-        #     if identifier:
-        #         curTask = identifier.get("displayName")
-
-        # wasBlocked = self.tw_source.signalsBlocked()
-        # if not wasBlocked:
-        #     self.tw_source.blockSignals(True)
-
-        # self.tw_source.clear()
-
-        # mediaTasks = self.getMediaTasks()
-        # if mediaTasks:
-        #     useTasks = self.core.mediaProducts.getLinkedToTasks()
-        #     if useTasks:
-        #         items = {}
-        #         for pType in ["3d", "2d", "playblast", "external"]:
-        #             for task in sorted(mediaTasks[pType], key=lambda x: x["displayName"]):
-        #                 useDep = os.getenv("PRISM_USE_DEPARTMENTS_FOR_PRODUCTS", "1") == "1"
-        #                 if useDep:
-        #                     dep = task.get("department") or "unknown"
-        #                     if dep not in items:
-        #                         item = QTreeWidgetItem([dep])
-        #                         items[dep] = {"item": item, "tasks": {}}
-        #                         self.tw_source.invisibleRootItem().addChild(item)
-
-        #                     taskName = task.get("task") or "unknown"
-        #                     if taskName not in items[dep]["tasks"]:
-        #                         item = QTreeWidgetItem([taskName])
-        #                         items[dep]["tasks"][taskName] = {"item": item}
-        #                         items[dep]["item"].addChild(item)
-
-        #                     parent = items[dep]["tasks"][taskName]["item"]
-        #                 else:
-        #                     taskName = task.get("task") or "unknown"
-        #                     if taskName not in items:
-        #                         item = QTreeWidgetItem([taskName])
-        #                         items[taskName] = {"item": item}
-        #                         self.tw_source.invisibleRootItem().addChild(item)
-
-        #                     parent = items[taskName]["item"]
-
-        #                 # if task["displayName"] in addedItems:
-        #                 #     continue
-
-        #                 item = QTreeWidgetItem([task["displayName"]])
-        #                 item.setData(0, Qt.UserRole, task)
-        #                 parent.addChild(item)
-        #     else:
-        #         addedItems = []
-        #         for pType in ["3d", "2d", "playblast", "external"]:
-        #             for task in sorted(mediaTasks[pType], key=lambda x: x["displayName"]):
-        #                 if task["displayName"] in addedItems:
-        #                     continue
-
-        #                 item = QTreeWidgetItem([task["displayName"]])
-        #                 addedItems.append(task["displayName"])
-        #                 item.setData(0, Qt.UserRole, task)
-        #                 parent = self.tw_source.invisibleRootItem()
-        #                 parent.addChild(item)
-
-        # if self.tw_source.topLevelItemCount() > 0:
-        #     selectFirst = True
-        #     if restoreSelection and curTask:
-        #         items = self.tw_source.findItems(curTask, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive))
-        #         if items:
-        #             self.tw_source.setCurrentItem(items[0])
-        #             selectFirst = False
-
-        #     if selectFirst:
-        #         mIdx = self.tw_source.findItems("main", Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive))
-        #         if len(mIdx) > 0:
-        #             self.tw_source.setCurrentItem(mIdx[0])
-        #         else:
-        #             self.tw_source.setCurrentItem(self.tw_source.topLevelItem(0))
-
-        # if not wasBlocked:
-        #     self.tw_source.blockSignals(False)
-        #     self.updateVersions(restoreSelection=True)
-
-
-
-
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
         self.tw_destination.setRowCount(0)  # Clear existing rows
@@ -857,7 +764,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def addToDestList(self, data, refresh=False):
         if not self.checkDuplicate(data):
             self.transferList.append(data)
-            
+
             if refresh:
                 self.refreshDestItems()
 

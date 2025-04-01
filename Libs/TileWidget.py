@@ -45,11 +45,11 @@ if sys.version[0] == "3":
 else:
     pVersion = 2
 
-prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))        #   TODO
+# prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))        #   TODO
 
-if __name__ == "__main__":
-    sys.path.append(os.path.join(prismRoot, "Scripts"))
-    import PrismCore                                                                    #   TODO
+# if __name__ == "__main__":
+#     sys.path.append(os.path.join(prismRoot, "Scripts"))
+#     import PrismCore                                                                    #   TODO
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -60,21 +60,27 @@ iconPath = os.path.join(uiPath, "Icons")
 if uiPath not in sys.path:
     sys.path.append(uiPath)
 
-import ItemList
-import MetaDataWidget
+# import ItemList
+# import MetaDataWidget
 
 from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
-from UserInterfaces import SceneBrowser_ui
+# from UserInterfaces import SceneBrowser_ui
 
 
 logger = logging.getLogger(__name__)
+
+# Limit concurrent threads to 8
+MAX_THREADS = 12
+semaphore = QSemaphore(MAX_THREADS)
+
 
 
 #   BASE FILE TILE FOR SHARED METHODS
 class BaseTileItem(QWidget):
 
+    #   Signals
     signalSelect = Signal(object)
     signalReleased = Signal(object)
 
@@ -84,14 +90,22 @@ class BaseTileItem(QWidget):
         self.browser = browser
         self.data = data
 
+        #   Renames Prism Functions for ease
         self.getPixmapFromPath = self.core.media.getPixmapFromPath
         self.getThumbnailPath = self.core.media.getThumbnailPath
 
+        #   Set initial Selected State
         self.isSelected = False
 
+        #   Thumbnail Size
         self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
         self.itemPreviewWidth = 120
         self.itemPreviewHeight = 69
+
+        #   Sets Thread Pool
+        self.threadPool = QThreadPool.globalInstance()
+        #    Limit Max Threads
+        self.threadPool.setMaxThreadCount(MAX_THREADS)
 
         self.setupUi()
         self.refreshUi()
@@ -109,28 +123,22 @@ class BaseTileItem(QWidget):
         return self.data.get("filePath", "")
 
 
-        #   Gets and Sets Thumbnail
+    #   Gets and Sets Thumbnail Using Threads
     @err_catcher(name=__name__)
     def refreshPreview(self):
-        #   Gets thumb path
-        thumbPath = self.getThumbnailPath(self.data["filePath"])
+        filePath = self.getFilepath()
+        thumbPath = self.getThumbnailPath(filePath)
+
+        # Create Worker Thread
+        worker = ThumbnailWorker(filePath, thumbPath, self.getPixmapFromPath, self.itemPreviewWidth, self.itemPreviewHeight)
         
-        #   If thumb already exists it uses the .jpog
-        if os.path.exists(thumbPath):
-            ppixmap = QPixmap(thumbPath)
+        #   Signal Connections
+        worker.result.connect(self.updatePreview)  
+        worker.finished.connect(worker.deleteLater)
 
-        #   If it doesn't it call a new pixmap
-        else:
-            ppixmap = self.getPixmap()
-
-        if ppixmap:
-            #   Scales pixmap
-            pmap = self.core.media.scalePixmap(
-                ppixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
-                )
-            #   Sets pixmap to Tile label
-            self.l_preview.setPixmap(pmap)
-
+        #   Call the Thread Start
+        self.threadPool.start(worker)
+        
 
     #   Gets Pixmap from Prism function
     @err_catcher(name=__name__)
@@ -148,11 +156,20 @@ class BaseTileItem(QWidget):
                                         width=self.itemPreviewWidth,
                                         height=self.itemPreviewHeight,
                                         colorAdjust=False)
-
         if pixmap:
             return pixmap
         else:
             return None
+        
+
+    #    Update Thumbnail when Ready
+    @err_catcher(name=__name__)
+    def updatePreview(self, pixmap, filePath):
+        if pixmap:
+            scaledPixmap = self.core.media.scalePixmap(
+                pixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
+            )
+            self.l_preview.setPixmap(scaledPixmap)
 
 
     #   Returns File's Extension
@@ -256,9 +273,6 @@ class BaseTileItem(QWidget):
     def setChecked(self, checked):
         self.chb_selected.setChecked(checked)
         self.setSelected()
-
-
-
 
 
 
@@ -742,6 +756,11 @@ class FolderItem(BaseTileItem):
         self.lo_main.addStretch()
         self.lo_main.addStretch(1000)
 
+        #   Tooltips
+        dirPath = os.path.normpath(self.data["dirPath"])
+        self.l_icon.setToolTip(dirPath)
+        self.l_fileName.setToolTip(dirPath)
+
         # Set up context menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
@@ -761,6 +780,8 @@ class FolderItem(BaseTileItem):
         # Set the folder name (extract folder name from the path)
         folder_name = os.path.basename(dir_path)
         self.l_fileName.setText(folder_name)
+
+
 
 
 
@@ -865,3 +886,51 @@ class FolderItem(BaseTileItem):
         # rcmenu.exec_(QCursor.pos())
 
 
+
+#   Signal object to communicate between threads and the main UI
+class ThumbnailSignal(QObject):
+    finished = Signal(QPixmap, str)  # Emits the generated pixmap and file path
+
+
+
+#   Worker thread for loading thumbnails
+class ThumbnailWorker(QRunnable, QObject):
+
+    #   Signals
+    finished = Signal()
+    result = Signal(QPixmap, object)  
+
+    def __init__(self, filePath, thumbPath, getPixmapFunc, width, height):
+        super().__init__()
+        QObject.__init__(self)  
+        self.filePath = filePath
+        self.thumbPath = thumbPath
+        self.getPixmapFunc = getPixmapFunc
+        self.width = width
+        self.height = height
+
+
+    #   Runs in a separate thread, loads the thumbnail
+    @Slot()
+    def run(self):
+        #   Limits number of threads
+        semaphore.acquire()
+
+        try:
+            pixmap = None
+            #   Uses the Saved Thumb if it exists
+            if os.path.exists(self.thumbPath):
+                pixmap = QPixmap(self.thumbPath)
+            #   Generates New Thumbnail
+            else:
+                pixmap = self.getPixmapFunc(self.filePath, width=self.width, height=self.height, colorAdjust=False)
+
+            #   Emits Pixmap Signal
+            if pixmap:
+                self.result.emit(pixmap, self.filePath)
+
+        finally:
+            #   Emit Finished Signal
+            self.finished.emit()  
+            #   Release thread slot
+            semaphore.release()
