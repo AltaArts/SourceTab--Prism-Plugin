@@ -41,13 +41,10 @@ from qtpy.QtWidgets import *
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 pluginPath = os.path.dirname(os.path.dirname(__file__))                              #   NEEDED ???
-scriptsPath = os.path.join(pluginPath, "Scripts")                   #   NEEDED ???
-
 sys.path.append(pluginPath)
-sys.path.append(scriptsPath)                                        #   NEEDED ???
 sys.path.append(os.path.join(pluginPath, "Libs"))
 
-import SourceBrowser                                                #   NEEDED ???
+import SourceBrowser as SourceBrowser
 
 
 class Prism_SourceMenu_Functions(object):
@@ -55,9 +52,10 @@ class Prism_SourceMenu_Functions(object):
         self.core = core
         self.plugin = plugin
 
-        #   Callbacks
-        self.core.registerCallback("postInitialize", self.postInitialize, plugin=self)   
-        self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self)   
+        #   Only add Tab in Standalone
+        if self.core.appPlugin.pluginName == "Standalone":
+            self.core.registerCallback("postInitialize", self.postInitialize, plugin=self)   
+            self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self)   
 
 
     # if returns true, the plugin will be loaded by Prism
@@ -67,7 +65,6 @@ class Prism_SourceMenu_Functions(object):
     
     
     def sourceBrowserStartup(self, origin):
-
         self.pbMenu = origin
 
 

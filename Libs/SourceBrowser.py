@@ -63,9 +63,9 @@ prismRoot = os.getenv("PRISM_ROOT")
 if not prismRoot:
     prismRoot = PRISMROOT
 
-if __name__ == "__main__":
-    sys.path.append(os.path.join(prismRoot, "Scripts"))
-    import PrismCore
+# if __name__ == "__main__":
+#     sys.path.append(os.path.join(prismRoot, "Scripts"))
+#     import PrismCore
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -84,7 +84,7 @@ from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 
-import Libs.TileWidget as TileWidget
+import TileWidget as TileWidget
 import SourceBrowser_ui                                                 #   TODO
 
 
@@ -122,6 +122,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         if refresh:
             self.entered()
+
+        self.tempTesting()                                                #   TESTING
+
+
+
+    #   TESTING!!!
+    @err_catcher(name=__name__)
+    def tempTesting(self):
+ 
+        self.sourceDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempImages"
+        self.destDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempDestination"
+
+        self.refreshUI()
+        
+
 
     @err_catcher(name=__name__)
     def entered(self, prevTab=None, navData=None):
@@ -189,17 +204,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             #     brsData["showSearchAlways"]
             # )
 
-        self.w_preview = MediaVersionPlayer(self)
-        self.w_preview.layout().addStretch()
-        self.splitter.addWidget(self.w_preview)
-
+        #   Set Icons
         upIcon = QIcon(os.path.join(iconDir, "up.png"))
-        self.b_sourcePathUp.setIcon(upIcon)
-        self.b_destPathUp.setIcon(upIcon)
-
         dirIcon = QIcon(os.path.join(iconDir, "file_folder.png"))
+
+        ##   Source Panel
+
+        #   Set Button Icons
+        self.b_sourcePathUp.setIcon(upIcon)
         self.b_browseSource.setIcon(dirIcon)
-        self.b_browseDest.setIcon(dirIcon)
 
         #   Source Table setup
         self.tw_source.setColumnCount(2)
@@ -207,6 +220,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_source.verticalHeader().setVisible(False)
         self.tw_source.setColumnWidth(0, 50)
         self.tw_source.horizontalHeader().setStretchLastSection(True)
+
+
+        ##  Destination Panel
+
+        #   Set Button Icons
+        self.b_destPathUp.setIcon(upIcon)
+        self.b_browseDest.setIcon(dirIcon)
 
         #   Destination Table setup
         self.tw_destination.setColumnCount(1)
@@ -217,6 +237,33 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
 
+        ##  Right Side Panel
+
+        self.lo_rightPanel = QVBoxLayout()
+
+        # Media Player
+        self.w_preview = MediaVersionPlayer(self)
+        self.w_preview.layout().addStretch()
+        self.lo_rightPanel.addWidget(self.w_preview)  # Add media player to the right panel layout
+
+
+        # Create another vertical layout for additional functions
+        self.lo_functions = QVBoxLayout()
+
+        self.b_test = QPushButton("Transfer")
+        self.lo_functions.addWidget(self.b_test)
+
+
+        self.lo_rightPanel.addLayout(self.lo_functions)  # Add function layout below media player
+
+
+
+        # Create a container widget to hold the lo_rightPanel layout
+        self.w_rightPanelContainer = QWidget()
+        self.w_rightPanelContainer.setLayout(self.lo_rightPanel)
+
+        # Add the container widget to the splitter
+        self.splitter.addWidget(self.w_rightPanelContainer)
 
         # self.lw_task.setAcceptDrops(True)
         # self.lw_task.dragEnterEvent = self.taskDragEnterEvent
@@ -227,6 +274,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # if not self.projectBrowser:
         #     self.projectBrowser = self.core.projectBrowser()
 
+        #   Version Delagate                                                  #   TODO - NEEDED?
         if self.projectBrowser and len(self.projectBrowser.locations) > 1:
             self.VersionDelegate = VersionDelegate(self)
             self.tw_destination.setItemDelegate(self.VersionDelegate)
@@ -236,12 +284,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
 
+
+
     # @err_catcher(name=__name__)
     # def showEvent(self, event):
     #     if not getattr(self, "headerHeightSet", False):
     #         spacing = self.w_identifier.layout().spacing()
     #         h = self.w_entities.w_header.geometry().height() - spacing
     #         self.setHeaderHeight(h)
+
 
     @err_catcher(name=__name__)
     def setHeaderHeight(self, height):
@@ -282,12 +333,39 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
 
-        self.b_destClearList.clicked.connect(self.clearTransferList)
+        self.b_clearList.clicked.connect(self.clearTransferList)
 
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
 
+        self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
+        self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
 
+        self.b_test.clicked.connect(self.transfer)                          #   TODO rename button
+
+
+
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def transfer(self):
+        row_count = self.tw_destination.rowCount()
+        self.copyList = []
+
+        for row in range(row_count):
+            fileItem = self.tw_destination.cellWidget(row, 0)
+            
+            if fileItem is not None:
+                if fileItem.isSelected:
+                    self.copyList.append(fileItem)
+
+        for item in self.copyList:
+            basefile = os.path.basename(item.data["filePath"])
+
+            if not os.path.isdir(self.l_destPath.text()):
+                self.core.popup("YOU FORGOT TO SELECT DEST DIR")
+                return
+            
+            destPath = os.path.join(self.l_destPath.text(), basefile)
+            item.start_transfer(self, destPath)
 
 
     @err_catcher(name=__name__)
@@ -364,7 +442,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             table = self.tw_source
             col = 1
         elif mode == "dest":
-            col = 2
+            col = 0
             table = self.tw_destination
 
         row_count = table.rowCount()
@@ -495,10 +573,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if not dir and hasattr(self, "sourceDir"):
             dir = self.sourceDir
 
-        # Open file dialog allowing selection of files and directories
-        dialog = QFileDialog(None, "Select File or Directory", dir or "")
-        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)  # Allow files
-        dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)  # Show both files and directories
+        # Create file dialog
+        dialog = QFileDialog(None, f"Select {mode.capitalize()} Directory", dir or "")
+        
+        # Set mode to allow selecting both files and directories
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)  # Allow file selection
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)  # Show directories too
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, False)  # Use native dialog
+
+        # Add an option to select directories
+        dialog.setOption(QFileDialog.Option.ReadOnly, True)  # Prevent accidental editing
+        dialog.setFileMode(QFileDialog.FileMode.Directory)  # Allow directory selection
 
         if dialog.exec():  # Open dialog and check if selection is made
             selected_path = dialog.selectedFiles()[0]  # Get selected file or directory

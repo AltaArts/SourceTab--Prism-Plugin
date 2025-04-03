@@ -182,23 +182,23 @@
        <item>
         <layout class="QHBoxLayout" name="lo_destFooter">
          <item>
-          <widget class="QPushButton" name="b_destClearList">
+          <widget class="QPushButton" name="b_dest_checkAll">
+           <property name="text">
+            <string>Select All</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_dest_uncheckAll">
+           <property name="text">
+            <string>Unselect All</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_clearList">
            <property name="text">
             <string>Clear List</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="b_dest2">
-           <property name="text">
-            <string>B 2</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="b_dest3">
-           <property name="text">
-            <string>B 3</string>
            </property>
           </widget>
          </item>

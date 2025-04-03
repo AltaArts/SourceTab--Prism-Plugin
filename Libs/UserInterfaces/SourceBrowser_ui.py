@@ -149,20 +149,20 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_destFooter = QHBoxLayout()
         self.lo_destFooter.setObjectName(u"lo_destFooter")
-        self.b_destClearList = QPushButton(self.w_destination)
-        self.b_destClearList.setObjectName(u"b_destClearList")
+        self.b_dest_checkAll = QPushButton(self.w_destination)
+        self.b_dest_checkAll.setObjectName(u"b_dest_checkAll")
 
-        self.lo_destFooter.addWidget(self.b_destClearList)
+        self.lo_destFooter.addWidget(self.b_dest_checkAll)
 
-        self.b_dest2 = QPushButton(self.w_destination)
-        self.b_dest2.setObjectName(u"b_dest2")
+        self.b_dest_uncheckAll = QPushButton(self.w_destination)
+        self.b_dest_uncheckAll.setObjectName(u"b_dest_uncheckAll")
 
-        self.lo_destFooter.addWidget(self.b_dest2)
+        self.lo_destFooter.addWidget(self.b_dest_uncheckAll)
 
-        self.b_dest3 = QPushButton(self.w_destination)
-        self.b_dest3.setObjectName(u"b_dest3")
+        self.b_clearList = QPushButton(self.w_destination)
+        self.b_clearList.setObjectName(u"b_clearList")
 
-        self.lo_destFooter.addWidget(self.b_dest3)
+        self.lo_destFooter.addWidget(self.b_clearList)
 
 
         self.verticalLayout_11.addLayout(self.lo_destFooter)
@@ -188,9 +188,8 @@ class Ui_w_sourceBrowser(object):
         self.l_version.setText(QCoreApplication.translate("w_sourceBrowser", u"Destination", None))
         self.b_destPathUp.setText("")
         self.b_browseDest.setText("")
-        self.b_destClearList.setText(QCoreApplication.translate("w_sourceBrowser", u"Clear List", None))
-        self.b_dest2.setText(QCoreApplication.translate("w_sourceBrowser", u"B 2", None))
-        self.b_dest3.setText(QCoreApplication.translate("w_sourceBrowser", u"B 3", None))
+        self.b_dest_checkAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Select All", None))
+        self.b_dest_uncheckAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Unselect All", None))
+        self.b_clearList.setText(QCoreApplication.translate("w_sourceBrowser", u"Clear List", None))
     # retranslateUi
-
 

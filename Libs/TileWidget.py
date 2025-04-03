@@ -34,11 +34,10 @@
 
 import os
 import sys
-import datetime
 import shutil
 import logging
-import traceback
-import re
+import threading
+import time
 
 if sys.version[0] == "3":
     pVersion = 3
@@ -71,9 +70,16 @@ from PrismUtils.Decorators import err_catcher
 
 logger = logging.getLogger(__name__)
 
-# Limit concurrent threads to 8
-MAX_THREADS = 12
-semaphore = QSemaphore(MAX_THREADS)
+#   Thead Limit for Thumbnail Generation
+MAX_THUMB_THREADS = 12
+thumb_semaphore = QSemaphore(MAX_THUMB_THREADS)
+
+#   Thead Limit for File Transfer
+MAX_COPY_THREADS = 4
+copy_semaphore = QSemaphore(MAX_COPY_THREADS)
+
+#   Update Interval for Progress Bar (secs)
+PROG_UPDATE_INTV = 0.1
 
 
 
@@ -105,7 +111,7 @@ class BaseTileItem(QWidget):
         #   Sets Thread Pool
         self.threadPool = QThreadPool.globalInstance()
         #    Limit Max Threads
-        self.threadPool.setMaxThreadCount(MAX_THREADS)
+        self.threadPool.setMaxThreadCount(MAX_THUMB_THREADS)
 
         self.setupUi()
         self.refreshUi()
@@ -504,6 +510,12 @@ class DestFileItem(BaseTileItem):
     def __init__(self, browser, data):
         super(DestFileItem, self).__init__(browser, data)
 
+        # Add a progress bar to the tile
+        self.progressBar = QProgressBar(self)
+        self.progressBar.setValue(0)
+
+        self.worker = None  # Placeholder for copy thread
+
 
     def mouseReleaseEvent(self, event):
         super(DestFileItem, self).mouseReleaseEvent(event)
@@ -539,6 +551,7 @@ class DestFileItem(BaseTileItem):
         self.lo_info.setSpacing(0)
         self.l_icon = QLabel()
         self.chb_selected = QCheckBox()
+        self.chb_selected.toggled.connect(self.setSelected)
 
         self.lo_info.addItem(self.spacer1)
         self.lo_info.addWidget(self.chb_selected)
@@ -584,6 +597,15 @@ class DestFileItem(BaseTileItem):
         self.lo_details.addStretch()
         self.lo_details.addWidget(self.w_date)
         self.lo_details.addItem(self.spacer6)
+
+        # Add progress bar
+        self.progressBar = QProgressBar()
+        self.progressBar.setMinimum(0)
+        self.progressBar.setMaximum(100)
+        self.progressBar.setValue(0)
+        self.progressBar.setVisible(False)  # Hidden initially
+
+        self.lo_details.addWidget(self.progressBar)
 
         self.lo_main.addWidget(self.l_preview)
         self.lo_main.addLayout(self.lo_info)
@@ -718,6 +740,27 @@ class DestFileItem(BaseTileItem):
     def removeFromDestList(self):
         self.browser.removeFromDestList(self.data)
 
+
+
+    @err_catcher(name=__name__)
+    def start_transfer(self, origin, destPath):
+        """Starts the file transfer using a background thread."""
+        self.worker = FileCopyWorker(self.data["filePath"], destPath)
+        self.worker.progress.connect(self.update_progress)
+        self.worker.finished.connect(self.copy_complete)
+        self.worker.start()
+
+
+    def update_progress(self, value):
+        """Updates progress bar in UI."""
+        self.progressBar.setValue(value)
+
+    def copy_complete(self, success):
+        """Handles copy completion."""
+        if success:
+            print(f"Copy complete: {self.data['filePath']}")
+        else:
+            print(f"Copy failed: {self.data['filePath']}")
 
 
 
@@ -914,7 +957,7 @@ class ThumbnailWorker(QRunnable, QObject):
     @Slot()
     def run(self):
         #   Limits number of threads
-        semaphore.acquire()
+        thumb_semaphore.acquire()
 
         try:
             pixmap = None
@@ -933,4 +976,58 @@ class ThumbnailWorker(QRunnable, QObject):
             #   Emit Finished Signal
             self.finished.emit()  
             #   Release thread slot
-            semaphore.release()
+            thumb_semaphore.release()
+
+
+
+
+class FileCopyWorker(QThread):
+    progress = Signal(int)   # Signal to send progress updates
+    finished = Signal(bool)  # Signal when copy is done
+
+    def __init__(self, src, dst):
+        super().__init__()
+        self.src = src
+        self.dst = dst
+        self.running = True  # Flag to allow stopping the thread
+
+    def run(self):
+        total_size = os.path.getsize(self.src)
+        copied_size = 0
+
+        def monitor_progress():
+            last_reported = -1
+            while self.running:
+                if os.path.exists(self.dst):
+                    copied_size = os.path.getsize(self.dst)
+                    progress_percent = int((copied_size / total_size) * 100)
+
+                    if progress_percent != last_reported:
+                        self.progress.emit(progress_percent)  # Send progress update
+                        last_reported = progress_percent
+
+                    if copied_size >= total_size:
+                        break
+
+                time.sleep(PROG_UPDATE_INTV)
+
+        # Start monitoring in a separate thread
+        progress_thread = threading.Thread(target=monitor_progress, daemon=True)
+        progress_thread.start()
+
+        # Acquire semaphore to ensure only MAX_COPY_THREADS copies at a time
+        copy_semaphore.acquire()
+
+        try:
+            shutil.copy2(self.src, self.dst)
+            self.finished.emit(True)
+        except Exception as e:
+            print(f"Error copying file: {e}")
+            self.finished.emit(False)
+
+        # Release semaphore after copy completes
+        copy_semaphore.release()
+
+        self.running = False
+        progress_thread.join()
+
