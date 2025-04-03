@@ -123,7 +123,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if refresh:
             self.entered()
 
-        self.tempTesting()                                                #   TESTING
+        ### TEESTING    ###
+        # self.tempTesting()                                                #   TESTING
 
 
 
@@ -135,7 +136,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.destDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempDestination"
 
         self.refreshUI()
-        
+
 
 
     @err_catcher(name=__name__)
@@ -333,7 +334,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
 
-        self.b_clearList.clicked.connect(self.clearTransferList)
+        self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
+        self.b_dest_clearAll.clicked.connect(lambda: self.clearTransferList())
 
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
@@ -342,30 +344,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
 
         self.b_test.clicked.connect(self.transfer)                          #   TODO rename button
-
-
-
-    @err_catcher(name=__name__)                                         #   TODO  Move
-    def transfer(self):
-        row_count = self.tw_destination.rowCount()
-        self.copyList = []
-
-        for row in range(row_count):
-            fileItem = self.tw_destination.cellWidget(row, 0)
-            
-            if fileItem is not None:
-                if fileItem.isSelected:
-                    self.copyList.append(fileItem)
-
-        for item in self.copyList:
-            basefile = os.path.basename(item.data["filePath"])
-
-            if not os.path.isdir(self.l_destPath.text()):
-                self.core.popup("YOU FORGOT TO SELECT DEST DIR")
-                return
-            
-            destPath = os.path.join(self.l_destPath.text(), basefile)
-            item.start_transfer(self, destPath)
 
 
     @err_catcher(name=__name__)
@@ -763,8 +741,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         return folderItem
 
 
-
-
     @err_catcher(name=__name__)
     def getIconByType(self, filePath):
         fileType = self.getFileType(filePath)
@@ -885,19 +861,57 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
-    def clearTransferList(self):
-        self.transferList = []
+    def clearTransferList(self, checked=False):
+        if not checked:
+            self.transferList = []
+
+        else:
+            row_count = self.tw_destination.rowCount()
+
+            for row in range(row_count):
+                fileItem = self.tw_destination.cellWidget(row, 0)
+                if fileItem is not None:
+                    if fileItem.isSelected:
+                        self.transferList.remove(fileItem.getData())
 
         self.refreshDestItems()
 
 
-    @err_catcher(name=__name__)
-    def sortVersions(self, key):
-        val = key["version"]
-        if val == "master":
-            val = "zz_master"
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def transfer(self):
+        row_count = self.tw_destination.rowCount()
+        self.copyList = []
 
-        return val
+        for row in range(row_count):
+            fileItem = self.tw_destination.cellWidget(row, 0)
+            
+            if fileItem is not None:
+                if fileItem.isSelected:
+                    self.copyList.append(fileItem)
+
+        if len(self.copyList) == 0:
+            self.core.popup("There are no Items Selected to Transfer")
+            return False
+
+        for item in self.copyList:
+            basefile = os.path.basename(item.data["filePath"])
+
+            if not os.path.isdir(self.l_destPath.text()):
+                self.core.popup("YOU FORGOT TO SELECT DEST DIR")
+                return
+            
+            destPath = os.path.join(self.l_destPath.text(), basefile)
+            item.start_transfer(self, destPath)
+
+
+
+    # @err_catcher(name=__name__)
+    # def sortVersions(self, key):
+    #     val = key["version"]
+    #     if val == "master":
+    #         val = "zz_master"
+
+    #     return val
 
     # @err_catcher(name=__name__)
     # def updateVersions(self, restoreSelection=False):

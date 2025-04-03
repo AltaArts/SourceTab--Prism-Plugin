@@ -196,9 +196,16 @@
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="b_clearList">
+          <widget class="QPushButton" name="b_dest_clearSel">
            <property name="text">
-            <string>Clear List</string>
+            <string>Remove Selected</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_dest_clearAll">
+           <property name="text">
+            <string>Remove All</string>
            </property>
           </widget>
          </item>

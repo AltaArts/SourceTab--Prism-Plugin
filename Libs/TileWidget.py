@@ -136,8 +136,8 @@ class BaseTileItem(QWidget):
         thumbPath = self.getThumbnailPath(filePath)
 
         # Create Worker Thread
-        worker = ThumbnailWorker(filePath, thumbPath, self.getPixmapFromPath, self.itemPreviewWidth, self.itemPreviewHeight)
-        
+        worker = ThumbnailWorker(filePath, thumbPath, self.getPixmap, self.itemPreviewWidth, self.itemPreviewHeight)
+
         #   Signal Connections
         worker.result.connect(self.updatePreview)  
         worker.finished.connect(worker.deleteLater)
@@ -152,10 +152,22 @@ class BaseTileItem(QWidget):
         filePath = self.getFilepath()
         extension = self.getFileExtension()
 
+        #   If Extension in supported formats
         if not extension.lower() in self.core.media.supportedFormats:
-            logger.debug(f"Cannot createthumbnail for {extension}")
-            return None
-        
+
+            # Use the file's icon if it's not Supported Format
+            file_info = QFileInfo(filePath)
+            icon_provider = QFileIconProvider()
+            icon = icon_provider.icon(file_info)
+            icon_pixmap = icon.pixmap(self.itemPreviewWidth, self.itemPreviewHeight)
+
+            if icon_pixmap:
+                logger.debug(f"Using File Icon for Unsupported Format: {extension.lower()}")
+                return icon_pixmap, "icon"
+            else:
+                return None, None
+
+        # Generate Thumbnail if File is Supported
         self.data["thumbPath"] = self.getThumbnailPath(filePath)
 
         pixmap = self.getPixmapFromPath(filePath,
@@ -163,18 +175,31 @@ class BaseTileItem(QWidget):
                                         height=self.itemPreviewHeight,
                                         colorAdjust=False)
         if pixmap:
-            return pixmap
+            return pixmap, "image"
         else:
-            return None
+            return None, None
         
 
     #    Update Thumbnail when Ready
     @err_catcher(name=__name__)
-    def updatePreview(self, pixmap, filePath):
+    def updatePreview(self, pixmap, pmapType):
         if pixmap:
-            scaledPixmap = self.core.media.scalePixmap(
-                pixmap, self.itemPreviewWidth, self.itemPreviewHeight, fitIntoBounds=False, crop=True
-            )
+            if pmapType == "icon":
+                fitIntoBounds=True
+                crop = False
+                scale = .5
+            else:
+                fitIntoBounds=False
+                crop = True
+                scale = 1
+
+            scaledPixmap = self.core.media.scalePixmap(pixmap,
+                                                       self.itemPreviewWidth * scale,
+                                                       self.itemPreviewHeight * scale,
+                                                       fitIntoBounds=fitIntoBounds,
+                                                       crop=crop)
+            
+            self.l_preview.setAlignment(Qt.AlignCenter)
             self.l_preview.setPixmap(scaledPixmap)
 
 
@@ -932,7 +957,7 @@ class FolderItem(BaseTileItem):
 
 #   Signal object to communicate between threads and the main UI
 class ThumbnailSignal(QObject):
-    finished = Signal(QPixmap, str)  # Emits the generated pixmap and file path
+    finished = Signal(QPixmap, str)
 
 
 
@@ -953,7 +978,7 @@ class ThumbnailWorker(QRunnable, QObject):
         self.height = height
 
 
-    #   Runs in a separate thread, loads the thumbnail
+    #   Generates and Loads Thumb in Thread
     @Slot()
     def run(self):
         #   Limits number of threads
@@ -964,13 +989,14 @@ class ThumbnailWorker(QRunnable, QObject):
             #   Uses the Saved Thumb if it exists
             if os.path.exists(self.thumbPath):
                 pixmap = QPixmap(self.thumbPath)
+                pmapType = "image"
             #   Generates New Thumbnail
             else:
-                pixmap = self.getPixmapFunc(self.filePath, width=self.width, height=self.height, colorAdjust=False)
+                pixmap, pmapType = self.getPixmapFunc()
 
             #   Emits Pixmap Signal
             if pixmap:
-                self.result.emit(pixmap, self.filePath)
+                self.result.emit(pixmap, pmapType)
 
         finally:
             #   Emit Finished Signal

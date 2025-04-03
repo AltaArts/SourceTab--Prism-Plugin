@@ -159,10 +159,15 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_destFooter.addWidget(self.b_dest_uncheckAll)
 
-        self.b_clearList = QPushButton(self.w_destination)
-        self.b_clearList.setObjectName(u"b_clearList")
+        self.b_dest_clearSel = QPushButton(self.w_destination)
+        self.b_dest_clearSel.setObjectName(u"b_dest_clearSel")
 
-        self.lo_destFooter.addWidget(self.b_clearList)
+        self.lo_destFooter.addWidget(self.b_dest_clearSel)
+
+        self.b_dest_clearAll = QPushButton(self.w_destination)
+        self.b_dest_clearAll.setObjectName(u"b_dest_clearAll")
+
+        self.lo_destFooter.addWidget(self.b_dest_clearAll)
 
 
         self.verticalLayout_11.addLayout(self.lo_destFooter)
@@ -190,6 +195,7 @@ class Ui_w_sourceBrowser(object):
         self.b_browseDest.setText("")
         self.b_dest_checkAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Select All", None))
         self.b_dest_uncheckAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Unselect All", None))
-        self.b_clearList.setText(QCoreApplication.translate("w_sourceBrowser", u"Clear List", None))
+        self.b_dest_clearSel.setText(QCoreApplication.translate("w_sourceBrowser", u"Remove Selected", None))
+        self.b_dest_clearAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Remove All", None))
     # retranslateUi
 
