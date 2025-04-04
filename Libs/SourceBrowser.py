@@ -391,6 +391,23 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
+    def getFileHash(self, filePath, chunk_size=8192):
+        hash_func = hashlib.sha256()
+        
+        with open(filePath, "rb") as f:
+            hash_func.update(f.read(chunk_size))  # Read first chunk
+            f.seek(-chunk_size, os.SEEK_END)  # Jump to last chunk
+            hash_func.update(f.read(chunk_size))  
+
+        # Include file size as part of hash computation
+        file_size = os.path.getsize(filePath)
+        hash_func.update(str(file_size).encode())  # Hash the file size
+
+        return hash_func.hexdigest()
+
+
+
+    @err_catcher(name=__name__)
     def updateChanged(self, state):
         if state:
             self.refreshSourceItems()
@@ -724,6 +741,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # Get file details
         data["date"] = os.path.getmtime(filePath)
         data["size"] = os.stat(filePath).st_size
+        data["hash"] = self.getFileHash(filePath)
 
         # Create the custom widget
         fileItem = TileWidget.SourceFileItem(self, data)

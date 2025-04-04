@@ -82,6 +82,13 @@ copy_semaphore = QSemaphore(MAX_COPY_THREADS)
 PROG_UPDATE_INTV = 0.1
 
 
+#   Colors
+COLOR_GREEN = QColor(0, 150, 0)
+COLOR_ORANGE = QColor(255, 140, 0)
+COLOR_RED = QColor(200, 0, 0)
+
+
+
 
 #   BASE FILE TILE FOR SHARED METHODS
 class BaseTileItem(QWidget):
@@ -415,7 +422,9 @@ class SourceFileItem(BaseTileItem):
         self.refreshPreview()
         self.setIcon(icon)
         self.l_fileName.setText(os.path.basename(self.data.get("filePath", "")))
-        self.l_fileName.setToolTip(self.data.get("filePath", ""))
+        self.l_fileName.setToolTip(f"FilePath {self.data.get('filePath', '')}")
+        self.l_fileSize.setToolTip(f"FileHash: {self.data.get('hash', '')}")
+
         self.l_date.setText(date)
         self.l_fileSize.setText(size)
 
@@ -751,6 +760,9 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def start_transfer(self, origin, destPath):
         """Starts the file transfer using a background thread."""
+
+        self.destPath = destPath
+
         self.worker = FileCopyWorker(self.data["filePath"], destPath)
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.copy_complete)
@@ -764,31 +776,65 @@ class DestFileItem(BaseTileItem):
 
     def copy_complete(self, success):
         """Handles copy completion."""
+
+        #   Sets Destination FilePath ToolTip
+        self.l_fileName.setToolTip(os.path.normpath(self.destPath))
+
         if success:
+            #   Force Prog Bar to 100%
             self.progressBar.setValue(100)
             
-            # Define the color using QColor
-            color = QColor(0, 150, 0)  # Green color
-            
-            # Convert color to rgb format string
-            color_str = f"rgb({color.red()}, {color.green()}, {color.blue()})"
-            
-            # Use the same color for both the progress bar background and chunk
-            self.progressBar.setStyleSheet(f"""
-                QProgressBar {{
-                    background-color: {color_str};  /* Set the background color */
-                }}
-                QProgressBar::chunk {{
-                    background-color: {color_str};  /* Set the chunk color */
-                    width: 20px;
-                }}
-            """)
+            #   If the Destination File Exists
+            if os.path.isfile(self.destPath):
+                #   Retrieve the Orignal Hash Value
+                orig_hash = self.data["hash"]
+                #   Calculate the Hash of the Transfered File
+                dest_hash = self.browser.getFileHash(self.destPath)
 
-            print(f"Copy complete: {self.data['filePath']}")
+                #   Hashes Are Equal
+                if dest_hash == orig_hash:
+                    status = "Transfer Successful"
+                    statusColor = COLOR_GREEN
+                    logger.debug(f"Transfer complete: {self.data['filePath']}")    
+                
+                #   Hashes Are Not Equal
+                else:
+                    status = "ERROR:  Transfered Hash Incorrect"
+                    statusColor = COLOR_ORANGE
+                    logger.debug(f"Transfered Hash Incorrect: {self.data['filePath']}")   
+
+                hashMsg = (f"Status: {status}\n\n"
+                        f"Source Hash:  {orig_hash}\n"
+                        f"Transfer Hash: {dest_hash}")
+
+            #   Destination File Does Not Exist
+            else: 
+                hashMsg = "ERROR:  Transfer File Does Not Exist"
+                statusColor = COLOR_RED
+                logger.warning(f"Transfer failed: {self.data['filePath']}")
+
+        #   Did not Receive the Success Signal
         else:
-            print(f"Copy failed: {self.data['filePath']}")
+            hashMsg = "ERROR:  Transfer failed"
+            statusColor = COLOR_RED
+            logger.warning(f"Transfer failed: {self.data['filePath']}")
 
+        #   Set the Prog Bar Tooltip
+        self.progressBar.setToolTip(hashMsg)
 
+        #   Convert Color to rgb format string
+        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
+        
+        #   Set Prog Bar StyleSheet
+        self.progressBar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {color_str};  /* Set the background color */
+            }}
+            QProgressBar::chunk {{
+                background-color: {color_str};  /* Set the chunk color */
+                width: 20px;
+            }}
+        """)
 
 
 
