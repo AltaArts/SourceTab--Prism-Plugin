@@ -254,6 +254,18 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_test = QPushButton("Transfer")
         self.lo_functions.addWidget(self.b_test)
 
+        # Add progress bar
+        self.progBar_total = QProgressBar()
+        self.progBar_total.setMinimum(0)
+        self.progBar_total.setMaximum(100)
+        self.progBar_total.setValue(0)
+        self.progBar_total.setFixedHeight(10)
+        self.progBar_total.setTextVisible(False)
+
+        self.progBar_total.setVisible(True)
+
+        self.lo_functions.addWidget(self.progBar_total)
+
 
         self.lo_rightPanel.addLayout(self.lo_functions)  # Add function layout below media player
 

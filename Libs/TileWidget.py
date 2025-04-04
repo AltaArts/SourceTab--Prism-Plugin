@@ -75,7 +75,7 @@ MAX_THUMB_THREADS = 12
 thumb_semaphore = QSemaphore(MAX_THUMB_THREADS)
 
 #   Thead Limit for File Transfer
-MAX_COPY_THREADS = 4
+MAX_COPY_THREADS = 6
 copy_semaphore = QSemaphore(MAX_COPY_THREADS)
 
 #   Update Interval for Progress Bar (secs)
@@ -532,12 +532,15 @@ class SourceFileItem(BaseTileItem):
 
 #   FILE TILES ON THE DESTINATION SIDE
 class DestFileItem(BaseTileItem):
+
+    progressChanged = Signal(object)
+
     def __init__(self, browser, data):
         super(DestFileItem, self).__init__(browser, data)
 
-        # Add a progress bar to the tile
-        self.progressBar = QProgressBar(self)
-        self.progressBar.setValue(0)
+        # # Add a progress bar to the tile
+        # self.progressBar = QProgressBar(self)
+        # self.progressBar.setValue(0)
 
         self.worker = None  # Placeholder for copy thread
 
@@ -584,6 +587,7 @@ class DestFileItem(BaseTileItem):
         self.lo_info.addWidget(self.l_icon)
         self.lo_info.addStretch()
 
+
         self.lo_details = QVBoxLayout()
 
         self.l_fileName = QLabel()
@@ -591,71 +595,48 @@ class DestFileItem(BaseTileItem):
         self.lo_details.addWidget(self.l_fileName)
         self.lo_details.addStretch()
 
-        self.w_date = QWidget()
-        self.lo_fileSpecs = QHBoxLayout(self.w_date)
-        self.lo_fileSpecs.setContentsMargins(0, 0, 0, 0)
-
-        # Date Icon and Label
-        dateIconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "date.png")
-        dateIcon = self.core.media.getColoredIcon(dateIconPath)
-        self.l_dateIcon = QLabel()
-        self.l_dateIcon.setPixmap(dateIcon.pixmap(15, 15))
-
-        self.l_date = QLabel()
-        self.l_date.setAlignment(Qt.AlignRight)
-        self.lo_fileSpecs.addStretch()
-        self.lo_fileSpecs.addWidget(self.l_dateIcon)
-        self.lo_fileSpecs.addWidget(self.l_date)
-
-        # Disk Icon and Label (for File Size)
-        diskIconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "disk.png")
-        diskIcon = self.core.media.getColoredIcon(diskIconPath)
-        self.l_diskIcon = QLabel()
-        self.l_diskIcon.setPixmap(diskIcon.pixmap(15, 15))
-
-        self.l_fileSize = QLabel()
-        self.l_fileSize.setAlignment(Qt.AlignRight)
-        self.lo_fileSpecs.addWidget(self.l_diskIcon)
-        self.lo_fileSpecs.addWidget(self.l_fileSize)
-
-        self.lo_details.addItem(self.spacer5)
-        self.lo_details.addStretch()
-        self.lo_details.addWidget(self.w_date)
-        self.lo_details.addItem(self.spacer6)
 
         # Add progress bar
         self.progressBar = QProgressBar()
         self.progressBar.setMinimum(0)
         self.progressBar.setMaximum(100)
         self.progressBar.setValue(0)
-        self.progressBar.setVisible(False)  # Hidden initially
+        self.progressBar.setFixedHeight(10)
+        self.progressBar.setTextVisible(False)
+
+        self.progressBar.setVisible(False)
 
         self.lo_details.addWidget(self.progressBar)
+        self.lo_details.addItem(self.spacer5)
+
 
         self.lo_main.addWidget(self.l_preview)
         self.lo_main.addLayout(self.lo_info)
-        self.lo_main.addItem(self.spacer7)
+        # self.lo_main.addItem(self.spacer7)
         self.lo_main.addLayout(self.lo_details)
-        self.lo_main.addStretch(1000)
+        # self.lo_main.addStretch(1000)
 
         self.lo_main.addItem(self.spacer4)
 
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
 
+        self.progressBar.setVisible(True)
+
+
 
     @err_catcher(name=__name__)
     def refreshUi(self):
         icon = self.getIcon()
-        date = self.getDate()
-        size = self.getSize()
+        # date = self.getDate()
+        # size = self.getSize()
 
         self.refreshPreview()
         self.setIcon(icon)
         self.l_fileName.setText(os.path.basename(self.data.get("filePath", "")))
         self.l_fileName.setToolTip(self.data.get("filePath", ""))
-        self.l_date.setText(date)
-        self.l_fileSize.setText(size)
+        # self.l_date.setText(date)
+        # self.l_fileSize.setText(size)
 
 
     @err_catcher(name=__name__)
@@ -780,12 +761,34 @@ class DestFileItem(BaseTileItem):
         """Updates progress bar in UI."""
         self.progressBar.setValue(value)
 
+
     def copy_complete(self, success):
         """Handles copy completion."""
         if success:
+            self.progressBar.setValue(100)
+            
+            # Define the color using QColor
+            color = QColor(0, 150, 0)  # Green color
+            
+            # Convert color to rgb format string
+            color_str = f"rgb({color.red()}, {color.green()}, {color.blue()})"
+            
+            # Use the same color for both the progress bar background and chunk
+            self.progressBar.setStyleSheet(f"""
+                QProgressBar {{
+                    background-color: {color_str};  /* Set the background color */
+                }}
+                QProgressBar::chunk {{
+                    background-color: {color_str};  /* Set the chunk color */
+                    width: 20px;
+                }}
+            """)
+
             print(f"Copy complete: {self.data['filePath']}")
         else:
             print(f"Copy failed: {self.data['filePath']}")
+
+
 
 
 
