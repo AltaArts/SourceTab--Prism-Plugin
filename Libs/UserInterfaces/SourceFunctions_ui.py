@@ -40,10 +40,25 @@ class Ui_w_sourceFunctions(object):
 
         self.verticalLayout_8.addWidget(self.chb_copyProxy)
 
-        self.b_startTransfer = QPushButton(self.w_functions)
-        self.b_startTransfer.setObjectName(u"b_startTransfer")
+        self.b_transfer_start = QPushButton(self.w_functions)
+        self.b_transfer_start.setObjectName(u"b_transfer_start")
 
-        self.verticalLayout_8.addWidget(self.b_startTransfer)
+        self.verticalLayout_8.addWidget(self.b_transfer_start)
+
+        self.b_transfer_pause = QPushButton(self.w_functions)
+        self.b_transfer_pause.setObjectName(u"b_transfer_pause")
+
+        self.verticalLayout_8.addWidget(self.b_transfer_pause)
+
+        self.b_transfer_resume = QPushButton(self.w_functions)
+        self.b_transfer_resume.setObjectName(u"b_transfer_resume")
+
+        self.verticalLayout_8.addWidget(self.b_transfer_resume)
+
+        self.b_transfer_cancel = QPushButton(self.w_functions)
+        self.b_transfer_cancel.setObjectName(u"b_transfer_cancel")
+
+        self.verticalLayout_8.addWidget(self.b_transfer_cancel)
 
         self.progBar_total = QProgressBar(self.w_functions)
         self.progBar_total.setObjectName(u"progBar_total")
@@ -66,6 +81,9 @@ class Ui_w_sourceFunctions(object):
     def retranslateUi(self, w_sourceFunctions):
         w_sourceFunctions.setWindowTitle(QCoreApplication.translate("w_sourceFunctions", u"Media Browser", None))
         self.chb_copyProxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Copy Proxy", None))
-        self.b_startTransfer.setText(QCoreApplication.translate("w_sourceFunctions", u"Start Transfer", None))
+        self.b_transfer_start.setText(QCoreApplication.translate("w_sourceFunctions", u"Start Transfer", None))
+        self.b_transfer_pause.setText(QCoreApplication.translate("w_sourceFunctions", u"Pause Transfer", None))
+        self.b_transfer_resume.setText(QCoreApplication.translate("w_sourceFunctions", u"Resume Transfer", None))
+        self.b_transfer_cancel.setText(QCoreApplication.translate("w_sourceFunctions", u"Cancel Transfer", None))
     # retranslateUi
 

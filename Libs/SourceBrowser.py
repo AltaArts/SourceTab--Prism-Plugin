@@ -336,7 +336,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
 
-        self.sourceFuncts.b_startTransfer.clicked.connect(self.transfer)
+        self.sourceFuncts.b_transfer_start.clicked.connect(self.startTransfer)
+        self.sourceFuncts.b_transfer_pause.clicked.connect(self.pauseTransfer)
+        self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer
+                                                            )
 
 
 
@@ -909,7 +912,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
-    def transfer(self):
+    def startTransfer(self):
         row_count = self.tw_destination.rowCount()
         self.copyList = []
 
@@ -939,6 +942,54 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             
             destPath = os.path.join(self.l_destPath.text(), basefile)
             item.start_transfer(self, destPath, options)
+
+
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def pauseTransfer(self):
+        row_count = self.tw_destination.rowCount()
+        self.pauseList = []
+
+        for row in range(row_count):
+            fileItem = self.tw_destination.cellWidget(row, 0)
+            
+            if fileItem is not None:
+                self.pauseList.append(fileItem)
+
+
+        for item in self.copyList:
+            item.pause_transfer(self)
+
+
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def resumeTransfer(self):
+        row_count = self.tw_destination.rowCount()
+        self.pauseList = []
+
+        for row in range(row_count):
+            fileItem = self.tw_destination.cellWidget(row, 0)
+            
+            if fileItem is not None:
+                self.pauseList.append(fileItem)
+
+
+        for item in self.copyList:
+            item.resume_transfer(self)
+
+
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def cancelTransfer(self):
+        row_count = self.tw_destination.rowCount()
+        self.pauseList = []
+
+        for row in range(row_count):
+            fileItem = self.tw_destination.cellWidget(row, 0)
+            
+            if fileItem is not None:
+                self.pauseList.append(fileItem)
+
+
+        for item in self.copyList:
+            item.cancel_transfer(self)
 
 
 

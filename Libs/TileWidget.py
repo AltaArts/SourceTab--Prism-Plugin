@@ -72,13 +72,16 @@ from PrismUtils.Decorators import err_catcher
 
 logger = logging.getLogger(__name__)
 
-#   Thead Limit for Thumbnail Generation
+#   Thread Limit for Thumbnail Generation
 MAX_THUMB_THREADS = 12
 thumb_semaphore = QSemaphore(MAX_THUMB_THREADS)
 
-#   Thead Limit for File Transfer
+#   Thread Limit for File Transfer
 MAX_COPY_THREADS = 6
 copy_semaphore = QSemaphore(MAX_COPY_THREADS)
+
+#   Size of Copy Chunks
+COPY_CHUNK_SIZE = 1  # in megabytes
 
 #   Update Interval for Progress Bar (secs)
 PROG_UPDATE_INTV = 0.1
@@ -646,10 +649,6 @@ class DestFileItem(BaseTileItem):
     def __init__(self, browser, data):
         super(DestFileItem, self).__init__(browser, data)
 
-        # # Add a progress bar to the tile
-        # self.progressBar = QProgressBar(self)
-        # self.progressBar.setValue(0)
-
         self.worker = None  # Placeholder for copy thread
 
 
@@ -938,11 +937,37 @@ class DestFileItem(BaseTileItem):
         self.worker.start()
 
 
+    @err_catcher(name=__name__)
+    def pause_transfer(self, origin):
+        if self.worker:
+            self.worker.pause()
+            # self.b_pause.setText("Resume")
+            self.paused = True
+
+
+    @err_catcher(name=__name__)
+    def resume_transfer(self, origin):
+        if self.worker:
+            self.worker.resume()
+                # self.b_pause.setText("Pause")
+            self.paused = False
+
+
+    @err_catcher(name=__name__)
+    def cancel_transfer(self, origin):
+        if self.worker:
+            self.worker.cancel()
+            # self.progressBar.setValue(0)
+            # self.progressBar.setStyleSheet("background-color: rgb(255, 0, 0);")
+
+
+    @err_catcher(name=__name__)
     def update_progress(self, value):
         """Updates progress bar in UI."""
         self.progressBar.setValue(value)
 
 
+    @err_catcher(name=__name__)
     def copy_complete(self, success):
         """Handles copy completion."""
 
@@ -1226,150 +1251,64 @@ class ThumbnailWorker(QRunnable, QObject):
 
 
 class FileCopyWorker(QThread):
-    progress = Signal(int)   # Signal to send progress updates
-    finished = Signal(bool)  # Signal when copy is done
+    progress = Signal(int)
+    finished = Signal(bool)
 
     def __init__(self, src, dst):
         super().__init__()
         self.src = src
         self.dst = dst
-        self.running = True  # Flag to allow stopping the thread
+        self.running = True
+        self.pause_flag = False
+        self.cancel_flag = False
+
+    def pause(self):
+        self.pause_flag = True
+
+    def resume(self):
+        self.pause_flag = False
+
+    def cancel(self):
+        self.cancel_flag = True
 
     def run(self):
-        total_size = os.path.getsize(self.src)
-        copied_size = 0
+        try:
+            total_size = os.path.getsize(self.src)
+            copied_size = 0
 
-        def monitor_progress():
-            last_reported = -1
-            while self.running:
-                if os.path.exists(self.dst):
-                    copied_size = os.path.getsize(self.dst)
-                    progress_percent = int((copied_size / total_size) * 100)
+            #   Get Chunk Size in MBs
+            buffer_size = 1024 * 1024  * COPY_CHUNK_SIZE
 
-                    if progress_percent != last_reported:
-                        self.progress.emit(progress_percent)  # Send progress update
-                        last_reported = progress_percent
+            copy_semaphore.acquire()
 
-                    if copied_size >= total_size:
+            with open(self.src, 'rb') as fsrc, open(self.dst, 'wb') as fdst:
+                while True:
+                    if self.cancel_flag:
+                        self.finished.emit(False)
+                        fdst.close()
+                        os.remove(self.dst)
+                        return
+
+                    if self.pause_flag:
+                        time.sleep(0.1)
+                        continue
+
+                    chunk = fsrc.read(buffer_size)
+                    if not chunk:
                         break
 
-                time.sleep(PROG_UPDATE_INTV)
+                    fdst.write(chunk)
+                    copied_size += len(chunk)
+                    progress_percent = int((copied_size / total_size) * 100)
+                    self.progress.emit(progress_percent)
 
-        # Start monitoring in a separate thread
-        progress_thread = threading.Thread(target=monitor_progress, daemon=True)
-        progress_thread.start()
-
-        # Acquire semaphore to ensure only MAX_COPY_THREADS copies at a time
-        copy_semaphore.acquire()
-
-        try:
-            shutil.copy2(self.src, self.dst)
             self.finished.emit(True)
+
         except Exception as e:
             print(f"Error copying file: {e}")
             self.finished.emit(False)
 
-        # Release semaphore after copy completes
-        copy_semaphore.release()
+        finally:
+            copy_semaphore.release()
+            self.running = False
 
-        self.running = False
-        progress_thread.join()
-
-
-
-# class FileCopyWorker(QThread):                    #   TODO - this has chuncks tom allow canceling
-#     progress = Signal(int)
-#     finished = Signal(bool)
-
-#     def __init__(self, src, dst):
-#         super().__init__()
-#         self.src = src
-#         self.dst = dst
-#         self.running = True
-#         self.pause_flag = False
-#         self.cancel_flag = False
-
-#     def pause(self):
-#         self.pause_flag = True
-
-#     def resume(self):
-#         self.pause_flag = False
-
-#     def cancel(self):
-#         self.cancel_flag = True
-
-#     def run(self):
-#         try:
-#             total_size = os.path.getsize(self.src)
-#             copied_size = 0
-#             buffer_size = 1024 * 1024  # 1MB chunks
-
-#             copy_semaphore.acquire()
-
-#             with open(self.src, 'rb') as fsrc, open(self.dst, 'wb') as fdst:
-#                 while True:
-#                     if self.cancel_flag:
-#                         self.finished.emit(False)
-#                         fdst.close()
-#                         os.remove(self.dst)
-#                         return
-
-#                     if self.pause_flag:
-#                         time.sleep(0.1)
-#                         continue
-
-#                     chunk = fsrc.read(buffer_size)
-#                     if not chunk:
-#                         break
-
-#                     fdst.write(chunk)
-#                     copied_size += len(chunk)
-#                     progress_percent = int((copied_size / total_size) * 100)
-#                     self.progress.emit(progress_percent)
-
-#             self.finished.emit(True)
-
-#         except Exception as e:
-#             print(f"Error copying file: {e}")
-#             self.finished.emit(False)
-
-#         finally:
-#             copy_semaphore.release()
-#             self.running = False
-
-
-
-#    AND THEN MODIFY THIS:
-
-
-# class DestFileItem(BaseTileItem):
-#     def __init__(self, browser, data):
-#         super().__init__(browser, data)
-#         self.worker = None
-
-#         # UI elements
-#         self.b_pause = QPushButton("Pause")
-#         self.b_cancel = QPushButton("Cancel")
-#         self.b_pause.clicked.connect(self.toggle_pause)
-#         self.b_cancel.clicked.connect(self.cancel_transfer)
-
-#         self.paused = False
-
-#         self.layout().addWidget(self.b_pause)
-#         self.layout().addWidget(self.b_cancel)
-
-#     def toggle_pause(self):
-#         if self.worker:
-#             if self.paused:
-#                 self.worker.resume()
-#                 self.b_pause.setText("Pause")
-#             else:
-#                 self.worker.pause()
-#                 self.b_pause.setText("Resume")
-#             self.paused = not self.paused
-
-#     def cancel_transfer(self):
-#         if self.worker:
-#             self.worker.cancel()
-#             self.progressBar.setValue(0)
-#             self.progressBar.setStyleSheet("background-color: rgb(255, 0, 0);")
