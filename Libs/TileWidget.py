@@ -81,10 +81,10 @@ MAX_COPY_THREADS = 6
 copy_semaphore = QSemaphore(MAX_COPY_THREADS)
 
 #   Size of Copy Chunks
-COPY_CHUNK_SIZE = 1  # in megabytes
+COPY_CHUNK_SIZE = 1  # (in megabytes)
 
-#   Update Interval for Progress Bar (secs)
-PROG_UPDATE_INTV = 0.1
+#   Update Interval for Progress Bar
+PROG_UPDATE_INTV = .5   # (in secs)
 
 #   Proxy Folder Names
 PROXY_NAMES = ["proxy", "pxy", "proxies", "proxys"]
@@ -92,8 +92,10 @@ PROXY_NAMES = ["proxy", "pxy", "proxies", "proxys"]
 
 #   Colors
 COLOR_GREEN = QColor(0, 150, 0)
+COLOR_BLUE = QColor(115, 175, 215)
 COLOR_ORANGE = QColor(255, 140, 0)
 COLOR_RED = QColor(200, 0, 0)
+COLOR_GREY = QColor(100, 100, 100)
 
 
 
@@ -652,6 +654,8 @@ class DestFileItem(BaseTileItem):
         self.worker = None  # Placeholder for copy thread
 
 
+
+
     def mouseReleaseEvent(self, event):
         super(DestFileItem, self).mouseReleaseEvent(event)
         self.signalReleased.emit(self)
@@ -712,15 +716,11 @@ class DestFileItem(BaseTileItem):
         self.lo_top.addWidget(self.l_fileName)
         self.lo_top.addStretch()
 
-
-
         #   Create Bottom Layout
         self.lo_bottom = QHBoxLayout()
 
         #   File Type Icon
         self.l_icon = QLabel()
-
-
 
         # Add progress bar
         self.progressBar = QProgressBar()
@@ -729,9 +729,25 @@ class DestFileItem(BaseTileItem):
         self.progressBar.setValue(0)
         self.progressBar.setFixedHeight(10)
         self.progressBar.setTextVisible(False)
-
         self.progressBar.setVisible(False)
 
+        #   File Size Layout
+        self.fileSizeContainer = QWidget()
+        self.lo_fileSize = QHBoxLayout()
+        self.fileSizeContainer.setLayout(self.lo_fileSize)
+        self.fileSizeContainer.setFixedWidth(150)
+
+        #   File Size Labels
+        self.l_size_copied = QLabel("--")
+        self.l_size_dash = QLabel("of")
+        self.l_size_total = QLabel("--")
+
+        #    Add Sizes to Layout
+        self.spacer2 = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.lo_fileSize.addItem(self.spacer2)
+        self.lo_fileSize.addWidget(self.l_size_copied)
+        self.lo_fileSize.addWidget(self.l_size_dash)
+        self.lo_fileSize.addWidget(self.l_size_total)
 
 
         #   Add Items to Bottom Layout
@@ -739,6 +755,7 @@ class DestFileItem(BaseTileItem):
         self.spacer3 = QSpacerItem(40, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.lo_main.addItem(self.spacer3)
         self.lo_bottom.addWidget(self.progressBar)
+        self.lo_bottom.addWidget(self.fileSizeContainer)
 
         #   Add Top and Bottom to Details Layout
         self.lo_details.addLayout(self.lo_top)
@@ -755,6 +772,9 @@ class DestFileItem(BaseTileItem):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
 
+        #   Reset Progress Bar
+        tip = "Idle"
+        self.setProgressBarStatus(status="idle", tooltip=tip)
         self.progressBar.setVisible(True)
 
 
@@ -773,6 +793,8 @@ class DestFileItem(BaseTileItem):
         tip = (f"Source File:  {self.getSourcePath()}\n"
                f"Destination File:  {self.getDestPath()}")
         self.l_fileName.setToolTip(tip)
+
+        self.l_size_total.setText(self.getSize())
 
         # self.l_date.setText(date)
         # self.l_fileSize.setText(size)
@@ -797,6 +819,19 @@ class DestFileItem(BaseTileItem):
         return os.path.normpath(destPath)
     
 
+    #   Returns File Size (can be slower)
+    @err_catcher(name=__name__)
+    def getCopiedSize(self, size_bytes):
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 ** 2:
+            return f"{size_bytes / 1024:.2f} KB"
+        elif size_bytes < 1024 ** 3:
+            return f"{size_bytes / 1024 ** 2:.2f} MB"
+        else:
+            return f"{size_bytes / 1024 ** 3:.2f} GB"
+        
+
     @err_catcher(name=__name__)
     def setIcon(self, icon):
         self.l_icon.setToolTip(self.getFilename())
@@ -812,6 +847,7 @@ class DestFileItem(BaseTileItem):
             painter.setRenderHint(QPainter.Antialiasing, True)
             painter.end()
             self.l_icon.setPixmap(pmap)
+
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
@@ -888,6 +924,55 @@ class DestFileItem(BaseTileItem):
 
 
     @err_catcher(name=__name__)
+    def setProgressBarStatus(self, status, tooltip=None):
+        #   Set the Prog Bar Tooltip
+        if tooltip:
+            self.progressBar.setToolTip(tooltip)
+
+        match status:
+            case "idle":
+                statusColor = COLOR_BLUE
+
+            case "transferring":
+                statusColor = COLOR_BLUE
+        
+            case "paused":
+                statusColor = COLOR_GREY
+
+            case "cancelled":
+                statusColor = COLOR_RED
+
+            case "complete":
+                statusColor = COLOR_GREEN
+
+            case "error":
+                statusColor = COLOR_RED
+
+
+        #   Convert Color to rgb format string
+        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
+        
+        #   Set Prog Bar StyleSheet
+        self.progressBar.setStyleSheet(f"""
+            QProgressBar::chunk {{
+                background-color: {color_str};  /* Set the chunk color */
+            }}
+        """)
+
+
+        #   Set Prog Bar StyleSheet
+        # self.progressBar.setStyleSheet(f"""
+        #     QProgressBar {{
+        #         background-color: {color_str};  /* Set the background color */
+        #     }}
+        #     QProgressBar::chunk {{
+        #         background-color: {color_str};  /* Set the chunk color */
+        #         width: 20px;
+        #     }}
+        # """)
+
+
+    @err_catcher(name=__name__)
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
 
@@ -929,6 +1014,11 @@ class DestFileItem(BaseTileItem):
     def start_transfer(self, origin, destPath, options):
         """Starts the file transfer using a background thread."""
 
+        self.isFinished = False
+        
+        tip = "Transfering"
+        self.setProgressBarStatus("transferring", tooltip=tip)
+
         self.destPath = destPath
 
         self.worker = FileCopyWorker(self.getSourcePath(), destPath)
@@ -939,7 +1029,11 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def pause_transfer(self, origin):
-        if self.worker:
+        if self.worker and not self.isFinished:
+
+            tip = "Paused"
+            self.setProgressBarStatus("paused", tooltip=tip)
+
             self.worker.pause()
             # self.b_pause.setText("Resume")
             self.paused = True
@@ -947,7 +1041,11 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def resume_transfer(self, origin):
-        if self.worker:
+        if self.worker and not self.isFinished:
+
+            tip = "Transfering"
+            self.setProgressBarStatus("transferring", tooltip=tip)
+
             self.worker.resume()
                 # self.b_pause.setText("Pause")
             self.paused = False
@@ -955,16 +1053,22 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def cancel_transfer(self, origin):
-        if self.worker:
+        if self.worker and not self.isFinished:
+
+            tip = "Cancelled"
+            self.setProgressBarStatus("cancelled", tooltip=tip)
+
             self.worker.cancel()
             # self.progressBar.setValue(0)
             # self.progressBar.setStyleSheet("background-color: rgb(255, 0, 0);")
 
 
     @err_catcher(name=__name__)
-    def update_progress(self, value):
+    def update_progress(self, value, copied_size):
         """Updates progress bar in UI."""
         self.progressBar.setValue(value)
+
+        self.l_size_copied.setText(self.getCopiedSize(copied_size))
 
 
     @err_catcher(name=__name__)
@@ -975,6 +1079,8 @@ class DestFileItem(BaseTileItem):
         self.l_fileName.setToolTip(os.path.normpath(self.destPath))
 
         if success:
+            self.isFinished = True
+
             #   Force Prog Bar to 100%
             self.progressBar.setValue(100)
             
@@ -987,48 +1093,35 @@ class DestFileItem(BaseTileItem):
 
                 #   Hashes Are Equal
                 if dest_hash == orig_hash:
-                    status = "Transfer Successful"
-                    statusColor = COLOR_GREEN
+                    statusMsg = "Transfer Successful"
+                    status = "complete"
                     logger.debug(f"Transfer complete: {self.data['filePath']}")    
                 
                 #   Hashes Are Not Equal
                 else:
-                    status = "ERROR:  Transfered Hash Incorrect"
-                    statusColor = COLOR_ORANGE
+                    statusMsg = "ERROR:  Transfered Hash Incorrect"
+                    status = "error"
                     logger.debug(f"Transfered Hash Incorrect: {self.data['filePath']}")   
 
-                hashMsg = (f"Status: {status}\n\n"
-                        f"Source Hash:  {orig_hash}\n"
-                        f"Transfer Hash: {dest_hash}")
+                hashMsg = (f"Status: {statusMsg}\n\n"
+                           f"Source Hash:  {orig_hash}\n"
+                           f"Transfer Hash: {dest_hash}")
 
             #   Destination File Does Not Exist
             else: 
                 hashMsg = "ERROR:  Transfer File Does Not Exist"
-                statusColor = COLOR_RED
+                status = "error"
                 logger.warning(f"Transfer failed: {self.data['filePath']}")
 
         #   Did not Receive the Success Signal
         else:
             hashMsg = "ERROR:  Transfer failed"
-            statusColor = COLOR_RED
+            status = "error"
             logger.warning(f"Transfer failed: {self.data['filePath']}")
 
-        #   Set the Prog Bar Tooltip
-        self.progressBar.setToolTip(hashMsg)
+        #   Set Progress Bar UI
+        self.setProgressBarStatus(status, tooltip=hashMsg)
 
-        #   Convert Color to rgb format string
-        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
-        
-        #   Set Prog Bar StyleSheet
-        self.progressBar.setStyleSheet(f"""
-            QProgressBar {{
-                background-color: {color_str};  /* Set the background color */
-            }}
-            QProgressBar::chunk {{
-                background-color: {color_str};  /* Set the chunk color */
-                width: 20px;
-            }}
-        """)
 
 
 
@@ -1250,8 +1343,10 @@ class ThumbnailWorker(QRunnable, QObject):
 
 
 
+import time
+
 class FileCopyWorker(QThread):
-    progress = Signal(int)
+    progress = Signal(int, float)
     finished = Signal(bool)
 
     def __init__(self, src, dst):
@@ -1261,6 +1356,7 @@ class FileCopyWorker(QThread):
         self.running = True
         self.pause_flag = False
         self.cancel_flag = False
+        self.last_emit_time = 0
 
     def pause(self):
         self.pause_flag = True
@@ -1276,9 +1372,7 @@ class FileCopyWorker(QThread):
             total_size = os.path.getsize(self.src)
             copied_size = 0
 
-            #   Get Chunk Size in MBs
-            buffer_size = 1024 * 1024  * COPY_CHUNK_SIZE
-
+            buffer_size = 1024 * 1024 * COPY_CHUNK_SIZE
             copy_semaphore.acquire()
 
             with open(self.src, 'rb') as fsrc, open(self.dst, 'wb') as fdst:
@@ -1300,7 +1394,11 @@ class FileCopyWorker(QThread):
                     fdst.write(chunk)
                     copied_size += len(chunk)
                     progress_percent = int((copied_size / total_size) * 100)
-                    self.progress.emit(progress_percent)
+
+                    now = time.time()
+                    if now - self.last_emit_time >= PROG_UPDATE_INTV or progress_percent == 100:
+                        self.progress.emit(progress_percent, copied_size)
+                        self.last_emit_time = now
 
             self.finished.emit(True)
 
@@ -1311,4 +1409,5 @@ class FileCopyWorker(QThread):
         finally:
             copy_semaphore.release()
             self.running = False
+
 

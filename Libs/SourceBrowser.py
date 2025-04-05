@@ -338,8 +338,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.sourceFuncts.b_transfer_start.clicked.connect(self.startTransfer)
         self.sourceFuncts.b_transfer_pause.clicked.connect(self.pauseTransfer)
-        self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer
-                                                            )
+        self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
+        self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer)
 
 
 
@@ -951,10 +951,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         for row in range(row_count):
             fileItem = self.tw_destination.cellWidget(row, 0)
-            
             if fileItem is not None:
                 self.pauseList.append(fileItem)
-
 
         for item in self.copyList:
             item.pause_transfer(self)
@@ -967,10 +965,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         for row in range(row_count):
             fileItem = self.tw_destination.cellWidget(row, 0)
-            
             if fileItem is not None:
                 self.pauseList.append(fileItem)
-
 
         for item in self.copyList:
             item.resume_transfer(self)
@@ -983,10 +979,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         for row in range(row_count):
             fileItem = self.tw_destination.cellWidget(row, 0)
-            
             if fileItem is not None:
                 self.pauseList.append(fileItem)
-
 
         for item in self.copyList:
             item.cancel_transfer(self)
