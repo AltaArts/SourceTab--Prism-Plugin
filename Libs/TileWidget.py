@@ -1275,3 +1275,101 @@ class FileCopyWorker(QThread):
         self.running = False
         progress_thread.join()
 
+
+
+# class FileCopyWorker(QThread):                    #   TODO - this has chuncks tom allow canceling
+#     progress = Signal(int)
+#     finished = Signal(bool)
+
+#     def __init__(self, src, dst):
+#         super().__init__()
+#         self.src = src
+#         self.dst = dst
+#         self.running = True
+#         self.pause_flag = False
+#         self.cancel_flag = False
+
+#     def pause(self):
+#         self.pause_flag = True
+
+#     def resume(self):
+#         self.pause_flag = False
+
+#     def cancel(self):
+#         self.cancel_flag = True
+
+#     def run(self):
+#         try:
+#             total_size = os.path.getsize(self.src)
+#             copied_size = 0
+#             buffer_size = 1024 * 1024  # 1MB chunks
+
+#             copy_semaphore.acquire()
+
+#             with open(self.src, 'rb') as fsrc, open(self.dst, 'wb') as fdst:
+#                 while True:
+#                     if self.cancel_flag:
+#                         self.finished.emit(False)
+#                         fdst.close()
+#                         os.remove(self.dst)
+#                         return
+
+#                     if self.pause_flag:
+#                         time.sleep(0.1)
+#                         continue
+
+#                     chunk = fsrc.read(buffer_size)
+#                     if not chunk:
+#                         break
+
+#                     fdst.write(chunk)
+#                     copied_size += len(chunk)
+#                     progress_percent = int((copied_size / total_size) * 100)
+#                     self.progress.emit(progress_percent)
+
+#             self.finished.emit(True)
+
+#         except Exception as e:
+#             print(f"Error copying file: {e}")
+#             self.finished.emit(False)
+
+#         finally:
+#             copy_semaphore.release()
+#             self.running = False
+
+
+
+#    AND THEN MODIFY THIS:
+
+
+# class DestFileItem(BaseTileItem):
+#     def __init__(self, browser, data):
+#         super().__init__(browser, data)
+#         self.worker = None
+
+#         # UI elements
+#         self.b_pause = QPushButton("Pause")
+#         self.b_cancel = QPushButton("Cancel")
+#         self.b_pause.clicked.connect(self.toggle_pause)
+#         self.b_cancel.clicked.connect(self.cancel_transfer)
+
+#         self.paused = False
+
+#         self.layout().addWidget(self.b_pause)
+#         self.layout().addWidget(self.b_cancel)
+
+#     def toggle_pause(self):
+#         if self.worker:
+#             if self.paused:
+#                 self.worker.resume()
+#                 self.b_pause.setText("Pause")
+#             else:
+#                 self.worker.pause()
+#                 self.b_pause.setText("Resume")
+#             self.paused = not self.paused
+
+#     def cancel_transfer(self):
+#         if self.worker:
+#             self.worker.cancel()
+#             self.progressBar.setValue(0)
+#             self.progressBar.setStyleSheet("background-color: rgb(255, 0, 0);")

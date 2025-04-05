@@ -85,6 +85,8 @@ from PrismUtils.Decorators import err_catcher
 
 
 import TileWidget as TileWidget
+from SourceFunctions import SourceFunctions
+
 import SourceBrowser_ui                                                 #   TODO
 
 
@@ -117,6 +119,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.initialized = False
         self.closeParm = "closeafterload"
         self.loadLayout()
+        self.resetProgBar()
         self.connectEvents()
         self.core.callback(name="onSourceBrowserOpen", args=[self])
 
@@ -238,37 +241,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         ##  Right Side Panel
         self.lo_rightPanel = QVBoxLayout()
 
-        # Media Player
+        # Media Player Import
         self.w_preview = MediaVersionPlayer(self)
         self.w_preview.layout().addStretch()
-        self.lo_rightPanel.addWidget(self.w_preview)  # Add media player to the right panel layout
 
+        #   Functions Import
+        self.sourceFuncts = SourceFunctions()
 
-        # Create another vertical layout for additional functions
-        self.lo_functions = QVBoxLayout()
-
-        self.chb_copyProxy = QCheckBox("Copy Proxies")
-        self.lo_functions.addWidget(self.chb_copyProxy)
-
-        self.b_test = QPushButton("Transfer")
-        self.lo_functions.addWidget(self.b_test)
-
-        # Add progress bar
-        self.progBar_total = QProgressBar()
-        self.progBar_total.setMinimum(0)
-        self.progBar_total.setMaximum(100)
-        self.progBar_total.setValue(0)
-        self.progBar_total.setFixedHeight(10)
-        self.progBar_total.setTextVisible(False)
-
-        self.progBar_total.setVisible(True)
-
-        self.lo_functions.addWidget(self.progBar_total)
-
-
-        self.lo_rightPanel.addLayout(self.lo_functions)  # Add function layout below media player
-
-
+        #   Add Panels to the Right Panel
+        self.lo_rightPanel.addWidget(self.w_preview)
+        self.lo_rightPanel.addWidget(self.sourceFuncts)
 
         # Create a container widget to hold the lo_rightPanel layout
         self.w_rightPanelContainer = QWidget()
@@ -354,7 +336,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
 
-        self.b_test.clicked.connect(self.transfer)                          #   TODO rename button
+        self.sourceFuncts.b_startTransfer.clicked.connect(self.transfer)
+
+
+
+    @err_catcher(name=__name__)
+    def resetProgBar(self):
+        #   Reset Total Progess Bar
+        self.sourceFuncts.progBar_total.setValue(0)
+
+
+
 
 
     @err_catcher(name=__name__)
@@ -942,7 +934,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             options = {}
 
-            options["copyProxy"] = self.chb_copyProxy.isChecked()
+            options["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
 
             
             destPath = os.path.join(self.l_destPath.text(), basefile)
