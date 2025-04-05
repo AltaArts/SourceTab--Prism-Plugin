@@ -38,6 +38,7 @@ import shutil
 import logging
 import threading
 import time
+import json
 
 if sys.version[0] == "3":
     pVersion = 3
@@ -54,7 +55,8 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
-uiPath = os.path.join(os.path.dirname(__file__), "UserInterfaces")
+pluginRoot = os.path.dirname(os.path.dirname(__file__))
+uiPath = os.path.join(pluginRoot, "Libs", "UserInterfaces")
 iconPath = os.path.join(uiPath, "Icons")
 if uiPath not in sys.path:
     sys.path.append(uiPath)
@@ -80,6 +82,9 @@ copy_semaphore = QSemaphore(MAX_COPY_THREADS)
 
 #   Update Interval for Progress Bar (secs)
 PROG_UPDATE_INTV = 0.1
+
+#   Proxy Folder Names
+PROXY_NAMES = ["proxy", "pxy", "proxies", "proxys"]
 
 
 #   Colors
@@ -123,6 +128,18 @@ class BaseTileItem(QWidget):
         self.setupUi()
         self.refreshUi()
 
+
+    #   Returns the Tile Data
+    @err_catcher(name=__name__)
+    def getSettings(self):
+        settingsFile = os.path.join(pluginRoot, "settings.json")
+
+        with open(settingsFile, 'r') as file:
+            sData = json.load(file)
+
+            if sData:
+                return sData
+    
 
     #   Returns the Tile Data
     @err_catcher(name=__name__)
@@ -331,86 +348,114 @@ class SourceFileItem(BaseTileItem):
         self.setObjectName("texture")
         self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
+
         self.lo_main = QHBoxLayout()
         self.setLayout(self.lo_main)
         self.lo_main.setSpacing(5)
         self.lo_main.setContentsMargins(0, 0, 0, 0)
 
-        self.l_preview = QLabel()
-        self.l_preview.setMinimumWidth(self.itemPreviewWidth)
-        self.l_preview.setMinimumHeight(self.itemPreviewHeight)
-        self.l_preview.setMaximumWidth(self.itemPreviewWidth)
-        self.l_preview.setMaximumHeight(self.itemPreviewHeight)
+        #   Thumbnail Container (Holds the thumbnail & proxy icon)
+        self.thumbContainer = QWidget(self)
+        self.thumbContainer.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
 
-        self.spacer1 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer2 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer3 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer4 = QSpacerItem(15, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer5 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer6 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer7 = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
+        #   Stacked Layout (For Overlaying Elements)
+        self.lo_preview = QStackedLayout(self.thumbContainer)
+        self.lo_preview.setStackingMode(QStackedLayout.StackAll)  # Ensures stacking order
 
-        self.lo_info = QVBoxLayout()
-        self.lo_info.setSpacing(0)
-        self.l_icon = QLabel()
-        self.chb_selected = QCheckBox()
-        self.chb_selected.toggled.connect(self.setSelected)
+        #   Thumbnail Label (Main Image)
+        self.l_preview = QLabel(self.thumbContainer)
+        self.l_preview.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
+        self.lo_preview.addWidget(self.l_preview)  # Add thumbnail first
 
-        self.lo_info.addItem(self.spacer1)
-        self.lo_info.addWidget(self.chb_selected)
-        self.lo_info.addItem(self.spacer2)
-        self.lo_info.addWidget(self.l_icon)
-        self.lo_info.addStretch()
+        #   Proxy Icon Label
+        pxyIconPath = os.path.join(iconPath, "pxy_icon.png")
+        pxyIcon = self.core.media.getColoredIcon(pxyIconPath)
+        self.l_pxyIcon = QLabel(self.thumbContainer)
+        self.l_pxyIcon.setPixmap(pxyIcon.pixmap(40, 40))
+        self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
 
+        #   Position Proxy Icon in Bottom-Left Corner
+        pxy_x = 3
+        pxy_y = self.itemPreviewHeight - self.l_pxyIcon.height()
+        self.l_pxyIcon.move(pxy_x, pxy_y)
+        self.l_pxyIcon.hide()
+
+
+        ##  Create Details Layout
         self.lo_details = QVBoxLayout()
 
+        ##   Create Top Layout
+        self.lo_top = QHBoxLayout()
+
+        #   Selected CheckBox
+        self.chb_selected = QCheckBox()
+        self.chb_selected.toggled.connect(self.setSelected)
+        #   Filename Label
         self.l_fileName = QLabel()
-        self.lo_details.addItem(self.spacer3)
-        self.lo_details.addWidget(self.l_fileName)
-        self.lo_details.addStretch()
 
-        self.w_date = QWidget()
-        self.lo_fileSpecs = QHBoxLayout(self.w_date)
-        self.lo_fileSpecs.setContentsMargins(0, 0, 0, 0)
+        #   Add Items to Top Layout
+        self.lo_top.addWidget(self.chb_selected)
+        self.lo_top.addWidget(self.l_fileName)
+        self.lo_top.addStretch()
 
-        # Date Icon and Label
-        dateIconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "date.png")
+        #   Create Bottom Layout
+        self.lo_bottom = QHBoxLayout()
+
+        #   File Type Icon
+        self.l_icon = QLabel()
+
+        #   Create Date Layout
+        self.lo_date = QHBoxLayout()
+        #   Date Icon
+        dateIconPath = os.path.join(iconPath, "date.png")
         dateIcon = self.core.media.getColoredIcon(dateIconPath)
         self.l_dateIcon = QLabel()
         self.l_dateIcon.setPixmap(dateIcon.pixmap(15, 15))
-
+        #   Date Label
         self.l_date = QLabel()
         self.l_date.setAlignment(Qt.AlignRight)
-        self.lo_fileSpecs.addStretch()
-        self.lo_fileSpecs.addWidget(self.l_dateIcon)
-        self.lo_fileSpecs.addWidget(self.l_date)
 
-        # Disk Icon and Label (for File Size)
-        diskIconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism", "disk.png")
+        #   Add Date Items to Date LAyout
+        self.lo_date.addWidget(self.l_dateIcon, alignment=Qt.AlignVCenter)
+        self.lo_date.addWidget(self.l_date, alignment=Qt.AlignVCenter)
+        
+        #   Create File Size Layout
+        self.lo_fileSize = QHBoxLayout()
+
+        #   Disk Icon
+        diskIconPath = os.path.join(iconPath, "disk.png")
         diskIcon = self.core.media.getColoredIcon(diskIconPath)
         self.l_diskIcon = QLabel()
         self.l_diskIcon.setPixmap(diskIcon.pixmap(15, 15))
-
+        #   File Size Label
         self.l_fileSize = QLabel()
         self.l_fileSize.setAlignment(Qt.AlignRight)
-        self.lo_fileSpecs.addWidget(self.l_diskIcon)
-        self.lo_fileSpecs.addWidget(self.l_fileSize)
 
-        self.lo_details.addItem(self.spacer5)
-        self.lo_details.addStretch()
-        self.lo_details.addWidget(self.w_date)
-        self.lo_details.addItem(self.spacer6)
+        self.lo_fileSize.addWidget(self.l_diskIcon, alignment=Qt.AlignVCenter)
+        self.lo_fileSize.addWidget(self.l_fileSize, alignment=Qt.AlignVCenter)
 
-        self.lo_main.addWidget(self.l_preview)
-        self.lo_main.addLayout(self.lo_info)
-        self.lo_main.addItem(self.spacer7)
+        #   Add Items to Bottom Layout
+        self.lo_bottom.addWidget(self.l_icon, alignment=Qt.AlignVCenter)
+        self.lo_bottom.addStretch()
+        self.lo_bottom.addLayout(self.lo_date)
+        self.lo_bottom.addStretch()
+        self.lo_bottom.addLayout(self.lo_fileSize)
+
+        #   Add Top and Bottom to Details Layout
+        self.lo_details.addLayout(self.lo_top)
+        self.lo_details.addLayout(self.lo_bottom)
+
+        #   Add Layouts to Main Layout
+        self.lo_main.addWidget(self.thumbContainer)
         self.lo_main.addLayout(self.lo_details)
-        self.lo_main.addStretch(1000)
 
+        self.spacer4 = QSpacerItem(30, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.lo_main.addItem(self.spacer4)
 
+        #   Context Menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
+
 
 
     @err_catcher(name=__name__)
@@ -428,6 +473,8 @@ class SourceFileItem(BaseTileItem):
         self.l_date.setText(date)
         self.l_fileSize.setText(size)
 
+        self.setProxyFile()
+
 
     @err_catcher(name=__name__)
     def setIcon(self, icon):
@@ -444,6 +491,59 @@ class SourceFileItem(BaseTileItem):
             painter.setRenderHint(QPainter.Antialiasing, True)
             painter.end()
             self.l_icon.setPixmap(pmap)
+
+
+    #   Sets Proxy Icon and FilePath if Proxy Exists
+    @err_catcher(name=__name__)
+    def setProxyFile(self):
+        proxy = self.getProxyFile()
+
+        if proxy:
+            self.l_pxyIcon.show()
+            tip = (f"Proxy File detected:\n\n"
+                   f"{proxy}")
+            self.l_pxyIcon.setToolTip(tip)
+            self.data["proxyFilePath"] = proxy
+
+
+    #   Uses Setting-defined Template to Search for Proxies
+    @err_catcher(name=__name__)
+    def getProxyFile(self):
+        #   Get the Config Data
+        sData = self.getSettings()
+        proxySearchList = sData.get("proxySearch", [])
+
+        #   Make the Various Names
+        fullPath = self.data['filePath']
+        baseDir = os.path.dirname(fullPath)
+        baseName = os.path.basename(fullPath)
+        fileBase, _ = os.path.splitext(baseName)
+
+        for pathTemplate in proxySearchList:
+            #   Replace Template Placeholders with Actual Names
+            proxyPath = pathTemplate.replace("@MAINFILEDIR@", baseDir).replace("@MAINFILENAME@", fileBase)
+            proxyPath = os.path.normpath(proxyPath)
+
+            #   Extract Names
+            proxyDir = os.path.dirname(proxyPath)
+            targetFile = os.path.basename(proxyPath).lower()
+
+            #   Remove Extension
+            targetFileBase, _ = os.path.splitext(targetFile)
+
+            #   Look for the Proxy
+            if os.path.isdir(proxyDir):
+                for f in os.listdir(proxyDir):
+                    # Remove Extension from the File in the Dir
+                    fileBaseName, _ = os.path.splitext(f.lower())
+
+                    # Compare the base names (case-insensitive)
+                    if fileBaseName == targetFileBase:
+                        logger.debug(f"Proxy found for {targetFileBase}.")
+                        return os.path.join(proxyDir, f)
+
+        logger.debug(f"No Proxies found for {fileBase}")
+        return None
 
 
     @err_catcher(name=__name__)
@@ -529,7 +629,6 @@ class SourceFileItem(BaseTileItem):
 
 
         rcmenu.exec_(QCursor.pos())
-
     
     @err_catcher(name=__name__)
     def addToDestList(self):
@@ -570,39 +669,58 @@ class DestFileItem(BaseTileItem):
         self.lo_main.setSpacing(5)
         self.lo_main.setContentsMargins(0, 0, 0, 0)
 
-        self.l_preview = QLabel()
-        self.l_preview.setMinimumWidth(self.itemPreviewWidth)
-        self.l_preview.setMinimumHeight(self.itemPreviewHeight)
-        self.l_preview.setMaximumWidth(self.itemPreviewWidth)
-        self.l_preview.setMaximumHeight(self.itemPreviewHeight)
+        #   Thumbnail Container (Holds the thumbnail & proxy icon)
+        self.thumbContainer = QWidget(self)
+        self.thumbContainer.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
 
-        self.spacer1 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer2 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer3 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer4 = QSpacerItem(15, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer5 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer6 = QSpacerItem(0, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.spacer7 = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Fixed)
+        #   Stacked Layout (For Overlaying Elements)
+        self.lo_preview = QStackedLayout(self.thumbContainer)
+        self.lo_preview.setStackingMode(QStackedLayout.StackAll)  # Ensures stacking order
 
-        self.lo_info = QVBoxLayout()
-        self.lo_info.setSpacing(0)
-        self.l_icon = QLabel()
-        self.chb_selected = QCheckBox()
-        self.chb_selected.toggled.connect(self.setSelected)
+        #   Thumbnail Label (Main Image)
+        self.l_preview = QLabel(self.thumbContainer)
+        self.l_preview.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
+        self.lo_preview.addWidget(self.l_preview)  # Add thumbnail first
 
-        self.lo_info.addItem(self.spacer1)
-        self.lo_info.addWidget(self.chb_selected)
-        self.lo_info.addItem(self.spacer2)
-        self.lo_info.addWidget(self.l_icon)
-        self.lo_info.addStretch()
+        #   Proxy Icon Label
+        pxyIconPath = os.path.join(iconPath, "pxy_icon.png")
+        pxyIcon = self.core.media.getColoredIcon(pxyIconPath)
+        self.l_pxyIcon = QLabel(self.thumbContainer)
+        self.l_pxyIcon.setPixmap(pxyIcon.pixmap(40, 40))
+        self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
+
+        #   Position Proxy Icon in Bottom-Left Corner
+        pxy_x = 3
+        pxy_y = self.itemPreviewHeight - self.l_pxyIcon.height()
+        self.l_pxyIcon.move(pxy_x, pxy_y)
+        self.l_pxyIcon.hide()
 
 
+        ##  Create Details Layout
         self.lo_details = QVBoxLayout()
 
+        ##   Create Top Layout
+        self.lo_top = QHBoxLayout()
+
+        #   Selected CheckBox
+        self.chb_selected = QCheckBox()
+        self.chb_selected.toggled.connect(self.setSelected)
+        #   Filename Label
         self.l_fileName = QLabel()
-        self.lo_details.addItem(self.spacer3)
-        self.lo_details.addWidget(self.l_fileName)
-        self.lo_details.addStretch()
+
+        #   Add Items to Top Layout
+        self.lo_top.addWidget(self.chb_selected)
+        self.lo_top.addWidget(self.l_fileName)
+        self.lo_top.addStretch()
+
+
+
+        #   Create Bottom Layout
+        self.lo_bottom = QHBoxLayout()
+
+        #   File Type Icon
+        self.l_icon = QLabel()
+
 
 
         # Add progress bar
@@ -615,18 +733,26 @@ class DestFileItem(BaseTileItem):
 
         self.progressBar.setVisible(False)
 
-        self.lo_details.addWidget(self.progressBar)
-        self.lo_details.addItem(self.spacer5)
 
 
-        self.lo_main.addWidget(self.l_preview)
-        self.lo_main.addLayout(self.lo_info)
-        # self.lo_main.addItem(self.spacer7)
+        #   Add Items to Bottom Layout
+        self.lo_bottom.addWidget(self.l_icon, alignment=Qt.AlignVCenter)
+        self.spacer3 = QSpacerItem(40, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.lo_main.addItem(self.spacer3)
+        self.lo_bottom.addWidget(self.progressBar)
+
+        #   Add Top and Bottom to Details Layout
+        self.lo_details.addLayout(self.lo_top)
+        self.lo_details.addLayout(self.lo_bottom)
+
+        #   Add Layouts to Main Layout
+        self.lo_main.addWidget(self.thumbContainer)
         self.lo_main.addLayout(self.lo_details)
-        # self.lo_main.addStretch(1000)
 
+        self.spacer4 = QSpacerItem(30, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.lo_main.addItem(self.spacer4)
 
+        #   Context Menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
 
@@ -642,15 +768,39 @@ class DestFileItem(BaseTileItem):
 
         self.refreshPreview()
         self.setIcon(icon)
-        self.l_fileName.setText(os.path.basename(self.data.get("filePath", "")))
-        self.l_fileName.setToolTip(self.data.get("filePath", ""))
+        self.setProxy()
+
+        self.l_fileName.setText(self.getFilename())
+        tip = (f"Source File:  {self.getSourcePath()}\n"
+               f"Destination File:  {self.getDestPath()}")
+        self.l_fileName.setToolTip(tip)
+
         # self.l_date.setText(date)
         # self.l_fileSize.setText(size)
 
 
     @err_catcher(name=__name__)
+    def getSourcePath(self):
+        return self.data.get("filePath", None)
+    
+
+    @err_catcher(name=__name__)
+    def getFilename(self):
+        return os.path.basename(self.getSourcePath())    
+
+
+
+    @err_catcher(name=__name__)
+    def getDestPath(self):
+        baseName = os.path.basename(self.data["filePath"])
+        destDir = self.browser.l_destPath.text()
+        destPath = os.path.join(destDir, baseName)
+        return os.path.normpath(destPath)
+    
+
+    @err_catcher(name=__name__)
     def setIcon(self, icon):
-        self.l_icon.setToolTip(os.path.basename(self.data["filePath"]))
+        self.l_icon.setToolTip(self.getFilename())
         if isinstance(icon, QIcon):
             self.l_icon.setPixmap(icon.pixmap(24, 24))
         else:
@@ -663,6 +813,25 @@ class DestFileItem(BaseTileItem):
             painter.setRenderHint(QPainter.Antialiasing, True)
             painter.end()
             self.l_icon.setPixmap(pmap)
+
+
+    #   Sets Proxy Icon and FilePath if Proxy Exists
+    @err_catcher(name=__name__)
+    def getProxy(self):
+        return self.data.get("proxyFilePath", None)
+
+
+
+    #   Sets Proxy Icon and FilePath if Proxy Exists
+    @err_catcher(name=__name__)
+    def setProxy(self):
+        proxy = self.getProxy()
+
+        if proxy:
+            self.l_pxyIcon.show()
+            tip = (f"Proxy File detected:\n\n"
+                   f"{proxy}")
+            self.l_pxyIcon.setToolTip(tip)
 
 
     @err_catcher(name=__name__)
@@ -758,12 +927,12 @@ class DestFileItem(BaseTileItem):
 
 
     @err_catcher(name=__name__)
-    def start_transfer(self, origin, destPath):
+    def start_transfer(self, origin, destPath, options):
         """Starts the file transfer using a background thread."""
 
         self.destPath = destPath
 
-        self.worker = FileCopyWorker(self.data["filePath"], destPath)
+        self.worker = FileCopyWorker(self.getSourcePath(), destPath)
         self.worker.progress.connect(self.update_progress)
         self.worker.finished.connect(self.copy_complete)
         self.worker.start()

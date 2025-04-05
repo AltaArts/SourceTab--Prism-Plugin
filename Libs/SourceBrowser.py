@@ -210,7 +210,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         dirIcon = QIcon(os.path.join(iconDir, "file_folder.png"))
 
         ##   Source Panel
-
         #   Set Button Icons
         self.b_sourcePathUp.setIcon(upIcon)
         self.b_browseSource.setIcon(dirIcon)
@@ -224,7 +223,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
         ##  Destination Panel
-
         #   Set Button Icons
         self.b_destPathUp.setIcon(upIcon)
         self.b_browseDest.setIcon(dirIcon)
@@ -237,9 +235,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_destination.horizontalHeader().setStretchLastSection(True)
 
 
-
         ##  Right Side Panel
-
         self.lo_rightPanel = QVBoxLayout()
 
         # Media Player
@@ -250,6 +246,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         # Create another vertical layout for additional functions
         self.lo_functions = QVBoxLayout()
+
+        self.chb_copyProxy = QCheckBox("Copy Proxies")
+        self.lo_functions.addWidget(self.chb_copyProxy)
 
         self.b_test = QPushButton("Transfer")
         self.lo_functions.addWidget(self.b_test)
@@ -577,8 +576,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def explorer(self, mode, dir=None):
-        if not dir and hasattr(self, "sourceDir"):
-            dir = self.sourceDir
+        if not dir:
+            if hasattr(self, "sourceDir"):
+                dir = self.sourceDir
+            if hasattr(self, "destDir"):
+                dir = self.destDir
 
         # Create file dialog
         dialog = QFileDialog(None, f"Select {mode.capitalize()} Directory", dir or "")
@@ -600,10 +602,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             if mode == "source":
                 self.sourceDir = selected_path
+                self.refreshSourceItems()
             elif mode == "dest":
                 self.destDir = selected_path
+                self.refreshDestItems()
 
-            self.refreshUI()
             return selected_path
 
 
@@ -643,6 +646,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
+        if hasattr(self, "sourceDir"):
+            self.l_sourcePath.setText(self.sourceDir)
+
         self.tw_source.setRowCount(0)  # Clear existing rows
 
         if not hasattr(self, "sourceDir"):
@@ -711,6 +717,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
+        if hasattr(self, "destDir"):
+            self.l_destPath.setText(self.destDir)
+
         self.tw_destination.setRowCount(0)  # Clear existing rows
 
         row = 0
@@ -922,16 +931,22 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if len(self.copyList) == 0:
             self.core.popup("There are no Items Selected to Transfer")
             return False
+        
+        if not os.path.isdir(self.l_destPath.text()):
+            self.core.popup("YOU FORGOT TO SELECT DEST DIR")
+            return False
+
 
         for item in self.copyList:
             basefile = os.path.basename(item.data["filePath"])
 
-            if not os.path.isdir(self.l_destPath.text()):
-                self.core.popup("YOU FORGOT TO SELECT DEST DIR")
-                return
+            options = {}
+
+            options["copyProxy"] = self.chb_copyProxy.isChecked()
+
             
             destPath = os.path.join(self.l_destPath.text(), basefile)
-            item.start_transfer(self, destPath)
+            item.start_transfer(self, destPath, options)
 
 
 
