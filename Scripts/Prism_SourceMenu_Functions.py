@@ -33,6 +33,7 @@
 
 import os
 import sys
+import json
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -43,6 +44,8 @@ from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 pluginPath = os.path.dirname(os.path.dirname(__file__))                              #   NEEDED ???
 sys.path.append(pluginPath)
 sys.path.append(os.path.join(pluginPath, "Libs"))
+
+SETTINGS_FILE = os.path.join(pluginPath, "settings.json")
 
 import SourceBrowser as SourceBrowser
 
@@ -63,13 +66,59 @@ class Prism_SourceMenu_Functions(object):
     def isActive(self):
         return True
     
-    
+
+    @err_catcher(name=__name__)
     def sourceBrowserStartup(self, origin):
+        self.loadSettings()
         self.pbMenu = origin
 
 
+    @err_catcher(name=__name__)
     def postInitialize(self):
         self.pb = self.core.pb
         self.sourceBrowser = SourceBrowser.SourceBrowser(core=self.core, projectBrowser=self.pb, refresh=False)
         self.pbMenu.addTab("Source", self.sourceBrowser, position=0)
+
+
+    #   Loads thr Saved Setting
+    @err_catcher(name=__name__)
+    def loadSettings(self):
+        if os.path.exists(SETTINGS_FILE):                           #   TODO
+            pass
+        else:
+            self.createSettings()
+
+
+    #   Creates the Settings File
+    @err_catcher(name=__name__)
+    def createSettings(self):
+        default_data = self.getDefaultSettings()
+        try:
+            with open(SETTINGS_FILE, "w") as f:
+                json.dump(default_data, f, indent=4)
+        except Exception as e:
+            print(f"Failed to write settings file: {e}")
+
+
+    #   Default Settings File Data
+    @err_catcher(name=__name__)
+    def getDefaultSettings(self):
+        sData = {"proxySearch": [
+        r"@MAINFILEDIR@\proxy\@MAINFILENAME@",
+        r"@MAINFILEDIR@\pxy\@MAINFILENAME@",
+        r"@MAINFILEDIR@\proxies\@MAINFILENAME@",
+        r"@MAINFILEDIR@\proxys\@MAINFILENAME@",
+        r"@MAINFILEDIR@\proxy\@MAINFILENAME@_proxy",
+        r"@MAINFILEDIR@\pxy\@MAINFILENAME@_proxy",
+        r"@MAINFILEDIR@\proxies\@MAINFILENAME@_proxy",
+        r"@MAINFILEDIR@\proxys\@MAINFILENAME@_proxy",
+        r"@MAINFILEDIR@\@MAINFILENAME@_proxy",
+        r"@MAINFILEDIR@\..\proxy\@MAINFILENAME@",
+        r"@MAINFILEDIR@\..\pxys\@MAINFILENAME@",
+        r"@MAINFILEDIR@\..\proxies\@MAINFILENAME@",
+        r"@MAINFILEDIR@\..\proxys\@MAINFILENAME@"
+        ]
+        }
+
+        return sData
 
