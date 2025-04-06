@@ -113,7 +113,7 @@ class BaseTileItem(QWidget):
         self.data = data
 
         #   Renames Prism Functions for ease
-        self.getPixmapFromPath = self.core.media.getPixmapFromPath
+        # self.getPixmapFromPath = self.core.media.getPixmapFromPath
         self.getThumbnailPath = self.core.media.getThumbnailPath
 
         #   Set initial Selected State
@@ -131,6 +131,50 @@ class BaseTileItem(QWidget):
 
         self.setupUi()
         self.refreshUi()
+
+
+    #   Launches the Double-click File Action from the Main plugin
+    @err_catcher(name=__name__)
+    def mouseDoubleClickEvent(self, event):
+        self.browser.doubleClickFile(self.data["filePath"])
+
+
+    #   Sets the Tile State Selected
+    @err_catcher(name=__name__)
+    def select(self):
+        wasSelected = self.isSelected()
+        self.signalSelect.emit(self)
+        if not wasSelected:
+            self.isSelected = True
+            self.applyStyle(self.isSelected)
+            self.setFocus()
+
+
+    #   Sets the Tile State UnSelected
+    @err_catcher(name=__name__)
+    def deselect(self):
+        if self.isSelected == True:
+            self.isSelected = False
+            self.applyStyle(self.isSelected)
+
+
+    #   Returns if the State is Selected
+    @err_catcher(name=__name__)
+    def getSelected(self):
+        return self.isSelected
+    
+
+    #   Sets the State Selected based on the Checkbox
+    @err_catcher(name=__name__)
+    def setSelected(self, checked=None):
+        self.isSelected = self.chb_selected.isChecked()
+
+
+    #   Sets the Checkbox and sets the State
+    @err_catcher(name=__name__)
+    def setChecked(self, checked):
+        self.chb_selected.setChecked(checked)
+        self.setSelected()
 
 
     #   Returns the Tile Data
@@ -174,20 +218,12 @@ class BaseTileItem(QWidget):
         return os.path.basename(filePath)
     
 
+    #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
-    def getFileHash(self, filePath, chunk_size=8192):
-        hash_func = hashlib.sha256()
-        
-        with open(filePath, "rb") as f:
-            hash_func.update(f.read(chunk_size))  # Read first chunk
-            f.seek(-chunk_size, os.SEEK_END)  # Jump to last chunk
-            hash_func.update(f.read(chunk_size))  
-
-        # Include file size as part of hash computation
-        file_size = os.path.getsize(filePath)
-        hash_func.update(str(file_size).encode())  # Hash the file size
-
-        return hash_func.hexdigest()
+    def setFileHash(self, filePath, callback=None):
+        worker = FileHashWorker(filePath)
+        worker.signals.finished.connect(callback)
+        self.threadPool.start(worker)
     
 
     @err_catcher(name=__name__)
@@ -218,71 +254,23 @@ class BaseTileItem(QWidget):
         thumbPath = self.getThumbnailPath(filePath)
 
         # Create Worker Thread
-        worker = ThumbnailWorker(filePath, thumbPath, self.getPixmap, self.itemPreviewWidth, self.itemPreviewHeight)
-
-        #   Signal Connections
-        worker.result.connect(self.updatePreview)  
-        worker.finished.connect(worker.deleteLater)
-
-        #   Call the Thread Start
+        worker = ThumbnailWorker(
+            filePath=filePath,
+            getPixmapFromPath=self.core.media.getPixmapFromPath,
+            supportedFormats=self.core.media.supportedFormats,
+            width=self.itemPreviewWidth,
+            height=self.itemPreviewHeight,
+            getThumbnailPath=self.getThumbnailPath,
+            scalePixmapFunc=self.core.media.scalePixmap
+        )
+        worker.result.connect(self.updatePreview)
         self.threadPool.start(worker)
         
 
-    #   Gets Pixmap from Prism function
     @err_catcher(name=__name__)
-    def getPixmap(self):
-        filePath = self.getSource_mainfilePath()
-        extension = self.getFileExtension()
-
-        #   If Extension in supported formats
-        if not extension.lower() in self.core.media.supportedFormats:
-
-            # Use the file's icon if it's not Supported Format
-            file_info = QFileInfo(filePath)
-            icon_provider = QFileIconProvider()
-            icon = icon_provider.icon(file_info)
-            icon_pixmap = icon.pixmap(self.itemPreviewWidth, self.itemPreviewHeight)
-
-            if icon_pixmap:
-                logger.debug(f"Using File Icon for Unsupported Format: {extension.lower()}")
-                return icon_pixmap, "icon"
-            else:
-                return None, None
-
-        # Generate Thumbnail if File is Supported
-        self.data["thumbPath"] = self.getThumbnailPath(filePath)
-
-        pixmap = self.getPixmapFromPath(filePath,
-                                        width=self.itemPreviewWidth,
-                                        height=self.itemPreviewHeight,
-                                        colorAdjust=False)
-        if pixmap:
-            return pixmap, "image"
-        else:
-            return None, None
-        
-
-    #    Update Thumbnail when Ready
-    @err_catcher(name=__name__)
-    def updatePreview(self, pixmap, pmapType):
-        if pixmap:
-            if pmapType == "icon":
-                fitIntoBounds=True
-                crop = False
-                scale = .5
-            else:
-                fitIntoBounds=False
-                crop = True
-                scale = 1
-
-            scaledPixmap = self.core.media.scalePixmap(pixmap,
-                                                       self.itemPreviewWidth * scale,
-                                                       self.itemPreviewHeight * scale,
-                                                       fitIntoBounds=fitIntoBounds,
-                                                       crop=crop)
-            
-            self.l_preview.setAlignment(Qt.AlignCenter)
-            self.l_preview.setPixmap(scaledPixmap)
+    def updatePreview(self, scaledPixmap):
+        self.l_preview.setAlignment(Qt.AlignCenter)
+        self.l_preview.setPixmap(scaledPixmap)
 
 
     #   Returns File's Extension
@@ -361,48 +349,7 @@ class BaseTileItem(QWidget):
             return self.data["color"]
 
 
-    #   Launches the Double-click File Action from the Main plugin
-    @err_catcher(name=__name__)
-    def mouseDoubleClickEvent(self, event):
-        self.browser.doubleClickFile(self.data["filePath"])
 
-
-    #   Sets the Tile State Selected
-    @err_catcher(name=__name__)
-    def select(self):
-        wasSelected = self.isSelected()
-        self.signalSelect.emit(self)
-        if not wasSelected:
-            self.isSelected = True
-            self.applyStyle(self.isSelected)
-            self.setFocus()
-
-
-    #   Sets the Tile State UnSelected
-    @err_catcher(name=__name__)
-    def deselect(self):
-        if self.isSelected == True:
-            self.isSelected = False
-            self.applyStyle(self.isSelected)
-
-
-    #   Returns if the State is Selected
-    @err_catcher(name=__name__)
-    def getSelected(self):
-        return self.isSelected
-    
-
-    #   Sets the State Selected based on the Checkbox
-    @err_catcher(name=__name__)
-    def setSelected(self, checked=None):
-        self.isSelected = self.chb_selected.isChecked()
-
-
-    #   Sets the Checkbox and sets the State
-    @err_catcher(name=__name__)
-    def setChecked(self, checked):
-        self.chb_selected.setChecked(checked)
-        self.setSelected()
 
 
 
@@ -503,7 +450,7 @@ class SourceFileItem(BaseTileItem):
         self.l_diskIcon = QLabel()
         self.l_diskIcon.setPixmap(diskIcon.pixmap(15, 15))
         #   File Size Label
-        self.l_fileSize = QLabel()
+        self.l_fileSize = QLabel("--")
         self.l_fileSize.setAlignment(Qt.AlignRight)
 
         self.lo_fileSize.addWidget(self.l_diskIcon, alignment=Qt.AlignVCenter)
@@ -558,11 +505,18 @@ class SourceFileItem(BaseTileItem):
         self.l_fileSize.setText(mainSize_str)
 
         #   Set Hash
-        self.data["hash"] = self.getFileHash(filePath)
-        self.l_fileSize.setToolTip(f"FileHash: {self.data.get('hash', '')}")
+        self.l_fileSize.setToolTip("Calculating file hash...")
+        self.setFileHash(filePath, self.onFileHashReady)
 
         self.refreshPreview()
         self.setProxyFile()
+
+
+    #   Populates Hash when ready from Thread
+    @err_catcher(name=__name__)
+    def onFileHashReady(self, result_hash):
+        self.data["hash"] = result_hash
+        self.l_fileSize.setToolTip(f"FileHash: {result_hash}")
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
@@ -708,8 +662,6 @@ class SourceFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def addToDestList(self):
         self.browser.addToDestList(self.data)
-
-
 
 
 
@@ -1103,7 +1055,6 @@ class DestFileItem(BaseTileItem):
         self.browser.removeFromDestList(self.data)
 
 
-
     @err_catcher(name=__name__)
     def start_transfer(self, origin, destPath, options):
         self.isFinished = False
@@ -1162,6 +1113,7 @@ class DestFileItem(BaseTileItem):
             # self.progressBar.setStyleSheet("background-color: rgb(255, 0, 0);")
 
 
+    #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
     def update_progress(self, value, copied_size):
         self.progressBar.setValue(value)
@@ -1169,6 +1121,7 @@ class DestFileItem(BaseTileItem):
         self.l_size_copied.setText(self.getCopiedSize(copied_size))
 
 
+    #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
     def copy_complete(self, success):
         #   Sets Destination FilePath ToolTip
@@ -1176,49 +1129,44 @@ class DestFileItem(BaseTileItem):
 
         if success:
             self.isFinished = True
-
-            #   Force Prog Bar to 100%
             self.progressBar.setValue(100)
-            
-            #   If the Destination File Exists
+
             if os.path.isfile(self.destPath):
-                #   Retrieve the Orignal Hash Value
-                orig_hash = self.data["hash"]
-                #   Calculate the Hash of the Transfered File
-                dest_hash = self.getFileHash(self.destPath)
-
-                #   Hashes Are Equal
-                if dest_hash == orig_hash:
-                    statusMsg = "Transfer Successful"
-                    status = "complete"
-                    logger.debug(f"Transfer complete: {self.getSource_mainfilePath()}")    
-                
-                #   Hashes Are Not Equal
-                else:
-                    statusMsg = "ERROR:  Transfered Hash Incorrect"
-                    status = "error"
-                    logger.debug(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")   
-
-                hashMsg = (f"Status: {statusMsg}\n\n"
-                           f"Source Hash:  {orig_hash}\n"
-                           f"Transfer Hash: {dest_hash}")
-
-            #   Destination File Does Not Exist
-            else: 
+                #   Calls for Hash Generation with Callback
+                self.setFileHash(self.destPath, self.onDestHashReady)
+                return
+            else:
                 hashMsg = "ERROR:  Transfer File Does Not Exist"
                 status = "error"
                 logger.warning(f"Transfer failed: {self.data['filePath']}")
-
-        #   Did not Receive the Success Signal
         else:
             hashMsg = "ERROR:  Transfer failed"
             status = "error"
             logger.warning(f"Transfer failed: {self.getSource_mainfilePath()}")
 
-        #   Set Progress Bar UI
+        # Final fallback (error case only)
         self.setProgressBarStatus(status, tooltip=hashMsg)
 
 
+    #   Called After Hash Genertaion for UI Feedback
+    @err_catcher(name=__name__)
+    def onDestHashReady(self, dest_hash):
+        orig_hash = self.data.get("hash", None)
+
+        if dest_hash == orig_hash:
+            statusMsg = "Transfer Successful"
+            status = "complete"
+            logger.debug(f"Transfer complete: {self.getSource_mainfilePath()}")
+        else:
+            statusMsg = "ERROR:  Transfered Hash Incorrect"
+            status = "error"
+            logger.debug(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
+
+        hashMsg = (f"Status: {statusMsg}\n\n"
+                f"Source Hash:  {orig_hash}\n"
+                f"Transfer Hash: {dest_hash}")
+
+        self.setProgressBarStatus(status, tooltip=hashMsg)
 
 
 #   FOLDER
@@ -1385,59 +1333,106 @@ class FolderItem(BaseTileItem):
 
 
 
+###     Thumbnail Worker Thread
+
 #   Signal object to communicate between threads and the main UI
 class ThumbnailSignal(QObject):
     finished = Signal(QPixmap, str)
 
-
-
-#   Worker thread for loading thumbnails
 class ThumbnailWorker(QRunnable, QObject):
-
-    #   Signals
     finished = Signal()
-    result = Signal(QPixmap, object)  
+    result = Signal(QPixmap)  # Only return final scaled pixmap now
 
-    def __init__(self, filePath, thumbPath, getPixmapFunc, width, height):
+    def __init__(self, filePath, getPixmapFromPath, supportedFormats,
+                 width, height, getThumbnailPath, scalePixmapFunc):
         super().__init__()
-        QObject.__init__(self)  
+        QObject.__init__(self)
         self.filePath = filePath
-        self.thumbPath = thumbPath
-        self.getPixmapFunc = getPixmapFunc
+        self.getPixmapFromPath = getPixmapFromPath
+        self.supportedFormats = supportedFormats
         self.width = width
         self.height = height
+        self.getThumbnailPath = getThumbnailPath
+        self.scalePixmapFunc = scalePixmapFunc
 
-
-    #   Generates and Loads Thumb in Thread
     @Slot()
     def run(self):
-        #   Limits number of threads
         thumb_semaphore.acquire()
 
         try:
             pixmap = None
-            #   Uses the Saved Thumb if it exists
-            if os.path.exists(self.thumbPath):
-                pixmap = QPixmap(self.thumbPath)
-                pmapType = "image"
-            #   Generates New Thumbnail
-            else:
-                pixmap, pmapType = self.getPixmapFunc()
+            extension = os.path.splitext(self.filePath)[1].lower()
 
-            #   Emits Pixmap Signal
+            if extension not in self.supportedFormats:
+                file_info = QFileInfo(self.filePath)
+                icon_provider = QFileIconProvider()
+                icon = icon_provider.icon(file_info)
+                pixmap = icon.pixmap(self.width, self.height)
+                fitIntoBounds = True
+                crop = False
+                scale = 0.5
+                logger.debug(f"Using File Icon for Unsupported Format: {extension}")
+            else:
+                thumbPath = self.getThumbnailPath(self.filePath)
+                if os.path.exists(thumbPath):
+                    pixmap = QPixmap(thumbPath)
+                else:
+                    pixmap = self.getPixmapFromPath(
+                        self.filePath,
+                        width=self.width,
+                        height=self.height,
+                        colorAdjust=False
+                    )
+                fitIntoBounds = False
+                crop = True
+                scale = 1
+
             if pixmap:
-                self.result.emit(pixmap, pmapType)
+                scaledPixmap = self.scalePixmapFunc(
+                    pixmap,
+                    self.width * scale,
+                    self.height * scale,
+                    fitIntoBounds=fitIntoBounds,
+                    crop=crop
+                )
+                self.result.emit(scaledPixmap)
 
         finally:
-            #   Emit Finished Signal
-            self.finished.emit()  
-            #   Release thread slot
+            self.finished.emit()
             thumb_semaphore.release()
 
 
+###     Hash Worker Thread
+
+class FileHashWorkerSignals(QObject):
+    finished = Signal(str)  # emits the final hash
+
+class FileHashWorker(QRunnable):
+    def __init__(self, filePath):
+        super(FileHashWorker, self).__init__()
+        self.filePath = filePath
+        self.signals = FileHashWorkerSignals()
+
+    def run(self):
+        try:
+            import hashlib, os
+            chunk_size = 8192
+            hash_func = hashlib.sha256()
+            with open(self.filePath, "rb") as f:
+                hash_func.update(f.read(chunk_size))  # First chunk
+                f.seek(-chunk_size, os.SEEK_END)      # Last chunk
+                hash_func.update(f.read(chunk_size))
+            file_size = os.path.getsize(self.filePath)
+            hash_func.update(str(file_size).encode())
+            result_hash = hash_func.hexdigest()
+            self.signals.finished.emit(result_hash)
+        except Exception as e:
+            print(f"[FileHashWorker] Error hashing {self.filePath} - {e}")
+            self.signals.finished.emit("Error")
 
 
-import time
+
+###     Transfer Worker Thread
 
 class FileCopyWorker(QThread):
     progress = Signal(int, float)
