@@ -1,16 +1,23 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'SourceBrowser.ui'
+## Form generated from reading UI file 'SourceFunctions.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.7.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QProgressBar,
+    QPushButton, QSizePolicy, QSpacerItem, QSplitter,
+    QVBoxLayout, QWidget)
 
 class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
@@ -21,9 +28,10 @@ class Ui_w_sourceFunctions(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
+        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(8)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.w_functions.sizePolicy().hasHeightForWidth())
@@ -31,7 +39,7 @@ class Ui_w_sourceFunctions(object):
         self.verticalLayout_8 = QVBoxLayout(self.w_functions)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_8.addItem(self.verticalSpacer)
 
@@ -40,25 +48,30 @@ class Ui_w_sourceFunctions(object):
 
         self.verticalLayout_8.addWidget(self.chb_copyProxy)
 
+        self.lo_transferButtons = QHBoxLayout()
+        self.lo_transferButtons.setObjectName(u"lo_transferButtons")
         self.b_transfer_start = QPushButton(self.w_functions)
         self.b_transfer_start.setObjectName(u"b_transfer_start")
 
-        self.verticalLayout_8.addWidget(self.b_transfer_start)
+        self.lo_transferButtons.addWidget(self.b_transfer_start)
 
         self.b_transfer_pause = QPushButton(self.w_functions)
         self.b_transfer_pause.setObjectName(u"b_transfer_pause")
 
-        self.verticalLayout_8.addWidget(self.b_transfer_pause)
+        self.lo_transferButtons.addWidget(self.b_transfer_pause)
 
         self.b_transfer_resume = QPushButton(self.w_functions)
         self.b_transfer_resume.setObjectName(u"b_transfer_resume")
 
-        self.verticalLayout_8.addWidget(self.b_transfer_resume)
+        self.lo_transferButtons.addWidget(self.b_transfer_resume)
 
         self.b_transfer_cancel = QPushButton(self.w_functions)
         self.b_transfer_cancel.setObjectName(u"b_transfer_cancel")
 
-        self.verticalLayout_8.addWidget(self.b_transfer_cancel)
+        self.lo_transferButtons.addWidget(self.b_transfer_cancel)
+
+
+        self.verticalLayout_8.addLayout(self.lo_transferButtons)
 
         self.progBar_total = QProgressBar(self.w_functions)
         self.progBar_total.setObjectName(u"progBar_total")

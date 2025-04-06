@@ -172,16 +172,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.refreshSourceItems()
         self.refreshDestItems()
 
+        self.configTransButtons("initial")
+
 
     @err_catcher(name=__name__)
     def loadLayout(self):
-        # import EntityWidget
-
-        # self.w_entities = EntityWidget.EntityWidget(core=self.core, refresh=False, mode="media")    #   TODO
-        # self.splitter.insertWidget(0, self.w_entities)
-
-        # self.w_autoUpdate.setVisible(False)
-
         cData = self.core.getConfig()
         brsData = cData.get("browser", {})
 
@@ -218,10 +213,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_browseSource.setIcon(dirIcon)
 
         #   Source Table setup
-        self.tw_source.setColumnCount(2)
+        self.tw_source.setColumnCount(1)
         self.tw_source.horizontalHeader().setVisible(False)
         self.tw_source.verticalHeader().setVisible(False)
-        self.tw_source.setColumnWidth(0, 50)
+        # self.tw_source.setColumnWidth(0, 50)
         self.tw_source.horizontalHeader().setStretchLastSection(True)
 
 
@@ -307,7 +302,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.chb_autoUpdate.stateChanged.connect(self.updateChanged)
         # self.b_refresh.clicked.connect(self.refreshRender)
 
-        self.tw_source.itemSelectionChanged.connect(self.sourceClicked)
+        # self.tw_source.itemSelectionChanged.connect(self.sourceClicked)
         # self.tw_destination.itemSelectionChanged.connect(self.sourceClicked)
         # self.tw_destination.mmEvent = self.tw_destination.mouseMoveEvent
         # self.tw_destination.mouseMoveEvent = lambda x: self.w_preview.mediaPlayer.mouseDrag(x, self.tw_destination)
@@ -344,12 +339,43 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
+    def configTransButtons(self, mode):
+        match mode:
+            case "initial":
+                self.sourceFuncts.b_transfer_start.setVisible(True)
+                self.sourceFuncts.b_transfer_pause.setVisible(False)
+                self.sourceFuncts.b_transfer_resume.setVisible(False)
+                self.sourceFuncts.b_transfer_cancel.setVisible(False)
+
+            case "transfer":
+                self.sourceFuncts.b_transfer_start.setVisible(False)
+                self.sourceFuncts.b_transfer_pause.setVisible(True)
+                self.sourceFuncts.b_transfer_resume.setVisible(False)
+                self.sourceFuncts.b_transfer_cancel.setVisible(True)                
+
+            case "pause":
+                self.sourceFuncts.b_transfer_start.setVisible(False)
+                self.sourceFuncts.b_transfer_pause.setVisible(False)
+                self.sourceFuncts.b_transfer_resume.setVisible(True)
+                self.sourceFuncts.b_transfer_cancel.setVisible(True)
+
+            case "resume":
+                self.sourceFuncts.b_transfer_start.setVisible(False)
+                self.sourceFuncts.b_transfer_pause.setVisible(True)
+                self.sourceFuncts.b_transfer_resume.setVisible(False)
+                self.sourceFuncts.b_transfer_cancel.setVisible(True)
+            
+            case "cancel":
+                self.sourceFuncts.b_transfer_start.setVisible(True)
+                self.sourceFuncts.b_transfer_pause.setVisible(False)
+                self.sourceFuncts.b_transfer_resume.setVisible(False)
+                self.sourceFuncts.b_transfer_cancel.setVisible(False)
+
+
+    @err_catcher(name=__name__)
     def resetProgBar(self):
         #   Reset Total Progess Bar
         self.sourceFuncts.progBar_total.setValue(0)
-
-
-
 
 
     @err_catcher(name=__name__)
@@ -382,23 +408,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.debug(f"Created UID: {shortUID}")
 
             return shortUID
-
-
-    @err_catcher(name=__name__)
-    def getFileHash(self, filePath, chunk_size=8192):
-        hash_func = hashlib.sha256()
-        
-        with open(filePath, "rb") as f:
-            hash_func.update(f.read(chunk_size))  # Read first chunk
-            f.seek(-chunk_size, os.SEEK_END)  # Jump to last chunk
-            hash_func.update(f.read(chunk_size))  
-
-        # Include file size as part of hash computation
-        file_size = os.path.getsize(filePath)
-        hash_func.update(str(file_size).encode())  # Hash the file size
-
-        return hash_func.hexdigest()
-
 
 
     @err_catcher(name=__name__)
@@ -441,16 +450,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def selectAll(self, checked=True, mode=None):
         if mode == "source":
             table = self.tw_source
-            col = 1
         elif mode == "dest":
-            col = 0
             table = self.tw_destination
 
         row_count = table.rowCount()
 
         for row in range(row_count):
-            fileItem = table.cellWidget(row, col)
-            if fileItem is not None:
+            fileItem = table.cellWidget(row, 0)
+            if fileItem is not None and fileItem.data["tileType"] == "file":
                 fileItem.setChecked(checked)
 
 
@@ -543,13 +550,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def getCurrentAOV(self):
         return self.w_preview.getCurrentAOV()
 
+
     @err_catcher(name=__name__)
     def getCurrentSource(self):
         return self.w_preview.getCurrentSource()
 
+
     @err_catcher(name=__name__)
     def getCurrentFilelayer(self):
         return self.w_preview.getCurrentFilelayer()
+
 
     @err_catcher(name=__name__)
     def getMediaTasks(self, entity=None):
@@ -671,28 +681,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 fileItem = self.createSourceFileTile(fullPath)
                 fileItems[fileType].append(fileItem)
 
-        # Define column mappings for the different types
-        columnMapping = {
-            "folder": 0,
-            "video": 1,
-            "image": 1,
-            "audio": 1,
-            "other": 1
-        }
-
         row = 0
         # Iterate over the categories and add them to the table
         for fileType, items in fileItems.items():
             for item in items:
                 self.tw_source.insertRow(row)  # Insert a new row
-                col = columnMapping[fileType]
 
                 if fileType == "folder":
-                    #   Span across column 0 and column 1
-                    self.tw_source.setSpan(row, 0, 1, 2)
                     self.tw_source.setRowHeight(row, SOURCE_DIR_HEIGHT)
-                    
-                    self.tw_source.setCellWidget(row, col, item)
+                    self.tw_source.setCellWidget(row, 0, item)
 
                 else:
                     self.tw_source.setRowHeight(row, SOURCE_ITEM_HEIGHT)
@@ -700,9 +697,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     # Create an invisible item for selection
                     table_item = QTableWidgetItem()
                     table_item.setData(Qt.UserRole, item)
-                    self.tw_source.setItem(row, col, table_item)
+                    self.tw_source.setItem(row, 0, table_item)
                     #   Add Tile Widget
-                    self.tw_source.setCellWidget(row, col, item)
+                    self.tw_source.setCellWidget(row, 0, item)
 
                 row += 1
 
@@ -737,15 +734,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def createSourceFileTile(self, filePath):
 
+        #   Create Data
         data = {}
-        data["filePath"] = os.path.normpath(filePath)
+        data["tileType"] = "file"
+        data["source_mainfilePath"] = os.path.normpath(filePath)
         data["uuid"] = self.createUUID()
-        data["icon"] = self.getIconByType(filePath)
-
-        # Get file details
-        data["date"] = os.path.getmtime(filePath)
-        data["size"] = os.stat(filePath).st_size
-        data["hash"] = self.getFileHash(filePath)
 
         # Create the custom widget
         fileItem = TileWidget.SourceFileItem(self, data)
@@ -762,44 +755,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     
 
     @err_catcher(name=__name__)
-    def createFolderTile(self, filePath):
+    def createFolderTile(self, dirPath):
 
         data = {}
-        data["dirPath"] = filePath
+        data["tileType"] = "folder"
+        data["dirPath"] = dirPath
         data["uuid"] = self.createUUID()
-        data["icon"] = self.getIconByType(filePath)
 
         # Create the custom widget
         folderItem = TileWidget.FolderItem(self, data)
 
         return folderItem
-
-
-    @err_catcher(name=__name__)
-    def getIconByType(self, filePath):
-        fileType = self.getFileType(filePath)
-
-        match fileType:
-            case "image":
-                iconPath =  os.path.join(iconDir, "render_still.png")
-
-            case "video":        
-                iconPath =  os.path.join(iconDir, "movie.png")
-
-            case "audio":
-                iconPath =  os.path.join(iconDir, "disk.png")
-
-            case "folder":
-                iconPath =  os.path.join(iconDir, "file_folder.png")
-
-            case "other":
-                iconPath =  os.path.join(iconDir, "file.png")
-            case _:
-                iconPath =  os.path.join(iconDir, "error.png")
-
-        return QIcon(iconPath)
-
-
 
 
     @err_catcher(name=__name__)
@@ -874,7 +840,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         row_count = self.tw_source.rowCount()
 
         for row in range(row_count):
-            fileItem = self.tw_source.cellWidget(row, 1)
+            fileItem = self.tw_source.cellWidget(row, 0)
             if fileItem is not None:
                 if fileItem.isSelected:
                     self.addToDestList(fileItem.getData())
@@ -931,9 +897,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.core.popup("YOU FORGOT TO SELECT DEST DIR")
             return False
 
+        self.configTransButtons("transfer")
 
         for item in self.copyList:
-            basefile = os.path.basename(item.data["filePath"])
+            basefile = os.path.basename(item.data["source_mainfilePath"])
 
             options = {}
 
@@ -954,8 +921,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if fileItem is not None:
                 self.pauseList.append(fileItem)
 
+
         for item in self.copyList:
             item.pause_transfer(self)
+
+        self.configTransButtons("pause")
+
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -971,6 +942,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         for item in self.copyList:
             item.resume_transfer(self)
 
+        self.configTransButtons("resume")
+
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def cancelTransfer(self):
@@ -985,6 +958,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         for item in self.copyList:
             item.cancel_transfer(self)
 
+        self.configTransButtons("cancel")
 
 
     # @err_catcher(name=__name__)
