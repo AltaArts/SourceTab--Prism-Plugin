@@ -900,15 +900,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.configTransButtons("transfer")
 
         for item in self.copyList:
-            basefile = os.path.basename(item.data["source_mainFile_path"])
 
             options = {}
-
             options["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
-
             
-            destPath = os.path.join(self.l_destPath.text(), basefile)
-            item.start_transfer(self, destPath, options)
+            item.start_transfer(self, options)
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move

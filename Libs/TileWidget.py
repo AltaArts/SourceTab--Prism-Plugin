@@ -46,6 +46,7 @@
 
 
 import os
+import shutil
 import sys
 import logging
 import time
@@ -562,7 +563,6 @@ class SourceFileItem(BaseTileItem):
                    f"File: {proxyFilepath}\n"
                    f"Date: {date_str}\n"
                    f"Size: {mainSize_str}")
-            
             self.l_pxyIcon.setToolTip(tip)
 
 
@@ -840,12 +840,14 @@ class DestFileItem(BaseTileItem):
         source_MainFilePath = self.getSource_mainfilePath()
         source_MainFileName = self.getBasename(source_MainFilePath)
 
+        self.data["dest_mainFile_path"] = self.getDestMainPath()
+
         self.refreshPreview()
 
         icon = self.getIcon()
         self.setIcon(icon)
 
-        self.setProxy()
+        self.setProxyFile()
 
         self.l_fileName.setText(source_MainFileName)
 
@@ -866,14 +868,6 @@ class DestFileItem(BaseTileItem):
 
         self.refreshPreview()
 
-
-    @err_catcher(name=__name__)
-    def getDestPath(self):
-        source_mainFilePath = self.getSource_mainfilePath()
-        baseName = self.getBasename(source_mainFilePath)
-        destDir = self.browser.l_destPath.text()
-        destPath = os.path.join(destDir, baseName)
-        return os.path.normpath(destPath)
     
 
     #   Returns File Size (can be slower)
@@ -897,15 +891,38 @@ class DestFileItem(BaseTileItem):
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
     @err_catcher(name=__name__)
-    def setProxy(self):
+    def setProxyFile(self):
         proxy = self.getProxy()
 
         if proxy:
+            #   Show Proxy Icon
             self.l_pxyIcon.show()
+
+            #   Set Proxy Tooltip
             tip = (f"Proxy File detected:\n\n"
-                   f"{proxy}")
+                   f"File: {self.data['source_proxyFile_path']}\n"
+                   f"Date: {self.data['source_proxyFile_date']}\n"
+                   f"Size: {self.data['source_proxyFile_size']}")
             self.l_pxyIcon.setToolTip(tip)
 
+            self.data["dest_proxyFile_path"] = self.getDestProxyPath()
+
+
+
+    #   Sets Proxy Icon and FilePath if Proxy Exists
+    @err_catcher(name=__name__)
+    def getDestPath(self):
+        return os.path.normpath(self.browser.l_destPath.text())
+
+
+    #   Sets Proxy Icon and FilePath if Proxy Exists
+    @err_catcher(name=__name__)
+    def getDestMainPath(self):
+        sourceMainPath = self.getSource_mainfilePath()
+        baseName = self.getBasename(sourceMainPath)
+        destPath = self.getDestPath()
+
+        return os.path.join(destPath, baseName)
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
@@ -913,7 +930,7 @@ class DestFileItem(BaseTileItem):
     def getDestProxyPath(self):
         source_mainFilePath = os.path.normpath(self.getSource_mainfilePath())
         source_proxyFilePath = os.path.normpath(self.data["source_proxyFile_path"])
-        dest_MainFilePath = os.path.normpath(self.getDestPath())
+        dest_MainFilePath = os.path.normpath(self.getDestMainPath())
 
         # Get the directory parts
         source_mainDir = os.path.dirname(source_mainFilePath)
@@ -1048,7 +1065,7 @@ class DestFileItem(BaseTileItem):
         delAct.triggered.connect(self.removeFromDestList)
         rcmenu.addAction(delAct)
 
-        delAct = QAction("Show Data", self.browser)
+        delAct = QAction("Show Data", self.browser)                         #   TESTING
         delAct.triggered.connect(self.TEST_SHOW_DATA)
         rcmenu.addAction(delAct)
 
@@ -1075,9 +1092,15 @@ class DestFileItem(BaseTileItem):
         rcmenu.exec_(QCursor.pos())
 
 
-    @err_catcher(name=__name__)
+    @err_catcher(name=__name__)                                                  # TESTING
     def TEST_SHOW_DATA(self):
-        self.core.popup(self.data)
+        if not hasattr(self, "data") or not isinstance(self.data, dict):
+            self.core.popup("No data to display or 'data' is not a dictionary.")
+            return
+
+        data_str = "\n\n".join(f"{key}: {value}" for key, value in self.data.items())
+        self.core.popup(data_str)
+
 
 
     @err_catcher(name=__name__)
@@ -1086,20 +1109,25 @@ class DestFileItem(BaseTileItem):
 
 
     @err_catcher(name=__name__)
-    def start_transfer(self, origin, destPath, options):
+    def start_transfer(self, origin, options):
         self.isFinished = False
         
         tip = "Transfering"
         self.setProgressBarStatus("transferring", tooltip=tip)
 
-        self.destPath = destPath
 
         copyData = {"sourcePath": self.getSource_mainfilePath(),
-                    "destPath": self.getDestPath()}
+                    "destPath": self.getDestMainPath(),
+                    "hasProxy": False}
 
         if options["copyProxy"] and self.data["hasProxy"]:
+            copyData["hasProxy"] = True
             copyData["sourceProxy"] = self.data["source_proxyFile_path"]
             copyData["destProxy"] = self.getDestProxyPath()
+
+            destProxyDir = os.path.dirname(self.getDestProxyPath())
+            if not os.path.exists(destProxyDir):
+                os.makedirs(destProxyDir)
 
         self.worker = FileCopyWorker(copyData)
         self.worker.progress.connect(self.update_progress)
@@ -1154,25 +1182,27 @@ class DestFileItem(BaseTileItem):
     #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
     def copy_complete(self, success):
+        destMainPath = self.getDestMainPath()
+
         #   Sets Destination FilePath ToolTip
-        self.l_fileName.setToolTip(os.path.normpath(self.destPath))
+        self.l_fileName.setToolTip(os.path.normpath(destMainPath))
 
         if success:
             self.isFinished = True
             self.progressBar.setValue(100)
 
-            if os.path.isfile(self.destPath):
+            if os.path.isfile(destMainPath):
                 #   Calls for Hash Generation with Callback
-                self.setFileHash(self.destPath, self.onDestHashReady)
+                self.setFileHash(destMainPath, self.onDestHashReady)
                 return
             else:
                 hashMsg = "ERROR:  Transfer File Does Not Exist"
                 status = "error"
-                logger.warning(f"Transfer failed: {self.getSource_mainfilePath()}")
+                logger.warning(f"Transfer failed: {destMainPath}")
         else:
             hashMsg = "ERROR:  Transfer failed"
             status = "error"
-            logger.warning(f"Transfer failed: {self.getSource_mainfilePath()}")
+            logger.warning(f"Transfer failed: {destMainPath}")
 
         # Final fallback (error case only)
         self.setProgressBarStatus(status, tooltip=hashMsg)
@@ -1451,6 +1481,7 @@ class FileCopyWorker(QThread):
     def __init__(self, copyData):
         super().__init__()
         self.copyData = copyData
+        self.hasProxy = self.copyData["hasProxy"]
 
         self.running = True
         self.pause_flag = False
@@ -1471,42 +1502,51 @@ class FileCopyWorker(QThread):
         sourcePath = self.copyData["sourcePath"]
         destPath = self.copyData["destPath"]
 
-        # if getattr(self, data["sourceProxy"]):
-        #     sourceProxyPath = self.data["sourceProxy"]
-        #     destProxyPath = self.data["destProxy"]
-
+        if self.hasProxy:
+            sourceProxyPath = self.copyData["sourceProxy"]
+            destProxyPath = self.copyData["destProxy"]
 
         try:
-            total_size = os.path.getsize(sourcePath)
+
+            paths_to_copy = [(sourcePath, destPath)]
+
+            if self.hasProxy:
+                sourceProxyPath = self.copyData["sourceProxy"]
+                destProxyPath = self.copyData["destProxy"]
+
+                paths_to_copy.append((sourceProxyPath, destProxyPath))
+
+            total_size = sum(os.path.getsize(src) for src, _ in paths_to_copy)
             copied_size = 0
 
             buffer_size = 1024 * 1024 * COPY_CHUNK_SIZE
             copy_semaphore.acquire()
 
-            with open(sourcePath, 'rb') as fsrc, open(destPath, 'wb') as fdst:
-                while True:
-                    if self.cancel_flag:
-                        self.finished.emit(False)
-                        fdst.close()
-                        os.remove(destPath)
-                        return
+            for src_path, dst_path in paths_to_copy:
+                with open(src_path, 'rb') as fsrc, open(dst_path, 'wb') as fdst:
+                    while True:
+                        if self.cancel_flag:
+                            self.finished.emit(False)
+                            fdst.close()
+                            os.remove(dst_path)
+                            return
 
-                    if self.pause_flag:
-                        time.sleep(0.1)
-                        continue
+                        if self.pause_flag:
+                            time.sleep(0.1)
+                            continue
 
-                    chunk = fsrc.read(buffer_size)
-                    if not chunk:
-                        break
+                        chunk = fsrc.read(buffer_size)
+                        if not chunk:
+                            break
 
-                    fdst.write(chunk)
-                    copied_size += len(chunk)
-                    progress_percent = int((copied_size / total_size) * 100)
+                        fdst.write(chunk)
+                        copied_size += len(chunk)
+                        progress_percent = int((copied_size / total_size) * 100)
 
-                    now = time.time()
-                    if now - self.last_emit_time >= PROG_UPDATE_INTV or progress_percent == 100:
-                        self.progress.emit(progress_percent, copied_size)
-                        self.last_emit_time = now
+                        now = time.time()
+                        if now - self.last_emit_time >= PROG_UPDATE_INTV or progress_percent == 100:
+                            self.progress.emit(progress_percent, copied_size)
+                            self.last_emit_time = now
 
             self.finished.emit(True)
 
