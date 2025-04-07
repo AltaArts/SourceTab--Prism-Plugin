@@ -737,7 +737,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Create Data
         data = {}
         data["tileType"] = "file"
-        data["source_mainfilePath"] = os.path.normpath(filePath)
+        data["source_mainFile_path"] = os.path.normpath(filePath)
         data["uuid"] = self.createUUID()
 
         # Create the custom widget
@@ -900,7 +900,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.configTransButtons("transfer")
 
         for item in self.copyList:
-            basefile = os.path.basename(item.data["source_mainfilePath"])
+            basefile = os.path.basename(item.data["source_mainFile_path"])
 
             options = {}
 

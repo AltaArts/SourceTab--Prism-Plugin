@@ -30,6 +30,19 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
+####################################################
+#
+#           ########### PLUGIN
+#           by Joshua Breckeen
+#                Alta Arts
+#
+#   This PlugIn adds an additional tab to the Prism Settings menu to ##########################
+#   allow a user to choose a directory that contains scene presets.###############################
+#
+        #       TODO
+
+
+####################################################
 
 
 import os
@@ -113,14 +126,13 @@ class BaseTileItem(QWidget):
         self.data = data
 
         #   Renames Prism Functions for ease
-        # self.getPixmapFromPath = self.core.media.getPixmapFromPath
         self.getThumbnailPath = self.core.media.getThumbnailPath
 
         #   Set initial Selected State
         self.isSelected = False
 
         #   Thumbnail Size
-        self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
+        # self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
         self.itemPreviewWidth = 120
         self.itemPreviewHeight = 69
 
@@ -129,14 +141,16 @@ class BaseTileItem(QWidget):
         #    Limit Max Threads
         self.threadPool.setMaxThreadCount(MAX_THUMB_THREADS)
 
+        #   Calls the SetupUI Method of the Child Tile
         self.setupUi()
+        #   Calls the Refresh Method of the Child Tile
         self.refreshUi()
 
 
     #   Launches the Double-click File Action from the Main plugin
     @err_catcher(name=__name__)
     def mouseDoubleClickEvent(self, event):
-        self.browser.doubleClickFile(self.data["filePath"])
+        self.browser.doubleClickFile(self.data["source_mainFile_path"])
 
 
     #   Sets the Tile State Selected
@@ -209,7 +223,7 @@ class BaseTileItem(QWidget):
     #   Returns the Filepath
     @err_catcher(name=__name__)
     def getSource_mainfilePath(self):
-        return self.data.get("source_mainfilePath", "")
+        return self.data.get("source_mainFile_path", "")
     
 
      #   Returns the Filepath
@@ -247,11 +261,10 @@ class BaseTileItem(QWidget):
         return QIcon(iconPath)
 
 
-    #   Gets and Sets Thumbnail Using Threads
+    #   Gets and Sets Thumbnail Using Thread
     @err_catcher(name=__name__)
     def refreshPreview(self):
         filePath = self.getSource_mainfilePath()
-        thumbPath = self.getThumbnailPath(filePath)
 
         # Create Worker Thread
         worker = ThumbnailWorker(
@@ -289,24 +302,19 @@ class BaseTileItem(QWidget):
         return self.data.get("uuid", "")
     
 
-    #   Returns Date String
-    @err_catcher(name=__name__)
-    def getDate(self):
-        date = self.data.get("date")
-        dateStr = self.core.getFormattedDate(date) if date else ""
+    # #   Returns Date String
+    # @err_catcher(name=__name__)
+    # def getDate(self):
+    #     date = self.data.get("date")
+    #     dateStr = self.core.getFormattedDate(date) if date else ""
 
-        return dateStr
+    #     return dateStr
     
 
     #   Returns File Size (can be slower)
     @err_catcher(name=__name__)
     def getFileSizeStr(self, size_bytes):
         if self.browser.projectBrowser.act_filesizes.isChecked():
-            # if "size" in self.data:
-            #     size_bytes = self.data["size"]
-            # else:
-            #     size_bytes = os.stat(self.data["filePath"]).st_size
-
             size_mb = size_bytes / 1024.0 / 1024.0
 
             if size_mb < 1:
@@ -353,7 +361,7 @@ class BaseTileItem(QWidget):
 
 
 
-#   FILE TILES ON THE SOURCE SIDE
+#   FILE TILES ON THE SOURCE SIDE (Inherits from BaseTileItem)
 class SourceFileItem(BaseTileItem):
     def __init__(self, browser, data):
         super(SourceFileItem, self).__init__(browser, data)
@@ -367,7 +375,7 @@ class SourceFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def setupUi(self):
-        self.setObjectName("texture")
+        self.setObjectName("SourceFileItem")
         self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
 
@@ -401,7 +409,6 @@ class SourceFileItem(BaseTileItem):
         pxy_y = self.itemPreviewHeight - self.l_pxyIcon.height()
         self.l_pxyIcon.move(pxy_x, pxy_y)
         self.l_pxyIcon.hide()
-
 
         ##  Create Details Layout
         self.lo_details = QVBoxLayout()
@@ -496,27 +503,28 @@ class SourceFileItem(BaseTileItem):
         date_data = self.getFileDate(filePath)
         date_str = self.core.getFormattedDate(date_data)
         self.l_date.setText(date_str)
-        self.data["date"] = date_str
+        self.data["source_mainFile_date"] = date_str
 
         #   Set Filesize
         mainSize_data = self.getFileSize(filePath)
         mainSize_str = self.getFileSizeStr(mainSize_data)
-        self.data["mainSize"] = mainSize_str
+        self.data["source_mainFile_size"] = mainSize_str
         self.l_fileSize.setText(mainSize_str)
 
         #   Set Hash
         self.l_fileSize.setToolTip("Calculating file hash...")
-        self.setFileHash(filePath, self.onFileHashReady)
+        self.setFileHash(filePath, self.onMainfileHashReady)
 
         self.refreshPreview()
         self.setProxyFile()
 
 
+
     #   Populates Hash when ready from Thread
     @err_catcher(name=__name__)
-    def onFileHashReady(self, result_hash):
-        self.data["hash"] = result_hash
-        self.l_fileSize.setToolTip(f"FileHash: {result_hash}")
+    def onMainfileHashReady(self, result_hash):
+        self.data["source_mainFile_hash"] = result_hash
+        self.l_fileSize.setToolTip(f"Hash: {result_hash}")
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
@@ -524,19 +532,43 @@ class SourceFileItem(BaseTileItem):
     def setProxyFile(self):
         self.data["hasProxy"] = False
 
-        proxy = self.getProxyFile()
-        if proxy:
-            self.l_pxyIcon.show()
-            tip = (f"Proxy File detected:\n\n"
-                   f"{proxy}")
-            self.l_pxyIcon.setToolTip(tip)
+        proxyFilepath = self.searchForProxyFile()
+
+        if proxyFilepath:
+            #   Set Proxy Flag
             self.data["hasProxy"] = True
-            self.data["source_ProxyFilePath"] = proxy
+
+            #   Show Proxy Icon on Thumbnail
+            self.l_pxyIcon.show()
+
+            #   Set Source Proxy Path
+            self.data["source_proxyFile_path"] = proxyFilepath
+
+            #   Set Source Proxy Date
+            date_data = self.getFileDate(proxyFilepath)
+            date_str = self.core.getFormattedDate(date_data)
+            self.data["source_proxyFile_date"] = date_str
+
+            #   Set Source Proxy Filesize
+            mainSize_data = self.getFileSize(proxyFilepath)
+            mainSize_str = self.getFileSizeStr(mainSize_data)
+            self.data["source_proxyFile_size"] = mainSize_str
+
+            #   Set Source Proxy Hash
+            self.setFileHash(proxyFilepath, self.onProxyfileHashReady)
+
+            #   Set Proxy Tooltip
+            tip = (f"Proxy File detected:\n\n"
+                   f"File: {proxyFilepath}\n"
+                   f"Date: {date_str}\n"
+                   f"Size: {mainSize_str}")
+            
+            self.l_pxyIcon.setToolTip(tip)
 
 
     #   Uses Setting-defined Template to Search for Proxies
     @err_catcher(name=__name__)
-    def getProxyFile(self):
+    def searchForProxyFile(self):
         #   Get the Config Data
         sData = self.getSettings()
         proxySearchList = sData.get("proxySearch", [])
@@ -572,6 +604,13 @@ class SourceFileItem(BaseTileItem):
 
         logger.debug(f"No Proxies found for {fileBase}")
         return None
+
+
+    #   Populates Hash when ready from Thread
+    @err_catcher(name=__name__)
+    def onProxyfileHashReady(self, result_hash):
+        self.data["source_proxyFile_hash"] = result_hash
+        # self.l_fileSize.setToolTip(f"Hash: {result_hash}")
 
 
     @err_catcher(name=__name__)
@@ -665,7 +704,7 @@ class SourceFileItem(BaseTileItem):
 
 
 
-#   FILE TILES ON THE DESTINATION SIDE
+#   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)
 class DestFileItem(BaseTileItem):
 
     progressChanged = Signal(object)
@@ -684,7 +723,7 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def setupUi(self):
-        self.setObjectName("texture")
+        self.setObjectName("DestFileItem")
         self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.lo_main = QHBoxLayout()
@@ -815,7 +854,7 @@ class DestFileItem(BaseTileItem):
         
         self.l_fileName.setToolTip(tip)
 
-        self.l_size_total.setText(self.data["mainSize"])
+        self.l_size_total.setText(self.data["source_mainFile_size"])
 
         # Get File Path
         filePath = self.getSource_mainfilePath()
@@ -850,28 +889,10 @@ class DestFileItem(BaseTileItem):
             return f"{size_bytes / 1024 ** 3:.2f} GB"
         
 
-    @err_catcher(name=__name__)
-    def setIcon(self, icon):
-        self.l_icon.setToolTip(self.getSource_mainfilePath())
-        if isinstance(icon, QIcon):
-            self.l_icon.setPixmap(icon.pixmap(24, 24))
-        else:
-            pmap = QPixmap(20, 20)
-            pmap.fill(Qt.transparent)
-            painter = QPainter(pmap)
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(icon)
-            painter.drawEllipse(0, 0, 10, 10)
-            painter.setRenderHint(QPainter.Antialiasing, True)
-            painter.end()
-            self.l_icon.setPixmap(pmap)
-
-
-
     #   Sets Proxy Icon and FilePath if Proxy Exists
     @err_catcher(name=__name__)
     def getProxy(self):
-        return self.data.get("proxyFilePath", None)
+        return self.data.get("source_proxyFile_path", None)
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
@@ -891,7 +912,7 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def getDestProxyPath(self):
         source_mainFilePath = os.path.normpath(self.getSource_mainfilePath())
-        source_proxyFilePath = os.path.normpath(self.data["proxyFilePath"])
+        source_proxyFilePath = os.path.normpath(self.data["source_proxyFile_path"])
         dest_MainFilePath = os.path.normpath(self.getDestPath())
 
         # Get the directory parts
@@ -1027,6 +1048,10 @@ class DestFileItem(BaseTileItem):
         delAct.triggered.connect(self.removeFromDestList)
         rcmenu.addAction(delAct)
 
+        delAct = QAction("Show Data", self.browser)
+        delAct.triggered.connect(self.TEST_SHOW_DATA)
+        rcmenu.addAction(delAct)
+
 
         # copAct = QAction("Capture preview", self.browser)
         # copAct.triggered.connect(lambda: self.captureScenePreview(self.data))
@@ -1051,6 +1076,11 @@ class DestFileItem(BaseTileItem):
 
 
     @err_catcher(name=__name__)
+    def TEST_SHOW_DATA(self):
+        self.core.popup(self.data)
+
+
+    @err_catcher(name=__name__)
     def removeFromDestList(self):
         self.browser.removeFromDestList(self.data)
 
@@ -1068,7 +1098,7 @@ class DestFileItem(BaseTileItem):
                     "destPath": self.getDestPath()}
 
         if options["copyProxy"] and self.data["hasProxy"]:
-            copyData["sourceProxy"] = self.data["proxyFilePath"]
+            copyData["sourceProxy"] = self.data["source_proxyFile_path"]
             copyData["destProxy"] = self.getDestProxyPath()
 
         self.worker = FileCopyWorker(copyData)
@@ -1138,7 +1168,7 @@ class DestFileItem(BaseTileItem):
             else:
                 hashMsg = "ERROR:  Transfer File Does Not Exist"
                 status = "error"
-                logger.warning(f"Transfer failed: {self.data['filePath']}")
+                logger.warning(f"Transfer failed: {self.getSource_mainfilePath()}")
         else:
             hashMsg = "ERROR:  Transfer failed"
             status = "error"
@@ -1151,7 +1181,7 @@ class DestFileItem(BaseTileItem):
     #   Called After Hash Genertaion for UI Feedback
     @err_catcher(name=__name__)
     def onDestHashReady(self, dest_hash):
-        orig_hash = self.data.get("hash", None)
+        orig_hash = self.data.get("source_mainFile_hash", None)
 
         if dest_hash == orig_hash:
             statusMsg = "Transfer Successful"
@@ -1163,13 +1193,13 @@ class DestFileItem(BaseTileItem):
             logger.debug(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
 
         hashMsg = (f"Status: {statusMsg}\n\n"
-                f"Source Hash:  {orig_hash}\n"
+                f"Source Hash:   {orig_hash}\n"
                 f"Transfer Hash: {dest_hash}")
 
         self.setProgressBarStatus(status, tooltip=hashMsg)
 
 
-#   FOLDER
+#   FOLDER TILES (Inherits from BaseTileItem)
 class FolderItem(BaseTileItem):
     def __init__(self, browser, data):
         super(FolderItem, self).__init__(browser, data)
@@ -1183,7 +1213,7 @@ class FolderItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def setupUi(self):
-        self.setObjectName("texture")
+        self.setObjectName("FolderItem")
         self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
 
@@ -1213,7 +1243,7 @@ class FolderItem(BaseTileItem):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
 
-        self.refreshUi()
+        # self.refreshUi()
 
 
     @err_catcher(name=__name__)
@@ -1228,25 +1258,6 @@ class FolderItem(BaseTileItem):
         # Set the folder name (extract folder name from the path)
         folder_name = os.path.basename(dir_path)
         self.l_fileName.setText(folder_name)
-
-
-
-    @err_catcher(name=__name__)
-    def setIcon(self, icon):
-        self.l_icon.setToolTip(os.path.basename(self.data["filename"]))
-        if isinstance(icon, QIcon):
-            self.l_icon.setPixmap(icon.pixmap(24, 24))
-        else:
-            pmap = QPixmap(20, 20)
-            pmap.fill(Qt.transparent)
-            painter = QPainter(pmap)
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(icon)
-            painter.drawEllipse(0, 0, 10, 10)
-            painter.setRenderHint(QPainter.Antialiasing, True)
-            painter.end()
-            self.l_icon.setPixmap(pmap)
-
 
 
     @err_catcher(name=__name__)
@@ -1415,7 +1426,6 @@ class FileHashWorker(QRunnable):
 
     def run(self):
         try:
-            import hashlib, os
             chunk_size = 8192
             hash_func = hashlib.sha256()
             with open(self.filePath, "rb") as f:

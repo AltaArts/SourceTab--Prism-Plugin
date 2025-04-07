@@ -8,9 +8,17 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QHBoxLayout, QHeaderView,
+    QLabel, QLineEdit, QPushButton, QSizePolicy,
+    QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout,
+    QWidget)
 
 class Ui_w_sourceBrowser(object):
     def setupUi(self, w_sourceBrowser):
@@ -46,6 +54,13 @@ class Ui_w_sourceBrowser(object):
         self.lo_sourcePath.setObjectName(u"lo_sourcePath")
         self.b_sourcePathUp = QPushButton(self.w_source)
         self.b_sourcePathUp.setObjectName(u"b_sourcePathUp")
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy1.setHorizontalStretch(0)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.b_sourcePathUp.sizePolicy().hasHeightForWidth())
+        self.b_sourcePathUp.setSizePolicy(sizePolicy1)
+        self.b_sourcePathUp.setMinimumSize(QSize(30, 0))
+        self.b_sourcePathUp.setMaximumSize(QSize(30, 16777215))
         self.b_sourcePathUp.setCheckable(False)
 
         self.lo_sourcePath.addWidget(self.b_sourcePathUp)
@@ -57,6 +72,10 @@ class Ui_w_sourceBrowser(object):
 
         self.b_browseSource = QPushButton(self.w_source)
         self.b_browseSource.setObjectName(u"b_browseSource")
+        sizePolicy1.setHeightForWidth(self.b_browseSource.sizePolicy().hasHeightForWidth())
+        self.b_browseSource.setSizePolicy(sizePolicy1)
+        self.b_browseSource.setMinimumSize(QSize(30, 0))
+        self.b_browseSource.setMaximumSize(QSize(30, 16777215))
 
         self.lo_sourcePath.addWidget(self.b_browseSource)
 
@@ -93,11 +112,11 @@ class Ui_w_sourceBrowser(object):
         self.splitter.addWidget(self.w_source)
         self.w_destination = QWidget(self.splitter)
         self.w_destination.setObjectName(u"w_destination")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        sizePolicy1.setHorizontalStretch(9)
-        sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.w_destination.sizePolicy().hasHeightForWidth())
-        self.w_destination.setSizePolicy(sizePolicy1)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy2.setHorizontalStretch(9)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.w_destination.sizePolicy().hasHeightForWidth())
+        self.w_destination.setSizePolicy(sizePolicy2)
         self.verticalLayout_11 = QVBoxLayout(self.w_destination)
         self.verticalLayout_11.setObjectName(u"verticalLayout_11")
         self.verticalLayout_11.setContentsMargins(0, 0, 0, 0)
@@ -115,6 +134,10 @@ class Ui_w_sourceBrowser(object):
         self.lo_destPath.setObjectName(u"lo_destPath")
         self.b_destPathUp = QPushButton(self.w_destination)
         self.b_destPathUp.setObjectName(u"b_destPathUp")
+        sizePolicy1.setHeightForWidth(self.b_destPathUp.sizePolicy().hasHeightForWidth())
+        self.b_destPathUp.setSizePolicy(sizePolicy1)
+        self.b_destPathUp.setMinimumSize(QSize(30, 0))
+        self.b_destPathUp.setMaximumSize(QSize(30, 16777215))
 
         self.lo_destPath.addWidget(self.b_destPathUp)
 
@@ -125,6 +148,10 @@ class Ui_w_sourceBrowser(object):
 
         self.b_browseDest = QPushButton(self.w_destination)
         self.b_browseDest.setObjectName(u"b_browseDest")
+        sizePolicy1.setHeightForWidth(self.b_browseDest.sizePolicy().hasHeightForWidth())
+        self.b_browseDest.setSizePolicy(sizePolicy1)
+        self.b_browseDest.setMinimumSize(QSize(30, 0))
+        self.b_browseDest.setMaximumSize(QSize(30, 16777215))
 
         self.lo_destPath.addWidget(self.b_browseDest)
 
