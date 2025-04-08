@@ -768,11 +768,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         return folderItem
 
 
-    @err_catcher(name=__name__)
-    def doubleClickFile(self, filepath):
-        self.openInShell(filepath, prog="default")
-
-
     #   Opens clicked Folder and refreshes
     @err_catcher(name=__name__)
     def doubleClickFolder(self, filepath, mode):

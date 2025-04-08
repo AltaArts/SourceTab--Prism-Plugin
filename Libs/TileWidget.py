@@ -148,10 +148,20 @@ class BaseTileItem(QWidget):
         self.refreshUi()
 
 
-    #   Launches the Double-click File Action from the Main plugin
+    #   Launches the Double-click File Action
     @err_catcher(name=__name__)
     def mouseDoubleClickEvent(self, event):
-        self.browser.doubleClickFile(self.data["source_mainFile_path"])
+        child = self.childAt(event.pos())
+
+        #   If Thumbnail
+        if child == self.l_preview:
+            self.doubleClickFile(self.getSource_mainfilePath())
+        #   If Proxy Icon
+        elif child == self.l_pxyIcon:
+            self.doubleClickFile(self.getSource_proxyfilePath())
+        #   Anywhere Else
+        else:
+            self.toggleChecked()
 
 
     #   Sets the Tile State Selected
@@ -161,7 +171,7 @@ class BaseTileItem(QWidget):
         self.signalSelect.emit(self)
         if not wasSelected:
             self.isSelected = True
-            self.applyStyle(self.isSelected)
+            # self.applyStyle(self.isSelected)
             self.setFocus()
 
 
@@ -170,7 +180,7 @@ class BaseTileItem(QWidget):
     def deselect(self):
         if self.isSelected == True:
             self.isSelected = False
-            self.applyStyle(self.isSelected)
+            # self.applyStyle(self.isSelected)
 
 
     #   Returns if the State is Selected
@@ -190,6 +200,19 @@ class BaseTileItem(QWidget):
     def setChecked(self, checked):
         self.chb_selected.setChecked(checked)
         self.setSelected()
+
+
+    #   Toggles the Checkbox
+    @err_catcher(name=__name__)
+    def toggleChecked(self):
+        currentState = self.chb_selected.isChecked()
+        self.setChecked(not currentState)
+
+
+    #   Opens the File in the OS
+    @err_catcher(name=__name__)
+    def doubleClickFile(self, filepath):
+        self.browser.openInShell(filepath, prog="default")
 
 
     #   Returns the Tile Data
@@ -226,6 +249,12 @@ class BaseTileItem(QWidget):
     def getSource_mainfilePath(self):
         return self.data.get("source_mainFile_path", "")
     
+
+    #   Returns the Filepath
+    @err_catcher(name=__name__)
+    def getSource_proxyfilePath(self):
+        return self.data.get("source_proxyFile_path", "")
+
 
      #   Returns the Filepath
     @err_catcher(name=__name__)
@@ -301,15 +330,6 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def getUid(self):
         return self.data.get("uuid", "")
-    
-
-    # #   Returns Date String
-    # @err_catcher(name=__name__)
-    # def getDate(self):
-    #     date = self.data.get("date")
-    #     dateStr = self.core.getFormattedDate(date) if date else ""
-
-    #     return dateStr
     
 
     #   Returns File Size (can be slower)
