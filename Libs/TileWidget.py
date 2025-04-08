@@ -68,16 +68,34 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
+PRISMROOT = r"C:\Prism2"                                            ###   TODO
+prismRoot = os.getenv("PRISM_ROOT")
+if not prismRoot:
+    prismRoot = PRISMROOT
+
+rootScripts = os.path.join(prismRoot, "Scripts")
 pluginRoot = os.path.dirname(os.path.dirname(__file__))
+pyLibsPath = os.path.join(pluginRoot, "PythonLibs")
 uiPath = os.path.join(pluginRoot, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
-if uiPath not in sys.path:
-    sys.path.append(uiPath)
+sys.path.append(os.path.join(rootScripts, "Libs"))
+sys.path.append(pyLibsPath)
+sys.path.append(pluginRoot)
+sys.path.append(uiPath)
 
-# import ItemList
-# import MetaDataWidget
+# if os.path.exists(os.path.join(pyLibsPath, "Python311")):
 
-from PrismUtils import PrismWidgets
+
+
+EXIF_DIR = os.path.join(pyLibsPath, "ExifTool")
+
+import exiftool
+
+from MetaDataPopup import MetaDataPopup
+
+
+
+# from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 # from UserInterfaces import SceneBrowser_ui
@@ -131,6 +149,9 @@ class BaseTileItem(QWidget):
 
         #   Set initial Selected State
         self.isSelected = False
+
+        #   Get ExifTool EXE
+        self.exifToolEXE = self.findExiftool()
 
         #   Thumbnail Size
         # self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
@@ -376,9 +397,52 @@ class BaseTileItem(QWidget):
             return self.data["icon"]
         else:
             return self.data["color"]
+        
 
+    @err_catcher(name=__name__)
+    def findExiftool(self):
+        possible_names = ["exiftool.exe", "exiftool(-k).exe"]
 
+        for root, dirs, files in os.walk(EXIF_DIR):
+            for file in files:
+                if file.lower() in [name.lower() for name in possible_names]:
+                    exifToolEXE = os.path.join(root, file)
+                    logger.debug(f"ExifTool found at: {exifToolEXE}")
+                    return exifToolEXE
 
+        logger.warning(f"ERROR:  Unable to Find ExifTool")
+        return None
+
+        
+
+    #   Returns File MetaData
+    @err_catcher(name=__name__)
+    def getMetadata(self, filePath):
+        try:
+            with exiftool.ExifTool(self.exifToolEXE) as et:
+                # metadata_list = et.execute_json("-j", filePath)
+                metadata_list = et.execute_json("-G", filePath)  # Adding -G here
+
+            if metadata_list:
+                metadata = metadata_list[0]
+                logger.debug(f"MetaData found for {filePath}")
+                return metadata
+            
+            else:
+                logger.warning(f"ERROR:  No metadata found for {filePath}")
+                return {}
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to get metadata for {filePath}: {e}")
+            return {}
+        
+
+    @err_catcher(name=__name__)
+    def displayMetadata(self, filePath):
+        metadata = self.getMetadata(filePath)
+
+        metadata_window = MetaDataPopup(metadata)
+        metadata_window.exec_()  # Open the window as a modal dialog
 
 
 
@@ -695,6 +759,10 @@ class SourceFileItem(BaseTileItem):
         selAct.triggered.connect(self.addToDestList)
         rcmenu.addAction(selAct)
 
+
+        selAct = QAction("Show All MetaData", self.browser)
+        selAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
+        rcmenu.addAction(selAct)
 
         # copAct = QAction("Capture preview", self.browser)
         # copAct.triggered.connect(lambda: self.captureScenePreview(self.data))

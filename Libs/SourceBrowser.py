@@ -73,9 +73,11 @@ from qtpy.QtWidgets import *
 
 rootScripts = os.path.join(prismRoot, "Scripts")
 pluginPath = os.path.dirname(os.path.dirname(__file__))
+pyLibsPath = os.path.join(pluginPath, "PythonLibs", "Python311")
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
 sys.path.append(os.path.join(rootScripts, "Libs"))
+sys.path.append(pyLibsPath)
 sys.path.append(pluginPath)
 sys.path.append(uiPath)
 
@@ -86,6 +88,7 @@ from PrismUtils.Decorators import err_catcher
 
 import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
+
 
 import SourceBrowser_ui                                                 #   TODO
 
@@ -236,6 +239,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         ##  Right Side Panel
         self.lo_rightPanel = QVBoxLayout()
 
+        #   MediaPlayerToolbar
+        self.lo_playerToolbar = QHBoxLayout()
+
+        #   Player Enable Switch
+        self.chb_enablePlayer = QCheckBox("Enable Media Player")
+
+        #   Prefer Proxis Switch
+        self.chb_preferProxies = QCheckBox("Prefer Proxies")
+
+        #   Add Widgets to MediaPlayerToolbar
+        self.lo_playerToolbar.addWidget(self.chb_enablePlayer)
+        self.spacer1 = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.lo_playerToolbar.addItem(self.spacer1)
+        self.lo_playerToolbar.addWidget(self.chb_preferProxies)
+
         # Media Player Import
         self.w_preview = MediaVersionPlayer(self)
         self.w_preview.layout().addStretch()
@@ -244,6 +262,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts = SourceFunctions()
 
         #   Add Panels to the Right Panel
+        self.lo_rightPanel.addLayout(self.lo_playerToolbar)
         self.lo_rightPanel.addWidget(self.w_preview)
         self.lo_rightPanel.addWidget(self.sourceFuncts)
 
@@ -331,6 +350,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
 
+        #   Media Player
+        self.chb_enablePlayer.toggled.connect(self.toggleMediaPlayer)
+        self.chb_preferProxies.toggled.connect(self.togglePreferProxies)
+
+        #   Functions Panel
         self.sourceFuncts.b_transfer_start.clicked.connect(self.startTransfer)
         self.sourceFuncts.b_transfer_pause.clicked.connect(self.pauseTransfer)
         self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
@@ -444,6 +468,20 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.entityChanged()
         self.refreshStatus = "valid"
+
+
+
+    #   Toggles Media Player Visability
+    @err_catcher(name=__name__)
+    def toggleMediaPlayer(self, checked):
+        self.w_preview.setVisible(checked)
+
+
+    #   Sets Prefer Proxies
+    @err_catcher(name=__name__)
+    def togglePreferProxies(self, checked):
+        self.preferProxies = checked
+
 
 
     @err_catcher(name=__name__)
@@ -1905,6 +1943,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def triggerAutoplay(self, checked=False):
         self.w_preview.mediaPlayer.triggerAutoplay(checked)
+
+
 
 
 class MediaVersionPlayer(QWidget):
