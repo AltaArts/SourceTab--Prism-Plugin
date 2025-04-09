@@ -23,15 +23,14 @@ class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
-        w_sourceFunctions.resize(417, 399)
+        w_sourceFunctions.resize(417, 584)
         self.horizontalLayout = QHBoxLayout(w_sourceFunctions)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(8)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.w_functions.sizePolicy().hasHeightForWidth())
@@ -39,7 +38,7 @@ class Ui_w_sourceFunctions(object):
         self.verticalLayout_8 = QVBoxLayout(self.w_functions)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.verticalLayout_8.addItem(self.verticalSpacer)
 

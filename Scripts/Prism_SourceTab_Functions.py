@@ -55,10 +55,15 @@ class Prism_SourceTab_Functions(object):
         self.core = core
         self.plugin = plugin
 
+        self.sourceBrowser = None
+
         #   Only add Tab in Standalone
         if self.core.appPlugin.pluginName == "Standalone":
             self.core.registerCallback("postInitialize", self.postInitialize, plugin=self)   
             self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self)   
+            self.core.registerCallback("onProjectBrowserClose", self.saveSettings, plugin=self,
+                                                                                                # priority=40
+                                                                                                )
 
 
     # if returns true, the plugin will be loaded by Prism
@@ -69,24 +74,29 @@ class Prism_SourceTab_Functions(object):
 
     @err_catcher(name=__name__)
     def sourceBrowserStartup(self, origin):
-        self.loadSettings()
         self.pbMenu = origin
 
 
     @err_catcher(name=__name__)
     def postInitialize(self):
         self.pb = self.core.pb
-        self.sourceBrowser = SourceBrowser.SourceBrowser(core=self.core, projectBrowser=self.pb, refresh=False)
+
+        #   Creates Source Browser
+        self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=self.pb, refresh=False)
         self.pbMenu.addTab("Source", self.sourceBrowser, position=0)
 
 
-    #   Loads thr Saved Setting
+    #   Loads Saved SourceTab Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
-        if os.path.exists(SETTINGS_FILE):                           #   TODO
-            pass
-        else:
+        if not os.path.exists(SETTINGS_FILE):
             self.createSettings()
+
+        with open(SETTINGS_FILE, 'r') as file:
+            sData = json.load(file)
+
+            if sData:
+                return sData
 
 
     #   Creates the Settings File
@@ -96,6 +106,7 @@ class Prism_SourceTab_Functions(object):
         try:
             with open(SETTINGS_FILE, "w") as f:
                 json.dump(default_data, f, indent=4)
+
         except Exception as e:
             print(f"Failed to write settings file: {e}")
 
@@ -103,22 +114,45 @@ class Prism_SourceTab_Functions(object):
     #   Default Settings File Data
     @err_catcher(name=__name__)
     def getDefaultSettings(self):
-        sData = {"proxySearch": [
-        r"@MAINFILEDIR@\proxy\@MAINFILENAME@",
-        r"@MAINFILEDIR@\pxy\@MAINFILENAME@",
-        r"@MAINFILEDIR@\proxies\@MAINFILENAME@",
-        r"@MAINFILEDIR@\proxys\@MAINFILENAME@",
-        r"@MAINFILEDIR@\proxy\@MAINFILENAME@_proxy",
-        r"@MAINFILEDIR@\pxy\@MAINFILENAME@_proxy",
-        r"@MAINFILEDIR@\proxies\@MAINFILENAME@_proxy",
-        r"@MAINFILEDIR@\proxys\@MAINFILENAME@_proxy",
-        r"@MAINFILEDIR@\@MAINFILENAME@_proxy",
-        r"@MAINFILEDIR@\..\proxy\@MAINFILENAME@",
-        r"@MAINFILEDIR@\..\pxys\@MAINFILENAME@",
-        r"@MAINFILEDIR@\..\proxies\@MAINFILENAME@",
-        r"@MAINFILEDIR@\..\proxys\@MAINFILENAME@"
-        ]
-        }
+        sData = {
+                "proxySearch": [
+                    "@MAINFILEDIR@\\proxy\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\pxy\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\proxies\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\proxys\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\proxy\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\pxy\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\proxies\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\proxys\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\..\\proxy\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\..\\pxys\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\..\\proxies\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\..\\proxys\\@MAINFILENAME@"
+                    ],
+                "tabSettings": {
+                    "playerEnabled": True,
+                    "preferProxies": True,
+                    "copyProxy": False
+                },
+                "settings": {}                          #   TODO - FOR Prism Settings Stuff
+            }
 
         return sData
 
+
+    #   Called from PB Close Callback
+    @err_catcher(name=__name__)
+    def saveSettings(self, origin):
+        #   Gets Current Settings
+        sData = self.loadSettings()
+
+        #   If the SourceBrowser has been Loaded
+        if self.sourceBrowser:
+            #   Gets and Updates SourceBrowser UI Settings
+            tabSettings = self.sourceBrowser.getTabSettings()
+            sData["tabSettings"] = tabSettings
+
+
+        with open(SETTINGS_FILE, "w") as file:
+            json.dump(sData, file, indent=4)

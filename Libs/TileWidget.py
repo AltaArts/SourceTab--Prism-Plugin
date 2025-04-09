@@ -182,7 +182,9 @@ class BaseTileItem(QWidget):
             self.doubleClickFile(self.getSource_proxyfilePath())
         #   Anywhere Else
         else:
-            self.toggleChecked()
+            # self.toggleChecked()
+            self.sendToViewer()
+
 
 
     #   Sets the Tile State Selected
@@ -239,13 +241,7 @@ class BaseTileItem(QWidget):
     #   Returns the Tile Data
     @err_catcher(name=__name__)
     def getSettings(self):
-        settingsFile = os.path.join(pluginRoot, "settings.json")
-
-        with open(settingsFile, 'r') as file:
-            sData = json.load(file)
-
-            if sData:
-                return sData
+        return self.browser.getSettings()
     
 
     #   Returns the Tile Data
@@ -274,7 +270,7 @@ class BaseTileItem(QWidget):
     #   Returns the Filepath
     @err_catcher(name=__name__)
     def getSource_proxyfilePath(self):
-        return self.data.get("source_proxyFile_path", "")
+        return self.data.get("source_proxyFile_path", None)
 
 
      #   Returns the Filepath
@@ -442,7 +438,39 @@ class BaseTileItem(QWidget):
         metadata = self.getMetadata(filePath)
 
         metadata_window = MetaDataPopup(metadata)
-        metadata_window.exec_()  # Open the window as a modal dialog
+        metadata_window.exec_()
+
+
+    #   Get Media Player Enabled State
+    @err_catcher(name=__name__)
+    def isViewerEnabled(self):
+        return self.browser.chb_enablePlayer.isChecked()
+
+
+    #   Get Media Player Prefer Proxies State
+    @err_catcher(name=__name__)
+    def isPreferProxies(self):
+        return self.browser.chb_preferProxies.isChecked()
+
+
+    #   Sends the File to the Preview Viewer
+    @err_catcher(name=__name__)
+    def sendToViewer(self, filePath=None):
+        if not self.isViewerEnabled():
+            return
+        
+        #   Use passed file
+        if filePath:
+            sendFile = filePath
+        else:
+            #   Use Proxy if Proxy Exists and Prefer is Checked
+            if self.isPreferProxies() and self.getSource_proxyfilePath():
+                sendFile = self.getSource_proxyfilePath()
+            #   Use Main File
+            else:
+                sendFile = self.getSource_mainfilePath()
+
+        self.browser.w_preview.mediaPlayer.updatePreview(sendFile)
 
 
 
@@ -605,6 +633,9 @@ class SourceFileItem(BaseTileItem):
 
 
 
+
+
+
     #   Populates Hash when ready from Thread
     @err_catcher(name=__name__)
     def onMainfileHashReady(self, result_hash):
@@ -763,6 +794,13 @@ class SourceFileItem(BaseTileItem):
         selAct = QAction("Show All MetaData", self.browser)
         selAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
         rcmenu.addAction(selAct)
+
+
+        selAct = QAction("Show in Player", self.browser)
+        selAct.triggered.connect(self.sendToViewer())
+        rcmenu.addAction(selAct)
+
+
 
         # copAct = QAction("Capture preview", self.browser)
         # copAct.triggered.connect(lambda: self.captureScenePreview(self.data))

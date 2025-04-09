@@ -52,9 +52,12 @@ import logging
 import traceback
 from collections import OrderedDict
 import shutil
+import json
 import uuid
 import hashlib
 from datetime import datetime
+
+from Scripts.Prism_SourceTab_Functions import SETTINGS_FILE
 
 
 
@@ -82,6 +85,7 @@ sys.path.append(pluginPath)
 sys.path.append(uiPath)
 
 
+
 from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
@@ -100,9 +104,10 @@ logger = logging.getLogger(__name__)
 
 
 class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
-    def __init__(self, core, projectBrowser=None, refresh=True):
+    def __init__(self, origin, core, projectBrowser=None, refresh=True):
         QWidget.__init__(self)
         self.setupUi(self)
+        self.plugin = origin
         self.core = core
         self.projectBrowser = projectBrowser
 
@@ -124,12 +129,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.loadLayout()
         self.resetProgBar()
         self.connectEvents()
+
+        self.loadTabSettings()
+
+        #   Callbacks
         self.core.callback(name="onSourceBrowserOpen", args=[self])
 
         if refresh:
             self.entered()
 
-        ### TEESTING    ###
+        ### TESTING    ###
         # self.tempTesting()                                                #   TESTING
 
 
@@ -256,14 +265,30 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         # Media Player Import
         self.w_preview = MediaVersionPlayer(self)
-        self.w_preview.layout().addStretch()
+        # self.w_preview.layout().addStretch()
 
         #   Functions Import
         self.sourceFuncts = SourceFunctions()
 
+        #   Quick Simple Line Separator
+        def create_separator(color="#444", thickness=3, margin=50):
+            line = QFrame()
+            line.setFixedHeight(thickness)
+            line.setStyleSheet(f"""
+                background-color: {color};
+                margin-top: {margin}px;
+                margin-bottom: {margin}px;
+            """)
+            return line
+
+
         #   Add Panels to the Right Panel
         self.lo_rightPanel.addLayout(self.lo_playerToolbar)
+        self.lo_rightPanel.addWidget(create_separator())
         self.lo_rightPanel.addWidget(self.w_preview)
+        self.lo_rightPanel.addWidget(create_separator())
+        self.spacer2 = QSpacerItem(0, 40, QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.lo_rightPanel.addItem(self.spacer2)
         self.lo_rightPanel.addWidget(self.sourceFuncts)
 
         # Create a container widget to hold the lo_rightPanel layout
@@ -402,10 +427,34 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts.progBar_total.setValue(0)
 
 
+    #   Called from _Functions Save Callback
     @err_catcher(name=__name__)
-    def saveSettings(self, data):
-        data["browser"]["previewDisabled"] = self.w_preview.mediaPlayer.state == "disabled"
+    def getTabSettings(self):
 
+        tabSettings = {}
+        tabSettings["playerEnabled"] = self.chb_enablePlayer.isChecked()
+        tabSettings["preferProxies"] = self.chb_preferProxies.isChecked()
+        tabSettings["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
+
+        return tabSettings
+
+
+    #   Configures UI from Saved Settings
+    @err_catcher(name=__name__)
+    def getSettings(self):
+        return self.plugin.loadSettings()
+
+
+    #   Configures UI from Saved Settings
+    @err_catcher(name=__name__)
+    def loadTabSettings(self):
+
+        sData = self.getSettings()
+
+        self.toggleMediaPlayer(sData["tabSettings"]["playerEnabled"])
+        self.togglePreferProxies(sData["tabSettings"]["preferProxies"])
+        self.sourceFuncts.chb_copyProxy.setChecked(sData["tabSettings"]["copyProxy"])
+            
 
     #	Creates UUID
     @err_catcher(name=__name__)
@@ -1971,6 +2020,18 @@ class MediaVersionPlayer(QWidget):
 
         self.l_filelayer = QLabel("Channel:")
         self.cb_filelayer = QComboBox()
+
+        #   HIDE -- TESTING
+        self.l_layer.hide()
+        self.l_source.hide()
+        self.l_filelayer.hide()
+        self.cb_layer.hide()
+        self.cb_source.hide()
+        self.cb_filelayer.hide()
+
+
+
+
         self.lo_main.addWidget(self.l_filelayer)
         self.lo_main.addWidget(self.cb_filelayer)
 
@@ -2511,6 +2572,7 @@ class MediaPlayer(QWidget):
         self.l_preview.setMinimumHeight(self.renderResY)
         self.l_preview.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
 
+
     @err_catcher(name=__name__)
     def connectEvents(self):
         self.l_preview.clickEvent = self.l_preview.mouseReleaseEvent
@@ -2604,7 +2666,7 @@ class MediaPlayer(QWidget):
         return self.core.mediaProducts.getFilesFromContext(context)
 
     @err_catcher(name=__name__)
-    def updatePreview(self, regenerateThumb=False):
+    def updatePreview(self, mediaFiles, regenerateThumb=False):
         if not self.previewEnabled:
             return
 
@@ -2640,56 +2702,76 @@ class MediaPlayer(QWidget):
                     pass
 
         self.videoReaders = {}
-        contexts = self.getSelectedContexts()
-        if len(contexts) > 1:
-            self.l_info.setText("\nMultiple items selected\n")
-            self.l_info.setToolTip("")
-            self.l_preview.setToolTip("")
-        else:
-            if contexts:
-                mediaFiles = self.getFilesFromContext(contexts[0])
-                validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
-                if validFiles:
-                    validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
-                    baseName, extension = os.path.splitext(validFiles[0])
-                    extension = extension.lower()
-                    seqFiles = self.core.media.detectSequence(validFiles)
+        # contexts = self.getSelectedContexts()
+        # if len(contexts) > 1:
+        #     self.l_info.setText("\nMultiple items selected\n")
+        #     self.l_info.setToolTip("")
+        #     self.l_preview.setToolTip("")
+        # else:
 
-                    if (
-                        len(seqFiles) > 1
-                        and extension not in self.core.media.videoFormats
-                    ):
-                        self.seq = seqFiles
-                        self.prvIsSequence = True
-                        (
-                            self.pstart,
-                            self.pend,
-                        ) = self.core.media.getFrameRangeFromSequence(seqFiles)
-                    else:
-                        self.prvIsSequence = False
-                        self.seq = validFiles
+        if mediaFiles:
+            # mediaFiles = self.getFilesFromContext(contexts[0])
+            # validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
 
-                    self.pduration = len(self.seq)
-                    imgPath = validFiles[0]
-                    if (
-                        self.pduration == 1
-                        and os.path.splitext(imgPath)[1].lower() in self.core.media.videoFormats
-                    ):
-                        self.vidPrw = "loading"
-                        self.updatePrvInfo(
-                            imgPath,
-                            vidReader="loading",
-                            frame=prevFrame,
-                        )
-                    else:
-                        self.updatePrvInfo(imgPath, frame=prevFrame)
+            # self.core.popup(f"mediaFiles:  {mediaFiles}")                   #   TESTING
 
-                    if self.tlPaused:
-                        self.changeImage_threaded(regenerateThumb=regenerateThumb)
-                    elif self.pduration < 3:
-                        self.changeImage_threaded(regenerateThumb=regenerateThumb)
+            mediaFiles = [mediaFiles]
 
-                    return True
+            # if validFiles:
+            validFiles = sorted(mediaFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
+
+            # self.core.popup(f"validFiles:  {validFiles}")                   #   TESTING
+
+
+            baseName, extension = os.path.splitext(validFiles[0])
+            extension = extension.lower()
+            seqFiles = self.core.media.detectSequence(validFiles)
+
+            # self.core.popup(f"seqFiles:  {seqFiles}")                   #   TESTING
+
+            if (
+                len(seqFiles) > 1
+                and extension not in self.core.media.videoFormats
+                ):
+                self.seq = seqFiles
+                self.prvIsSequence = True
+                (
+                    self.pstart,
+                    self.pend,
+                ) = self.core.media.getFrameRangeFromSequence(seqFiles)
+
+            else:
+                self.prvIsSequence = False
+                self.seq = validFiles
+
+            # self.core.popup(f"self.seq:  {self.seq}")                   #   TESTING
+
+
+            self.pduration = len(self.seq)
+
+            # self.core.popup(f"self.pduration:  {self.pduration}")                   #   TESTING
+
+            imgPath = validFiles[0]
+            if (
+                self.pduration == 1
+                and os.path.splitext(imgPath)[1].lower() in self.core.media.videoFormats
+                ):
+                self.vidPrw = "loading"
+                self.updatePrvInfo(
+                    imgPath,
+                    vidReader="loading",
+                    frame=prevFrame,
+                )
+
+            else:
+                self.updatePrvInfo(imgPath, frame=prevFrame)
+
+            if self.tlPaused:
+                self.changeImage_threaded(regenerateThumb=regenerateThumb)
+            elif self.pduration < 3:
+                self.changeImage_threaded(regenerateThumb=regenerateThumb)
+
+            return True
 
             self.updatePrvInfo()
 
@@ -2704,6 +2786,7 @@ class MediaPlayer(QWidget):
         if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
             self.l_loading.setVisible(False)
             self.loadingGif.stop()
+
 
     @err_catcher(name=__name__)
     def updatePrvInfo(self, prvFile="", vidReader=None, seq=None, frame=None):
