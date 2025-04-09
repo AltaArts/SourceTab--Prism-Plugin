@@ -470,7 +470,7 @@ class BaseTileItem(QWidget):
             else:
                 sendFile = self.getSource_mainfilePath()
 
-        self.browser.w_preview.mediaPlayer.updatePreview(sendFile)
+        self.browser.mediaPlayer.updatePreview(sendFile)
 
 
 
@@ -801,24 +801,7 @@ class SourceFileItem(BaseTileItem):
         rcmenu.addAction(selAct)
 
 
-
-        # copAct = QAction("Capture preview", self.browser)
-        # copAct.triggered.connect(lambda: self.captureScenePreview(self.data))
-
-        # exp = QAction("Browse preview...", self.browser)
-        # exp.triggered.connect(self.browseScenePreview)
-        # rcmenu.addAction(exp)
-
-        # rcmenu.addAction(copAct)
-        # clipAct = QAction("Paste preview from clipboard", self.browser)
-        # clipAct.triggered.connect(
-        #     lambda: self.pasteScenePreviewFromClipboard(self.data)
-        # )
-        # rcmenu.addAction(clipAct)
-
-        # prvAct = QAction("Set as %spreview" % self.data.get("type", ""), self)
-        # prvAct.triggered.connect(self.setPreview)
-        # rcmenu.addAction(prvAct)
+        #   TODO - ADD OPEN IN EXPLORER
 
 
         rcmenu.exec_(QCursor.pos())
@@ -1196,23 +1179,8 @@ class DestFileItem(BaseTileItem):
         rcmenu.addAction(delAct)
 
 
-        # copAct = QAction("Capture preview", self.browser)
-        # copAct.triggered.connect(lambda: self.captureScenePreview(self.data))
 
-        # exp = QAction("Browse preview...", self.browser)
-        # exp.triggered.connect(self.browseScenePreview)
-        # rcmenu.addAction(exp)
-
-        # rcmenu.addAction(copAct)
-        # clipAct = QAction("Paste preview from clipboard", self.browser)
-        # clipAct.triggered.connect(
-        #     lambda: self.pasteScenePreviewFromClipboard(self.data)
-        # )
-        # rcmenu.addAction(clipAct)
-
-        # prvAct = QAction("Set as %spreview" % self.data.get("type", ""), self)
-        # prvAct.triggered.connect(self.setPreview)
-        # rcmenu.addAction(prvAct)
+        #   TODO - ADD OPEN IN EXPLORER
 
 
         rcmenu.exec_(QCursor.pos())

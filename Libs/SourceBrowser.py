@@ -114,11 +114,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         logger.debug("Initializing Source Browser")
 
         self.core.parentWindow(self)
-        # self.b_refresh.setEnabled(True)
-        # self.chb_autoUpdate.setToolTip(
-            # "Automatically refresh tasks, versions and renders, when the current asset/shot changes."
-        # )
-        # self.b_refresh.setToolTip("Refresh tasks, versions and renders.")
 
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff", ".flac", ".alac", ".ogg", ".wma"]
 
@@ -157,64 +152,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def entered(self, prevTab=None, navData=None):
         if not self.initialized:
-        #     self.w_entities.getPage("Assets").blockSignals(True)
-        #     self.w_entities.getPage("Shots").blockSignals(True)
-        #     self.w_entities.blockSignals(True)
-        #     self.w_entities.refreshEntities(defaultSelection=False)
-        #     self.w_entities.getPage("Assets").blockSignals(False)
-        #     self.w_entities.getPage("Shots").blockSignals(False)
-        #     self.w_entities.blockSignals(False)
             self.oiio = self.core.media.getOIIO()
-        #     if navData:
-        #         self.navigate(navData)
-        #     else:
-        #         self.navigateToCurrent()
-
-        #     if not self.getCurrentEntity():
-        #         self.entityChanged()
-
-        #     self.initialized = True
-
-        # if prevTab:
-        #     if hasattr(prevTab, "w_entities"):
-        #         self.w_entities.syncFromWidget(prevTab.w_entities)
-        #     elif hasattr(prevTab, "getSelectedData"):
-        #         self.navigateToEntity(prevTab.getSelectedData())
 
         self.refreshSourceItems()
         self.refreshDestItems()
-
         self.configTransButtons("initial")
 
 
     @err_catcher(name=__name__)
     def loadLayout(self):
-        cData = self.core.getConfig()
-        brsData = cData.get("browser", {})
-
-        # if "autoUpdateRenders" in brsData:
-        #     self.chb_autoUpdate.setChecked(brsData["autoUpdateRenders"])
-
-        # if "expandedAssets_" + self.core.projectName in brsData:
-        #     self.aExpanded = brsData["expandedAssets_" + self.core.projectName]
-
-        # if "expandedSequences_" + self.core.projectName in brsData:
-        #     self.sExpanded = brsData["expandedSequences_" + self.core.projectName]
-
-        # self.w_entities.getPage("Assets").setSearchVisible(
-        #     brsData.get("showAssetSearch", False)
-        # )
-
-        # self.w_entities.getPage("Shots").setSearchVisible(brsData.get("showShotSearch", False))
-
-        # if "showSearchAlways" in brsData:
-            # self.w_entities.getPage("Assets").setShowSearchAlways(
-            #     brsData["showSearchAlways"]
-            # )
-            # self.w_entities.getPage("Shots").setShowSearchAlways(
-            #     brsData["showSearchAlways"]
-            # )
-
         #   Set Icons
         upIcon = QIcon(os.path.join(iconDir, "up.png"))
         dirIcon = QIcon(os.path.join(iconDir, "file_folder.png"))
@@ -264,8 +210,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.lo_playerToolbar.addWidget(self.chb_preferProxies)
 
         # Media Player Import
-        self.w_preview = MediaVersionPlayer(self)
-        # self.w_preview.layout().addStretch()
+        # self.w_preview = MediaVersionPlayer(self)
+
+        self.mediaPlayer = MediaPlayer(self)
+        self.mediaPlayer.layout().addStretch()
 
         #   Functions Import
         self.sourceFuncts = SourceFunctions()
@@ -285,7 +233,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Add Panels to the Right Panel
         self.lo_rightPanel.addLayout(self.lo_playerToolbar)
         self.lo_rightPanel.addWidget(create_separator())
-        self.lo_rightPanel.addWidget(self.w_preview)
+        self.lo_rightPanel.addWidget(self.mediaPlayer)
         self.lo_rightPanel.addWidget(create_separator())
         self.spacer2 = QSpacerItem(0, 40, QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.lo_rightPanel.addItem(self.spacer2)
@@ -298,33 +246,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # Add the container widget to the splitter
         self.splitter.addWidget(self.w_rightPanelContainer)
 
-        # self.lw_task.setAcceptDrops(True)
-        # self.lw_task.dragEnterEvent = self.taskDragEnterEvent
-        # self.lw_task.dragMoveEvent = self.taskDragMoveEvent
-        # self.lw_task.dragLeaveEvent = self.taskDragLeaveEvent
-        # self.lw_task.dropEvent = self.taskDropEvent
-
-        # if not self.projectBrowser:
-        #     self.projectBrowser = self.core.projectBrowser()
-
-        #   Version Delagate                                                  #   TODO - NEEDED?
-        if self.projectBrowser and len(self.projectBrowser.locations) > 1:
-            self.VersionDelegate = VersionDelegate(self)
-            self.tw_destination.setItemDelegate(self.VersionDelegate)
-
-        if "previewDisabled" in brsData:
-            self.w_preview.mediaPlayer.state = "disabled" if brsData["previewDisabled"] else "enabled"
-
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
 
-
-
-    # @err_catcher(name=__name__)
-    # def showEvent(self, event):
-    #     if not getattr(self, "headerHeightSet", False):
-    #         spacing = self.w_identifier.layout().spacing()
-    #         h = self.w_entities.w_header.geometry().height() - spacing
-    #         self.setHeaderHeight(h)
 
 
     @err_catcher(name=__name__)
@@ -333,17 +256,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.w_entities.w_header.setMinimumHeight(height + spacing)
         self.l_identifier.setMinimumHeight(height)
         self.l_version.setMinimumHeight(height)
-        self.w_preview.l_layer.setMinimumHeight(height)
+        self.mediaPlayer.l_layer.setMinimumHeight(height)
         self.headerHeightSet = True
 
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        # self.w_entities.getPage("Assets").itemChanged.connect(self.entityChanged)
-        # self.w_entities.getPage("Shots").itemChanged.connect(self.entityChanged)
-        # self.w_entities.tabChanged.connect(self.entityTabChanged)
 
-        # self.chb_autoUpdate.stateChanged.connect(self.updateChanged)
         # self.b_refresh.clicked.connect(self.refreshRender)
 
         # self.tw_source.itemSelectionChanged.connect(self.sourceClicked)
@@ -353,10 +272,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.tw_destination.itemDoubleClicked.connect(self.onVersionDoubleClicked)
         self.tw_destination.customContextMenuRequested.connect(
             lambda x: self.rclList(x, self.tw_destination)
-        )
-        # self.tw_destination.customContextMenuRequested.connect(
-        #     lambda x: self.rclList(x, self.tw_destination)
-        # )
+            )
+
 
         self.b_source_addSel.clicked.connect(self.addSelected)
 
@@ -430,7 +347,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Called from _Functions Save Callback
     @err_catcher(name=__name__)
     def getTabSettings(self):
-
         tabSettings = {}
         tabSettings["playerEnabled"] = self.chb_enablePlayer.isChecked()
         tabSettings["preferProxies"] = self.chb_preferProxies.isChecked()
@@ -448,11 +364,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
     def loadTabSettings(self):
-
         sData = self.getSettings()
 
-        self.toggleMediaPlayer(sData["tabSettings"]["playerEnabled"])
-        self.togglePreferProxies(sData["tabSettings"]["preferProxies"])
+        playerEnabled = sData["tabSettings"]["playerEnabled"]
+        self.chb_enablePlayer.setChecked(playerEnabled)
+        self.toggleMediaPlayer(playerEnabled)
+
+        preferProxies = sData["tabSettings"]["preferProxies"]
+        self.chb_preferProxies.setChecked(preferProxies)
+        self.togglePreferProxies(preferProxies)
+
         self.sourceFuncts.chb_copyProxy.setChecked(sData["tabSettings"]["copyProxy"])
             
 
@@ -490,25 +411,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.refreshDestItems()
 
 
-
-    # @err_catcher(name=__name__)
-    # def entityTabChanged(self):
-        # self.entityChanged()
-
-
-    @err_catcher(name=__name__)
-    def entityChanged(self, item=None):
-        self.refreshSourceItems(restoreSelection=True)
-        self.refreshDestItems()
-
-
-
     @err_catcher(name=__name__)
     def refreshUI(self):
         self.core.media.invalidateOiioCache()                               #   TODO
-        # self.w_entities.getCurrentPage().tw_tree.blockSignals(True)
-        # self.w_entities.refreshEntities(restoreSelection=True)
-        # self.w_entities.getCurrentPage().tw_tree.blockSignals(False)
 
         if hasattr(self, "sourceDir"):
             self.l_sourcePath.setText(self.sourceDir)
@@ -519,18 +424,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.refreshStatus = "valid"
 
 
-
     #   Toggles Media Player Visability
     @err_catcher(name=__name__)
     def toggleMediaPlayer(self, checked):
-        self.w_preview.setVisible(checked)
+        self.mediaPlayer.setVisible(checked)
+        self.chb_preferProxies.setVisible(checked)
 
 
     #   Sets Prefer Proxies
     @err_catcher(name=__name__)
     def togglePreferProxies(self, checked):
         self.preferProxies = checked
-
 
 
     @err_catcher(name=__name__)
@@ -546,124 +450,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             fileItem = table.cellWidget(row, 0)
             if fileItem is not None and fileItem.data["tileType"] == "file":
                 fileItem.setChecked(checked)
-
-
-
-    @err_catcher(name=__name__)
-    def getCurrentData(self):
-        curIdentifier = self.getCurrentIdentifier()
-        if curIdentifier:
-            identifier = curIdentifier["displayName"]
-        else:
-            identifier = ""
-
-        curVersion = self.getCurrentVersion()
-        if curVersion:
-            version = curVersion["version"]
-        else:
-            version = ""
-
-        curAov = self.getCurrentAOV()
-        if curAov:
-            aov = curAov["aov"]
-        else:
-            aov = ""
-
-        curSource = self.getCurrentSource()
-        if curSource:
-            source = curSource["source"]
-        else:
-            source = ""
-
-        curData = [
-            self.getCurrentEntity(),
-            identifier,
-            version,
-            aov,
-            source,
-        ]
-        return curData
-    
-
-    # @err_catcher(name=__name__)
-    # def refreshRender(self):
-    #     curData = self.getCurrentData()
-    #     self.showRender(*curData)
-
-
-    # @err_catcher(name=__name__)
-    # def getCurrentEntity(self):
-    #     return self.w_entities.getCurrentPage().getCurrentData()
-    
-
-    # @err_catcher(name=__name__)
-    # def getCurrentEntities(self):
-    #     return self.w_entities.getCurrentPage().getCurrentData(returnOne=False)
-    
-
-    # @err_catcher(name=__name__)
-    # def getCurrentIdentifier(self):
-    #     items = self.lw_task.selectedItems()
-    #     if not items:
-    #         return
-
-
-    #     return items[0].data(Qt.UserRole)
-
-    @err_catcher(name=__name__)
-    def getCurrentSource(self):
-        items = self.tw_destination.selectedItems()
-        if not items:
-            return
-
-        return items[0].data(Qt.UserRole)
-
-
-    @err_catcher(name=__name__)
-    def getCurrentSources(self):
-        items = self.tw_source.selectedItems()
-
-        if not items:
-            return []
-
-        fileItems = [item.data(Qt.UserRole) for item in items]
-
-        versions = [item.getFilepath() for item in fileItems]
-
-        return versions
-    
-
-    @err_catcher(name=__name__)
-    def getCurrentAOV(self):
-        return self.w_preview.getCurrentAOV()
-
-
-    @err_catcher(name=__name__)
-    def getCurrentSource(self):
-        return self.w_preview.getCurrentSource()
-
-
-    @err_catcher(name=__name__)
-    def getCurrentFilelayer(self):
-        return self.w_preview.getCurrentFilelayer()
-
-
-    @err_catcher(name=__name__)
-    def getMediaTasks(self, entity=None):
-        mediaTasks = {"3d": [], "2d": [], "playblast": [], "external": []}
-
-        if not entity:
-            entity = self.getCurrentEntities()
-            if isinstance(entity, list) and len(entity) == 1:
-                entity = entity[0]
-
-            if not entity or not isinstance(entity, dict) or entity["type"] not in ["asset", "shot"]:
-                return mediaTasks
-
-        location = self.w_entities.getCurrentLocation()
-        mediaTasks = self.core.mediaProducts.getIdentifiersByType(entity=entity, locations=[location])
-
-        return mediaTasks
 
 
     @err_catcher(name=__name__)
@@ -732,8 +518,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 fileType = "other"
 
             return fileType
-
-
 
 
     @err_catcher(name=__name__)
@@ -901,8 +685,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                         raise RuntimeError("%s - %s" % (comd, e))
 
 
-
-
     @err_catcher(name=__name__)
     def addToDestList(self, data, refresh=False):
         if not self.checkDuplicate(data):
@@ -1039,81 +821,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.configTransButtons("cancel")
 
 
-    # @err_catcher(name=__name__)
-    # def sortVersions(self, key):
-    #     val = key["version"]
-    #     if val == "master":
-    #         val = "zz_master"
-
-    #     return val
-
-    # @err_catcher(name=__name__)
-    # def updateVersions(self, restoreSelection=False):
-    #     if restoreSelection:
-    #         curVersion = None
-    #         version = self.getCurrentSource()
-    #         if version:
-    #             curVersion = version.get("version")
-
-    #     wasBlocked = self.tw_destination.signalsBlocked()
-    #     if not wasBlocked:
-    #         self.tw_destination.blockSignals(True)
-        
-    #     self.tw_destination.clear()
-    #     selectFirst = True
-    #     identifier = self.getCurrentIdentifier()
-    #     if len(self.tw_source.selectedItems()) == 1 and identifier:
-    #         location = self.w_entities.getCurrentLocation()
-    #         versions = self.core.mediaProducts.getVersionsFromIdentifier(
-    #             identifier=identifier, locations=[location]
-    #         )
-    #         locs = self.core.paths.getRenderProductBasePaths()
-    #         for version in sorted(versions, key=self.sortVersions, reverse=True):
-    #             if version["version"] == "master":
-    #                 versionName = self.core.mediaProducts.getMasterVersionLabel(version["path"])
-    #             else:
-    #                 versionName = version["version"]
-
-    #             vdata = self.core.paths.getRenderProductData(version["path"], isFilepath=False, addPathData=False, mediaType="3drenders", validateModTime=False)
-    #             if "project_path" in vdata:
-    #                 del vdata["project_path"]
-
-    #             comment = vdata.get("comment")
-    #             if comment:
-    #                 versionName += " - " + comment
-
-    #             versionData = version.copy()
-    #             if versionData["version"] == "master":
-    #                 vdata["version"] = "master"
-
-    #             locs = versionData["locations"]
-    #             versionData.update(vdata)
-    #             versionData["locations"] = locs
-    #             if len(locs) > 1 or len(versionData.get("locations", {})) > 1 or ("global" not in versionData.get("locations", {})):
-    #                 locStr = ", ".join([loc for loc in versionData.get("locations", {}) if ((loc and loc != "global") or len(versionData.get("locations", {})) > 1)])
-    #                 if locStr:
-    #                     versionName += " (%s)" % locStr
-
-    #             item = QListWidgetItem(versionName)
-    #             item.setData(Qt.UserRole, versionData)
-    #             if len(locs) > 1:
-    #                 item.setToolTip(", ".join(versionData.get("locations", {})))
-
-    #             self.tw_destination.addItem(item)
-
-    #             if restoreSelection and curVersion:
-    #                 if curVersion == version["version"]:
-    #                     self.tw_destination.setCurrentItem(item)
-    #                     selectFirst = False
-
-    #     if self.tw_destination.count() > 0 and selectFirst:
-    #         self.tw_destination.setCurrentRow(0)
-
-    #     if not wasBlocked:
-    #         self.tw_destination.blockSignals(False)
-    #         self.sourceClicked()
-
-
     @err_catcher(name=__name__)
     def getSelectedContexts(self):
         contexts = []
@@ -1136,6 +843,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 contexts = [data]
 
         return contexts
+    
 
     @err_catcher(name=__name__)
     def taskClicked(self):
@@ -1144,7 +852,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def sourceClicked(self):
-        self.w_preview.updateLayers(restoreSelection=True)
+        self.mediaPlayer.updateLayers(restoreSelection=True)
 
 
     @err_catcher(name=__name__)
@@ -1206,214 +914,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
 
-    # @err_catcher(name=__name__)
-    # def editComment(self, filepath):
-    #     data = self.core.paths.getRenderProductData(filepath)
-    #     comment = data.get("comment", "")
-
-    #     dlg_ec = PrismWidgets.CreateItem(
-    #         core=self.core, startText=comment, showType=False, valueRequired=False, validate=False
-    #     )
-
-    #     dlg_ec.setModal(True)
-    #     self.core.parentWindow(dlg_ec, parent=self)
-    #     dlg_ec.e_item.setFocus()
-    #     dlg_ec.setWindowTitle("Edit Comment")
-    #     dlg_ec.l_item.setText("New comment:")
-    #     dlg_ec.buttonBox.buttons()[0].setText("Save")
-
-    #     result = dlg_ec.exec_()
-
-    #     if not result:
-    #         return
-
-    #     comment = dlg_ec.e_item.text()
-    #     self.core.mediaProducts.setComment(filepath, comment)
-    #     self.updateVersions(restoreSelection=True)
-
-
-    @err_catcher(name=__name__)
-    def goToSource(self, source):
-        if not source:
-            msg = "This version doesn't have a source scene."
-            self.core.popup(msg)
-            return
-
-        self.core.pb.showTab("Scenefiles")
-        fileNameData = self.core.getScenefileData(source)
-        self.core.pb.sceneBrowser.navigate(data=fileNameData)
-
-
-    @err_catcher(name=__name__)
-    def showVersionInfoForItem(self, item):
-        context = item.data(Qt.UserRole)
-        self.showVersionInfo(context)
-
-    @err_catcher(name=__name__)
-    def showVersionInfo(self, context):
-        vInfo = "No information is saved with this version."
-
-        path = self.core.mediaProducts.getVersionInfoPathFromContext(context)
-
-        if os.path.exists(path):
-            vData = self.core.getConfig(configPath=path)
-
-            vInfo = []
-            for key in vData:
-                label = key[0].upper() + key[1:]
-                vInfo.append([label, vData[key]])
-
-        if type(vInfo) == str or len(vInfo) == 0:
-            self.core.popup(vInfo, severity="info")
-            return
-
-        infoDlg = QDialog()
-        lay_info = QGridLayout()
-
-        identifier = self.getCurrentIdentifier()
-        version = self.getCurrentSource() or context
-
-        infoDlg.setWindowTitle(
-            "Versioninfo %s %s:" % (identifier["identifier"], version["version"])
-        )
-        for idx, val in enumerate(vInfo):
-            l_infoName = QLabel(val[0] + ":\t")
-            l_info = QLabel(str(val[1]))
-            lay_info.addWidget(l_infoName)
-            lay_info.addWidget(l_info, idx, 1)
-
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        )
-        lay_info.addItem(
-            QSpacerItem(10, 10, QSizePolicy.Expanding, QSizePolicy.Minimum), 0, 2
-        )
-
-        sa_info = QScrollArea()
-
-        lay_info.setContentsMargins(10, 10, 10, 10)
-        w_info = QWidget()
-        w_info.setLayout(lay_info)
-        sa_info.setWidget(w_info)
-        sa_info.setWidgetResizable(True)
-
-        bb_info = QDialogButtonBox()
-
-        bb_info.addButton("Ok", QDialogButtonBox.AcceptRole)
-
-        bb_info.accepted.connect(infoDlg.accept)
-
-        bLayout = QVBoxLayout()
-        bLayout.addWidget(sa_info)
-        bLayout.addWidget(bb_info)
-        infoDlg.setLayout(bLayout)
-        infoDlg.setParent(self.core.messageParent, Qt.Window)
-        infoDlg.resize(900 * self.core.uiScaleFactor, 400 * self.core.uiScaleFactor)
-
-        infoDlg.exec_()
-
-    @err_catcher(name=__name__)
-    def showDependencies(self, context):
-        path = self.core.mediaProducts.getVersionInfoPathFromContext(context)
-
-        if not os.path.exists(path):
-            self.core.popup("No dependency information was saved with this version.")
-            return
-
-        self.core.dependencyViewer(path)
-
-    @err_catcher(name=__name__)
-    def getSelectedContext(self):
-        # return self.getCurrentData()
-        pass
-
-    @err_catcher(name=__name__)
-    def getCurrentNavData(self):
-        fileName = self.core.getCurrentFileName()
-        navData = self.core.getScenefileData(fileName)
-        return navData
-
-    @err_catcher(name=__name__)
-    def navigateToCurrent(self):
-        navData = self.getCurrentNavData()
-        self.showRender(entity=navData)
-
-    @err_catcher(name=__name__)
-    def navigate(self, data):
-        if isinstance(data, list):
-            self.showRender(*data)
-        else:
-            self.showRender(
-                entity=data,
-                identifier=data.get("identifier"),
-                version=data.get("version"),
-                aov=data.get("aov"),
-                source=data.get("source"),
-            )
-
-    @err_catcher(name=__name__)
-    def navigateToEntity(self, entity):
-        self.w_entities.navigate(entity)
-
-    @err_catcher(name=__name__)
-    def showRender(self, entity=None, identifier=None, version=None, aov=None, source=None, filelayer=None):
-        prevIdf = self.getCurrentIdentifier()
-        self.tw_source.blockSignals(True)
-        if entity:
-            self.navigateToEntity(entity)
-
-        if not identifier:
-            self.tw_source.blockSignals(False)
-            if prevIdf != self.getCurrentIdentifier() or not self.initialized:
-                self.taskClicked()
-
-            return
-
-        matches = self.tw_source.findItems(
-            identifier, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive)
-        )
-        if not matches:
-            self.tw_source.blockSignals(False)
-            if prevIdf != self.getCurrentIdentifier() or not self.initialized:
-                self.taskClicked()
-
-            return
-
-        self.tw_source.setCurrentItem(matches[0])
-        self.tw_source.blockSignals(False)
-        prevVersion = self.getCurrentSource()
-        self.tw_destination.blockSignals(True)
-        if prevIdf != self.getCurrentIdentifier():
-            self.taskClicked()
-
-        if not version:
-            self.tw_destination.blockSignals(False)
-            if prevVersion != self.getCurrentSource() or not self.initialized:
-                self.sourceClicked()
-
-            return
-
-        items = [self.tw_destination.item(x) for x in range(self.tw_destination.count())]
-        vMatches = [item for item in items if item.data(Qt.UserRole) and item.data(Qt.UserRole).get("version") == version]
-        if not vMatches:
-            self.tw_destination.blockSignals(False)
-            if prevVersion != self.getCurrentSource() or not self.initialized:
-                self.sourceClicked()
-
-            return
-
-        self.tw_destination.clearSelection()
-        self.tw_destination.setCurrentItem(vMatches[0])
-        self.tw_destination.blockSignals(False)
-        if prevVersion != self.getCurrentSource():
-            result = self.w_preview.navigate(aov, source, filelayer)
-            if not result:
-                self.w_preview.layerChanged()
-
     @err_catcher(name=__name__)
     def setPreview(self):
         entity = self.getCurrentEntity()
-        pm = self.w_preview.mediaPlayer.l_preview.pixmap()
+        pm = self.mediaPlayer.mediaPlayer.l_preview.pixmap()
         self.core.entities.setEntityPreview(entity, pm)
         self.core.pb.sceneBrowser.refreshEntityInfo()
         self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
@@ -1429,63 +933,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         rcmenu = QMenu(self)
         if lw == self.tw_source:
             refresh = self.refreshSourceItems
-            # if entity.get("type") in ["asset", "shot"]:
-            #     depAct = QAction("Create Identifier...", self)
-            #     depAct.triggered.connect(self.createIdentifierDlg)
-            #     rcmenu.addAction(depAct)
-
-            #     exAct = QAction("Ingest media...", self)
-            #     exAct.triggered.connect(self.ingestMediaDlg)
-            #     rcmenu.addAction(exAct)
 
         elif lw == self.tw_destination:
             if item:
                 pass
-                # infAct = QAction("Edit comment...", self)
-                # infAct.triggered.connect(lambda: self.editComment(path))
-                # rcmenu.addAction(infAct)
-
-                # infAct = QAction("Show version info", self)
-                # infAct.triggered.connect(lambda: self.showVersionInfoForItem(item))
-                # rcmenu.addAction(infAct)
-
-                # depAct = QAction("Show dependencies", self)
-                # depAct.triggered.connect(lambda: self.showDependencies(data))
-                # rcmenu.addAction(depAct)
-
-                # infoPath = self.core.mediaProducts.getVersionInfoPathFromContext(data)
-                # source = self.core.getConfig("sourceScene", configPath=infoPath)
-                # depAct = QAction("Go to source scene", self)
-                # depAct.triggered.connect(lambda: self.goToSource(source))
-                # rcmenu.addAction(depAct)
-
-                # if source:
-                #     depAct.setToolTip(source)
-                # else:
-                #     depAct.setEnabled(False)
-
-                # try:
-                #     rcmenu.setToolTipsVisible(True)
-                # except:
-                #     pass
-
-                # useMaster = self.core.mediaProducts.getUseMaster()
-                # if useMaster:
-                #     if itemName.startswith("master"):
-                #         masterAct = QAction("Delete master", self)
-                #         masterAct.triggered.connect(
-                #             lambda: self.core.mediaProducts.deleteMasterVersion(data["path"])
-                #         )
-                #         masterAct.triggered.connect(self.updateVersions)
-                #         rcmenu.addAction(masterAct)
-                #     else:
-                #         masterAct = QAction("Set as master", self)
-                #         masterAct.triggered.connect(lambda: self.setMaster(data))
-                #         rcmenu.addAction(masterAct)
-
-                #         masterAct = QAction("Add to master", self)
-                #         masterAct.triggered.connect(lambda: self.addMaster(data))
-                #         rcmenu.addAction(masterAct)
 
             else:
                 clearAct = QAction("Clear Transfer List", self)
@@ -1507,35 +958,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #     opAct.triggered.connect(lambda: self.core.openFolder(path))
         #     rcmenu.addAction(opAct)
 
-        #     copAct = QAction("Copy", self)
-        #     iconPath = os.path.join(
-        #         self.core.prismRoot, "Scripts", "UserInterfacesPrism", "copy.png"
-        #     )
-        #     icon = self.core.media.getColoredIcon(iconPath)
-        #     copAct.setIcon(icon)
-        #     copAct.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
-        #     rcmenu.addAction(copAct)
-
-        # if lw == self.tw_destination:
-        #     copAct = QAction("Copy path for next version", self)
-        #     copAct.triggered.connect(self.prepareNewVersion)
-        #     rcmenu.addAction(copAct)
-
-        #     if itemName:
-        #         existingLocs = list(data.get("locations", {}).keys())
-        #         locMenu = QMenu("Copy to", self)
-        #         locs = self.core.paths.getRenderProductBasePaths()
-        #         for loc in locs:
-        #             if loc in existingLocs:
-        #                 continue
-
-        #             copAct = QAction(loc, self)
-        #             copAct.triggered.connect(lambda x=None, l=loc: self.copyToLocation(path, l))
-        #             locMenu.addAction(copAct)
-
-        #         if not locMenu.isEmpty():
-        #             rcmenu.addMenu(locMenu)
-
 
 
         # self.core.callback(
@@ -1550,169 +972,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         rcmenu.exec_(cpos)
 
-    @err_catcher(name=__name__)
-    def prepareNewVersion(self):
-        curEntity = self.getCurrentEntity()
-        curIdentifier = self.getCurrentIdentifier()
-        if not curIdentifier:
-            return
-
-        extension = ""
-        framePadding = ""
-        comment = ""
-        if curIdentifier["mediaType"] == "playblasts":
-            outputPathData = self.core.mediaProducts.generatePlayblastPath(
-                entity=curEntity,
-                task=curIdentifier["identifier"],
-                extension=extension,
-                framePadding=framePadding,
-                comment=comment,
-                returnDetails=True,
-            )
-        else:
-            outputPathData = self.core.mediaProducts.generateMediaProductPath(
-                entity=curEntity,
-                task=curIdentifier["identifier"],
-                extension=extension,
-                framePadding=framePadding,
-                comment=comment,
-                singleFrame=True,
-                returnDetails=True,
-                mediaType=curIdentifier["mediaType"],
-            )
-
-        nextPath = outputPathData["path"]
-        details = curEntity.copy()
-        details["identifier"] = curIdentifier
-        details["version"] = outputPathData["version"]
-
-        self.core.saveSceneInfo(nextPath + ".", details=details)
-        self.core.copyToClipboard(nextPath)
-
-    @err_catcher(name=__name__)
-    def copyToLocation(self, path, location):
-        newPath = self.core.convertPath(path, target=location)
-        if newPath:
-            if os.path.exists(newPath):
-                msg = "The target folder does already exist:\n\n%s" % newPath
-                result = self.core.popupQuestion(msg, buttons=["Delete existing files", "Cancel"], icon=QMessageBox.Warning)
-                if result == "Delete existing files":
-                    try:
-                        shutil.rmtree(newPath)
-                    except Exception as e:
-                        msg = "Failed to delete folder:\n\n%s" % e
-                        self.core.popup(msg)
-
-                    self.copyToLocation(path, location)
-                    return
-                else:
-                    return
-
-            logger.debug("copying version: %s to %s" % (path, newPath))
-            self.core.copyWithProgress(path, newPath, finishCallback=lambda: self.updateVersions(restoreSelection=True))
-
-    @err_catcher(name=__name__)
-    def createIdentifierDlg(self):
-        curEntity = self.getCurrentEntity()
-        self.newItem = ProjectWidgets.CreateIdentifierDlg(self, entity=curEntity)
-        self.newItem.e_identifier.setFocus()
-        self.newItem.accepted.connect(self.createIdentifier)
-        self.core.callback(name="onCreateIdentifierDlgOpen", args=[self, self.newItem])
-        self.newItem.show()
-
-    @err_catcher(name=__name__)
-    def createIdentifier(self):
-        self.activateWindow()
-        itemName = self.newItem.e_identifier.text()
-        curEntity = self.getCurrentEntity()
-        mediaTypeLabel = self.newItem.cb_mediaType.currentText()
-        suffix = ""
-        if mediaTypeLabel == "3D":
-            mediaType = "3drenders"
-        elif mediaTypeLabel == "2D":
-            mediaType = "2drenders"
-            suffix = " (2d)"
-        elif mediaTypeLabel == "Playblast":
-            mediaType = "playblasts"
-            suffix = " (playblast)"
-        elif mediaTypeLabel == "External":
-            mediaType = "externalMedia"
-            suffix = " (external)"
-
-        if self.core.mediaProducts.getLinkedToTasks():
-            curEntity["department"] = self.newItem.e_department.text() or "unknown"
-            curEntity["task"] = self.newItem.e_task.text() or "unknown"
-
-        location = self.newItem.cb_location.currentText()
-        self.core.mediaProducts.createIdentifier(
-            entity=curEntity,
-            identifier=itemName,
-            identifierType=mediaType,
-            location=location,
-        )
-        self.refreshSourceItems()
-        if itemName is not None:
-            matches = self.tw_source.findItems(
-                itemName + suffix, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive ^ Qt.MatchRecursive)
-            )
-            if matches:
-                self.tw_source.setCurrentItem(matches[0])
-
-    @err_catcher(name=__name__)
-    def createVersionDlg(self):
-        context = self.getCurrentIdentifier()
-        version = self.core.mediaProducts.getHighestMediaVersion(context)
-        intVersion = self.core.products.getIntVersionFromVersionName(version)
-        self.newItem = ProjectWidgets.CreateMediaVersionDlg(self, entity=context)
-        if intVersion is not None:
-            self.newItem.sp_version.setValue(intVersion)
-
-        location = self.core.mediaProducts.getLocationFromPath(context["path"])
-        if location:
-            self.newItem.cb_location.setCurrentText(location)
-
-        self.newItem.sp_version.setFocus()
-        self.newItem.accepted.connect(self.createVersion)
-        self.core.callback(name="onCreateVersionDlgOpen", args=[self, self.newItem])
-        self.newItem.show()
-
-    @err_catcher(name=__name__)
-    def createVersion(self):
-        self.activateWindow()
-        versionName = self.core.versionFormat % self.newItem.sp_version.value()
-        curEntity = self.getCurrentEntity()
-        identifier = self.getCurrentIdentifier()
-        location = self.newItem.cb_location.currentText()
-        if self.core.mediaProducts.getLinkedToTasks():
-            curEntity["department"] = identifier.get("department", "unknown")
-            curEntity["task"] = identifier.get("task", "unknown")
-
-        self.core.mediaProducts.createVersion(
-            entity=curEntity,
-            identifier=identifier["identifier"],
-            identifierType=identifier["mediaType"],
-            version=versionName,
-            location=location,
-        )
-        self.updateVersions()
-        if versionName is not None:
-            matches = self.tw_destination.findItems(
-                versionName, Qt.MatchFlag(Qt.MatchExactly & Qt.MatchCaseSensitive)
-            )
-            if matches:
-                self.tw_destination.setCurrentItem(matches[0])
-
-    @err_catcher(name=__name__)
-    def setMaster(self, context):
-        self.core.mediaProducts.updateMasterVersion(context=context, isFilepath=False)
-        self.updateVersions()
-        QPixmapCache.clear()
-
-    @err_catcher(name=__name__)
-    def addMaster(self, context):
-        self.core.mediaProducts.addToMasterVersion(context=context, isFilepath=False)
-        self.updateVersions()
-        QPixmapCache.clear()
 
     @err_catcher(name=__name__)
     def taskDragEnterEvent(self, e):
@@ -1731,9 +990,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         else:
             e.ignore()
 
+
     @err_catcher(name=__name__)
     def taskDragLeaveEvent(self, e):
         self.tw_source.setStyleSheet("")
+
 
     @err_catcher(name=__name__)
     def taskDropEvent(self, e):
@@ -1753,12 +1014,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         else:
             e.ignore()
 
+
     @err_catcher(name=__name__)
     def versionDragEnterEvent(self, e):
         if e.mimeData().hasUrls():
             e.accept()
         else:
             e.ignore()
+
 
     @err_catcher(name=__name__)
     def versionDragMoveEvent(self, e):
@@ -1770,9 +1033,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         else:
             e.ignore()
 
+
     @err_catcher(name=__name__)
     def versionDragLeaveEvent(self, e):
         self.tw_destination.setStyleSheet("")
+
 
     @err_catcher(name=__name__)
     def versionDropEvent(self, e):
@@ -1793,631 +1058,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         else:
             e.ignore()
 
-    @err_catcher(name=__name__)
-    def ingestMediaToSelection(self, entity, files):
-        identifier = self.getCurrentIdentifier()
-        version = self.getCurrentSource()
-        aov = self.getCurrentAOV()
 
-        if not identifier:
-            self.ingestMediaDlg(filepath="\n".join(files))
-            return
-
-        if not version:
-            self.ingestMediaDlg(filepath="\n".join(files))
-            self.ep.sp_version.setFocus()
-            return
-
-        if aov:
-            aovLabel = aov["aov"]
-        else:
-            aovLabel = ""
-            if identifier["mediaType"] == "3drenders":
-                self.ingestMediaDlg(filepath="\n".join(files))
-                self.ep.e_aov.setFocus()
-                return
-
-        entity = identifier
-        identifierLabel = identifier["identifier"]
-        versionLabel = version["version"]
-        result = self.core.mediaProducts.ingestMedia(files, entity, identifierLabel, versionLabel, aovLabel, mediaType=identifier["mediaType"])
-        if result.get("versionAdded"):
-            self.updateVersions()
-        # else:
-        #     self.w_preview.updateSources()
-
-    @err_catcher(name=__name__)
-    def ingestMediaDlg(self, filepath=""):
-        entity = self.getCurrentEntity()
-        if entity.get("type") not in ["asset", "shot"]:
-            self.core.popup("Invalid entity is selected. Select an asset or a shot and try again.")
-            return
-
-        location = None
-        self.ep = ProjectWidgets.IngestMediaDlg(core=self.core, startText=filepath, entity=entity, parent=self)
-        idf = self.getCurrentIdentifier()
-        if idf:
-            location = self.core.mediaProducts.getLocationFromPath(idf["path"])
-            self.ep.e_identifier.setText(idf["identifier"])
-            if idf.get("mediaType"):
-                text = ""
-                if idf.get("mediaType") == "3drenders":
-                    text = "3D"
-                elif idf.get("mediaType") == "2drenders":
-                    text = "2D"
-                elif idf.get("mediaType") == "playblasts":
-                    text = "Playblast"
-                elif idf.get("mediaType") == "externalMedia":
-                    text = "External"
-
-                if text:
-                    self.ep.cb_identifierType.setCurrentText(text)
-
-        version = self.getCurrentSource()
-        if version:
-            location = self.core.mediaProducts.getLocationFromPath(version["path"])
-            intVersion = self.core.products.getIntVersionFromVersionName(version["version"])
-            if intVersion is not None:
-                self.ep.sp_version.setValue(intVersion + 1)
-
-        if location:
-            self.ep.cb_location.setCurrentText(location)
-
-        self.ep.e_identifier.setFocus()
-        self.activateWindow()
-        self.ep.accepted.connect(self.ingestMedia)
-        self.ep.show()
-
-    @err_catcher(name=__name__)
-    def ingestMedia(self, filepath=""):
-        entity = self.ep.entity
-        if entity.get("type") not in ["asset", "shot"]:
-            self.core.popup("Invalid entity is selected. Select an asset or a shot and try again.")
-            return
-
-        identifier = self.ep.e_identifier.text()
-        mediaType = self.ep.cb_identifierType.currentData()
-        versionName = self.core.versionFormat % self.ep.sp_version.value()
-        aov = self.ep.e_aov.text()
-        targetPath = self.ep.l_mediaPath.text()
-        files = targetPath.split("\n")
-        entity = entity.copy()
-        location = self.ep.cb_location.currentText()
-        if self.core.mediaProducts.getLinkedToTasks():
-            entity["department"] = self.ep.e_department.text()
-            entity["task"] = self.ep.e_task.text()
-
-        if mediaType == "externalMedia":
-            if self.ep.rb_copy.isChecked():
-                action = "copy"
-            elif self.ep.rb_move.isChecked():
-                action = "move"
-            elif self.ep.rb_link.isChecked():
-                action = "link"
-
-            self.core.mediaProducts.createExternalMedia(
-                os.pathsep.join(files), entity, identifier, versionName, action=action, location=location
-            )
-        else:
-            self.core.mediaProducts.ingestMedia(files, entity, identifier, versionName, aov, mediaType=mediaType, location=location)
-
-        self.refreshSourceItems()
-        displayName = self.core.mediaProducts.getDisplayNameForIdentifier(identifier, mediaType)
-        curData = [entity, displayName, versionName, ""]
-        self.showRender(*curData)
-
-    @err_catcher(name=__name__)
-    def newExternalVersion(self):
-        entity = self.getCurrentEntity()
-        identifier = self.getCurrentIdentifier()
-        version = self.core.mediaProducts.getLatestVersionFromIdentifier(identifier)
-        startPath = self.core.mediaProducts.getExternalPathFromVersion(version)
-        intVersion = self.core.products.getIntVersionFromVersionName(version["version"])
-
-        self.ep = ProjectWidgets.IngestMediaDlg(core=self.core, entity=entity, parent=self)
-        self.ep.e_identifier.setText(identifier["identifier"])
-        self.ep.l_mediaPath.setText(startPath)
-        self.ep.sp_version.setValue(intVersion)
-        self.ep.enableOk(identifier["identifier"], self.ep.e_identifier)
-        self.ep.setWindowTitle("Create new version")
-        self.ep.e_version.setFocus()
-        self.activateWindow()
-        self.ep.accepted.connect(self.ingestMedia)
-        self.ep.show()
-
-    # @err_catcher(name=__name__)
-    # def getCurRenders(self):
-    #     renders = []
-    #     sTasks = self.tw_source.selectedItems()
-    #     sVersions = self.tw_destination.selectedItems()
-
-    #     if len(sTasks) > 1:
-    #         for identifierItem in sTasks:
-    #             identifier = identifierItem.data(0, Qt.UserRole)
-    #             if not identifier:
-    #                 continue
-
-    #             versions = self.core.mediaProducts.getVersionsFromIdentifier(
-    #                 identifier=identifier
-    #             )
-
-    #             if versions:
-    #                 versions = sorted(
-    #                     versions, key=lambda x: x["version"], reverse=True
-    #                 )
-    #                 aovs = self.core.mediaProducts.getAOVsFromVersion(versions[0])
-    #                 context = versions[0].copy()
-
-    #                 if aovs:
-    #                     for aov in aovs:
-    #                         if aov["aov"] in ["beauty", "rgb", "rgba"]:
-    #                             context = aov
-    #                             break
-    #                     else:
-    #                         context = aovs[0]
-
-    #                 renders.append(context)
-
-    #     elif len(sVersions) > 1:
-    #         for versionItem in sVersions:
-    #             version = versionItem.data(Qt.UserRole)
-    #             aovs = self.core.mediaProducts.getAOVsFromVersion(version)
-    #             context = version.copy()
-
-    #             if aovs:
-    #                 for aov in aovs:
-    #                     if aov["aov"] in ["beauty", "rgb", "rgba"]:
-    #                         context = aov
-    #                         break
-    #                 else:
-    #                     context = aovs[0]
-
-    #             renders.append(context)
-
-    #     else:
-    #         data = self.getCurrentSource()
-    #         if not data:
-    #             data = self.getCurrentAOV()
-    #             if not data:
-    #                 data = self.getCurrentSource()
-    #                 if not data:
-    #                     data = self.getCurrentIdentifier()
-
-    #         if data:
-    #             context = data.copy()
-    #             renders.append(context)
-
-    #     return renders
-
-    @err_catcher(name=__name__)
-    def triggerAutoplay(self, checked=False):
-        self.w_preview.mediaPlayer.triggerAutoplay(checked)
-
-
-
-
-class MediaVersionPlayer(QWidget):
-    def __init__(self, origin):
-        super(MediaVersionPlayer, self).__init__()
-        self.origin = origin
-        self.core = self.origin.core
-        self.setupUi()
-
-    @err_catcher(name=__name__)
-    def setupUi(self):
-        self.lo_main = QVBoxLayout(self)
-        self.lo_main.setContentsMargins(0, 0, 0, 0)
-
-        self.l_layer = QLabel("AOVs:")
-        self.cb_layer = QComboBox()
-        self.lo_main.addWidget(self.l_layer)
-        self.lo_main.addWidget(self.cb_layer)
-
-        self.l_source = QLabel("Source:")
-        self.cb_source = QComboBox()
-        self.lo_main.addWidget(self.l_source)
-        self.lo_main.addWidget(self.cb_source)
-
-        self.l_filelayer = QLabel("Channel:")
-        self.cb_filelayer = QComboBox()
-
-        #   HIDE -- TESTING
-        self.l_layer.hide()
-        self.l_source.hide()
-        self.l_filelayer.hide()
-        self.cb_layer.hide()
-        self.cb_source.hide()
-        self.cb_filelayer.hide()
-
-
-
-
-        self.lo_main.addWidget(self.l_filelayer)
-        self.lo_main.addWidget(self.cb_filelayer)
-
-        self.mediaPlayer = self.getMediaPlayer()
-        self.lo_main.addWidget(self.mediaPlayer)
-
-        # self.cb_layer.currentIndexChanged.connect(self.layerChanged)
-        self.cb_layer.mmEvent = self.cb_layer.mouseMoveEvent
-        self.cb_layer.mouseMoveEvent = lambda x: self.mediaPlayer.mouseDrag(x, self.cb_layer)
-        self.cb_layer.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.cb_layer.customContextMenuRequested.connect(self.rclLayer)
-        self.cb_source.currentIndexChanged.connect(self.sourceChanged)
-        self.cb_filelayer.currentIndexChanged.connect(self.filelayerChanged)
-
-    @err_catcher(name=__name__)
-    def getMediaPlayer(self):
-        return MediaPlayer(self)
-
-    @err_catcher(name=__name__)
-    def getCurrentAOV(self):
-        data = self.cb_layer.currentData(Qt.UserRole)
-        return data
-
-    @err_catcher(name=__name__)
-    def getCurrentSource(self):
-        data = self.cb_source.currentData(Qt.UserRole)
-        return data
-
-    @err_catcher(name=__name__)
-    def getCurrentFilelayer(self):
-        data = self.cb_filelayer.currentData(Qt.UserRole)
-        return data
-
-    # @err_catcher(name=__name__)
-    # def layerChanged(self, layer=None):
-    #     self.updateSources(restoreSelection=True)
-
-    @err_catcher(name=__name__)
-    def sourceChanged(self, layer=None):
-        self.updateFilelayers(restoreSelection=True)
-
-    @err_catcher(name=__name__)
-    def filelayerChanged(self, layer=None):
-        self.mediaPlayer.updatePreview()
-
-    @err_catcher(name=__name__)
-    def getCurrentVersions(self):
-        return self.origin.getCurrentSources()
-    
-
-    @err_catcher(name=__name__)
-    def updateLayers(self, restoreSelection=False):
-        if restoreSelection:
-            curLayer = self.cb_layer.currentText()
-
-        wasBlocked = self.cb_layer.signalsBlocked()
-        if not wasBlocked:
-            self.cb_layer.blockSignals(True)
-    
-        self.cb_layer.clear()
-
-        versions = self.getCurrentVersions()
-
-
-
-        # if len(versions) == 1:
-        #     aovs = self.core.mediaProducts.getAOVsFromVersion(versions[0])
-        #     for aov in aovs:
-        #         self.cb_layer.addItem(aov["aov"], aov)
-
-        selectFirst = True
-        if restoreSelection and curLayer:
-            bIdx = self.cb_layer.findText(curLayer)
-            if bIdx != -1:
-                self.cb_layer.setCurrentIndex(bIdx)
-                selectFirst = False
-
-        if selectFirst:
-            bIdx = self.cb_layer.findText("beauty")
-            if bIdx != -1:
-                self.cb_layer.setCurrentIndex(bIdx)
-            else:
-                bIdx = self.cb_layer.findText("rgba")
-                if bIdx != -1:
-                    self.cb_layer.setCurrentIndex(bIdx)
-                else:
-                    self.cb_layer.setCurrentIndex(0)
-
-        if not wasBlocked:
-            self.cb_layer.blockSignals(False)
-            # self.updateSources(restoreSelection=True)
-
-
-    # @err_catcher(name=__name__)
-    # def updateSources(self, restoreSelection=False):
-
-    #     self.core.popup("IN UPDATE SOURCES")                                      #    TESTING
-    #     if restoreSelection:
-    #         curSource = self.cb_source.currentText()
-
-    #     wasBlocked = self.cb_source.signalsBlocked()
-    #     if not wasBlocked:
-    #         self.cb_source.blockSignals(True)
-    
-    #     self.cb_source.clear()
-    #     versions = self.getCurrentVersions()
-    #     if len(versions) == 1:
-    #         curAov = self.getCurrentAOV()
-    #         if not curAov:
-    #             curAov = versions[0]
-
-    #         if curAov:
-    #             # mediaFiles = self.core.mediaProducts.getFilesFromContext(curAov)
-    #             validFiles = self.core.media.filterValidMediaFiles(curAov)
-
-    #             if validFiles:
-    #                 validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
-    #                 baseName, extension = os.path.splitext(validFiles[0])
-    #                 seqFiles = self.core.media.detectSequences(validFiles)
-    #                 for seqFile in seqFiles:
-    #                     source = curAov.copy()
-    #                     source["source"] = os.path.basename(seqFile)
-    #                     self.cb_source.addItem(source["source"], source)
-
-    #     selectFirst = True
-    #     if restoreSelection and curSource:
-    #         bIdx = self.cb_source.findText(curSource)
-    #         if bIdx != -1:
-    #             self.cb_source.setCurrentIndex(bIdx)
-    #             selectFirst = False
-
-    #     if selectFirst:
-    #         self.cb_source.setCurrentIndex(0)
-
-    #     self.l_source.setHidden(self.cb_source.count() < 2)
-    #     self.cb_source.setHidden(self.cb_source.count() < 2)
-
-    #     if not wasBlocked:
-    #         self.cb_source.blockSignals(False)
-    #         self.updateFilelayers(restoreSelection=True)
-
-
-    @err_catcher(name=__name__)
-    def updateFilelayers(self, restoreSelection=False, threaded=True, layers=None):
-        if restoreSelection:
-            curFileLayer = self.cb_filelayer.currentText()
-
-        wasBlocked = self.cb_filelayer.signalsBlocked()
-        if not wasBlocked:
-            self.cb_filelayer.blockSignals(True)
-    
-        self.cb_filelayer.clear()
-        versions = self.getCurrentVersions()
-        if len(versions) == 1 and os.getenv("PRISM_SHOW_EXR_LAYERS") != "0":
-            curSource = self.getCurrentSource()
-            if curSource:
-                mediaFiles = self.core.mediaProducts.getFilesFromContext(curSource)
-                validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
-
-                if validFiles:
-                    if threaded:
-                        layers = ["Loading..."]
-
-                        thread = self.core.worker(self.core)
-                        thread.function = lambda: self.getLayersFromFileThreaded(
-                            validFiles[0], thread, restoreSelection
-                        )
-                        thread.errored.connect(self.core.writeErrorLog)
-                        thread.finished.connect(self.onWorkerThreadFinished)
-                        thread.warningSent.connect(self.core.popup)
-                        thread.dataSent.connect(self.onWorkerDataSent)
-                        # self.mediaThreads.append(thread)
-                        if not getattr(self, "curMediaThread", None):
-                            self.curMediaThread = thread
-                            thread.start()
-                        else:
-                            self.nextMediaThread = thread
-
-                    elif layers and layers.get("file") == validFiles[0]:
-                        layers = layers.get("layers", [])
-                    else:
-                        layers = self.core.media.getLayersFromFile(validFiles[0])
-
-                    for flayer in layers:
-                        layer = curSource.copy()
-                        layer["channel"] = flayer
-                        self.cb_filelayer.addItem(layer["channel"], layer)
-
-        selectFirst = True
-        if restoreSelection and curFileLayer:
-            bIdx = self.cb_filelayer.findText(curFileLayer)
-            if bIdx != -1:
-                self.cb_filelayer.setCurrentIndex(bIdx)
-                selectFirst = False
-
-        if selectFirst:
-            self.cb_filelayer.setCurrentIndex(0)
-
-        self.l_filelayer.setHidden(self.cb_filelayer.count() < 2)
-        self.cb_filelayer.setHidden(self.cb_filelayer.count() < 2)
-
-        if not wasBlocked:
-            self.cb_filelayer.blockSignals(False)
-            self.mediaPlayer.updatePreview()
-
-    @err_catcher(name=__name__)
-    def getLayersFromFileThreaded(self, filepath, thread, restoreSelection):
-        if thread.isInterruptionRequested():
-            return
-
-        layers = self.core.media.getLayersFromFile(filepath)
-        layerData = {"file": filepath, "layers": layers}
-        data = {"function": "updateFilelayers", "args": [], "kwargs": {"restoreSelection": restoreSelection, "threaded": False, "layers": layerData}}
-        thread.dataSent.emit(data)
-
-    @err_catcher(name=__name__)
-    def onWorkerDataSent(self, data):
-        getattr(self, data["function"])(*data["args"], **data["kwargs"])
-
-    @err_catcher(name=__name__)
-    def onWorkerThreadFinished(self):
-        if getattr(self, "nextMediaThread", None):
-            self.curMediaThread = self.nextMediaThread
-            self.nextMediaThread = None
-            self.curMediaThread.start()
-        else:
-            self.curMediaThread = None
-
-    @err_catcher(name=__name__)
-    def navigate(self, aov=None, source=None, filelayer=None, restoreSelection=False):
-        prevLayer = self.getCurrentAOV()
-        self.cb_layer.blockSignals(True)
-        self.updateLayers(restoreSelection=True)
-        if not aov:
-            self.cb_layer.blockSignals(False)
-            if prevLayer != self.getCurrentAOV() or not self.origin.initialized:
-                self.layerChanged()
-                return True
-
-            return
-
-        idx = self.cb_layer.findText(aov)
-        if idx != -1:
-            self.cb_layer.setCurrentIndex(idx)
-
-        self.cb_layer.blockSignals(False)
-        prevSource = self.getCurrentSource()
-        self.cb_source.blockSignals(True)
-        if prevLayer != self.getCurrentAOV():
-            self.layerChanged()
-
-        if not source:
-            self.cb_source.blockSignals(False)
-            if prevSource != self.getCurrentSource() or not self.origin.initialized:
-                self.sourceChanged()
-                return True
-
-            return
-
-        idx = self.cb_source.findText(aov)
-        if idx != -1:
-            self.cb_source.setCurrentIndex(idx)
-
-        self.cb_source.blockSignals(False)
-        prevFilelayer = self.getCurrentFilelayer()
-        self.cb_filelayer.blockSignals(True)
-        if prevSource != self.getCurrentSource():
-            self.sourceChanged()
-
-        if not filelayer:
-            self.cb_filelayer.blockSignals(False)
-            if prevFilelayer != self.getCurrentFilelayer() or not self.origin.initialized:
-                self.filelayerChanged()
-                return True
-
-            return
-
-        idx = self.cb_filelayer.findText(aov)
-        if idx != -1:
-            self.cb_filelayer.setCurrentIndex(idx)
-
-        self.cb_filelayer.blockSignals(False)
-        if prevFilelayer != self.getCurrentFilelayer():
-            self.filelayerChanged()
-            return True
-
-    @err_catcher(name=__name__)
-    def rclLayer(self, pos):
-        cpos = QCursor.pos()
-        if not hasattr(self.origin, "getCurrentIdentifier"):
-            return
-
-        identifier = self.origin.getCurrentIdentifier()
-        if not identifier or identifier["mediaType"] != "3drenders":
-            return
-
-        data = self.getCurrentAOV()
-        if data:
-            path = data["path"]
-        else:
-            version = self.origin.getCurrentVersion()
-            if not version:
-                return
-
-            path = self.core.mediaProducts.getAovPathFromVersion(version)
-
-        rcmenu = QMenu(self)
-
-        depAct = QAction("Create AOV...", self)
-        depAct.triggered.connect(self.createAovDlg)
-        rcmenu.addAction(depAct)
-
-        act_refresh = QAction("Refresh", self)
-        iconPath = os.path.join(
-            self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png"
-        )
-        icon = self.core.media.getColoredIcon(iconPath)
-        act_refresh.setIcon(icon)
-        act_refresh.triggered.connect(lambda: self.updateLayers(restoreSelection=True))
-        rcmenu.addAction(act_refresh)
-
-        if os.path.exists(path):
-            opAct = QAction("Open in Explorer", self)
-            opAct.triggered.connect(lambda: self.core.openFolder(path))
-            rcmenu.addAction(opAct)
-
-            copAct = QAction("Copy", self)
-            iconPath = os.path.join(
-                self.core.prismRoot, "Scripts", "UserInterfacesPrism", "copy.png"
-            )
-            icon = self.core.media.getColoredIcon(iconPath)
-            copAct.setIcon(icon)
-            copAct.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
-            rcmenu.addAction(copAct)
-
-        if rcmenu.isEmpty():
-            return False
-
-        rcmenu.exec_(cpos)
-
-    @err_catcher(name=__name__)
-    def createAovDlg(self):
-        entity = self.origin.getCurrentEntity()
-        identifier = self.origin.getCurrentIdentifier().get("identifier")
-        version = identifier = self.origin.getCurrentVersion().get("version")
-        context = entity.copy()
-        context["identifier"] = identifier
-        context["version"] = version
-
-        self.newItem = PrismWidgets.CreateItem(
-            core=self.core, showType=False, mode="aov", startText="rgb"
-        )
-        self.newItem.setModal(True)
-        self.core.parentWindow(self.newItem)
-        self.newItem.e_item.setFocus()
-        self.newItem.setWindowTitle("Create AOV")
-        self.newItem.l_item.setText("AOV:")
-        self.newItem.accepted.connect(self.createAov)
-        self.core.callback(name="onCreateAovDlgOpen", args=[self, self.newItem])
-        self.newItem.show()
-
-    @err_catcher(name=__name__)
-    def createAov(self):
-        self.activateWindow()
-        itemName = self.newItem.e_item.text()
-        curEntity = self.origin.getCurrentEntity()
-        identifier = self.origin.getCurrentIdentifier()
-        identifierName = identifier.get("identifier")
-        version = self.origin.getCurrentVersion().get("version")
-        if self.core.mediaProducts.getLinkedToTasks():
-            curEntity["department"] = identifier.get("department", "unknown")
-            curEntity["task"] = identifier.get("task", "unknown")
-
-        self.core.mediaProducts.createAov(entity=curEntity, identifier=identifierName, version=version, aov=itemName)
-        self.updateLayers()
-        if itemName is not None:
-            idx = self.cb_layer.findText(itemName)
-            if idx != -1:
-                self.cb_layer.setCurrentIndex(idx)
 
 
 class MediaPlayer(QWidget):
     def __init__(self, origin):
         super(MediaPlayer, self).__init__()
-        self.mediaVersionPlayer = origin
-        self.origin = self.mediaVersionPlayer.origin
+
+
+        # self.mediaVersionPlayer = origin
+        # self.origin = self.mediaVersionPlayer.origin
+
+
+        self.origin = origin
+
+
         self.core = self.origin.core
 
         self.renderResX = 300
@@ -2591,9 +1246,11 @@ class MediaPlayer(QWidget):
         self.sl_preview.mousePressEvent = self.sliderDrag
         self.sp_current.valueChanged.connect(self.onCurrentChanged)
 
+
     @err_catcher(name=__name__)
     def onUserSettingsSave(self, origin):
         self.updateExternalMediaPlayer()
+
 
     @err_catcher(name=__name__)
     def setPreviewEnabled(self, state):
@@ -2602,9 +1259,11 @@ class MediaPlayer(QWidget):
         self.w_timeslider.setVisible(state)
         self.w_playerCtrls.setVisible(state)
 
+
     @err_catcher(name=__name__)
     def onFirstClicked(self):
         self.timeline.setCurrentTime(0)
+
 
     @err_catcher(name=__name__)
     def onPrevClicked(self):
@@ -2614,6 +1273,7 @@ class MediaPlayer(QWidget):
 
         self.timeline.setCurrentTime(time)
 
+
     @err_catcher(name=__name__)
     def onPlayClicked(self):
         if not self.seq:
@@ -2621,15 +1281,18 @@ class MediaPlayer(QWidget):
 
         self.setTimelinePaused(self.timeline.state() == QTimeLine.Running)
 
+
     @err_catcher(name=__name__)
     def onNextClicked(self):
         time = self.timeline.currentTime() + self.timeline.updateInterval()
         time = min(self.timeline.duration(), time)
         self.timeline.setCurrentTime(time)
 
+
     @err_catcher(name=__name__)
     def onLastClicked(self):
         self.timeline.setCurrentTime(self.timeline.updateInterval() * (self.pduration - 1))
+
 
     @err_catcher(name=__name__)
     def sliderChanged(self, val):
@@ -2642,6 +1305,7 @@ class MediaPlayer(QWidget):
 
         self.timeline.setCurrentTime(time)
 
+
     @err_catcher(name=__name__)
     def onCurrentChanged(self, value):
         if not self.timeline:
@@ -2650,20 +1314,23 @@ class MediaPlayer(QWidget):
         time = (value - self.pstart) * self.timeline.updateInterval()
         self.timeline.setCurrentTime(time)
 
-    @err_catcher(name=__name__)
-    def getAutoplay(self):
-        if not getattr(self.origin, "projectBrowser", None):
-            return
 
-        return self.origin.projectBrowser.actionAutoplay.isChecked()
+    # @err_catcher(name=__name__)
+    # def getAutoplay(self):
+    #     if not getattr(self.origin, "projectBrowser", None):
+    #         return
 
-    @err_catcher(name=__name__)
-    def getSelectedContexts(self):
-        return self.origin.getSelectedContexts()
+    #     return self.origin.projectBrowser.actionAutoplay.isChecked()
+
 
     @err_catcher(name=__name__)
-    def getFilesFromContext(self, context):
-        return self.core.mediaProducts.getFilesFromContext(context)
+    def getSelectedImage(self):
+        return self.mediaFiles
+
+
+    # @err_catcher(name=__name__)
+    # def getFilesFromContext(self, context):
+    #     return self.core.mediaProducts.getFilesFromContext(context)
 
     @err_catcher(name=__name__)
     def updatePreview(self, mediaFiles, regenerateThumb=False):
@@ -2680,7 +1347,7 @@ class MediaPlayer(QWidget):
 
                 self.timeline.stop()
         else:
-            self.tlPaused = not self.getAutoplay()
+            self.tlPaused = False
             curFrame = 0
 
         for thread in reversed(self.mediaThreads):
@@ -2715,6 +1382,7 @@ class MediaPlayer(QWidget):
 
             # self.core.popup(f"mediaFiles:  {mediaFiles}")                   #   TESTING
 
+            self.mediaFiles = mediaFiles
             mediaFiles = [mediaFiles]
 
             # if validFiles:
@@ -2951,6 +1619,7 @@ class MediaPlayer(QWidget):
         self.l_info.setToolTip(infoStr)
         self.l_preview.setToolTip(self.previewTooltip)
 
+
     @err_catcher(name=__name__)
     def setInfoText(self, text):
         metrics = QFontMetrics(self.l_info.font())
@@ -2960,6 +1629,7 @@ class MediaPlayer(QWidget):
             lines.append(elidedText)
 
         self.l_info.setText("\n".join(lines))
+
 
     @err_catcher(name=__name__)
     def createPMap(self, resx, resy):
@@ -2975,6 +1645,7 @@ class MediaPlayer(QWidget):
 
         return pmap
 
+
     @err_catcher(name=__name__)
     def moveLoadingLabel(self):
         geo = QRect()
@@ -2984,6 +1655,7 @@ class MediaPlayer(QWidget):
         geo.setHeight(self.l_preview.height())
         geo.moveTopLeft(pos)
         self.l_loading.setGeometry(geo)
+
 
     @err_catcher(name=__name__)
     def changeImage_threaded(self, frame=0, regenerateThumb=False):
@@ -3004,8 +1676,9 @@ class MediaPlayer(QWidget):
         self.loadingGif.start()
         self.l_loading.setVisible(True)
 
-        if (self.getSelectedContexts() or [{}])[0].get("channel") == "Loading...":
-            return
+        # if (self.getSelectedImage() or [{}])[0].get("channel") == "Loading...":
+        # if (self.getSelectedImage() or [{}])[0].get("channel") == "Loading...":
+        #     return
 
         thread = self.core.worker(self.core)
         thread.function = lambda x=list(self.seq): self.changeImg(
@@ -3022,6 +1695,7 @@ class MediaPlayer(QWidget):
         else:
             self.nextMediaThread = thread
 
+
     @err_catcher(name=__name__)
     def onMediaThreadFinished(self):
         if getattr(self, "nextMediaThread", None):
@@ -3033,17 +1707,21 @@ class MediaPlayer(QWidget):
             self.l_loading.setVisible(False)
             self.loadingGif.stop()
 
+
     @err_catcher(name=__name__)
     def onChangeImgDataSent(self, data):
         getattr(self, data["function"])(*data["args"], **data["kwargs"])
+
 
     @err_catcher(name=__name__)
     def getThumbnailWidth(self):
         return self.l_preview.width()
 
+
     @err_catcher(name=__name__)
     def getThumbnailHeight(self):
         return self.l_preview.height()
+
 
     @err_catcher(name=__name__)
     def getCurrentFrame(self):
@@ -3051,6 +1729,7 @@ class MediaPlayer(QWidget):
             return
 
         return int(self.timeline.currentTime() / self.timeline.updateInterval())
+
 
     @err_catcher(name=__name__)
     def changeImg(self, frame=0, seq=None, thread=None, regenerateThumb=False):
@@ -3119,7 +1798,7 @@ class MediaPlayer(QWidget):
                             pmsmall, self.getThumbnailWidth(), self.getThumbnailHeight()
                         )
                 elif ext in [".exr", ".dpx", ".hdr"]:
-                    channel = (self.getSelectedContexts() or [{}])[0].get("channel")
+                    channel = (self.getSelectedImage() or [{}])[0].get("channel")
                     try:
                         pmsmall = self.core.media.getPixmapFromExrPath(
                             fileName,
@@ -3208,6 +1887,7 @@ class MediaPlayer(QWidget):
         else:
             self.completeChangeImg(pmsmall, curFrame, ext)
 
+
     @err_catcher(name=__name__)
     def completeChangeImg(self, pmsmall, curFrame, ext):
         self.currentMediaPreview = pmsmall
@@ -3231,6 +1911,7 @@ class MediaPlayer(QWidget):
             self.sp_current.setValue((self.pstart + curFrame))
             self.sp_current.blockSignals(False)
 
+
     @err_catcher(name=__name__)
     def setTimelinePaused(self, state):
         self.timeline.setPaused(state)
@@ -3249,6 +1930,7 @@ class MediaPlayer(QWidget):
             self.b_play.setIcon(icon)
             self.b_play.setToolTip("Pause")
 
+
     @err_catcher(name=__name__)
     def previewClk(self, event):
         if (len(self.seq) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
@@ -3263,6 +1945,7 @@ class MediaPlayer(QWidget):
                 self.openMediaPlayer = False
         self.l_preview.clickEvent(event)
 
+
     @err_catcher(name=__name__)
     def previewDclk(self, event):
         if self.seq != [] and event.button() == Qt.LeftButton:
@@ -3270,6 +1953,7 @@ class MediaPlayer(QWidget):
             self.compare()
 
         self.l_preview.dclickEvent(event)
+
 
     @err_catcher(name=__name__)
     def rclPreview(self, pos):
@@ -3283,28 +1967,24 @@ class MediaPlayer(QWidget):
 
         menu.exec_(QCursor.pos())
 
+
     @err_catcher(name=__name__)
     def getMediaPreviewMenu(self):
-        contexts = self.getCurRenders()
-        if not contexts or not contexts[0].get("version"):
-            return
+        # contexts = self.getCurRenders()
+        # if not contexts or not contexts[0].get("version"):
+            # return
 
-        data = contexts[0]
-        path = data["path"]
+        # data = contexts[0]
+        # path = data["path"]
 
-        if not path:
-            return
+        # if not path:
+            # return
 
         rcmenu = QMenu(self)
 
-        if len(self.seq) > 0 and hasattr(self.core.appPlugin, "importImages"):
-            impAct = QAction("Import images...", self)
-            impAct.triggered.connect(lambda: self.core.appPlugin.importImages(mediaBrowser=self))
-            rcmenu.addAction(impAct)
-
         if len(self.seq) > 0:
-            if len(self.seq) == 1:
-                path = os.path.join(path, self.seq[0])
+            # if len(self.seq) == 1:
+            #     path = os.path.join(path, self.seq[0])
 
             playMenu = QMenu("Play in", self)
             iconPath = os.path.join(
@@ -3431,19 +2111,22 @@ class MediaPlayer(QWidget):
 
         return rcmenu
 
-    @err_catcher(name=__name__)
-    def onDisabledTriggered(self):
-        if self.state == "enabled":
-            self.state = "disabled"
-        else:
-            self.state = "enabled"
 
-        self.updatePreview()
+    # @err_catcher(name=__name__)
+    # def onDisabledTriggered(self):
+    #     if self.state == "enabled":
+    #         self.state = "disabled"
+    #     else:
+    #         self.state = "enabled"
+
+    #     self.updatePreview()
+
 
     @err_catcher(name=__name__)
     def regenerateThumbnail(self):
         self.clearCurrentThumbnails()
         self.updatePreview(regenerateThumb=True)
+
 
     @err_catcher(name=__name__)
     def clearCurrentThumbnails(self):
@@ -3458,6 +2141,7 @@ class MediaPlayer(QWidget):
             shutil.rmtree(thumbdir)
         except Exception as e:
             logger.warning("Failed to remove thumbnail: %s" % e)
+
 
     @err_catcher(name=__name__)
     def previewResizeEvent(self, event):
@@ -3481,6 +2165,7 @@ class MediaPlayer(QWidget):
 
         self.setInfoText(text)
 
+
     @err_catcher(name=__name__)
     def sliderDrag(self, event):
         custEvent = QMouseEvent(
@@ -3491,6 +2176,7 @@ class MediaPlayer(QWidget):
             Qt.NoModifier,
         )
         self.sl_preview.origMousePressEvent(custEvent)
+
 
     @err_catcher(name=__name__)
     def sliderClk(self):
@@ -3503,10 +2189,12 @@ class MediaPlayer(QWidget):
         else:
             self.slStop = False
 
+
     @err_catcher(name=__name__)
     def sliderRls(self):
         if self.slStop:
             self.setTimelinePaused(False)
+
 
     @err_catcher(name=__name__)
     def previewDragEnterEvent(self, e):
@@ -3524,6 +2212,7 @@ class MediaPlayer(QWidget):
         else:
             e.ignore()
 
+
     @err_catcher(name=__name__)
     def previewDragMoveEvent(self, e):
         if e.mimeData().hasUrls():
@@ -3534,9 +2223,11 @@ class MediaPlayer(QWidget):
         else:
             e.ignore()
 
+
     @err_catcher(name=__name__)
     def previewDragLeaveEvent(self, e):
         self.l_preview.setStyleSheet("QWidget { border-style: dashed; border-color: rgba(0, 0, 0, 0);  border-width: 2px; }")
+
 
     @err_catcher(name=__name__)
     def previewDropEvent(self, e):
@@ -3552,6 +2243,7 @@ class MediaPlayer(QWidget):
             self.origin.ingestMediaToSelection(entity, files)
         else:
             e.ignore()
+
 
     @err_catcher(name=__name__)
     def compare(self, prog=""):
@@ -3599,6 +2291,7 @@ class MediaPlayer(QWidget):
                     except Exception as e:
                         raise RuntimeError("%s - %s" % (comd, e))
 
+
     @err_catcher(name=__name__)
     def mouseDrag(self, event, element):
         if event.buttons() != Qt.LeftButton:
@@ -3629,9 +2322,10 @@ class MediaPlayer(QWidget):
 
         drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
-    @err_catcher(name=__name__)
-    def getCurRenders(self):
-        return self.origin.getCurRenders()
+    # @err_catcher(name=__name__)
+    # def getCurRenders(self):
+    #     return self.origin.getCurRenders()
+
 
     @err_catcher(name=__name__)
     def updateExternalMediaPlayer(self):
@@ -3639,6 +2333,7 @@ class MediaPlayer(QWidget):
         self.mediaPlayerPath = player.get("path", None)
         self.mediaPlayerName = player.get("name", None)
         self.mediaPlayerPattern = player.get("framePattern", None)
+
 
     @err_catcher(name=__name__)
     def getRVdLUT(self):
@@ -3652,6 +2347,7 @@ class MediaPlayer(QWidget):
                 dlut = os.path.join(lutPath, os.listdir(lutPath)[0])
 
         return dlut
+
 
     @err_catcher(name=__name__)
     def convertImgs(self, extension, checkRes=True, settings=None):
@@ -3740,121 +2436,550 @@ class MediaPlayer(QWidget):
             logger.debug("expected outputpath: %s" % outputpath)
             self.core.ffmpegError("Image conversion", msg, result)
 
-    @err_catcher(name=__name__)
-    def compGetImportSource(self):
-        sourceFolder = os.path.dirname(self.seq[0]).replace("\\", "/")
-        sources = self.core.media.getImgSources(sourceFolder)
-        sourceData = []
 
-        for curSourcePath in sources:
-            if "####" in curSourcePath:
-                if self.pstart == "?" or self.pend == "?":
-                    firstFrame = None
-                    lastFrame = None
-                else:
-                    firstFrame = self.pstart
-                    lastFrame = self.pend
+    # @err_catcher(name=__name__)
+    # def compGetImportSource(self):
+    #     sourceFolder = os.path.dirname(self.seq[0]).replace("\\", "/")
+    #     sources = self.core.media.getImgSources(sourceFolder)
+    #     sourceData = []
 
-                filePath = curSourcePath.replace("\\", "/")
-            else:
-                filePath = curSourcePath.replace("\\", "/")
-                firstFrame = None
-                lastFrame = None
+    #     for curSourcePath in sources:
+    #         if "####" in curSourcePath:
+    #             if self.pstart == "?" or self.pend == "?":
+    #                 firstFrame = None
+    #                 lastFrame = None
+    #             else:
+    #                 firstFrame = self.pstart
+    #                 lastFrame = self.pend
 
-            sourceData.append([filePath, firstFrame, lastFrame])
+    #             filePath = curSourcePath.replace("\\", "/")
+    #         else:
+    #             filePath = curSourcePath.replace("\\", "/")
+    #             firstFrame = None
+    #             lastFrame = None
 
-        return sourceData
+    #         sourceData.append([filePath, firstFrame, lastFrame])
 
-    @err_catcher(name=__name__)
-    def compGetImportPasses(self):
-        sourceFolder = os.path.dirname(
-            os.path.dirname(self.seq[0])
-        ).replace("\\", "/")
-        passes = [
-            x
-            for x in os.listdir(sourceFolder)
-            if x[-5:] not in ["(mp4)", "(jpg)", "(png)"]
-            and os.path.isdir(os.path.join(sourceFolder, x))
-        ]
-        sourceData = []
-
-        for curPass in passes:
-            curPassPath = os.path.join(sourceFolder, curPass)
-
-            imgs = os.listdir(curPassPath)
-            if len(imgs) == 0:
-                continue
-
-            if (
-                len(imgs) > 1
-                and self.pstart
-                and self.pend
-                and self.pstart != "?"
-                and self.pend != "?"
-            ):
-                firstFrame = self.pstart
-                lastFrame = self.pend
-
-                curPassName = imgs[0].split(".")[0]
-                increment = "####"
-                curPassFormat = imgs[0].split(".")[-1]
-
-                filePath = os.path.join(
-                    sourceFolder,
-                    curPass,
-                    ".".join([curPassName, increment, curPassFormat]),
-                ).replace("\\", "/")
-            else:
-                filePath = os.path.join(curPassPath, imgs[0]).replace("\\", "/")
-                firstFrame = None
-                lastFrame = None
-
-            sourceData.append([filePath, firstFrame, lastFrame])
-
-        return sourceData
-
-    @err_catcher(name=__name__)
-    def triggerAutoplay(self, checked=False):
-        self.core.setConfig("browser", "autoplaypreview", checked)
-
-        if self.timeline:
-            if checked and self.timeline.state() == QTimeLine.Paused:
-                self.setTimelinePaused(False)
-            elif not checked and self.timeline.state() == QTimeLine.Running:
-                self.setTimelinePaused(True)
-        else:
-            self.tlPaused = not checked
+    #     return sourceData
 
 
-class VersionDelegate(QStyledItemDelegate):
-    def __init__(self, origin):
-        super(VersionDelegate, self).__init__()
-        self.origin = origin
-        self.widget = self.origin.tw_destination
+    # @err_catcher(name=__name__)
+    # def compGetImportPasses(self):
+    #     sourceFolder = os.path.dirname(
+    #         os.path.dirname(self.seq[0])
+    #     ).replace("\\", "/")
+    #     passes = [
+    #         x
+    #         for x in os.listdir(sourceFolder)
+    #         if x[-5:] not in ["(mp4)", "(jpg)", "(png)"]
+    #         and os.path.isdir(os.path.join(sourceFolder, x))
+    #     ]
+    #     sourceData = []
 
-    def paint(self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex):
-        item = self.widget.itemFromIndex(indexQModelIndex)
-        QStyledItemDelegate.paint(
-            self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex
-        )
+    #     for curPass in passes:
+    #         curPassPath = os.path.join(sourceFolder, curPass)
 
-        data = item.data(Qt.UserRole)
-        offset = 0
-        if len(self.origin.projectBrowser.locations) > 1:
-            for location in reversed(self.origin.projectBrowser.locations):
-                if location.get("name") not in data.get("locations", {}):
-                    continue
+    #         imgs = os.listdir(curPassPath)
+    #         if len(imgs) == 0:
+    #             continue
 
-                if "icon" not in location:
-                    location["icon"] = self.origin.projectBrowser.getLocationIcon(location["name"])
+    #         if (
+    #             len(imgs) > 1
+    #             and self.pstart
+    #             and self.pend
+    #             and self.pstart != "?"
+    #             and self.pend != "?"
+    #         ):
+    #             firstFrame = self.pstart
+    #             lastFrame = self.pend
 
-                if location["icon"]:
-                    rect = QRect(optionQStyleOptionViewItem.rect)
-                    curRight = rect.right() - offset
-                    rect.setTop(rect.top() + 2)
-                    rect.setBottom(rect.bottom() - 2)
-                    rect.setLeft(curRight - 30)
-                    rect.setRight(curRight - 0)
-                    painterQPainter.setRenderHint(QPainter.Antialiasing)
-                    location["icon"].paint(painterQPainter, rect)
-                    offset += 25
+    #             curPassName = imgs[0].split(".")[0]
+    #             increment = "####"
+    #             curPassFormat = imgs[0].split(".")[-1]
+
+    #             filePath = os.path.join(
+    #                 sourceFolder,
+    #                 curPass,
+    #                 ".".join([curPassName, increment, curPassFormat]),
+    #             ).replace("\\", "/")
+    #         else:
+    #             filePath = os.path.join(curPassPath, imgs[0]).replace("\\", "/")
+    #             firstFrame = None
+    #             lastFrame = None
+
+    #         sourceData.append([filePath, firstFrame, lastFrame])
+
+    #     return sourceData
+
+
+    # @err_catcher(name=__name__)
+    # def triggerAutoplay(self, checked=False):
+    #     self.core.setConfig("browser", "autoplaypreview", checked)
+
+    #     if self.timeline:
+    #         if checked and self.timeline.state() == QTimeLine.Paused:
+    #             self.setTimelinePaused(False)
+    #         elif not checked and self.timeline.state() == QTimeLine.Running:
+    #             self.setTimelinePaused(True)
+    #     else:
+    #         self.tlPaused = not checked
+
+
+# class VersionDelegate(QStyledItemDelegate):
+#     def __init__(self, origin):
+#         super(VersionDelegate, self).__init__()
+#         self.origin = origin
+#         self.widget = self.origin.tw_destination
+
+#     def paint(self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex):
+#         item = self.widget.itemFromIndex(indexQModelIndex)
+#         QStyledItemDelegate.paint(
+#             self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex
+#         )
+
+#         data = item.data(Qt.UserRole)
+#         offset = 0
+#         if len(self.origin.projectBrowser.locations) > 1:
+#             for location in reversed(self.origin.projectBrowser.locations):
+#                 if location.get("name") not in data.get("locations", {}):
+#                     continue
+
+#                 if "icon" not in location:
+#                     location["icon"] = self.origin.projectBrowser.getLocationIcon(location["name"])
+
+#                 if location["icon"]:
+#                     rect = QRect(optionQStyleOptionViewItem.rect)
+#                     curRight = rect.right() - offset
+#                     rect.setTop(rect.top() + 2)
+#                     rect.setBottom(rect.bottom() - 2)
+#                     rect.setLeft(curRight - 30)
+#                     rect.setRight(curRight - 0)
+#                     painterQPainter.setRenderHint(QPainter.Antialiasing)
+#                     location["icon"].paint(painterQPainter, rect)
+#                     offset += 25
+
+
+
+
+
+
+# class MediaVersionPlayer(QWidget):
+#     def __init__(self, origin):
+#         super(MediaVersionPlayer, self).__init__()
+#         self.origin = origin
+#         self.core = self.origin.core
+#         self.setupUi()
+
+
+#     @err_catcher(name=__name__)
+#     def setupUi(self):
+#         self.lo_main = QVBoxLayout(self)
+#         self.lo_main.setContentsMargins(0, 0, 0, 0)
+
+#         self.l_layer = QLabel("AOVs:")
+#         self.cb_layer = QComboBox()
+#         self.lo_main.addWidget(self.l_layer)
+#         self.lo_main.addWidget(self.cb_layer)
+
+#         self.l_source = QLabel("Source:")
+#         self.cb_source = QComboBox()
+#         self.lo_main.addWidget(self.l_source)
+#         self.lo_main.addWidget(self.cb_source)
+
+#         self.l_filelayer = QLabel("Channel:")
+#         self.cb_filelayer = QComboBox()
+
+
+
+#         #   HIDE --                                                             TESTING
+#         self.l_layer.hide()
+#         self.l_source.hide()
+#         self.l_filelayer.hide()
+#         self.cb_layer.hide()
+#         self.cb_source.hide()
+#         self.cb_filelayer.hide()
+
+
+
+
+#         self.lo_main.addWidget(self.l_filelayer)
+#         self.lo_main.addWidget(self.cb_filelayer)
+
+#         self.mediaPlayer = self.getMediaPlayer()
+#         self.lo_main.addWidget(self.mediaPlayer)
+
+#         # self.cb_layer.currentIndexChanged.connect(self.layerChanged)
+#         self.cb_layer.mmEvent = self.cb_layer.mouseMoveEvent
+#         self.cb_layer.mouseMoveEvent = lambda x: self.mediaPlayer.mouseDrag(x, self.cb_layer)
+#         self.cb_layer.setContextMenuPolicy(Qt.CustomContextMenu)
+#         self.cb_layer.customContextMenuRequested.connect(self.rclLayer)
+#         self.cb_source.currentIndexChanged.connect(self.sourceChanged)
+#         self.cb_filelayer.currentIndexChanged.connect(self.filelayerChanged)
+
+
+#     @err_catcher(name=__name__)
+#     def getMediaPlayer(self):
+#         return MediaPlayer(self)
+
+
+#     # @err_catcher(name=__name__)
+#     # def getCurrentAOV(self):
+#     #     data = self.cb_layer.currentData(Qt.UserRole)
+#     #     return data
+
+#     # @err_catcher(name=__name__)
+#     # def getCurrentSource(self):
+#     #     data = self.cb_source.currentData(Qt.UserRole)
+#     #     return data
+
+#     # @err_catcher(name=__name__)
+#     # def getCurrentFilelayer(self):
+#     #     data = self.cb_filelayer.currentData(Qt.UserRole)
+#     #     return data
+
+#     # @err_catcher(name=__name__)
+#     # def layerChanged(self, layer=None):
+#     #     self.updateSources(restoreSelection=True)
+
+#     @err_catcher(name=__name__)
+#     def sourceChanged(self, layer=None):
+#         self.updateFilelayers(restoreSelection=True)
+
+#     @err_catcher(name=__name__)
+#     def filelayerChanged(self, layer=None):
+#         self.mediaPlayer.updatePreview()
+
+#     @err_catcher(name=__name__)
+#     def getCurrentVersions(self):
+#         return self.origin.getCurrentSources()
+    
+
+#     @err_catcher(name=__name__)
+#     def updateLayers(self, restoreSelection=False):
+#         if restoreSelection:
+#             curLayer = self.cb_layer.currentText()
+
+#         wasBlocked = self.cb_layer.signalsBlocked()
+#         if not wasBlocked:
+#             self.cb_layer.blockSignals(True)
+    
+#         self.cb_layer.clear()
+
+#         versions = self.getCurrentVersions()
+
+
+
+#         # if len(versions) == 1:
+#         #     aovs = self.core.mediaProducts.getAOVsFromVersion(versions[0])
+#         #     for aov in aovs:
+#         #         self.cb_layer.addItem(aov["aov"], aov)
+
+#         selectFirst = True
+#         if restoreSelection and curLayer:
+#             bIdx = self.cb_layer.findText(curLayer)
+#             if bIdx != -1:
+#                 self.cb_layer.setCurrentIndex(bIdx)
+#                 selectFirst = False
+
+#         if selectFirst:
+#             bIdx = self.cb_layer.findText("beauty")
+#             if bIdx != -1:
+#                 self.cb_layer.setCurrentIndex(bIdx)
+#             else:
+#                 bIdx = self.cb_layer.findText("rgba")
+#                 if bIdx != -1:
+#                     self.cb_layer.setCurrentIndex(bIdx)
+#                 else:
+#                     self.cb_layer.setCurrentIndex(0)
+
+#         if not wasBlocked:
+#             self.cb_layer.blockSignals(False)
+#             # self.updateSources(restoreSelection=True)
+
+
+#     # @err_catcher(name=__name__)
+#     # def updateSources(self, restoreSelection=False):
+
+#     #     self.core.popup("IN UPDATE SOURCES")                                      #    TESTING
+#     #     if restoreSelection:
+#     #         curSource = self.cb_source.currentText()
+
+#     #     wasBlocked = self.cb_source.signalsBlocked()
+#     #     if not wasBlocked:
+#     #         self.cb_source.blockSignals(True)
+    
+#     #     self.cb_source.clear()
+#     #     versions = self.getCurrentVersions()
+#     #     if len(versions) == 1:
+#     #         curAov = self.getCurrentAOV()
+#     #         if not curAov:
+#     #             curAov = versions[0]
+
+#     #         if curAov:
+#     #             # mediaFiles = self.core.mediaProducts.getFilesFromContext(curAov)
+#     #             validFiles = self.core.media.filterValidMediaFiles(curAov)
+
+#     #             if validFiles:
+#     #                 validFiles = sorted(validFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
+#     #                 baseName, extension = os.path.splitext(validFiles[0])
+#     #                 seqFiles = self.core.media.detectSequences(validFiles)
+#     #                 for seqFile in seqFiles:
+#     #                     source = curAov.copy()
+#     #                     source["source"] = os.path.basename(seqFile)
+#     #                     self.cb_source.addItem(source["source"], source)
+
+#     #     selectFirst = True
+#     #     if restoreSelection and curSource:
+#     #         bIdx = self.cb_source.findText(curSource)
+#     #         if bIdx != -1:
+#     #             self.cb_source.setCurrentIndex(bIdx)
+#     #             selectFirst = False
+
+#     #     if selectFirst:
+#     #         self.cb_source.setCurrentIndex(0)
+
+#     #     self.l_source.setHidden(self.cb_source.count() < 2)
+#     #     self.cb_source.setHidden(self.cb_source.count() < 2)
+
+#     #     if not wasBlocked:
+#     #         self.cb_source.blockSignals(False)
+#     #         self.updateFilelayers(restoreSelection=True)
+
+
+#     @err_catcher(name=__name__)
+#     def updateFilelayers(self, restoreSelection=False, threaded=True, layers=None):
+#         if restoreSelection:
+#             curFileLayer = self.cb_filelayer.currentText()
+
+#         wasBlocked = self.cb_filelayer.signalsBlocked()
+#         if not wasBlocked:
+#             self.cb_filelayer.blockSignals(True)
+    
+#         self.cb_filelayer.clear()
+#         versions = self.getCurrentVersions()
+#         if len(versions) == 1 and os.getenv("PRISM_SHOW_EXR_LAYERS") != "0":
+#             curSource = self.getCurrentSource()
+#             if curSource:
+#                 mediaFiles = self.core.mediaProducts.getFilesFromContext(curSource)
+#                 validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
+
+#                 if validFiles:
+#                     if threaded:
+#                         layers = ["Loading..."]
+
+#                         thread = self.core.worker(self.core)
+#                         thread.function = lambda: self.getLayersFromFileThreaded(
+#                             validFiles[0], thread, restoreSelection
+#                         )
+#                         thread.errored.connect(self.core.writeErrorLog)
+#                         thread.finished.connect(self.onWorkerThreadFinished)
+#                         thread.warningSent.connect(self.core.popup)
+#                         thread.dataSent.connect(self.onWorkerDataSent)
+#                         # self.mediaThreads.append(thread)
+#                         if not getattr(self, "curMediaThread", None):
+#                             self.curMediaThread = thread
+#                             thread.start()
+#                         else:
+#                             self.nextMediaThread = thread
+
+#                     elif layers and layers.get("file") == validFiles[0]:
+#                         layers = layers.get("layers", [])
+#                     else:
+#                         layers = self.core.media.getLayersFromFile(validFiles[0])
+
+#                     for flayer in layers:
+#                         layer = curSource.copy()
+#                         layer["channel"] = flayer
+#                         self.cb_filelayer.addItem(layer["channel"], layer)
+
+#         selectFirst = True
+#         if restoreSelection and curFileLayer:
+#             bIdx = self.cb_filelayer.findText(curFileLayer)
+#             if bIdx != -1:
+#                 self.cb_filelayer.setCurrentIndex(bIdx)
+#                 selectFirst = False
+
+#         if selectFirst:
+#             self.cb_filelayer.setCurrentIndex(0)
+
+#         self.l_filelayer.setHidden(self.cb_filelayer.count() < 2)
+#         self.cb_filelayer.setHidden(self.cb_filelayer.count() < 2)
+
+#         if not wasBlocked:
+#             self.cb_filelayer.blockSignals(False)
+#             self.mediaPlayer.updatePreview()
+
+#     @err_catcher(name=__name__)
+#     def getLayersFromFileThreaded(self, filepath, thread, restoreSelection):
+#         if thread.isInterruptionRequested():
+#             return
+
+#         layers = self.core.media.getLayersFromFile(filepath)
+#         layerData = {"file": filepath, "layers": layers}
+#         data = {"function": "updateFilelayers", "args": [], "kwargs": {"restoreSelection": restoreSelection, "threaded": False, "layers": layerData}}
+#         thread.dataSent.emit(data)
+
+#     @err_catcher(name=__name__)
+#     def onWorkerDataSent(self, data):
+#         getattr(self, data["function"])(*data["args"], **data["kwargs"])
+
+#     @err_catcher(name=__name__)
+#     def onWorkerThreadFinished(self):
+#         if getattr(self, "nextMediaThread", None):
+#             self.curMediaThread = self.nextMediaThread
+#             self.nextMediaThread = None
+#             self.curMediaThread.start()
+#         else:
+#             self.curMediaThread = None
+
+#     @err_catcher(name=__name__)
+#     def navigate(self, aov=None, source=None, filelayer=None, restoreSelection=False):
+#         prevLayer = self.getCurrentAOV()
+#         self.cb_layer.blockSignals(True)
+#         self.updateLayers(restoreSelection=True)
+#         if not aov:
+#             self.cb_layer.blockSignals(False)
+#             if prevLayer != self.getCurrentAOV() or not self.origin.initialized:
+#                 self.layerChanged()
+#                 return True
+
+#             return
+
+#         idx = self.cb_layer.findText(aov)
+#         if idx != -1:
+#             self.cb_layer.setCurrentIndex(idx)
+
+#         self.cb_layer.blockSignals(False)
+#         prevSource = self.getCurrentSource()
+#         self.cb_source.blockSignals(True)
+#         if prevLayer != self.getCurrentAOV():
+#             self.layerChanged()
+
+#         if not source:
+#             self.cb_source.blockSignals(False)
+#             if prevSource != self.getCurrentSource() or not self.origin.initialized:
+#                 self.sourceChanged()
+#                 return True
+
+#             return
+
+#         idx = self.cb_source.findText(aov)
+#         if idx != -1:
+#             self.cb_source.setCurrentIndex(idx)
+
+#         self.cb_source.blockSignals(False)
+#         prevFilelayer = self.getCurrentFilelayer()
+#         self.cb_filelayer.blockSignals(True)
+#         if prevSource != self.getCurrentSource():
+#             self.sourceChanged()
+
+#         if not filelayer:
+#             self.cb_filelayer.blockSignals(False)
+#             if prevFilelayer != self.getCurrentFilelayer() or not self.origin.initialized:
+#                 self.filelayerChanged()
+#                 return True
+
+#             return
+
+#         idx = self.cb_filelayer.findText(aov)
+#         if idx != -1:
+#             self.cb_filelayer.setCurrentIndex(idx)
+
+#         self.cb_filelayer.blockSignals(False)
+#         if prevFilelayer != self.getCurrentFilelayer():
+#             self.filelayerChanged()
+#             return True
+
+#     @err_catcher(name=__name__)
+#     def rclLayer(self, pos):
+#         cpos = QCursor.pos()
+#         if not hasattr(self.origin, "getCurrentIdentifier"):
+#             return
+
+#         identifier = self.origin.getCurrentIdentifier()
+#         if not identifier or identifier["mediaType"] != "3drenders":
+#             return
+
+#         data = self.getCurrentAOV()
+#         if data:
+#             path = data["path"]
+#         else:
+#             version = self.origin.getCurrentVersion()
+#             if not version:
+#                 return
+
+#             path = self.core.mediaProducts.getAovPathFromVersion(version)
+
+#         rcmenu = QMenu(self)
+
+#         depAct = QAction("Create AOV...", self)
+#         depAct.triggered.connect(self.createAovDlg)
+#         rcmenu.addAction(depAct)
+
+#         act_refresh = QAction("Refresh", self)
+#         iconPath = os.path.join(
+#             self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png"
+#         )
+#         icon = self.core.media.getColoredIcon(iconPath)
+#         act_refresh.setIcon(icon)
+#         act_refresh.triggered.connect(lambda: self.updateLayers(restoreSelection=True))
+#         rcmenu.addAction(act_refresh)
+
+#         if os.path.exists(path):
+#             opAct = QAction("Open in Explorer", self)
+#             opAct.triggered.connect(lambda: self.core.openFolder(path))
+#             rcmenu.addAction(opAct)
+
+#             copAct = QAction("Copy", self)
+#             iconPath = os.path.join(
+#                 self.core.prismRoot, "Scripts", "UserInterfacesPrism", "copy.png"
+#             )
+#             icon = self.core.media.getColoredIcon(iconPath)
+#             copAct.setIcon(icon)
+#             copAct.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
+#             rcmenu.addAction(copAct)
+
+#         if rcmenu.isEmpty():
+#             return False
+
+#         rcmenu.exec_(cpos)
+
+#     @err_catcher(name=__name__)
+#     def createAovDlg(self):
+#         entity = self.origin.getCurrentEntity()
+#         identifier = self.origin.getCurrentIdentifier().get("identifier")
+#         version = identifier = self.origin.getCurrentVersion().get("version")
+#         context = entity.copy()
+#         context["identifier"] = identifier
+#         context["version"] = version
+
+#         self.newItem = PrismWidgets.CreateItem(
+#             core=self.core, showType=False, mode="aov", startText="rgb"
+#         )
+#         self.newItem.setModal(True)
+#         self.core.parentWindow(self.newItem)
+#         self.newItem.e_item.setFocus()
+#         self.newItem.setWindowTitle("Create AOV")
+#         self.newItem.l_item.setText("AOV:")
+#         self.newItem.accepted.connect(self.createAov)
+#         self.core.callback(name="onCreateAovDlgOpen", args=[self, self.newItem])
+#         self.newItem.show()
+
+#     @err_catcher(name=__name__)
+#     def createAov(self):
+#         self.activateWindow()
+#         itemName = self.newItem.e_item.text()
+#         curEntity = self.origin.getCurrentEntity()
+#         identifier = self.origin.getCurrentIdentifier()
+#         identifierName = identifier.get("identifier")
+#         version = self.origin.getCurrentVersion().get("version")
+#         if self.core.mediaProducts.getLinkedToTasks():
+#             curEntity["department"] = identifier.get("department", "unknown")
+#             curEntity["task"] = identifier.get("task", "unknown")
+
+#         self.core.mediaProducts.createAov(entity=curEntity, identifier=identifierName, version=version, aov=itemName)
+#         self.updateLayers()
+#         if itemName is not None:
+#             idx = self.cb_layer.findText(itemName)
+#             if idx != -1:
+#                 self.cb_layer.setCurrentIndex(idx)
