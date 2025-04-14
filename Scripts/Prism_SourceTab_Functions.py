@@ -135,7 +135,12 @@ class Prism_SourceTab_Functions(object):
                     "preferProxies": True,
                     "copyProxy": False
                 },
-                "settings": {}                          #   TODO - FOR Prism Settings Stuff
+                "settings": {
+                    "max_thumbThreads": 12,
+                    "max_copyThreads": 6,
+                    "size_copyChunk": 1,
+                    "updateInterval": 1
+                }
             }
 
         return sData
@@ -143,7 +148,7 @@ class Prism_SourceTab_Functions(object):
 
     #   Called from PB Close Callback
     @err_catcher(name=__name__)
-    def saveSettings(self, origin):
+    def saveSettings(self, origin, key=None, data=None):
         #   Gets Current Settings
         sData = self.loadSettings()
 
@@ -153,6 +158,8 @@ class Prism_SourceTab_Functions(object):
             tabSettings = self.sourceBrowser.getTabSettings()
             sData["tabSettings"] = tabSettings
 
+        if key:
+            sData[key] = data
 
         with open(SETTINGS_FILE, "w") as file:
             json.dump(sData, file, indent=4)

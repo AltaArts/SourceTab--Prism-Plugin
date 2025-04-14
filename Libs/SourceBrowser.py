@@ -92,12 +92,23 @@ from PrismUtils.Decorators import err_catcher
 
 import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
+from SourceTab_Config import SourceTab_Config
+
 
 
 import SourceBrowser_ui                                                 #   TODO
 
 
-SOURCE_ITEM_HEIGHT = 70
+
+#   Colors
+COLOR_GREEN = QColor(0, 150, 0)
+COLOR_BLUE = QColor(115, 175, 215)
+COLOR_ORANGE = QColor(255, 140, 0)
+COLOR_RED = QColor(200, 0, 0)
+COLOR_GREY = QColor(100, 100, 100)
+
+
+SOURCE_ITEM_HEIGHT = 70                                         #   TODO - Think about moving to Settings?
 SOURCE_DIR_HEIGHT = 30 
 
 logger = logging.getLogger(__name__)
@@ -118,14 +129,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff", ".flac", ".alac", ".ogg", ".wma"]
 
         self.transferList = []
+        self.total_transferSize = 0.0
 
         self.initialized = False
         self.closeParm = "closeafterload"
         self.loadLayout()
-        self.resetProgBar()
+        self.reset_ProgBar()
         self.connectEvents()
+        self.loadSettings()
 
-        self.loadTabSettings()
+
+        # Timer for Progress Updates
+        self.progressTimer = QTimer(self)
+        self.progressTimer.setInterval(self.progUpdateInterval * 1000)
+        self.progressTimer.timeout.connect(self.updateTransfer)
+
 
         #   Callbacks
         self.core.callback(name="onSourceBrowserOpen", args=[self])
@@ -134,7 +152,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.entered()
 
         ### TESTING    ###
-        # self.tempTesting()                                                #   TESTING
+        self.tempTesting()                                                #   TESTING
 
 
 
@@ -142,10 +160,22 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def tempTesting(self):
  
-        self.sourceDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempImages"
-        self.destDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempDestination"
+        self.sourceDir = r"C:\\Users\\Alta Arts\\Desktop\\TempImages"
+        self.destDir = r"C:\\Users\\Alta Arts\\Desktop\\TempDestination"
 
         self.refreshUI()
+
+
+
+    @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
+    def entityChanged(self, *args, **kwargs):
+        pass
+
+
+    @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
+    def getSelectedContext(self, *args, **kwargs):
+        pass
+
 
 
 
@@ -156,7 +186,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.refreshSourceItems()
         self.refreshDestItems()
-        self.configTransButtons("initial")
+        self.configTransButtons("idle")
+        self.setTransferStatus("Idle")
 
 
     @err_catcher(name=__name__)
@@ -302,12 +333,81 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
         self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer)
 
+        self.sourceFuncts.b_configure.clicked.connect(self.openConfigWindow)
+
+
+    #   Called from _Functions Save Callback
+    @err_catcher(name=__name__)
+    def getTabSettings(self):
+        tabSettings = {}
+        tabSettings["playerEnabled"] = self.chb_enablePlayer.isChecked()
+        tabSettings["preferProxies"] = self.chb_preferProxies.isChecked()
+        tabSettings["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
+
+        return tabSettings
+
+
+    #   Configures UI from Saved Settings
+    @err_catcher(name=__name__)
+    def getSettings(self):
+        return self.plugin.loadSettings()
+
+
+    #   Configures UI from Saved Settings
+    @err_catcher(name=__name__)
+    def loadSettings(self):
+        sData = self.getSettings()
+
+        playerEnabled = sData["tabSettings"]["playerEnabled"]
+        self.chb_enablePlayer.setChecked(playerEnabled)
+        self.toggleMediaPlayer(playerEnabled)
+
+        preferProxies = sData["tabSettings"]["preferProxies"]
+        self.chb_preferProxies.setChecked(preferProxies)
+        self.togglePreferProxies(preferProxies)
+
+        self.sourceFuncts.chb_copyProxy.setChecked(sData["tabSettings"]["copyProxy"])
+
+        self.max_thumbThreads = sData["settings"]["max_thumbThreads"]
+        self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
+        self.max_copyThreads = sData["settings"]["max_copyThreads"]
+        self.copy_semaphore = QSemaphore(self.max_copyThreads)
+
+        self.size_copyChunk = sData["settings"]["size_copyChunk"]
+        self.progUpdateInterval = sData["settings"]["updateInterval"]
+
+
+
+
+    @err_catcher(name=__name__)
+    def openConfigWindow(self):
+
+        sData = self.getSettings()
+        cData = sData["settings"]
+
+        self.sourceConfig = SourceTab_Config(core=self.core, settings=cData, parent=self)
+        self.core.parentWindow(self.sourceConfig)
+
+        result = self.sourceConfig.exec_()
+
+        if result == QDialog.Accepted:
+            cData = self.sourceConfig.cData
+            self.plugin.saveSettings(self, key="settings", data=cData)
+
+            self.loadSettings()
+
+        
+
+        else:
+            return None
+
+
 
 
     @err_catcher(name=__name__)
     def configTransButtons(self, mode):
         match mode:
-            case "initial":
+            case "idle":
                 self.sourceFuncts.b_transfer_start.setVisible(True)
                 self.sourceFuncts.b_transfer_pause.setVisible(False)
                 self.sourceFuncts.b_transfer_resume.setVisible(False)
@@ -330,52 +430,96 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 self.sourceFuncts.b_transfer_pause.setVisible(True)
                 self.sourceFuncts.b_transfer_resume.setVisible(False)
                 self.sourceFuncts.b_transfer_cancel.setVisible(True)
-            
-            case "cancel":
-                self.sourceFuncts.b_transfer_start.setVisible(True)
-                self.sourceFuncts.b_transfer_pause.setVisible(False)
-                self.sourceFuncts.b_transfer_resume.setVisible(False)
-                self.sourceFuncts.b_transfer_cancel.setVisible(False)
 
 
     @err_catcher(name=__name__)
-    def resetProgBar(self):
-        #   Reset Total Progess Bar
+    def setTransferStatus(self, status, tooltip=None):
+        self.transferState = status
+
+        match status:
+            case "Idle":
+                statusColor = COLOR_BLUE
+            case "Transferring":
+                statusColor = COLOR_BLUE
+            case "Paused":
+                statusColor = COLOR_GREY
+            case "Cancelled":
+                statusColor = COLOR_RED
+            case "Issue":
+                statusColor = COLOR_ORANGE
+            case "Complete":
+                statusColor = COLOR_GREEN
+            case "Error":
+                statusColor = COLOR_RED
+
+        #   Set the Prog Bar Tooltip
+        if tooltip:
+            self.sourceFuncts.progBar_total.setToolTip(tooltip)
+        else:
+            self.sourceFuncts.progBar_total.setToolTip(status)
+
+        #   Convert Color to rgb format string
+        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
+        
+        #   Set Prog Bar StyleSheet
+        self.sourceFuncts.progBar_total.setStyleSheet(f"""
+            QProgressBar::chunk {{
+                background-color: {color_str};  /* Set the chunk color */
+            }}
+        """)
+
+
+
+
+    #   Reset Total Progess Bar
+    @err_catcher(name=__name__)
+    def reset_ProgBar(self):
         self.sourceFuncts.progBar_total.setValue(0)
 
 
-    #   Called from _Functions Save Callback
+    #   Update Total Progess Bar based on self.progressTimer
     @err_catcher(name=__name__)
-    def getTabSettings(self):
-        tabSettings = {}
-        tabSettings["playerEnabled"] = self.chb_enablePlayer.isChecked()
-        tabSettings["preferProxies"] = self.chb_preferProxies.isChecked()
-        tabSettings["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
+    def updateTransfer(self):
+        # Get Transferred Amount from Every FileTile
+        total_copied = sum(item.copied_size for item in self.copyList if hasattr(item, "copied_size"))
 
-        return tabSettings
+        #   Get Tranfer Status for Every FileTile
+        overall_statusList = [transfer.transferState for transfer in self.copyList]
 
 
-    #   Configures UI from Saved Settings
+        #   Determine Overall Status based on Priority
+        if "Cancelled" in overall_statusList:
+            overall_status = "Cancelled"
+            self.completeTranfer(overall_status)
+        elif "Error" in overall_statusList:
+            overall_status = "Error"
+        elif "Issue" in overall_statusList:
+            overall_status = "Issue"
+        elif all(status == "Complete" for status in overall_statusList):
+            overall_status = "Complete"
+            self.completeTranfer(overall_status)
+        elif any(status == "Paused" for status in overall_statusList):
+            overall_status = "Paused"
+        elif any(status == "Transferring" for status in overall_statusList):
+            overall_status = "Transferring"
+        else:
+            overall_status = "Idle"
+
+        self.setTransferStatus(overall_status)
+
+        # Update progress bar
+        progress = (total_copied / self.total_transferSize) * 100 if self.total_transferSize > 0 else 0
+        self.sourceFuncts.progBar_total.setValue(progress)
+
+
     @err_catcher(name=__name__)
-    def getSettings(self):
-        return self.plugin.loadSettings()
+    def completeTranfer(self, result):
+        self.setTransferStatus(result)
+        self.configTransButtons("idle")
+        # if result == "complete":
 
 
-    #   Configures UI from Saved Settings
-    @err_catcher(name=__name__)
-    def loadTabSettings(self):
-        sData = self.getSettings()
 
-        playerEnabled = sData["tabSettings"]["playerEnabled"]
-        self.chb_enablePlayer.setChecked(playerEnabled)
-        self.toggleMediaPlayer(playerEnabled)
-
-        preferProxies = sData["tabSettings"]["preferProxies"]
-        self.chb_preferProxies.setChecked(preferProxies)
-        self.togglePreferProxies(preferProxies)
-
-        self.sourceFuncts.chb_copyProxy.setChecked(sData["tabSettings"]["copyProxy"])
-            
 
     #	Creates UUID
     @err_catcher(name=__name__)
@@ -743,8 +887,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def startTransfer(self):
+        copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
+
         row_count = self.tw_destination.rowCount()
         self.copyList = []
+        self.total_transferSize = 0.0
 
         for row in range(row_count):
             fileItem = self.tw_destination.cellWidget(row, 0)
@@ -752,6 +899,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if fileItem is not None:
                 if fileItem.isSelected:
                     self.copyList.append(fileItem)
+                    self.total_transferSize += fileItem.getTransferSize(includeProxy=copyProxy)
 
         if len(self.copyList) == 0:
             self.core.popup("There are no Items Selected to Transfer")
@@ -761,12 +909,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.core.popup("YOU FORGOT TO SELECT DEST DIR")
             return False
 
+        self.progressTimer.start()
+        self.setTransferStatus("Transferring")
         self.configTransButtons("transfer")
 
         for item in self.copyList:
-
             options = {}
-            options["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
+            options["copyProxy"] = copyProxy
             
             item.start_transfer(self, options)
 
@@ -785,6 +934,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         for item in self.copyList:
             item.pause_transfer(self)
 
+        self.progressTimer.stop()
+        self.setTransferStatus("Paused")
         self.configTransButtons("pause")
 
 
@@ -802,6 +953,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         for item in self.copyList:
             item.resume_transfer(self)
 
+        self.progressTimer.start()
+        self.setTransferStatus("Transferring")
         self.configTransButtons("resume")
 
 
@@ -818,7 +971,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         for item in self.copyList:
             item.cancel_transfer(self)
 
-        self.configTransButtons("cancel")
+        self.progressTimer.stop()
+        self.setTransferStatus("Cancelled")
+        self.configTransButtons("idle")
 
 
     @err_catcher(name=__name__)

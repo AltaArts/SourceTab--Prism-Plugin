@@ -8,16 +8,9 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QProgressBar,
-    QPushButton, QSizePolicy, QSpacerItem, QSplitter,
-    QVBoxLayout, QWidget)
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
@@ -28,6 +21,7 @@ class Ui_w_sourceFunctions(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
+        self.splitter.setOrientation(Qt.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -38,7 +32,12 @@ class Ui_w_sourceFunctions(object):
         self.verticalLayout_8 = QVBoxLayout(self.w_functions)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.b_configure = QPushButton(self.w_functions)
+        self.b_configure.setObjectName(u"b_configure")
+
+        self.verticalLayout_8.addWidget(self.b_configure)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.verticalLayout_8.addItem(self.verticalSpacer)
 
@@ -92,6 +91,7 @@ class Ui_w_sourceFunctions(object):
 
     def retranslateUi(self, w_sourceFunctions):
         w_sourceFunctions.setWindowTitle(QCoreApplication.translate("w_sourceFunctions", u"Media Browser", None))
+        self.b_configure.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
         self.chb_copyProxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Copy Proxy", None))
         self.b_transfer_start.setText(QCoreApplication.translate("w_sourceFunctions", u"Start Transfer", None))
         self.b_transfer_pause.setText(QCoreApplication.translate("w_sourceFunctions", u"Pause Transfer", None))
