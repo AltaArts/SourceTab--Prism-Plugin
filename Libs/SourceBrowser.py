@@ -50,12 +50,14 @@ import sys
 import subprocess
 import logging
 import traceback
-from collections import OrderedDict
+from collections import OrderedDict, deque
 import shutil
 import json
 import uuid
 import hashlib
 from datetime import datetime
+from time import time
+
 
 from Scripts.Prism_SourceTab_Functions import SETTINGS_FILE
 
@@ -144,7 +146,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.progressTimer.setInterval(self.progUpdateInterval * 1000)
         self.progressTimer.timeout.connect(self.updateTransfer)
 
-
         #   Callbacks
         self.core.callback(name="onSourceBrowserOpen", args=[self])
 
@@ -170,8 +171,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
     def entityChanged(self, *args, **kwargs):
         pass
-
-
     @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
     def getSelectedContext(self, *args, **kwargs):
         pass
@@ -186,7 +185,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.refreshSourceItems()
         self.refreshDestItems()
-        self.configTransButtons("idle")
+        self.configTransUI("idle")
         self.setTransferStatus("Idle")
 
 
@@ -244,10 +243,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.w_preview = MediaVersionPlayer(self)
 
         self.mediaPlayer = MediaPlayer(self)
-        self.mediaPlayer.layout().addStretch()
+        # self.mediaPlayer.layout().addStretch()
 
         #   Functions Import
         self.sourceFuncts = SourceFunctions()
+        # self.sourceFuncts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+
 
         #   Quick Simple Line Separator
         def create_separator(color="#444", thickness=3, margin=50):
@@ -266,8 +267,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.lo_rightPanel.addWidget(create_separator())
         self.lo_rightPanel.addWidget(self.mediaPlayer)
         self.lo_rightPanel.addWidget(create_separator())
-        self.spacer2 = QSpacerItem(0, 40, QSizePolicy.Fixed, QSizePolicy.Expanding)
-        self.lo_rightPanel.addItem(self.spacer2)
+        # self.spacer2 = QSpacerItem(0, 40, QSizePolicy.Fixed, QSizePolicy.Expanding)
+        # self.lo_rightPanel.addItem(self.spacer2)
         self.lo_rightPanel.addWidget(self.sourceFuncts)
 
         # Create a container widget to hold the lo_rightPanel layout
@@ -356,82 +357,155 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
+        #   Get Saved Settings
         sData = self.getSettings()
 
-        playerEnabled = sData["tabSettings"]["playerEnabled"]
+        #   Get Main Settings
+        settingData = sData["settings"]
+        self.max_thumbThreads = settingData["max_thumbThreads"]
+        self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
+        self.max_copyThreads = settingData["max_copyThreads"]
+        self.copy_semaphore = QSemaphore(self.max_copyThreads)
+        self.size_copyChunk = settingData["size_copyChunk"]
+        self.progUpdateInterval = settingData["updateInterval"]
+
+        #   Get Tab (UI) Settings
+        tabData = sData["tabSettings"]
+        #   Media Player Enabled Checkbox
+        playerEnabled = tabData["playerEnabled"]
         self.chb_enablePlayer.setChecked(playerEnabled)
         self.toggleMediaPlayer(playerEnabled)
-
-        preferProxies = sData["tabSettings"]["preferProxies"]
+        #   Prefer Proxies Checknox
+        preferProxies = tabData["preferProxies"]
         self.chb_preferProxies.setChecked(preferProxies)
         self.togglePreferProxies(preferProxies)
-
-        self.sourceFuncts.chb_copyProxy.setChecked(sData["tabSettings"]["copyProxy"])
-
-        self.max_thumbThreads = sData["settings"]["max_thumbThreads"]
-        self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
-        self.max_copyThreads = sData["settings"]["max_copyThreads"]
-        self.copy_semaphore = QSemaphore(self.max_copyThreads)
-
-        self.size_copyChunk = sData["settings"]["size_copyChunk"]
-        self.progUpdateInterval = sData["settings"]["updateInterval"]
-
+        #   Copy Proxies checkbox
+        self.sourceFuncts.chb_copyProxy.setChecked(tabData["copyProxy"])
 
 
 
     @err_catcher(name=__name__)
     def openConfigWindow(self):
-
+        #   Get Saved Setting Data
         sData = self.getSettings()
         cData = sData["settings"]
 
+        #   Instantiate the Config Window
         self.sourceConfig = SourceTab_Config(core=self.core, settings=cData, parent=self)
         self.core.parentWindow(self.sourceConfig)
 
+        #    Launch and Capture the Save result
         result = self.sourceConfig.exec_()
 
+        #   If Save, call the SaveSettings
         if result == QDialog.Accepted:
             cData = self.sourceConfig.cData
             self.plugin.saveSettings(self, key="settings", data=cData)
 
             self.loadSettings()
 
-        
-
         else:
             return None
 
 
-
-
+    #   Returns File Size Formatted String
     @err_catcher(name=__name__)
-    def configTransButtons(self, mode):
-        match mode:
-            case "idle":
-                self.sourceFuncts.b_transfer_start.setVisible(True)
-                self.sourceFuncts.b_transfer_pause.setVisible(False)
-                self.sourceFuncts.b_transfer_resume.setVisible(False)
-                self.sourceFuncts.b_transfer_cancel.setVisible(False)
+    def getFileSizeStr(self, size_bytes):
+        size_mb = size_bytes / 1024.0 / 1024.0
 
-            case "transfer":
-                self.sourceFuncts.b_transfer_start.setVisible(False)
-                self.sourceFuncts.b_transfer_pause.setVisible(True)
-                self.sourceFuncts.b_transfer_resume.setVisible(False)
-                self.sourceFuncts.b_transfer_cancel.setVisible(True)                
+        if size_mb < 1:
+            size_kb = size_bytes / 1024.0
+            sizeStr = "%.2f KB" % size_kb
 
-            case "pause":
-                self.sourceFuncts.b_transfer_start.setVisible(False)
-                self.sourceFuncts.b_transfer_pause.setVisible(False)
-                self.sourceFuncts.b_transfer_resume.setVisible(True)
-                self.sourceFuncts.b_transfer_cancel.setVisible(True)
+        elif size_mb < 1024:
+            sizeStr = "%.2f MB" % size_mb
 
-            case "resume":
-                self.sourceFuncts.b_transfer_start.setVisible(False)
-                self.sourceFuncts.b_transfer_pause.setVisible(True)
-                self.sourceFuncts.b_transfer_resume.setVisible(False)
-                self.sourceFuncts.b_transfer_cancel.setVisible(True)
+        else:
+            size_gb = size_mb / 1024.0
+            sizeStr = "%.2f GB" % size_gb
+
+        return sizeStr
+    
+
+    #   Returns Time Formatted String
+    @err_catcher(name=__name__)
+    def getFormattedTimeStr(self, seconds):
+        if seconds is None or seconds > 1e6:
+            return "Estimating..."
+        
+        minutes, sec = divmod(int(seconds), 60)
+        # hours, minutes = divmod(minutes, 60)
+
+        # return f"{hours:02}:{minutes:02}:{sec:02}"
+        return f"{minutes:02}:{sec:02}"
 
 
+    #   Configures the UI Buttons based on Transfer Status
+    @err_catcher(name=__name__)
+    def configTransUI(self, mode):
+        displayMap = {
+            "idle": {
+                "b_transfer_start": True,
+                "b_transfer_pause": False,
+                "b_transfer_resume": False,
+                "b_transfer_cancel": False,
+                "l_time_elapsed": False,
+                "l_time_elapsedText": False,
+                "l_time_remain": False,
+                "l_time_remainText": False,
+                "l_size_copied": False,
+                "l_size_dash": False,
+            },
+            "transfer": {
+                "b_transfer_start": False,
+                "b_transfer_pause": True,
+                "b_transfer_resume": False,
+                "b_transfer_cancel": True,
+                "l_time_elapsed": True,
+                "l_time_elapsedText": True,
+                "l_time_remain": True,
+                "l_time_remainText": True,
+                "l_size_copied": True,
+                "l_size_dash": True,
+            },
+            "pause": {
+                "b_transfer_start": False,
+                "b_transfer_pause": False,
+                "b_transfer_resume": True,
+                "b_transfer_cancel": True,
+            },
+            "resume": {
+                "b_transfer_start": False,
+                "b_transfer_pause": True,
+                "b_transfer_resume": False,
+                "b_transfer_cancel": True,
+            },
+            "complete": {
+                "b_transfer_start": False,
+                "b_transfer_pause": False,
+                "b_transfer_resume": False,
+                "b_transfer_cancel": False,
+                "l_time_elapsed": True,
+                "l_time_elapsedText": True,
+                "l_time_remain": False,
+                "l_time_remainText": False,
+                "l_size_copied": True,
+                "l_size_dash": True,
+            }
+        }
+
+        config = displayMap.get(mode.lower())
+        if not config:
+            return
+
+        for name, visible in config.items():
+            widget = getattr(self.sourceFuncts, name, None)
+            if widget:
+                widget.setVisible(visible)
+
+
+
+    #   Sets Transfer Status and Prog Bar Color and Tooltip
     @err_catcher(name=__name__)
     def setTransferStatus(self, status, tooltip=None):
         self.transferState = status
@@ -469,12 +543,67 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         """)
 
 
-
-
     #   Reset Total Progess Bar
     @err_catcher(name=__name__)
     def reset_ProgBar(self):
         self.sourceFuncts.progBar_total.setValue(0)
+
+
+    #   Reset Total Progess Bar
+    @err_catcher(name=__name__)
+    def getTotalTransferSize(self):
+        copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
+        rowCount = self.tw_destination.rowCount()
+
+        total_transferSize = 0.0
+
+        for row in range(rowCount):
+            fileItem = self.tw_destination.cellWidget(row, 0)
+            
+            if fileItem is not None and fileItem.isSelected:
+                total_transferSize += fileItem.getTransferSize(includeProxy=copyProxy)
+
+        return total_transferSize
+
+
+    @err_catcher(name=__name__)
+    def getTimeElapsed(self):
+        return (time() - self.transferStartTime)
+
+
+    @err_catcher(name=__name__)
+    def getTimeRemaining(self, copiedSize, totalSize):
+        speed_bps = 0
+        current_time = time()
+
+        self.speedSamples.append((current_time, copiedSize))
+
+        # Adaptive maxlen: increase as transfer progresses
+        progress_ratio = copiedSize / totalSize if totalSize > 0 else 0
+        adaptive_maxlen = int(10 + progress_ratio * 30)  # Between 5 and 20 samples
+        self.speedSamples = deque(self.speedSamples, maxlen=adaptive_maxlen)
+
+        # Calculate rolling average speed
+        if len(self.speedSamples) >= 2:
+            t0, b0 = self.speedSamples[0]
+            t1, b1 = self.speedSamples[-1]
+            time_span = t1 - t0
+            bytes_span = b1 - b0
+
+            if time_span > 0 and bytes_span > 0:
+                speed_bps = bytes_span / time_span
+            else:
+                speed_bps = 0
+
+        # Estimate remaining time
+        if speed_bps > 0:
+            remaining_bytes = totalSize - copiedSize
+            time_remaining = remaining_bytes / speed_bps
+        else:
+            time_remaining = None
+
+        return time_remaining
+
 
 
     #   Update Total Progess Bar based on self.progressTimer
@@ -482,10 +611,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def updateTransfer(self):
         # Get Transferred Amount from Every FileTile
         total_copied = sum(item.copied_size for item in self.copyList if hasattr(item, "copied_size"))
+        #   Update Copied Size in the UI
+        totalSize_str = self.getFileSizeStr(total_copied)
+        self.sourceFuncts.l_size_copied.setText(totalSize_str)
+
+        #   Calculate the Time Elapsed
+        timeElapsed = self.getTimeElapsed()
+        self.sourceFuncts.l_time_elapsed.setText(self.getFormattedTimeStr(timeElapsed))
+
+        #   Calculate the Estimated Time Remaining
+        timeRemaining = self.getTimeRemaining(total_copied, self.total_transferSize)
+        #   Update Time Remaining in the UI
+        self.sourceFuncts.l_time_remain.setText(self.getFormattedTimeStr(timeRemaining))
 
         #   Get Tranfer Status for Every FileTile
         overall_statusList = [transfer.transferState for transfer in self.copyList]
-
 
         #   Determine Overall Status based on Priority
         if "Cancelled" in overall_statusList:
@@ -512,10 +652,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts.progBar_total.setValue(progress)
 
 
-    @err_catcher(name=__name__)
+
+
+    @err_catcher(name=__name__)                                                 #   TODO
     def completeTranfer(self, result):
+        self.progressTimer.stop()
         self.setTransferStatus(result)
-        self.configTransButtons("idle")
+        self.configTransUI("complete")
         # if result == "complete":
 
 
@@ -745,6 +888,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Add extra empty row to bottom
         self.tw_destination.insertRow(row)
 
+        self.refreshTotalTransSize()
+
+
+    @err_catcher(name=__name__)
+    def refreshTotalTransSize(self):
+        self.total_transferSize = self.getTotalTransferSize()
+        copySize_str = self.getFileSizeStr(self.total_transferSize)
+        self.sourceFuncts.l_size_total.setText(copySize_str)
+
 
     @err_catcher(name=__name__)
     def createSourceFileTile(self, filePath):
@@ -887,11 +1039,18 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def startTransfer(self):
+        self.transferStartTime = time()
+
+        #   Initialize Time Remaining Calc
+        self.speedSamples = deque(maxlen=10)
+
         copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
 
         row_count = self.tw_destination.rowCount()
         self.copyList = []
-        self.total_transferSize = 0.0
+
+        self.refreshTotalTransSize()
+
 
         for row in range(row_count):
             fileItem = self.tw_destination.cellWidget(row, 0)
@@ -899,7 +1058,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if fileItem is not None:
                 if fileItem.isSelected:
                     self.copyList.append(fileItem)
-                    self.total_transferSize += fileItem.getTransferSize(includeProxy=copyProxy)
+
+
 
         if len(self.copyList) == 0:
             self.core.popup("There are no Items Selected to Transfer")
@@ -911,7 +1071,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.progressTimer.start()
         self.setTransferStatus("Transferring")
-        self.configTransButtons("transfer")
+        self.configTransUI("transfer")
 
         for item in self.copyList:
             options = {}
@@ -936,12 +1096,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.progressTimer.stop()
         self.setTransferStatus("Paused")
-        self.configTransButtons("pause")
+        self.configTransUI("pause")
 
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def resumeTransfer(self):
+        #   Initialize Time Remaining Calc
+        self.speedSamples = deque(maxlen=10)
+
+
         row_count = self.tw_destination.rowCount()
         self.pauseList = []
 
@@ -955,7 +1119,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.progressTimer.start()
         self.setTransferStatus("Transferring")
-        self.configTransButtons("resume")
+        self.configTransUI("resume")
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -973,7 +1137,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.progressTimer.stop()
         self.setTransferStatus("Cancelled")
-        self.configTransButtons("idle")
+        self.configTransUI("idle")
 
 
     @err_catcher(name=__name__)

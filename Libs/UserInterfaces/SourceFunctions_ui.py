@@ -16,19 +16,23 @@ class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
-        w_sourceFunctions.resize(417, 584)
+        w_sourceFunctions.resize(330, 480)
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(w_sourceFunctions.sizePolicy().hasHeightForWidth())
+        w_sourceFunctions.setSizePolicy(sizePolicy)
         self.horizontalLayout = QHBoxLayout(w_sourceFunctions)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(8)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.w_functions.sizePolicy().hasHeightForWidth())
-        self.w_functions.setSizePolicy(sizePolicy)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy1.setHorizontalStretch(8)
+        sizePolicy1.setVerticalStretch(0)
+        sizePolicy1.setHeightForWidth(self.w_functions.sizePolicy().hasHeightForWidth())
+        self.w_functions.setSizePolicy(sizePolicy1)
         self.verticalLayout_8 = QVBoxLayout(self.w_functions)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
@@ -37,7 +41,7 @@ class Ui_w_sourceFunctions(object):
 
         self.verticalLayout_8.addWidget(self.b_configure)
 
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
 
         self.verticalLayout_8.addItem(self.verticalSpacer)
 
@@ -71,13 +75,62 @@ class Ui_w_sourceFunctions(object):
 
         self.verticalLayout_8.addLayout(self.lo_transferButtons)
 
+        self.lo_progBar_total = QHBoxLayout()
+        self.lo_progBar_total.setObjectName(u"lo_progBar_total")
         self.progBar_total = QProgressBar(self.w_functions)
         self.progBar_total.setObjectName(u"progBar_total")
         self.progBar_total.setMaximumSize(QSize(16777215, 10))
         self.progBar_total.setValue(24)
         self.progBar_total.setTextVisible(False)
 
-        self.verticalLayout_8.addWidget(self.progBar_total)
+        self.lo_progBar_total.addWidget(self.progBar_total)
+
+
+        self.verticalLayout_8.addLayout(self.lo_progBar_total)
+
+        self.lo_transferStats = QHBoxLayout()
+        self.lo_transferStats.setObjectName(u"lo_transferStats")
+        self.l_time_elapsed = QLabel(self.w_functions)
+        self.l_time_elapsed.setObjectName(u"l_time_elapsed")
+
+        self.lo_transferStats.addWidget(self.l_time_elapsed)
+
+        self.l_time_elapsedText = QLabel(self.w_functions)
+        self.l_time_elapsedText.setObjectName(u"l_time_elapsedText")
+
+        self.lo_transferStats.addWidget(self.l_time_elapsedText)
+
+        self.l_time_remain = QLabel(self.w_functions)
+        self.l_time_remain.setObjectName(u"l_time_remain")
+
+        self.lo_transferStats.addWidget(self.l_time_remain)
+
+        self.l_time_remainText = QLabel(self.w_functions)
+        self.l_time_remainText.setObjectName(u"l_time_remainText")
+
+        self.lo_transferStats.addWidget(self.l_time_remainText)
+
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.lo_transferStats.addItem(self.horizontalSpacer)
+
+        self.l_size_copied = QLabel(self.w_functions)
+        self.l_size_copied.setObjectName(u"l_size_copied")
+
+        self.lo_transferStats.addWidget(self.l_size_copied)
+
+        self.l_size_dash = QLabel(self.w_functions)
+        self.l_size_dash.setObjectName(u"l_size_dash")
+
+        self.lo_transferStats.addWidget(self.l_size_dash)
+
+        self.l_size_total = QLabel(self.w_functions)
+        self.l_size_total.setObjectName(u"l_size_total")
+
+        self.lo_transferStats.addWidget(self.l_size_total)
+
+
+        self.verticalLayout_8.addLayout(self.lo_transferStats)
 
         self.splitter.addWidget(self.w_functions)
 
@@ -97,5 +150,12 @@ class Ui_w_sourceFunctions(object):
         self.b_transfer_pause.setText(QCoreApplication.translate("w_sourceFunctions", u"Pause Transfer", None))
         self.b_transfer_resume.setText(QCoreApplication.translate("w_sourceFunctions", u"Resume Transfer", None))
         self.b_transfer_cancel.setText(QCoreApplication.translate("w_sourceFunctions", u"Cancel Transfer", None))
+        self.l_time_elapsed.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))
+        self.l_time_elapsedText.setText(QCoreApplication.translate("w_sourceFunctions", u"(elapsed)", None))
+        self.l_time_remain.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))
+        self.l_time_remainText.setText(QCoreApplication.translate("w_sourceFunctions", u"(remaining)", None))
+        self.l_size_copied.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))
+        self.l_size_dash.setText(QCoreApplication.translate("w_sourceFunctions", u"-", None))
+        self.l_size_total.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))
     # retranslateUi
 

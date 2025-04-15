@@ -213,6 +213,9 @@ class BaseTileItem(QWidget):
         self.isSelected = self.chb_selected.isChecked()
 
 
+        self.browser.refreshTotalTransSize()
+
+
     #   Sets the Checkbox and sets the State
     @err_catcher(name=__name__)
     def setChecked(self, checked):
@@ -358,21 +361,20 @@ class BaseTileItem(QWidget):
     #   Returns File Size (can be slower)
     @err_catcher(name=__name__)
     def getFileSizeStr(self, size_bytes):
-        if self.browser.projectBrowser.act_filesizes.isChecked():
-            size_mb = size_bytes / 1024.0 / 1024.0
+        size_mb = size_bytes / 1024.0 / 1024.0
 
-            if size_mb < 1:
-                size_kb = size_bytes / 1024.0
-                sizeStr = "%.2f KB" % size_kb
+        if size_mb < 1:
+            size_kb = size_bytes / 1024.0
+            sizeStr = "%.2f KB" % size_kb
 
-            elif size_mb < 1024:
-                sizeStr = "%.2f MB" % size_mb
+        elif size_mb < 1024:
+            sizeStr = "%.2f MB" % size_mb
 
-            else:
-                size_gb = size_mb / 1024.0
-                sizeStr = "%.2f GB" % size_gb
+        else:
+            size_gb = size_mb / 1024.0
+            sizeStr = "%.2f GB" % size_gb
 
-            return sizeStr
+        return sizeStr
 
 
     @err_catcher(name=__name__)
