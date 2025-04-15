@@ -140,12 +140,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.connectEvents()
         self.loadSettings()
 
-
-        # Timer for Progress Updates
-        self.progressTimer = QTimer(self)
-        self.progressTimer.setInterval(self.progUpdateInterval * 1000)
-        self.progressTimer.timeout.connect(self.updateTransfer)
-
         #   Callbacks
         self.core.callback(name="onSourceBrowserOpen", args=[self])
 
@@ -1039,6 +1033,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def startTransfer(self):
+        # Timer for Progress Updates
+        self.progressTimer = QTimer(self)
+        self.progressTimer.setInterval(self.progUpdateInterval * 1000)
+        self.progressTimer.timeout.connect(self.updateTransfer)
+
+
         self.transferStartTime = time()
 
         #   Initialize Time Remaining Calc

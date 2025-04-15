@@ -45,6 +45,7 @@ class Ui_w_sourceConfig(object):
 
         self.sb_thumbThreads = QSpinBox(self.w_config)
         self.sb_thumbThreads.setObjectName(u"sb_thumbThreads")
+        self.sb_thumbThreads.setMinimum(1)
 
         self.lo_thumbThreads.addWidget(self.sb_thumbThreads)
 
@@ -64,6 +65,7 @@ class Ui_w_sourceConfig(object):
 
         self.sb_copyThreads = QSpinBox(self.w_config)
         self.sb_copyThreads.setObjectName(u"sb_copyThreads")
+        self.sb_copyThreads.setMinimum(1)
 
         self.lo_copyThreads.addWidget(self.sb_copyThreads)
 
@@ -83,6 +85,7 @@ class Ui_w_sourceConfig(object):
 
         self.sb_copyChunks = QSpinBox(self.w_config)
         self.sb_copyChunks.setObjectName(u"sb_copyChunks")
+        self.sb_copyChunks.setMinimum(1)
 
         self.lo_copyChunks.addWidget(self.sb_copyChunks)
 
@@ -100,9 +103,12 @@ class Ui_w_sourceConfig(object):
 
         self.lo_progUpdateRate.addItem(self.horizontalSpacer_3)
 
-        self.sp_progUpdateRate = QSpinBox(self.w_config)
+        self.sp_progUpdateRate = QDoubleSpinBox(self.w_config)
         self.sp_progUpdateRate.setObjectName(u"sp_progUpdateRate")
-        self.sp_progUpdateRate.setMaximum(10)
+        self.sp_progUpdateRate.setDecimals(1)
+        self.sp_progUpdateRate.setMinimum(0.100000000000000)
+        self.sp_progUpdateRate.setSingleStep(0.100000000000000)
+        self.sp_progUpdateRate.setValue(0.500000000000000)
 
         self.lo_progUpdateRate.addWidget(self.sp_progUpdateRate)
 

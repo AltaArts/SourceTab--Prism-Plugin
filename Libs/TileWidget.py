@@ -134,24 +134,8 @@ class BaseTileItem(QWidget):
         self.exifToolEXE = self.findExiftool()
 
         #   Thumbnail Size
-        # self.previewSize = [self.core.scenePreviewWidth, self.core.scenePreviewHeight]
         self.itemPreviewWidth = 120
         self.itemPreviewHeight = 69
-
-
-        #   Thread Limit for Thumbnail Generation
-        self.max_thumbThreads = self.browser.max_thumbThreads
-        self.thumb_semaphore = self.browser.thumb_semaphore
-
-        #   Thread Limit for File Transfer
-        self.max_copyThreads = self.browser.max_copyThreads
-        self.copy_semaphore = self.browser.copy_semaphore
-
-        #   Size of Copy Chunks
-        self.size_copyChunk = self.browser.size_copyChunk
-
-        #   Update Interval for Progress Bar
-        self.progUpdateInterval = self.browser.progUpdateInterval
 
         #   Sets Thread Pool
         self.threadPool = QThreadPool.globalInstance()
@@ -162,6 +146,27 @@ class BaseTileItem(QWidget):
         self.setupUi()
         #   Calls the Refresh Method of the Child Tile
         self.refreshUi()
+
+
+    #   Properties from the SourceTab Config Settings
+    @property
+    def max_thumbThreads(self):
+        return self.browser.max_thumbThreads
+    @property
+    def thumb_semaphore(self):
+        return self.browser.thumb_semaphore
+    @property
+    def max_copyThreads(self):
+        return self.browser.max_copyThreads
+    @property
+    def copy_semaphore(self):
+        return self.browser.copy_semaphore
+    @property
+    def size_copyChunk(self):
+        return self.browser.size_copyChunk
+    @property
+    def progUpdateInterval(self):
+        return self.browser.progUpdateInterval
 
 
     #   Launches the Double-click File Action
@@ -179,7 +184,6 @@ class BaseTileItem(QWidget):
         else:
             # self.toggleChecked()
             self.sendToViewer()
-
 
 
     #   Sets the Tile State Selected
@@ -212,7 +216,7 @@ class BaseTileItem(QWidget):
     def setSelected(self, checked=None):
         self.isSelected = self.chb_selected.isChecked()
 
-
+        #   Refresh Transfer Size
         self.browser.refreshTotalTransSize()
 
 
@@ -1528,7 +1532,6 @@ class ThumbnailWorker(QRunnable, QObject):
 
 
 ###     Hash Worker Thread
-
 class FileHashWorkerSignals(QObject):
     finished = Signal(str)  # emits the final hash
 
@@ -1559,7 +1562,6 @@ class FileHashWorker(QRunnable):
 
 
 ###     Transfer Worker Thread
-
 class FileCopyWorker(QThread):
     progress = Signal(int, float)
     finished = Signal(bool)

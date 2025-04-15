@@ -62,7 +62,11 @@
           </spacer>
          </item>
          <item>
-          <widget class="QSpinBox" name="sb_thumbThreads"/>
+          <widget class="QSpinBox" name="sb_thumbThreads">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
@@ -89,7 +93,11 @@
           </spacer>
          </item>
          <item>
-          <widget class="QSpinBox" name="sb_copyThreads"/>
+          <widget class="QSpinBox" name="sb_copyThreads">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
@@ -116,7 +124,11 @@
           </spacer>
          </item>
          <item>
-          <widget class="QSpinBox" name="sb_copyChunks"/>
+          <widget class="QSpinBox" name="sb_copyChunks">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
@@ -143,9 +155,18 @@
           </spacer>
          </item>
          <item>
-          <widget class="QSpinBox" name="sp_progUpdateRate">
-           <property name="maximum">
-            <number>10</number>
+          <widget class="QDoubleSpinBox" name="sp_progUpdateRate">
+           <property name="decimals">
+            <number>1</number>
+           </property>
+           <property name="minimum">
+            <double>0.100000000000000</double>
+           </property>
+           <property name="singleStep">
+            <double>0.100000000000000</double>
+           </property>
+           <property name="value">
+            <double>0.500000000000000</double>
            </property>
           </widget>
          </item>
