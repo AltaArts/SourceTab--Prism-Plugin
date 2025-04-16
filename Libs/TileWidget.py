@@ -1313,6 +1313,7 @@ class DestFileItem(BaseTileItem):
     #   Called After Hash Genertaion for UI Feedback
     @err_catcher(name=__name__)
     def onDestHashReady(self, dest_hash):
+        self.data["dest_mainFile_hash"] = dest_hash
         orig_hash = self.data.get("source_mainFile_hash", None)
 
         if dest_hash == orig_hash:

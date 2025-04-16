@@ -630,6 +630,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   Calculate the Time Elapsed
         timeElapsed = self.getTimeElapsed()
+        self.timeElapsed = timeElapsed
         self.sourceFuncts.l_time_elapsed.setText(self.getFormattedTimeStr(timeElapsed))
 
         #   Calculate the Estimated Time Remaining
@@ -692,68 +693,150 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
 
 
-
-
-        
-    #	Creates PDF Transfer Report
+    #   Creates Transfer Report PDF
     @err_catcher(name=__name__)
     def createTransferReport(self):
+        #   Gets Destination Directory for Save Path
         saveDir = self.le_destPath.text()
+        #   Uses CopyList for Report
         reportData = self.copyList
-        prismIcon = os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
 
-
+        #   Header Data Items
         report_uuid = self.createUUID()
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        filename = f"TransferReport_{timestamp}_{report_uuid}.pdf"
+        timestamp_file = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        projectName = self.core.projectName
+        user = self.core.username
+        transferSize = self.getFileSizeStr(self.total_transferSize)
+        transferTime = self.getFormattedTimeStr(self.timeElapsed)
+
+        #   Creates Report Filename
+        filename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
         reportPath = os.path.join(saveDir, filename)
 
+        #   Creates New PDF Canvas
         c = canvas.Canvas(reportPath, pagesize=A4)
         width, height = A4
 
-
+        #   Prism Icon
+        prismIcon = os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
         icon_size = 18
         icon_x = 50
         icon_y = height - 48
 
+        #   Margin and Spacing
+        left_margin = 50
+        col_spacing = 75
+
+        #   Page number helper
+        def draw_page_number():
+            page_num = c.getPageNumber()
+            c.setFont("Helvetica", 9)
+            c.drawRightString(width - 50, 30, f"Page {page_num}")
+
+        def next_page():
+            draw_page_number()
+            c.showPage()
+            c.setFont("Helvetica", 11)
+
+        ## --- Page 1: Header info ---  ##
+
+        #   Add Prims Icon to Left of Title Line
         if os.path.exists(prismIcon):
             try:
                 c.drawImage(prismIcon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
             except Exception as e:
-                logger.warning(f"ERROR:  Warning: Failed to load icon: {e}")
+                logger.warning(f"ERROR: Failed to load icon: {e}")
 
-        # Title
+        #   Add Title Line
         c.setFont("Helvetica-Bold", 16)
         c.drawString(icon_x + icon_size + 5, height - 45, "File Transfer Completion Report")
 
-        # Subtitle
+        #   Header Data Spacing
+        header_y = height - 70
+        header_line_height = 14
         c.setFont("Helvetica", 10)
-        c.drawString(50, height - 70, f"Date: {timestamp}")
-        c.drawString(50, height - 85, f"Report ID: {report_uuid}")
-        c.drawString(50, height - 100, f"Saved to: {os.path.normpath(reportPath)}")
 
-        # Report content
-        c.setFont("Helvetica", 11)
-        y = height - 130
-        line_height = 14
+        #   Add Header Data Items
+        header_data = [
+            ("Transfer Date:", timestamp_text),
+            ("Report ID:", report_uuid),
+            ("Project:", projectName),
+            ("User:", user),
+            ("Transfer Size:", transferSize),
+            ("Transfer Time:", transferTime)
+        ]
 
+        #   Add Each Data Item
+        for label, value in header_data:
+            c.drawString(left_margin, header_y, label)
+            c.drawString(left_margin + col_spacing, header_y, value)
+            header_y -= header_line_height
+
+        ## --- Page 2 (and on): File info ---    ##
+
+        next_page()
+
+        #   Files Section Spacing
+        y = height - 50
+        line_height = 11
+        block_spacing = 10
+
+        #   If No Transferd Files
         if not reportData:
-            c.drawString(50, y, "No files were transferred.")
+            c.setFont("Helvetica", 10)
+            c.drawString(left_margin, y, "No files were transferred.")
+
+        #   Add Files Section Title Line
         else:
-            c.drawString(50, y, f"Transferred {len(reportData)} file(s):")
-            y -= line_height
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(left_margin, y, f"Transferred {len(reportData)} file(s):")
+            y -= line_height + 4
 
+            #   Font for Files Section
+            c.setFont("Helvetica", 9)
+
+            #   File Data Items
             for item in reportData:
-                filename = item.getDestMainPath()
-                if y < 50:
-                    c.showPage()
+                baseName = os.path.basename(item.getDestMainPath())
+                sourcePath = item.getSource_mainfilePath()
+                destPath = item.getDestMainPath()
+                size_str = item.data['source_mainFile_size']
+                date_str = item.data['source_mainFile_date']
+                hash_source = item.data['source_mainFile_hash']
+                hash_dest = item.data['dest_mainFile_hash']
+                hasProxy = item.data['hasProxy']
+
+                file_lines = [
+                    ("Filename:", baseName),
+                    ("Source:", sourcePath),
+                    ("Destination:", destPath),
+                    ("Size:", size_str),
+                    ("Date:", date_str),
+                    ("Hash (source):", hash_source),
+                    ("Hash (dest):", hash_dest),
+                    ("Proxy present:", str(hasProxy))
+                ]
+
+                #   Check if the Current File Block Can Fit on Page
+                block_height = len(file_lines) * line_height + block_spacing
+                if y - block_height < 50:
+                    next_page()
+                    c.setFont("Helvetica", 9)
                     y = height - 50
-                    c.setFont("Helvetica", 11)
 
-                c.drawString(60, y, f"- {filename}")
-                y -= line_height
+                #   Create File Block
+                for label, value in file_lines:
+                    c.drawString(left_margin, y, label)
+                    c.drawString(left_margin + col_spacing, y, value)
+                    y -= line_height
 
+                y -= block_spacing
+
+        draw_page_number()
         c.save()
+
+
 
 
 
