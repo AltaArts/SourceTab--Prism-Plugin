@@ -16,9 +16,6 @@
   <layout class="QHBoxLayout" name="horizontalLayout">
    <item>
     <widget class="QSplitter" name="splitter">
-     <property name="orientation">
-      <enum>Qt::Orientation::Horizontal</enum>
-     </property>
      <widget class="QWidget" name="w_source" native="true">
       <property name="sizePolicy">
        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -81,7 +78,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLineEdit" name="l_sourcePath"/>
+          <widget class="QLineEdit" name="le_sourcePath"/>
          </item>
          <item>
           <widget class="QPushButton" name="b_browseSource">
@@ -113,10 +110,10 @@
        <item>
         <widget class="QTableWidget" name="tw_source">
          <property name="contextMenuPolicy">
-          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+          <enum>Qt::NoContextMenu</enum>
          </property>
          <property name="selectionMode">
-          <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
+          <enum>QAbstractItemView::NoSelection</enum>
          </property>
         </widget>
        </item>
@@ -206,7 +203,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLineEdit" name="l_destPath"/>
+          <widget class="QLineEdit" name="le_destPath"/>
          </item>
          <item>
           <widget class="QPushButton" name="b_browseDest">
@@ -244,10 +241,10 @@
           </size>
          </property>
          <property name="contextMenuPolicy">
-          <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+          <enum>Qt::NoContextMenu</enum>
          </property>
          <property name="selectionMode">
-          <enum>QAbstractItemView::SelectionMode::ExtendedSelection</enum>
+          <enum>QAbstractItemView::NoSelection</enum>
          </property>
         </widget>
        </item>

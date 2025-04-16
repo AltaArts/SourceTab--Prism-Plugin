@@ -63,10 +63,10 @@ sys.path.append(uiPath)
 from SourceTab_Config_ui import Ui_w_sourceConfig
 
 class SourceTab_Config(QDialog, Ui_w_sourceConfig):
-    def __init__(self, core, settings=None, parent=None):
+    def __init__(self, browser, core, parent=None):
         super(SourceTab_Config, self).__init__(parent)
+        self.browser = browser
         self.core = core
-        self.settings = settings
 
         #   Call UI Setup
         self.setupUi(self)
@@ -85,34 +85,34 @@ class SourceTab_Config(QDialog, Ui_w_sourceConfig):
         #   Resize Window
         self.resize(600, 800)
 
+        self.loadSettings()
 
-
-        if settings:
-            self.loadSettings()
-
-
-
+        #   Connect Buttons
         self.bb_saveCancel.accepted.connect(self.saveSettings)
         self.bb_saveCancel.rejected.connect(self.reject)
 
 
+    #   Loads Settings from Source Browser Values
     def loadSettings(self):
-        if "max_thumbThreads" in self.settings:
-            self.sb_thumbThreads.setValue(self.settings["max_thumbThreads"])
-        if "max_copyThreads" in self.settings:
-            self.sb_copyThreads.setValue(self.settings["max_copyThreads"])
-        if "size_copyChunk" in self.settings:
-            self.sb_copyChunks.setValue(self.settings["size_copyChunk"])
-        if "updateInterval" in self.settings:
-            self.sp_progUpdateRate.setValue(self.settings["updateInterval"])
+        self.sb_thumbThreads.setValue(self.browser.max_thumbThreads)
+        self.sb_copyThreads.setValue(self.browser.max_copyThreads)
+        self.sb_copyChunks.setValue(self.browser.size_copyChunk)
+        self.sp_progUpdateRate.setValue(self.browser.progUpdateInterval)
+        self.chb_showPopup.setChecked(self.browser.useCompletePopup)
+        self.chb_playSound.setChecked(self.browser.useCompleteSound)
+        self.chb_useTransferReport.setChecked(self.browser.useTransferReport)
 
-    
+
+    #   Gets called from Source Browser Save Method
     def saveSettings(self):
         self.cData = {
             "max_thumbThreads": self.sb_thumbThreads.value(),
             "max_copyThreads": self.sb_copyThreads.value(),
             "size_copyChunk": self.sb_copyChunks.value(),
-            "updateInterval": self.sp_progUpdateRate.value()
+            "updateInterval": self.sp_progUpdateRate.value(),
+            "useCompletePopup": self.chb_showPopup.isChecked(),
+            "useCompleteSound": self.chb_playSound.isChecked(),
+            "useTransferReport": self.chb_useTransferReport.isChecked()
             }
         
         self.accept()

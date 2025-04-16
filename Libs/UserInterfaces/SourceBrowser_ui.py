@@ -21,10 +21,9 @@ class Ui_w_sourceBrowser(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceBrowser)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_source = QWidget(self.splitter)
         self.w_source.setObjectName(u"w_source")
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(8)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.w_source.sizePolicy().hasHeightForWidth())
@@ -46,7 +45,7 @@ class Ui_w_sourceBrowser(object):
         self.lo_sourcePath.setObjectName(u"lo_sourcePath")
         self.b_sourcePathUp = QPushButton(self.w_source)
         self.b_sourcePathUp.setObjectName(u"b_sourcePathUp")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.b_sourcePathUp.sizePolicy().hasHeightForWidth())
@@ -57,10 +56,10 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_sourcePath.addWidget(self.b_sourcePathUp)
 
-        self.l_sourcePath = QLineEdit(self.w_source)
-        self.l_sourcePath.setObjectName(u"l_sourcePath")
+        self.le_sourcePath = QLineEdit(self.w_source)
+        self.le_sourcePath.setObjectName(u"le_sourcePath")
 
-        self.lo_sourcePath.addWidget(self.l_sourcePath)
+        self.lo_sourcePath.addWidget(self.le_sourcePath)
 
         self.b_browseSource = QPushButton(self.w_source)
         self.b_browseSource.setObjectName(u"b_browseSource")
@@ -76,8 +75,8 @@ class Ui_w_sourceBrowser(object):
 
         self.tw_source = QTableWidget(self.w_source)
         self.tw_source.setObjectName(u"tw_source")
-        self.tw_source.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tw_source.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.tw_source.setContextMenuPolicy(Qt.NoContextMenu)
+        self.tw_source.setSelectionMode(QAbstractItemView.NoSelection)
 
         self.verticalLayout_8.addWidget(self.tw_source)
 
@@ -104,7 +103,7 @@ class Ui_w_sourceBrowser(object):
         self.splitter.addWidget(self.w_source)
         self.w_destination = QWidget(self.splitter)
         self.w_destination.setObjectName(u"w_destination")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         sizePolicy2.setHorizontalStretch(9)
         sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.w_destination.sizePolicy().hasHeightForWidth())
@@ -133,10 +132,10 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_destPath.addWidget(self.b_destPathUp)
 
-        self.l_destPath = QLineEdit(self.w_destination)
-        self.l_destPath.setObjectName(u"l_destPath")
+        self.le_destPath = QLineEdit(self.w_destination)
+        self.le_destPath.setObjectName(u"le_destPath")
 
-        self.lo_destPath.addWidget(self.l_destPath)
+        self.lo_destPath.addWidget(self.le_destPath)
 
         self.b_browseDest = QPushButton(self.w_destination)
         self.b_browseDest.setObjectName(u"b_browseDest")
@@ -153,8 +152,8 @@ class Ui_w_sourceBrowser(object):
         self.tw_destination = QTableWidget(self.w_destination)
         self.tw_destination.setObjectName(u"tw_destination")
         self.tw_destination.setMaximumSize(QSize(16777215, 9999))
-        self.tw_destination.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tw_destination.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.tw_destination.setContextMenuPolicy(Qt.NoContextMenu)
+        self.tw_destination.setSelectionMode(QAbstractItemView.NoSelection)
 
         self.verticalLayout_11.addWidget(self.tw_destination)
 
@@ -209,4 +208,3 @@ class Ui_w_sourceBrowser(object):
         self.b_dest_clearSel.setText(QCoreApplication.translate("w_sourceBrowser", u"Remove Selected", None))
         self.b_dest_clearAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Remove All", None))
     # retranslateUi
-

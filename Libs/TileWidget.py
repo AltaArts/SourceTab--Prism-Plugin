@@ -1046,7 +1046,7 @@ class DestFileItem(BaseTileItem):
     #   Sets Proxy Icon and FilePath if Proxy Exists
     @err_catcher(name=__name__)
     def getDestPath(self):
-        return os.path.normpath(self.browser.l_destPath.text())
+        return os.path.normpath(self.browser.le_destPath.text())
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists

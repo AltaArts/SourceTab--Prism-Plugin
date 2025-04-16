@@ -139,7 +139,10 @@ class Prism_SourceTab_Functions(object):
                     "max_thumbThreads": 12,
                     "max_copyThreads": 6,
                     "size_copyChunk": 1,
-                    "updateInterval": 1
+                    "updateInterval": 1,
+                    "useCompletePopup": True,
+                    "useCompleteSound": True,
+                    "useTransferReport": True
                 }
             }
 

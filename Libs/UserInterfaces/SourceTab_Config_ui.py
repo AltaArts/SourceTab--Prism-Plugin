@@ -115,6 +115,41 @@ class Ui_w_sourceConfig(object):
 
         self.verticalLayout_8.addLayout(self.lo_progUpdateRate)
 
+        self.lo_completePopup = QHBoxLayout()
+        self.lo_completePopup.setObjectName(u"lo_completePopup")
+        self.chb_showPopup = QCheckBox(self.w_config)
+        self.chb_showPopup.setObjectName(u"chb_showPopup")
+        self.chb_showPopup.setLayoutDirection(Qt.RightToLeft)
+
+        self.lo_completePopup.addWidget(self.chb_showPopup)
+
+        self.horizontalSpacer_6 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.lo_completePopup.addItem(self.horizontalSpacer_6)
+
+        self.chb_playSound = QCheckBox(self.w_config)
+        self.chb_playSound.setObjectName(u"chb_playSound")
+        self.chb_playSound.setLayoutDirection(Qt.RightToLeft)
+
+        self.lo_completePopup.addWidget(self.chb_playSound)
+
+        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.lo_completePopup.addItem(self.horizontalSpacer_4)
+
+
+        self.verticalLayout_8.addLayout(self.lo_completePopup)
+
+        self.lo_transferReport = QHBoxLayout()
+        self.lo_transferReport.setObjectName(u"lo_transferReport")
+        self.chb_useTransferReport = QCheckBox(self.w_config)
+        self.chb_useTransferReport.setObjectName(u"chb_useTransferReport")
+
+        self.lo_transferReport.addWidget(self.chb_useTransferReport)
+
+
+        self.verticalLayout_8.addLayout(self.lo_transferReport)
+
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.verticalLayout_8.addItem(self.verticalSpacer)
@@ -141,5 +176,8 @@ class Ui_w_sourceConfig(object):
         self.l_copyThreads.setText(QCoreApplication.translate("w_sourceConfig", u"Maximum Transfer Threads", None))
         self.l_copyChunks.setText(QCoreApplication.translate("w_sourceConfig", u"Transfer Chunk Size (megabytes)", None))
         self.l_progUpdateRate.setText(QCoreApplication.translate("w_sourceConfig", u"Progress Bars Update Rate (seconds)", None))
+        self.chb_showPopup.setText(QCoreApplication.translate("w_sourceConfig", u"Show Completion Popup", None))
+        self.chb_playSound.setText(QCoreApplication.translate("w_sourceConfig", u"Play Completion Sound", None))
+        self.chb_useTransferReport.setText(QCoreApplication.translate("w_sourceConfig", u"Generate Transfer Report on Completion", None))
     # retranslateUi
 

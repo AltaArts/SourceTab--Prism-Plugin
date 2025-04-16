@@ -78,7 +78,7 @@ from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
 
-rootScripts = os.path.join(prismRoot, "Scripts")
+rootScripts = os.path.join(prismRoot, "Scripts")                                    #   TODO - CLEANUP
 pluginPath = os.path.dirname(os.path.dirname(__file__))
 pyLibsPath = os.path.join(pluginPath, "PythonLibs", "Python311")
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
@@ -91,6 +91,10 @@ sys.path.append(uiPath)
 
 
 from playsound.playsound import playsound
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+
 
 from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
@@ -376,6 +380,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.copy_semaphore = QSemaphore(self.max_copyThreads)
         self.size_copyChunk = settingData["size_copyChunk"]
         self.progUpdateInterval = settingData["updateInterval"]
+        self.useCompletePopup = settingData["useCompletePopup"]
+        self.useCompleteSound = settingData["useCompleteSound"]
+        self.useTransferReport = settingData["useTransferReport"]
 
         #   Get Tab (UI) Settings
         tabData = sData["tabSettings"]
@@ -394,12 +401,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def openConfigWindow(self):
-        #   Get Saved Setting Data
-        sData = self.getSettings()
-        cData = sData["settings"]
-
         #   Instantiate the Config Window
-        self.sourceConfig = SourceTab_Config(core=self.core, settings=cData, parent=self)
+        self.sourceConfig = SourceTab_Config(self, core=self.core, parent=self)
         self.core.parentWindow(self.sourceConfig)
 
         #    Launch and Capture the Save result
@@ -671,15 +674,86 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.configTransUI("complete")
         # if result == "complete":
 
-        text = "Transfer Complete"
-        title = "Transfer Complete"
-        buttons = ["Open in Explorer", "Open Report", "Close"]
+        if self.useTransferReport:
+            self.createTransferReport()
 
-        playsound(SOUND_SUCCESS)
-        # playsound(SOUND_ERROR)
+        if self.useCompleteSound:
+            try:
+                playsound(SOUND_SUCCESS)
+                # playsound(SOUND_ERROR)
+            except:
+                QApplication.beep()
 
-        self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
+        if self.useCompletePopup:
+            text = "Transfer Complete"
+            title = "Transfer Complete"
+            buttons = ["Open in Explorer", "Open Report", "Close"]
 
+            self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
+
+
+
+
+        
+    #	Creates PDF Transfer Report
+    @err_catcher(name=__name__)
+    def createTransferReport(self):
+        saveDir = self.le_destPath.text()
+        reportData = self.copyList
+        prismIcon = os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
+
+
+        report_uuid = self.createUUID()
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        filename = f"TransferReport_{timestamp}_{report_uuid}.pdf"
+        reportPath = os.path.join(saveDir, filename)
+
+        c = canvas.Canvas(reportPath, pagesize=A4)
+        width, height = A4
+
+
+        icon_size = 18
+        icon_x = 50
+        icon_y = height - 48
+
+        if os.path.exists(prismIcon):
+            try:
+                c.drawImage(prismIcon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
+            except Exception as e:
+                logger.warning(f"ERROR:  Warning: Failed to load icon: {e}")
+
+        # Title
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(icon_x + icon_size + 5, height - 45, "File Transfer Completion Report")
+
+        # Subtitle
+        c.setFont("Helvetica", 10)
+        c.drawString(50, height - 70, f"Date: {timestamp}")
+        c.drawString(50, height - 85, f"Report ID: {report_uuid}")
+        c.drawString(50, height - 100, f"Saved to: {os.path.normpath(reportPath)}")
+
+        # Report content
+        c.setFont("Helvetica", 11)
+        y = height - 130
+        line_height = 14
+
+        if not reportData:
+            c.drawString(50, y, "No files were transferred.")
+        else:
+            c.drawString(50, y, f"Transferred {len(reportData)} file(s):")
+            y -= line_height
+
+            for item in reportData:
+                filename = item.getDestMainPath()
+                if y < 50:
+                    c.showPage()
+                    y = height - 50
+                    c.setFont("Helvetica", 11)
+
+                c.drawString(60, y, f"- {filename}")
+                y -= line_height
+
+        c.save()
 
 
 
@@ -722,9 +796,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.core.media.invalidateOiioCache()                               #   TODO
 
         if hasattr(self, "sourceDir"):
-            self.l_sourcePath.setText(self.sourceDir)
+            self.le_sourcePath.setText(self.sourceDir)
         if hasattr(self, "destDir"):
-            self.l_destPath.setText(self.destDir)
+            self.le_destPath.setText(self.destDir)
 
         self.entityChanged()
         self.refreshStatus = "valid"
@@ -829,7 +903,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
         if hasattr(self, "sourceDir"):
-            self.l_sourcePath.setText(self.sourceDir)
+            self.le_sourcePath.setText(self.sourceDir)
 
         self.tw_source.setRowCount(0)  # Clear existing rows
 
@@ -887,7 +961,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
         if hasattr(self, "destDir"):
-            self.l_destPath.setText(self.destDir)
+            self.le_destPath.setText(self.destDir)
 
         self.tw_destination.setRowCount(0)  # Clear existing rows
 
@@ -1090,7 +1164,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.core.popup("There are no Items Selected to Transfer")
             return False
         
-        if not os.path.isdir(self.l_destPath.text()):
+        if not os.path.isdir(self.le_destPath.text()):
             self.core.popup("YOU FORGOT TO SELECT DEST DIR")
             return False
 
