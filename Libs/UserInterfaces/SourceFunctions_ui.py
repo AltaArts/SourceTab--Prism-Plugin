@@ -16,7 +16,7 @@ class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
-        w_sourceFunctions.resize(330, 480)
+        w_sourceFunctions.resize(379, 480)
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -26,6 +26,7 @@ class Ui_w_sourceFunctions(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
+        self.splitter.setOrientation(Qt.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
         sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
@@ -71,6 +72,11 @@ class Ui_w_sourceFunctions(object):
         self.b_transfer_cancel.setObjectName(u"b_transfer_cancel")
 
         self.lo_transferButtons.addWidget(self.b_transfer_cancel)
+
+        self.b_transfer_reset = QPushButton(self.w_functions)
+        self.b_transfer_reset.setObjectName(u"b_transfer_reset")
+
+        self.lo_transferButtons.addWidget(self.b_transfer_reset)
 
 
         self.verticalLayout_8.addLayout(self.lo_transferButtons)
@@ -150,6 +156,7 @@ class Ui_w_sourceFunctions(object):
         self.b_transfer_pause.setText(QCoreApplication.translate("w_sourceFunctions", u"Pause Transfer", None))
         self.b_transfer_resume.setText(QCoreApplication.translate("w_sourceFunctions", u"Resume Transfer", None))
         self.b_transfer_cancel.setText(QCoreApplication.translate("w_sourceFunctions", u"Cancel Transfer", None))
+        self.b_transfer_reset.setText(QCoreApplication.translate("w_sourceFunctions", u"Reset", None))
         self.l_time_elapsed.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))
         self.l_time_elapsedText.setText(QCoreApplication.translate("w_sourceFunctions", u"(elapsed)", None))
         self.l_time_remain.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))

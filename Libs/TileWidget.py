@@ -118,6 +118,27 @@ class BaseTileItem(QWidget):
     signalSelect = Signal(object)
     signalReleased = Signal(object)
 
+    #   Properties from the SourceTab Config Settings
+    @property
+    def max_thumbThreads(self):
+        return self.browser.max_thumbThreads
+    @property
+    def thumb_semaphore(self):
+        return self.browser.thumb_semaphore
+    @property
+    def max_copyThreads(self):
+        return self.browser.max_copyThreads
+    @property
+    def copy_semaphore(self):
+        return self.browser.copy_semaphore
+    @property
+    def size_copyChunk(self):
+        return self.browser.size_copyChunk
+    @property
+    def progUpdateInterval(self):
+        return self.browser.progUpdateInterval
+
+
     def __init__(self, browser, data):
         super(BaseTileItem, self).__init__()
         self.core = browser.core
@@ -146,27 +167,6 @@ class BaseTileItem(QWidget):
         self.setupUi()
         #   Calls the Refresh Method of the Child Tile
         self.refreshUi()
-
-
-    #   Properties from the SourceTab Config Settings
-    @property
-    def max_thumbThreads(self):
-        return self.browser.max_thumbThreads
-    @property
-    def thumb_semaphore(self):
-        return self.browser.thumb_semaphore
-    @property
-    def max_copyThreads(self):
-        return self.browser.max_copyThreads
-    @property
-    def copy_semaphore(self):
-        return self.browser.copy_semaphore
-    @property
-    def size_copyChunk(self):
-        return self.browser.size_copyChunk
-    @property
-    def progUpdateInterval(self):
-        return self.browser.progUpdateInterval
 
 
     #   Launches the Double-click File Action
@@ -406,6 +406,19 @@ class BaseTileItem(QWidget):
         else:
             return self.data["color"]
         
+
+    @err_catcher(name=__name__)
+    def openInExplorer(self, path):
+        if os.path.isdir(path):
+            dir = path
+        elif os.path.isfile(path):
+            dir = os.path.dirname(path)
+        else:
+            logger.warning(f"ERROR:  Unable to open {path} in File Explorer")
+            return
+
+        self.core.openFolder(dir)
+
 
     @err_catcher(name=__name__)
     def findExiftool(self):
@@ -811,9 +824,9 @@ class SourceFileItem(BaseTileItem):
         selAct.triggered.connect(self.sendToViewer())
         rcmenu.addAction(selAct)
 
-
-        #   TODO - ADD OPEN IN EXPLORER
-
+        exp = QAction("Open in Explorer", self)
+        exp.triggered.connect(lambda: self.openInExplorer(self.getSource_mainfilePath()))
+        rcmenu.addAction(exp)
 
         rcmenu.exec_(QCursor.pos())
     
@@ -1179,8 +1192,10 @@ class DestFileItem(BaseTileItem):
         rcmenu.addAction(delAct)
 
 
-
-        #   TODO - ADD OPEN IN EXPLORER
+        if os.path.exists(self.getDestMainPath()):
+            exp = QAction("Open Transferred File in Explorer", self)
+            exp.triggered.connect(lambda: self.openInExplorer(self.getDestMainPath()))
+            rcmenu.addAction(exp)
 
 
         rcmenu.exec_(QCursor.pos())

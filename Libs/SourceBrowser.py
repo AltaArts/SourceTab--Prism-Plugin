@@ -59,6 +59,7 @@ from datetime import datetime
 from time import time
 
 
+
 from Scripts.Prism_SourceTab_Functions import SETTINGS_FILE
 
 
@@ -76,17 +77,20 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
+
 rootScripts = os.path.join(prismRoot, "Scripts")
 pluginPath = os.path.dirname(os.path.dirname(__file__))
 pyLibsPath = os.path.join(pluginPath, "PythonLibs", "Python311")
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
+audioDir = os.path.join(uiPath, "Audio")
 sys.path.append(os.path.join(rootScripts, "Libs"))
 sys.path.append(pyLibsPath)
 sys.path.append(pluginPath)
 sys.path.append(uiPath)
 
 
+from playsound.playsound import playsound
 
 from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
@@ -96,10 +100,7 @@ import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
 from SourceTab_Config import SourceTab_Config
 
-
-
 import SourceBrowser_ui                                                 #   TODO
-
 
 
 #   Colors
@@ -108,6 +109,10 @@ COLOR_BLUE = QColor(115, 175, 215)
 COLOR_ORANGE = QColor(255, 140, 0)
 COLOR_RED = QColor(200, 0, 0)
 COLOR_GREY = QColor(100, 100, 100)
+
+#   Sounds
+SOUND_SUCCESS = os.path.join(audioDir, "Success.wav")
+SOUND_ERROR = os.path.join(audioDir, "Error.wav")
 
 
 SOURCE_ITEM_HEIGHT = 70                                         #   TODO - Think about moving to Settings?
@@ -154,9 +159,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   TESTING!!!
     @err_catcher(name=__name__)
     def tempTesting(self):
- 
-        self.sourceDir = r"C:\\Users\\Alta Arts\\Desktop\\TempImages"
-        self.destDir = r"C:\\Users\\Alta Arts\\Desktop\\TempDestination"
+        try:
+            if os.path.exists(r"C:\\Users\\Alta Arts\\Desktop\\TempImages"):
+                self.sourceDir = r"C:\\Users\\Alta Arts\\Desktop\\TempImages"
+                self.destDir = r"C:\\Users\\Alta Arts\\Desktop\\TempDestination"
+
+            elif os.path.exists(r"C:\\Users\\Joshua Breckeen\\Desktop\\TempImages"):
+                self.sourceDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempImages"
+                self.destDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempDestination"
+
+        except:
+            pass
 
         self.refreshUI()
 
@@ -327,6 +340,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts.b_transfer_pause.clicked.connect(self.pauseTransfer)
         self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
         self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer)
+        self.sourceFuncts.b_transfer_reset.clicked.connect(self.resetTransfer)
 
         self.sourceFuncts.b_configure.clicked.connect(self.openConfigWindow)
 
@@ -443,6 +457,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 "b_transfer_pause": False,
                 "b_transfer_resume": False,
                 "b_transfer_cancel": False,
+                "b_transfer_reset": False,
                 "l_time_elapsed": False,
                 "l_time_elapsedText": False,
                 "l_time_remain": False,
@@ -479,6 +494,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 "b_transfer_pause": False,
                 "b_transfer_resume": False,
                 "b_transfer_cancel": False,
+                "b_transfer_reset": True,
                 "l_time_elapsed": True,
                 "l_time_elapsedText": True,
                 "l_time_remain": False,
@@ -654,6 +670,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.setTransferStatus(result)
         self.configTransUI("complete")
         # if result == "complete":
+
+        text = "Transfer Complete"
+        title = "Transfer Complete"
+        buttons = ["Open in Explorer", "Open Report", "Close"]
+
+        playsound(SOUND_SUCCESS)
+        # playsound(SOUND_ERROR)
+
+        self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
 
 
 
@@ -1082,15 +1107,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def pauseTransfer(self):
-        row_count = self.tw_destination.rowCount()
-        self.pauseList = []
-
-        for row in range(row_count):
-            fileItem = self.tw_destination.cellWidget(row, 0)
-            if fileItem is not None:
-                self.pauseList.append(fileItem)
-
-
         for item in self.copyList:
             item.pause_transfer(self)
 
@@ -1105,15 +1121,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Initialize Time Remaining Calc
         self.speedSamples = deque(maxlen=10)
 
-
-        row_count = self.tw_destination.rowCount()
-        self.pauseList = []
-
-        for row in range(row_count):
-            fileItem = self.tw_destination.cellWidget(row, 0)
-            if fileItem is not None:
-                self.pauseList.append(fileItem)
-
         for item in self.copyList:
             item.resume_transfer(self)
 
@@ -1124,20 +1131,23 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def cancelTransfer(self):
-        row_count = self.tw_destination.rowCount()
-        self.pauseList = []
-
-        for row in range(row_count):
-            fileItem = self.tw_destination.cellWidget(row, 0)
-            if fileItem is not None:
-                self.pauseList.append(fileItem)
-
         for item in self.copyList:
             item.cancel_transfer(self)
 
         self.progressTimer.stop()
         self.setTransferStatus("Cancelled")
         self.configTransUI("idle")
+
+
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def resetTransfer(self):
+
+        self.progressTimer.stop()
+        self.reset_ProgBar()
+        self.setTransferStatus("Idle")
+        self.configTransUI("idle")
+
+        self.refreshDestItems()
 
 
     @err_catcher(name=__name__)
