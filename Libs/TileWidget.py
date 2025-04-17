@@ -171,6 +171,15 @@ class BaseTileItem(QWidget):
 
     #   Launches the Double-click File Action
     @err_catcher(name=__name__)
+    def mousePressEvent(self, event):
+        # child = self.childAt(event.pos())
+        self.select()
+
+
+
+
+    #   Launches the Double-click File Action
+    @err_catcher(name=__name__)
     def mouseDoubleClickEvent(self, event):
         child = self.childAt(event.pos())
 
@@ -189,7 +198,7 @@ class BaseTileItem(QWidget):
     #   Sets the Tile State Selected
     @err_catcher(name=__name__)
     def select(self):
-        wasSelected = self.isSelected()
+        wasSelected = self.isSelected
         self.signalSelect.emit(self)
         if not wasSelected:
             self.isSelected = True
@@ -512,7 +521,7 @@ class SourceFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def setupUi(self):
-        self.setObjectName("SourceFileItem")
+        self.setObjectName("FileTile")
         self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
 
@@ -754,23 +763,24 @@ class SourceFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def applyStyle(self, styleType):
-        borderColor = (
-            "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
-        )
+        borderColor = ("rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)")
+
         ssheet = (
             """
-            QWidget#texture {
+            QWidget#FileTile {
                 border: 1px solid %s;
                 border-radius: 10px;
             }
         """
             % borderColor
-        )
+            )
+        
         if styleType is not True:
             pass
+
         elif styleType is True:
             ssheet = """
-                QWidget#texture {
+                QWidget#FileTile {
                     border: 1px solid rgb(70, 90, 120);
                     background-color: rgba(255, 255, 255, 30);
                     border-radius: 10px;
@@ -780,27 +790,29 @@ class SourceFileItem(BaseTileItem):
                 }
 
             """
-        elif styleType == "hoverSelected":
-            ssheet = """
-                QWidget#texture {
-                    border: 1px solid rgb(70, 90, 120);
-                    background-color: rgba(255, 255, 255, 35);
-                    border-radius: 10px;
-                }
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
 
-            """
-        elif styleType == "hover":
-            ssheet += """
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
-                QWidget#texture {
-                    background-color: rgba(255, 255, 255, 20);
-                }
-            """
+        # elif styleType == "hoverSelected":
+        #     ssheet = """
+        #         QWidget#FileTile {
+        #             border: 1px solid rgb(70, 90, 120);
+        #             background-color: rgba(255, 255, 255, 35);
+        #             border-radius: 10px;
+        #         }
+        #         QWidget {
+        #             background-color: rgba(255, 255, 255, 0);
+        #         }
+
+        #     """
+
+        # elif styleType == "hover":
+        #     ssheet += """
+        #         QWidget {
+        #             background-color: rgba(255, 255, 255, 0);
+        #         }
+        #         QWidget#FileTile {
+        #             background-color: rgba(255, 255, 255, 20);
+        #         }
+        #     """
 
         self.setStyleSheet(ssheet)
 
@@ -858,7 +870,7 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def setupUi(self):
-        self.setObjectName("DestFileItem")
+        self.setObjectName("FileTile")
         self.applyStyle(self.isSelected)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.lo_main = QHBoxLayout()
@@ -1089,23 +1101,24 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def applyStyle(self, styleType):
-        borderColor = (
-            "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
-        )
+        borderColor = ( "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)")
+
         ssheet = (
             """
-            QWidget#texture {
+            QWidget#FileTile {
                 border: 1px solid %s;
                 border-radius: 10px;
             }
         """
             % borderColor
-        )
+            )
+        
         if styleType is not True:
             pass
+
         elif styleType is True:
             ssheet = """
-                QWidget#texture {
+                QWidget#FileTile {
                     border: 1px solid rgb(70, 90, 120);
                     background-color: rgba(255, 255, 255, 30);
                     border-radius: 10px;
@@ -1117,7 +1130,7 @@ class DestFileItem(BaseTileItem):
             """
         elif styleType == "hoverSelected":
             ssheet = """
-                QWidget#texture {
+                QWidget#FileTile {
                     border: 1px solid rgb(70, 90, 120);
                     background-color: rgba(255, 255, 255, 35);
                     border-radius: 10px;
@@ -1132,7 +1145,7 @@ class DestFileItem(BaseTileItem):
                 QWidget {
                     background-color: rgba(255, 255, 255, 0);
                 }
-                QWidget#texture {
+                QWidget#FileTile {
                     background-color: rgba(255, 255, 255, 20);
                 }
             """
@@ -1347,7 +1360,9 @@ class FolderItem(BaseTileItem):
     @err_catcher(name=__name__)
     def setupUi(self):
         self.setObjectName("FolderItem")
-        self.applyStyle(self.isSelected)
+
+        # self.applyStyle(self.isSelected)
+
         self.setAttribute(Qt.WA_StyledBackground, True)
 
         # Main horizontal layout
@@ -1395,55 +1410,57 @@ class FolderItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def applyStyle(self, styleType):
-        borderColor = (
-            "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
-        )
-        ssheet = (
-            """
-            QWidget#texture {
-                border: 1px solid %s;
-                border-radius: 10px;
-            }
-        """
-            % borderColor
-        )
-        if styleType is not True:
-            pass
-        elif styleType is True:
-            ssheet = """
-                QWidget#texture {
-                    border: 1px solid rgb(70, 90, 120);
-                    background-color: rgba(255, 255, 255, 30);
-                    border-radius: 10px;
-                }
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
+        pass
 
-            """
-        elif styleType == "hoverSelected":
-            ssheet = """
-                QWidget#texture {
-                    border: 1px solid rgb(70, 90, 120);
-                    background-color: rgba(255, 255, 255, 35);
-                    border-radius: 10px;
-                }
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
+        # borderColor = (
+        #     "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
+        # )
+        # ssheet = (
+        #     """
+        #     QWidget#FolderItem {
+        #         border: 1px solid %s;
+        #         border-radius: 10px;
+        #     }
+        # """
+        #     % borderColor
+        # )
+        # if styleType is not True:
+        #     pass
+        # elif styleType is True:
+        #     ssheet = """
+        #         QWidget#FolderItem {
+        #             border: 1px solid rgb(70, 90, 120);
+        #             background-color: rgba(255, 255, 255, 30);
+        #             border-radius: 10px;
+        #         }
+        #         QWidget {
+        #             background-color: rgba(255, 255, 255, 0);
+        #         }
 
-            """
-        elif styleType == "hover":
-            ssheet += """
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
-                QWidget#texture {
-                    background-color: rgba(255, 255, 255, 20);
-                }
-            """
+        #     """
+        # elif styleType == "hoverSelected":
+        #     ssheet = """
+        #         QWidget#FolderItem {
+        #             border: 1px solid rgb(70, 90, 120);
+        #             background-color: rgba(255, 255, 255, 35);
+        #             border-radius: 10px;
+        #         }
+        #         QWidget {
+        #             background-color: rgba(255, 255, 255, 0);
+        #         }
 
-        self.setStyleSheet(ssheet)
+        #     """
+        # elif styleType == "hover":
+        #     ssheet += """
+        #         QWidget {
+        #             background-color: rgba(255, 255, 255, 0);
+        #         }
+        #         QWidget#FolderItem {
+        #             background-color: rgba(255, 255, 255, 20);
+        #         }
+        #     """
+
+        # self.setStyleSheet(ssheet)
 
 
     @err_catcher(name=__name__)

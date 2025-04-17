@@ -278,23 +278,23 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.sourceFuncts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
 
-        #   Quick Simple Line Separator
-        def create_separator(color="#444", thickness=3, margin=50):
-            line = QFrame()
-            line.setFixedHeight(thickness)
-            line.setStyleSheet(f"""
-                background-color: {color};
-                margin-top: {margin}px;
-                margin-bottom: {margin}px;
-            """)
-            return line
+        # #   Quick Simple Line Separator
+        # def create_separator(color="#444", thickness=3, margin=50):
+        #     line = QFrame()
+        #     line.setFixedHeight(thickness)
+        #     line.setStyleSheet(f"""
+        #         background-color: {color};
+        #         margin-top: {margin}px;
+        #         margin-bottom: {margin}px;
+        #     """)
+        #     return line
 
 
         #   Add Panels to the Right Panel
         self.lo_rightPanel.addLayout(self.lo_playerToolbar)
-        self.lo_rightPanel.addWidget(create_separator())
+        # self.lo_rightPanel.addWidget(create_separator())
         self.lo_rightPanel.addWidget(self.mediaPlayer)
-        self.lo_rightPanel.addWidget(create_separator())
+        # self.lo_rightPanel.addWidget(create_separator())
         # self.spacer2 = QSpacerItem(0, 40, QSizePolicy.Fixed, QSizePolicy.Expanding)
         # self.lo_rightPanel.addItem(self.spacer2)
         self.lo_rightPanel.addWidget(self.sourceFuncts)
@@ -591,6 +591,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if widget:
                 widget.setVisible(visible)
 
+
+        #   Enable/Disable During Transfer
+        if mode in ["idle", "complete"]:
+            enabled = True
+        elif mode in ["transfer", "pause", "resume"]:
+            enabled = False
+
+        lockItems = [self.sourceFuncts.gb_functions,
+                     self.gb_sourcePath,
+                     self.gb_sourceFooter,
+                     self.gb_destPath,
+                     self.gb_destFooter]
+
+        for item in lockItems:
+            item.setEnabled(enabled)
 
 
     #   Sets Transfer Status and Prog Bar Color and Tooltip
@@ -1619,91 +1634,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         rcmenu.exec_(cpos)
 
-
-    # @err_catcher(name=__name__)
-    # def taskDragEnterEvent(self, e):
-    #     if e.mimeData().hasUrls():
-    #         e.accept()
-    #     else:
-    #         e.ignore()
-
-    # @err_catcher(name=__name__)
-    # def taskDragMoveEvent(self, e):
-    #     if e.mimeData().hasUrls():
-    #         e.accept()
-    #         self.tw_source.setStyleSheet(
-    #             "QWidget#tw_source { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }"
-    #         )
-    #     else:
-    #         e.ignore()
-
-
-    # @err_catcher(name=__name__)
-    # def taskDragLeaveEvent(self, e):
-    #     self.tw_source.setStyleSheet("")
-
-
-    # @err_catcher(name=__name__)
-    # def taskDropEvent(self, e):
-    #     if e.mimeData().hasUrls():
-    #         self.tw_source.setStyleSheet("")
-    #         e.setDropAction(Qt.LinkAction)
-    #         e.accept()
-
-    #         if not self.getCurrentEntity():
-    #             self.core.popup("Select an asset or a shot to ingest media.")
-    #             return
-
-    #         fname = [
-    #             os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()
-    #         ]
-    #         self.ingestMediaDlg(filepath="\n".join(fname))
-    #     else:
-    #         e.ignore()
-
-
-    # @err_catcher(name=__name__)
-    # def versionDragEnterEvent(self, e):
-    #     if e.mimeData().hasUrls():
-    #         e.accept()
-    #     else:
-    #         e.ignore()
-
-
-    # @err_catcher(name=__name__)
-    # def versionDragMoveEvent(self, e):
-    #     if e.mimeData().hasUrls():
-    #         e.accept()
-    #         self.tw_destination.setStyleSheet(
-    #             "QWidget#tw_destination { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }"
-    #         )
-    #     else:
-    #         e.ignore()
-
-
-    # @err_catcher(name=__name__)
-    # def versionDragLeaveEvent(self, e):
-    #     self.tw_destination.setStyleSheet("")
-
-
-    # @err_catcher(name=__name__)
-    # def versionDropEvent(self, e):
-    #     if e.mimeData().hasUrls():
-    #         self.tw_destination.setStyleSheet("")
-    #         e.setDropAction(Qt.LinkAction)
-    #         e.accept()
-
-    #         if not self.getCurrentEntity():
-    #             self.core.popup("Select an asset or a shot to ingest media.")
-    #             return
-
-    #         fname = [
-    #             os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()
-    #         ]
-    #         self.ingestMediaDlg(filepath="\n".join(fname))
-    #         self.ep.sp_version.setFocus()
-    #     else:
-    #         e.ignore()
 
 
 

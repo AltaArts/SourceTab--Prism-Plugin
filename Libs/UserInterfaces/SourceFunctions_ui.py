@@ -16,7 +16,7 @@ class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
-        w_sourceFunctions.resize(379, 480)
+        w_sourceFunctions.resize(460, 480)
         sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -37,19 +37,27 @@ class Ui_w_sourceFunctions(object):
         self.verticalLayout_8 = QVBoxLayout(self.w_functions)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
-        self.b_configure = QPushButton(self.w_functions)
+        self.gb_functions = QGroupBox(self.w_functions)
+        self.gb_functions.setObjectName(u"gb_functions")
+        self.gb_functions.setEnabled(True)
+        self.gb_lo_functions = QVBoxLayout(self.gb_functions)
+        self.gb_lo_functions.setObjectName(u"gb_lo_functions")
+        self.b_configure = QPushButton(self.gb_functions)
         self.b_configure.setObjectName(u"b_configure")
 
-        self.verticalLayout_8.addWidget(self.b_configure)
+        self.gb_lo_functions.addWidget(self.b_configure)
 
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
+        self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
 
-        self.verticalLayout_8.addItem(self.verticalSpacer)
+        self.gb_lo_functions.addItem(self.verticalSpacer)
 
-        self.chb_copyProxy = QCheckBox(self.w_functions)
+        self.chb_copyProxy = QCheckBox(self.gb_functions)
         self.chb_copyProxy.setObjectName(u"chb_copyProxy")
 
-        self.verticalLayout_8.addWidget(self.chb_copyProxy)
+        self.gb_lo_functions.addWidget(self.chb_copyProxy)
+
+
+        self.verticalLayout_8.addWidget(self.gb_functions)
 
         self.lo_transferButtons = QHBoxLayout()
         self.lo_transferButtons.setObjectName(u"lo_transferButtons")
@@ -150,6 +158,7 @@ class Ui_w_sourceFunctions(object):
 
     def retranslateUi(self, w_sourceFunctions):
         w_sourceFunctions.setWindowTitle(QCoreApplication.translate("w_sourceFunctions", u"Media Browser", None))
+        self.gb_functions.setTitle("")
         self.b_configure.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
         self.chb_copyProxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Copy Proxy", None))
         self.b_transfer_start.setText(QCoreApplication.translate("w_sourceFunctions", u"Start Transfer", None))
