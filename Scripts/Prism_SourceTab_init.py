@@ -45,11 +45,30 @@
 ####################################################
 
 
-from Prism_SourceTab_Variables import Prism_SourceTab_Variables
-from Prism_SourceTab_Functions import Prism_SourceTab_Functions
 
-
-class Prism_SourceTab(Prism_SourceTab_Variables, Prism_SourceTab_Functions):
+#   Make Basic Class Object without Imports
+class Prism_SourceTab:
     def __init__(self, core):
+        self.core = core
+
+        self.pluginName = "SourceTab"
+
+        #   Abort if not Standalone
+        if self.core.appPlugin.pluginName != "Standalone":
+            return
+
+        #   Continue Loading SourceTab as Normal
+        from Prism_SourceTab_Variables import Prism_SourceTab_Variables
+        from Prism_SourceTab_Functions import Prism_SourceTab_Functions
+
+        #   Re-inherit Class
+        self.__class__ = type("Prism_SourceTab", (Prism_SourceTab_Variables, Prism_SourceTab_Functions), {})
+
         Prism_SourceTab_Variables.__init__(self, core, self)
         Prism_SourceTab_Functions.__init__(self, core, self)
+
+        self.core.registerCallback("postInitialize", self.postInitialize, plugin=self, priority=40)   
+        self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self, priority=40)   
+        self.core.registerCallback("onProjectBrowserClose", self.saveSettings, plugin=self, priority=40)
+
+

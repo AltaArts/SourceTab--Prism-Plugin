@@ -54,16 +54,7 @@ class Prism_SourceTab_Functions(object):
     def __init__(self, core, plugin):
         self.core = core
         self.plugin = plugin
-
         self.sourceBrowser = None
-
-        #   Only add Tab in Standalone
-        if self.core.appPlugin.pluginName == "Standalone":
-            self.core.registerCallback("postInitialize", self.postInitialize, plugin=self)   
-            self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self)   
-            self.core.registerCallback("onProjectBrowserClose", self.saveSettings, plugin=self,
-                                                                                                # priority=40
-                                                                                                )
 
 
     # if returns true, the plugin will be loaded by Prism
