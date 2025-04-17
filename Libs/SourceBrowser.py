@@ -45,7 +45,6 @@
 ####################################################
 
 
-from genericpath import isdir, isfile
 import os
 import sys
 import subprocess
@@ -981,7 +980,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             attribute = "destDir"
             addrBar = self.le_destPath
             refreshFunc = self.refreshDestItems
-
         else:
             return
 
@@ -1001,7 +999,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             return
 
         setattr(self, attribute, newAddr)
-        # addrBar.setText(newAddr)
         refreshFunc()
 
 
@@ -1027,7 +1024,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         elif mode == "dest":
             attribute = "destDir"
             refreshFunc = self.refreshDestItems            
-
         else:
             return
 
@@ -1065,8 +1061,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
-        if hasattr(self, "sourceDir"):
-            self.le_sourcePath.setText(self.sourceDir)
+        sourceDir = getattr(self, "sourceDir", "")
+        self.le_sourcePath.setText(sourceDir)
+
+        #   Colors the Addressbar if the Path is invalid
+        if not os.path.exists(sourceDir):
+            self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+        else:
+            self.le_sourcePath.setStyleSheet("")
 
         self.tw_source.setRowCount(0)  # Clear existing rows
 
@@ -1428,14 +1430,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.mediaPlayer.updateLayers(restoreSelection=True)
 
 
-    @err_catcher(name=__name__)
-    def onVersionDoubleClicked(self, item):
-        mods = QApplication.keyboardModifiers()
-        if mods == Qt.ControlModifier:
-            for selItem in self.tw_destination.selectedItems():
-                self.core.openFolder(selItem.data(Qt.UserRole).get("path"))
-        else:
-            self.showVersionInfoForItem(item)
+    # @err_catcher(name=__name__)
+    # def onVersionDoubleClicked(self, item):
+    #     mods = QApplication.keyboardModifiers()
+    #     if mods == Qt.ControlModifier:
+    #         for selItem in self.tw_destination.selectedItems():
+    #             self.core.openFolder(selItem.data(Qt.UserRole).get("path"))
+    #     else:
+    #         self.showVersionInfoForItem(item)
 
 
     @err_catcher(name=__name__)
@@ -1912,6 +1914,7 @@ class MediaPlayer(QWidget):
 
         if self.timeline:
             curFrame = self.getCurrentFrame()
+
             if self.timeline.state() != QTimeLine.NotRunning:
                 if self.timeline.state() == QTimeLine.Running:
                     self.tlPaused = False
@@ -1920,7 +1923,7 @@ class MediaPlayer(QWidget):
 
                 self.timeline.stop()
         else:
-            self.tlPaused = False
+            self.tlPaused = True
             curFrame = 0
 
         for thread in reversed(self.mediaThreads):
@@ -1953,7 +1956,6 @@ class MediaPlayer(QWidget):
             # mediaFiles = self.getFilesFromContext(contexts[0])
             # validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
 
-            # self.core.popup(f"mediaFiles:  {mediaFiles}")                   #   TESTING
 
             self.mediaFiles = mediaFiles
             mediaFiles = [mediaFiles]
@@ -1961,14 +1963,9 @@ class MediaPlayer(QWidget):
             # if validFiles:
             validFiles = sorted(mediaFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
 
-            # self.core.popup(f"validFiles:  {validFiles}")                   #   TESTING
-
-
             baseName, extension = os.path.splitext(validFiles[0])
             extension = extension.lower()
             seqFiles = self.core.media.detectSequence(validFiles)
-
-            # self.core.popup(f"seqFiles:  {seqFiles}")                   #   TESTING
 
             if (
                 len(seqFiles) > 1
@@ -1985,12 +1982,7 @@ class MediaPlayer(QWidget):
                 self.prvIsSequence = False
                 self.seq = validFiles
 
-            # self.core.popup(f"self.seq:  {self.seq}")                   #   TESTING
-
-
             self.pduration = len(self.seq)
-
-            # self.core.popup(f"self.pduration:  {self.pduration}")                   #   TESTING
 
             imgPath = validFiles[0]
             if (
@@ -2027,6 +2019,8 @@ class MediaPlayer(QWidget):
         if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
             self.l_loading.setVisible(False)
             self.loadingGif.stop()
+
+
 
 
     @err_catcher(name=__name__)
