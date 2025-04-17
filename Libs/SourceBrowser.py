@@ -330,9 +330,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.tw_destination.mmEvent = self.tw_destination.mouseMoveEvent
         # self.tw_destination.mouseMoveEvent = lambda x: self.w_preview.mediaPlayer.mouseDrag(x, self.tw_destination)
         # self.tw_destination.itemDoubleClicked.connect(self.onVersionDoubleClicked)
-        self.tw_destination.customContextMenuRequested.connect(
-            lambda x: self.rclList(x, self.tw_destination)
-            )
+        # self.tw_destination.customContextMenuRequested.connect(
+        #     lambda x: self.rclList(x, self.tw_destination)
+        #     )
 
 
         self.b_source_addSel.clicked.connect(self.addSelected)
@@ -1492,14 +1492,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         return contexts
     
 
-    @err_catcher(name=__name__)
-    def taskClicked(self):
-        self.updateVersions()
+    # @err_catcher(name=__name__)
+    # def taskClicked(self):
+    #     self.updateVersions()
 
 
-    @err_catcher(name=__name__)
-    def sourceClicked(self):
-        self.mediaPlayer.updateLayers(restoreSelection=True)
+    # @err_catcher(name=__name__)
+    # def sourceClicked(self):
+    #     self.mediaPlayer.updateLayers(restoreSelection=True)
 
 
     # @err_catcher(name=__name__)

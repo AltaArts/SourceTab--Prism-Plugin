@@ -821,7 +821,7 @@ class SourceFileItem(BaseTileItem):
 
 
         selAct = QAction("Show in Player", self.browser)
-        selAct.triggered.connect(self.sendToViewer())
+        selAct.triggered.connect(self.sendToViewer)
         rcmenu.addAction(selAct)
 
         exp = QAction("Open in Explorer", self)
