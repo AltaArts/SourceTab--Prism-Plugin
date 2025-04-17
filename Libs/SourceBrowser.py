@@ -57,6 +57,8 @@ import uuid
 import hashlib
 from datetime import datetime
 from time import time
+from functools import partial
+
 
 
 
@@ -217,6 +219,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_source.verticalHeader().setVisible(False)
         # self.tw_source.setColumnWidth(0, 50)
         self.tw_source.horizontalHeader().setStretchLastSection(True)
+        self.tw_source.setObjectName("sourceTable")
+
+        self.tw_source.setAcceptDrops(True)
+        self.tw_source.dragEnterEvent = partial(self.onDragEnterEvent)
+        self.tw_source.dragMoveEvent = partial(self.onDragMoveEvent, self.tw_source, "sourceTable")
+        self.tw_source.dragLeaveEvent = partial(self.onDragLeaveEvent, self.tw_source)
+        self.tw_source.dropEvent = partial(self.onDropEvent, self.tw_source, "source")
 
 
         ##  Destination Panel
@@ -230,6 +239,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_destination.verticalHeader().setVisible(False)
         # self.tw_destination.setColumnWidth(0, 50)
         self.tw_destination.horizontalHeader().setStretchLastSection(True)
+        self.tw_destination.setObjectName("destTable")
+
+        self.tw_destination.setAcceptDrops(True)
+        self.tw_destination.dragEnterEvent = partial(self.onDragEnterEvent)
+        self.tw_destination.dragMoveEvent = partial(self.onDragMoveEvent, self.tw_destination, "destTable")
+        self.tw_destination.dragLeaveEvent = partial(self.onDragLeaveEvent, self.tw_destination)
+        self.tw_destination.dropEvent = partial(self.onDropEvent, self.tw_destination, "dest")
+
 
 
         ##  Right Side Panel
@@ -350,6 +367,61 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts.b_transfer_reset.clicked.connect(self.resetTransfer)
 
         self.sourceFuncts.b_configure.clicked.connect(self.openConfigWindow)
+
+
+    #   Checks if Dragged Object has a Path
+    @err_catcher(name=__name__)
+    def onDragEnterEvent(self, e):
+        if e.mimeData().hasUrls():
+            e.accept()
+        else:
+            e.ignore()
+
+
+    #   Adds Dashed Otline to Table During Drag
+    @err_catcher(name=__name__)
+    def onDragMoveEvent(self, widget, objName, e):
+        if e.mimeData().hasUrls():
+            e.accept()
+            widget.setStyleSheet(
+                f"QTableWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
+            )
+        else:
+            e.ignore()
+
+
+    #   Removed Dashed Line
+    @err_catcher(name=__name__)
+    def onDragLeaveEvent(self, widget, e):
+        widget.setStyleSheet("")
+
+
+    #   Gets Directory from Dropped Item
+    @err_catcher(name=__name__)
+    def onDropEvent(self, widget, mode, e):
+        widget.setStyleSheet("")
+
+        if e.mimeData().hasUrls():
+            e.acceptProposedAction()
+
+            url = e.mimeData().urls()[0]
+            path = os.path.normpath(url.toLocalFile())
+
+            if os.path.isfile(path):
+                path = os.path.dirname(path)
+
+            if os.path.isdir(path):
+                if mode == "source":
+                    self.sourceDir = path
+                    self.refreshSourceItems()
+                elif mode == "dest":
+                    self.destDir = path
+                    self.refreshDestItems()
+            else:
+                self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
+        else:
+            e.ignore()
+
 
 
     #   Called from _Functions Save Callback
@@ -1548,90 +1620,90 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         rcmenu.exec_(cpos)
 
 
-    @err_catcher(name=__name__)
-    def taskDragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-        else:
-            e.ignore()
+    # @err_catcher(name=__name__)
+    # def taskDragEnterEvent(self, e):
+    #     if e.mimeData().hasUrls():
+    #         e.accept()
+    #     else:
+    #         e.ignore()
 
-    @err_catcher(name=__name__)
-    def taskDragMoveEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-            self.tw_source.setStyleSheet(
-                "QWidget#tw_source { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }"
-            )
-        else:
-            e.ignore()
-
-
-    @err_catcher(name=__name__)
-    def taskDragLeaveEvent(self, e):
-        self.tw_source.setStyleSheet("")
+    # @err_catcher(name=__name__)
+    # def taskDragMoveEvent(self, e):
+    #     if e.mimeData().hasUrls():
+    #         e.accept()
+    #         self.tw_source.setStyleSheet(
+    #             "QWidget#tw_source { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }"
+    #         )
+    #     else:
+    #         e.ignore()
 
 
-    @err_catcher(name=__name__)
-    def taskDropEvent(self, e):
-        if e.mimeData().hasUrls():
-            self.tw_source.setStyleSheet("")
-            e.setDropAction(Qt.LinkAction)
-            e.accept()
-
-            if not self.getCurrentEntity():
-                self.core.popup("Select an asset or a shot to ingest media.")
-                return
-
-            fname = [
-                os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()
-            ]
-            self.ingestMediaDlg(filepath="\n".join(fname))
-        else:
-            e.ignore()
+    # @err_catcher(name=__name__)
+    # def taskDragLeaveEvent(self, e):
+    #     self.tw_source.setStyleSheet("")
 
 
-    @err_catcher(name=__name__)
-    def versionDragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-        else:
-            e.ignore()
+    # @err_catcher(name=__name__)
+    # def taskDropEvent(self, e):
+    #     if e.mimeData().hasUrls():
+    #         self.tw_source.setStyleSheet("")
+    #         e.setDropAction(Qt.LinkAction)
+    #         e.accept()
+
+    #         if not self.getCurrentEntity():
+    #             self.core.popup("Select an asset or a shot to ingest media.")
+    #             return
+
+    #         fname = [
+    #             os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()
+    #         ]
+    #         self.ingestMediaDlg(filepath="\n".join(fname))
+    #     else:
+    #         e.ignore()
 
 
-    @err_catcher(name=__name__)
-    def versionDragMoveEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-            self.tw_destination.setStyleSheet(
-                "QWidget#tw_destination { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }"
-            )
-        else:
-            e.ignore()
+    # @err_catcher(name=__name__)
+    # def versionDragEnterEvent(self, e):
+    #     if e.mimeData().hasUrls():
+    #         e.accept()
+    #     else:
+    #         e.ignore()
 
 
-    @err_catcher(name=__name__)
-    def versionDragLeaveEvent(self, e):
-        self.tw_destination.setStyleSheet("")
+    # @err_catcher(name=__name__)
+    # def versionDragMoveEvent(self, e):
+    #     if e.mimeData().hasUrls():
+    #         e.accept()
+    #         self.tw_destination.setStyleSheet(
+    #             "QWidget#tw_destination { border-style: dashed; border-color: rgb(100, 200, 100);  border-width: 2px; }"
+    #         )
+    #     else:
+    #         e.ignore()
 
 
-    @err_catcher(name=__name__)
-    def versionDropEvent(self, e):
-        if e.mimeData().hasUrls():
-            self.tw_destination.setStyleSheet("")
-            e.setDropAction(Qt.LinkAction)
-            e.accept()
+    # @err_catcher(name=__name__)
+    # def versionDragLeaveEvent(self, e):
+    #     self.tw_destination.setStyleSheet("")
 
-            if not self.getCurrentEntity():
-                self.core.popup("Select an asset or a shot to ingest media.")
-                return
 
-            fname = [
-                os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()
-            ]
-            self.ingestMediaDlg(filepath="\n".join(fname))
-            self.ep.sp_version.setFocus()
-        else:
-            e.ignore()
+    # @err_catcher(name=__name__)
+    # def versionDropEvent(self, e):
+    #     if e.mimeData().hasUrls():
+    #         self.tw_destination.setStyleSheet("")
+    #         e.setDropAction(Qt.LinkAction)
+    #         e.accept()
+
+    #         if not self.getCurrentEntity():
+    #             self.core.popup("Select an asset or a shot to ingest media.")
+    #             return
+
+    #         fname = [
+    #             os.path.normpath(str(url.toLocalFile())) for url in e.mimeData().urls()
+    #         ]
+    #         self.ingestMediaDlg(filepath="\n".join(fname))
+    #         self.ep.sp_version.setFocus()
+    #     else:
+    #         e.ignore()
 
 
 
