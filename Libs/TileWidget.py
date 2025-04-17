@@ -279,7 +279,7 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def getTransferSize(self, includeProxy=False):
         total_size = self.getFileSize(self.getSource_mainfilePath())
-        if includeProxy:
+        if includeProxy and self.getSource_proxyfilePath():
             total_size += self.getFileSize(self.getSource_proxyfilePath())
 
         return total_size

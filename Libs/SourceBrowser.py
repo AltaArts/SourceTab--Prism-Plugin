@@ -45,6 +45,7 @@
 ####################################################
 
 
+from genericpath import isdir, isfile
 import os
 import sys
 import subprocess
@@ -156,7 +157,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.entered()
 
         ### TESTING    ###
-        self.tempTesting()                                                #   TESTING
+        # self.tempTesting()                                                #   TESTING
 
 
 
@@ -293,14 +294,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
 
-    @err_catcher(name=__name__)
-    def setHeaderHeight(self, height):
-        spacing = self.w_identifier.layout().spacing()
-        self.w_entities.w_header.setMinimumHeight(height + spacing)
-        self.l_identifier.setMinimumHeight(height)
-        self.l_version.setMinimumHeight(height)
-        self.mediaPlayer.l_layer.setMinimumHeight(height)
-        self.headerHeightSet = True
+    # @err_catcher(name=__name__)
+    # def setHeaderHeight(self, height):
+    #     spacing = self.w_identifier.layout().spacing()
+    #     self.w_entities.w_header.setMinimumHeight(height + spacing)
+    #     self.l_identifier.setMinimumHeight(height)
+    #     self.l_version.setMinimumHeight(height)
+    #     self.mediaPlayer.l_layer.setMinimumHeight(height)
+    #     self.headerHeightSet = True
 
 
     @err_catcher(name=__name__)
@@ -322,6 +323,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
+
+        self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
+        self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
 
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
@@ -688,9 +692,20 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if self.useCompletePopup:
             text = "Transfer Complete"
             title = "Transfer Complete"
-            buttons = ["Open in Explorer", "Open Report", "Close"]
 
-            self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
+            if self.useTransferReport:
+                buttons = ["Open in Explorer", "Open Report", "Close"]
+            else:
+                buttons = ["Open in Explorer", "Close"]
+
+            result = self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
+
+            if result == "Open in Explorer":
+                self.openInExplorer(os.path.normpath(self.le_destPath.text()))
+
+            elif result == "Open Report":
+                self.core.openFile(self.transferReportPath)
+
 
 
     #   Creates Transfer Report PDF
@@ -711,11 +726,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         transferTime = self.getFormattedTimeStr(self.timeElapsed)
 
         #   Creates Report Filename
-        filename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
-        reportPath = os.path.join(saveDir, filename)
+        reportFilename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
+        self.transferReportPath = os.path.join(saveDir, reportFilename)
 
         #   Creates New PDF Canvas
-        c = canvas.Canvas(reportPath, pagesize=A4)
+        c = canvas.Canvas(self.transferReportPath, pagesize=A4)
         width, height = A4
 
         #   Prism Icon
@@ -867,11 +882,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             return shortUID
 
 
-    @err_catcher(name=__name__)
-    def updateChanged(self, state):
-        if state:
-            self.refreshSourceItems()
-            self.refreshDestItems()
+    # @err_catcher(name=__name__)
+    # def updateChanged(self, state):
+    #     if state:
+    #         self.refreshSourceItems()
+    #         self.refreshDestItems()
 
 
     @err_catcher(name=__name__)
@@ -882,8 +897,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.le_sourcePath.setText(self.sourceDir)
         if hasattr(self, "destDir"):
             self.le_destPath.setText(self.destDir)
+        
+        self.refreshSourceItems()
+        self.refreshDestItems()
 
-        self.entityChanged()
+        # self.entityChanged()
         self.refreshStatus = "valid"
 
 
@@ -918,9 +936,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def explorer(self, mode, dir=None):
         if not dir:
-            if hasattr(self, "sourceDir"):
+            if mode == "source" and hasattr(self, "sourceDir"):
                 dir = self.sourceDir
-            if hasattr(self, "destDir"):
+            elif mode == "dest" and hasattr(self, "destDir"):
                 dir = self.destDir
 
         # Create file dialog
@@ -942,21 +960,83 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 selected_path = os.path.dirname(selected_path)
 
             if mode == "source":
-                self.sourceDir = selected_path
+                self.sourceDir = os.path.normpath(selected_path)
                 self.refreshSourceItems()
             elif mode == "dest":
-                self.destDir = selected_path
+                self.destDir = os.path.normpath(selected_path)
                 self.refreshDestItems()
 
             return selected_path
+        
+
+    #   Handles Addressbar Logic
+    @err_catcher(name=__name__)
+    def onPasteAddress(self, mode):
+        if mode == "source":
+            attribute = "sourceDir"
+            addrBar = self.le_sourcePath
+            refreshFunc = self.refreshSourceItems
+
+        elif mode == "dest":
+            attribute = "destDir"
+            addrBar = self.le_destPath
+            refreshFunc = self.refreshDestItems
+
+        else:
+            return
+
+        origDir = getattr(self, attribute, "")
+        pastedAddr = addrBar.text().strip().strip('"')
+
+        if not os.path.exists(pastedAddr):
+            addrBar.setText(origDir)
+            return
+
+        if os.path.isdir(pastedAddr):
+            newAddr = os.path.normpath(pastedAddr)
+        elif os.path.isfile(pastedAddr):
+            newAddr = os.path.normpath(os.path.dirname(pastedAddr))
+        else:
+            addrBar.setText(origDir)
+            return
+
+        setattr(self, attribute, newAddr)
+        # addrBar.setText(newAddr)
+        refreshFunc()
+
+
+    @err_catcher(name=__name__)
+    def openInExplorer(self, path):
+        if os.path.isdir(path):
+            dir = path
+        elif os.path.isfile(path):
+            dir = os.path.dirname(path)
+        else:
+            logger.warning(f"ERROR:  Unable to open {path} in File Explorer")
+            return
+
+        self.core.openFolder(dir)
 
 
     @err_catcher(name=__name__)
     def goUpDir(self, mode):
-        if mode == "source" and hasattr(self, "sourceDir"):
-            parentDir = os.path.dirname(self.sourceDir)
-            self.sourceDir = parentDir
-            self.refreshUI()
+        if mode == "source":
+            attribute = "sourceDir"
+            refreshFunc = self.refreshSourceItems
+
+        elif mode == "dest":
+            attribute = "destDir"
+            refreshFunc = self.refreshDestItems            
+
+        else:
+            return
+
+        if hasattr(self, attribute):
+            currentDir = getattr(self, attribute)
+            parentDir = os.path.dirname(currentDir)
+            setattr(self, attribute, parentDir)
+
+            refreshFunc()
 
 
     @err_catcher(name=__name__)
@@ -1043,15 +1123,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
-        if hasattr(self, "destDir"):
-            self.le_destPath.setText(self.destDir)
+        destDir = getattr(self, "destDir", "")
+        self.le_destPath.setText(destDir)
 
-        self.tw_destination.setRowCount(0)  # Clear existing rows
+        #   Colors the Addressbar if the Path is invalid
+        if not os.path.exists(destDir):
+            self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+        else:
+            self.le_destPath.setStyleSheet("")
+
+        self.tw_destination.setRowCount(0)
 
         row = 0
         # Iterate over the categories and add them to the table
         for iData in self.transferList:
-            self.tw_destination.insertRow(row)  # Insert a new row
+            self.tw_destination.insertRow(row)
             self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
 
             fileItem = self.createDestFileTile(iData)
@@ -1116,7 +1202,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def doubleClickFolder(self, filepath, mode):
         if mode == "source":
             self.sourceDir = filepath
-            self.refreshUI()
+            self.refreshSourceItems()
+            # self.refreshUI()
 
 
     #   Plays Media in External Player
