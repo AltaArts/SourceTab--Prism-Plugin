@@ -133,7 +133,9 @@ class Prism_SourceTab_Functions(object):
                     "updateInterval": 1,
                     "useCompletePopup": True,
                     "useCompleteSound": True,
-                    "useTransferReport": True
+                    "useTransferReport": True,
+                    "useCustomIcon": False,
+                    "customIconPath": ""
                 }
             }
 

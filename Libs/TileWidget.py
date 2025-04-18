@@ -202,7 +202,7 @@ class BaseTileItem(QWidget):
         self.signalSelect.emit(self)
         if not wasSelected:
             self.isSelected = True
-            # self.applyStyle(self.isSelected)
+            self.applyStyle(self.isSelected)
             self.setFocus()
 
 
@@ -211,7 +211,7 @@ class BaseTileItem(QWidget):
     def deselect(self):
         if self.isSelected == True:
             self.isSelected = False
-            # self.applyStyle(self.isSelected)
+            self.applyStyle(self.isSelected)
 
 
     #   Returns if the State is Selected

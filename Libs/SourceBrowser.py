@@ -458,6 +458,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.useCompletePopup = settingData["useCompletePopup"]
         self.useCompleteSound = settingData["useCompleteSound"]
         self.useTransferReport = settingData["useTransferReport"]
+        self.useCustomIcon = settingData["useCustomIcon"]
+        self.customIconPath = os.path.normpath(settingData["customIconPath"])
+
 
         #   Get Tab (UI) Settings
         tabData = sData["tabSettings"]
@@ -793,6 +796,24 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 self.core.openFile(self.transferReportPath)
 
 
+    #   Creates Transfer Report PDF
+    @err_catcher(name=__name__)
+    def getCustomIcon(self):
+        #   Default Prism Icon
+        prismIcon = os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
+
+        #   Get Custom Icon if Selected
+        try:
+            if self.useCustomIcon and os.path.isfile(self.customIconPath):
+                return self.customIconPath
+            else:
+                logger.debug("Using Default Prism Icon")
+                return prismIcon
+        except:
+            logger.warning(f"ERROR:  Unable to get Icon")
+
+
+
 
     #   Creates Transfer Report PDF
     @err_catcher(name=__name__)
@@ -819,8 +840,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         c = canvas.Canvas(self.transferReportPath, pagesize=A4)
         width, height = A4
 
-        #   Prism Icon
-        prismIcon = os.path.join(prismRoot, "Scripts", "UserInterfacesPrism", "p_tray.png")
+        #   Icon
+        icon = self.getCustomIcon()
         icon_size = 18
         icon_x = 50
         icon_y = height - 48
@@ -843,9 +864,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         ## --- Page 1: Header info ---  ##
 
         #   Add Prims Icon to Left of Title Line
-        if os.path.exists(prismIcon):
+        if os.path.exists(icon):
             try:
-                c.drawImage(prismIcon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
+                c.drawImage(icon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
             except Exception as e:
                 logger.warning(f"ERROR: Failed to load icon: {e}")
 

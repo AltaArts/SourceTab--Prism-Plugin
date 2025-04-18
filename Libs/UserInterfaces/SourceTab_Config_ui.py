@@ -1,16 +1,24 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'SourceFunctions.ui'
+## Form generated from reading UI file 'SourceTab_Config.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.7.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
+from PySide6.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QDialogButtonBox,
+    QDoubleSpinBox, QHBoxLayout, QLabel, QLineEdit,
+    QSizePolicy, QSpacerItem, QSpinBox, QSplitter,
+    QVBoxLayout, QWidget)
 
 class Ui_w_sourceConfig(object):
     def setupUi(self, w_sourceConfig):
@@ -21,10 +29,10 @@ class Ui_w_sourceConfig(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceConfig)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Horizontal)
+        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_config = QWidget(self.splitter)
         self.w_config.setObjectName(u"w_config")
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(8)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.w_config.sizePolicy().hasHeightForWidth())
@@ -39,7 +47,7 @@ class Ui_w_sourceConfig(object):
 
         self.lo_thumbThreads.addWidget(self.l_thumbThreads)
 
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.lo_thumbThreads.addItem(self.horizontalSpacer)
 
@@ -59,7 +67,7 @@ class Ui_w_sourceConfig(object):
 
         self.lo_copyThreads.addWidget(self.l_copyThreads)
 
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.lo_copyThreads.addItem(self.horizontalSpacer_2)
 
@@ -79,7 +87,7 @@ class Ui_w_sourceConfig(object):
 
         self.lo_copyChunks.addWidget(self.l_copyChunks)
 
-        self.horizontalSpacer_8 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_8 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.lo_copyChunks.addItem(self.horizontalSpacer_8)
 
@@ -99,7 +107,7 @@ class Ui_w_sourceConfig(object):
 
         self.lo_progUpdateRate.addWidget(self.l_progUpdateRate)
 
-        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.lo_progUpdateRate.addItem(self.horizontalSpacer_3)
 
@@ -119,21 +127,21 @@ class Ui_w_sourceConfig(object):
         self.lo_completePopup.setObjectName(u"lo_completePopup")
         self.chb_showPopup = QCheckBox(self.w_config)
         self.chb_showPopup.setObjectName(u"chb_showPopup")
-        self.chb_showPopup.setLayoutDirection(Qt.RightToLeft)
+        self.chb_showPopup.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
 
         self.lo_completePopup.addWidget(self.chb_showPopup)
 
-        self.horizontalSpacer_6 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_6 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.lo_completePopup.addItem(self.horizontalSpacer_6)
 
         self.chb_playSound = QCheckBox(self.w_config)
         self.chb_playSound.setObjectName(u"chb_playSound")
-        self.chb_playSound.setLayoutDirection(Qt.RightToLeft)
+        self.chb_playSound.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
 
         self.lo_completePopup.addWidget(self.chb_playSound)
 
-        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.lo_completePopup.addItem(self.horizontalSpacer_4)
 
@@ -150,13 +158,28 @@ class Ui_w_sourceConfig(object):
 
         self.verticalLayout_8.addLayout(self.lo_transferReport)
 
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.lo_customIcon = QHBoxLayout()
+        self.lo_customIcon.setObjectName(u"lo_customIcon")
+        self.chb_useCustomIcon = QCheckBox(self.w_config)
+        self.chb_useCustomIcon.setObjectName(u"chb_useCustomIcon")
+
+        self.lo_customIcon.addWidget(self.chb_useCustomIcon)
+
+        self.le_customIconPath = QLineEdit(self.w_config)
+        self.le_customIconPath.setObjectName(u"le_customIconPath")
+
+        self.lo_customIcon.addWidget(self.le_customIconPath)
+
+
+        self.verticalLayout_8.addLayout(self.lo_customIcon)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_8.addItem(self.verticalSpacer)
 
         self.bb_saveCancel = QDialogButtonBox(self.w_config)
         self.bb_saveCancel.setObjectName(u"bb_saveCancel")
-        self.bb_saveCancel.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Save)
+        self.bb_saveCancel.setStandardButtons(QDialogButtonBox.StandardButton.Cancel|QDialogButtonBox.StandardButton.Save)
 
         self.verticalLayout_8.addWidget(self.bb_saveCancel)
 
@@ -179,5 +202,6 @@ class Ui_w_sourceConfig(object):
         self.chb_showPopup.setText(QCoreApplication.translate("w_sourceConfig", u"Show Completion Popup", None))
         self.chb_playSound.setText(QCoreApplication.translate("w_sourceConfig", u"Play Completion Sound", None))
         self.chb_useTransferReport.setText(QCoreApplication.translate("w_sourceConfig", u"Generate Transfer Report on Completion", None))
+        self.chb_useCustomIcon.setText(QCoreApplication.translate("w_sourceConfig", u"Custom Icon", None))
     # retranslateUi
 

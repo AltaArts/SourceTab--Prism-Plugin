@@ -90,6 +90,8 @@ class SourceTab_Config(QDialog, Ui_w_sourceConfig):
         #   Connect Buttons
         self.bb_saveCancel.accepted.connect(self.saveSettings)
         self.bb_saveCancel.rejected.connect(self.reject)
+        #   Toggle CustomIcon Enabled
+        self.chb_useCustomIcon.toggled.connect(self.le_customIconPath.setEnabled)
 
 
     #   Loads Settings from Source Browser Values
@@ -101,6 +103,8 @@ class SourceTab_Config(QDialog, Ui_w_sourceConfig):
         self.chb_showPopup.setChecked(self.browser.useCompletePopup)
         self.chb_playSound.setChecked(self.browser.useCompleteSound)
         self.chb_useTransferReport.setChecked(self.browser.useTransferReport)
+        self.chb_useCustomIcon.setChecked(self.browser.useCustomIcon)
+        self.le_customIconPath.setText(self.browser.customIconPath)
 
 
     #   Gets called from Source Browser Save Method
@@ -112,7 +116,9 @@ class SourceTab_Config(QDialog, Ui_w_sourceConfig):
             "updateInterval": self.sp_progUpdateRate.value(),
             "useCompletePopup": self.chb_showPopup.isChecked(),
             "useCompleteSound": self.chb_playSound.isChecked(),
-            "useTransferReport": self.chb_useTransferReport.isChecked()
+            "useTransferReport": self.chb_useTransferReport.isChecked(),
+            "useCustomIcon": self.chb_useCustomIcon.isChecked(),
+            "customIconPath": self.le_customIconPath.text()
             }
         
         self.accept()
