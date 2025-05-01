@@ -16,15 +16,15 @@ class Ui_w_sourceBrowser(object):
     def setupUi(self, w_sourceBrowser):
         if not w_sourceBrowser.objectName():
             w_sourceBrowser.setObjectName(u"w_sourceBrowser")
-        w_sourceBrowser.resize(714, 393)
+        w_sourceBrowser.resize(741, 391)
         self.horizontalLayout = QHBoxLayout(w_sourceBrowser)
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceBrowser)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Horizontal)
+        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_source = QWidget(self.splitter)
         self.w_source.setObjectName(u"w_source")
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(8)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.w_source.sizePolicy().hasHeightForWidth())
@@ -49,7 +49,7 @@ class Ui_w_sourceBrowser(object):
         self.lo_sourcePath.setContentsMargins(0, 0, 0, 0)
         self.b_sourcePathUp = QPushButton(self.gb_sourcePath)
         self.b_sourcePathUp.setObjectName(u"b_sourcePathUp")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.b_sourcePathUp.sizePolicy().hasHeightForWidth())
@@ -74,13 +74,22 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_sourcePath.addWidget(self.b_browseSource)
 
+        self.b_refreshSource = QPushButton(self.gb_sourcePath)
+        self.b_refreshSource.setObjectName(u"b_refreshSource")
+        sizePolicy1.setHeightForWidth(self.b_refreshSource.sizePolicy().hasHeightForWidth())
+        self.b_refreshSource.setSizePolicy(sizePolicy1)
+        self.b_refreshSource.setMinimumSize(QSize(30, 0))
+        self.b_refreshSource.setMaximumSize(QSize(30, 16777215))
+
+        self.lo_sourcePath.addWidget(self.b_refreshSource)
+
 
         self.verticalLayout_8.addWidget(self.gb_sourcePath)
 
         self.tw_source = QTableWidget(self.w_source)
         self.tw_source.setObjectName(u"tw_source")
-        self.tw_source.setContextMenuPolicy(Qt.NoContextMenu)
-        self.tw_source.setSelectionMode(QAbstractItemView.NoSelection)
+        self.tw_source.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self.tw_source.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
 
         self.verticalLayout_8.addWidget(self.tw_source)
 
@@ -89,6 +98,19 @@ class Ui_w_sourceBrowser(object):
         self.lo_sourceFooter = QHBoxLayout(self.gb_sourceFooter)
         self.lo_sourceFooter.setObjectName(u"lo_sourceFooter")
         self.lo_sourceFooter.setContentsMargins(0, 0, 0, 0)
+        self.b_tips_source = QPushButton(self.gb_sourceFooter)
+        self.b_tips_source.setObjectName(u"b_tips_source")
+        sizePolicy1.setHeightForWidth(self.b_tips_source.sizePolicy().hasHeightForWidth())
+        self.b_tips_source.setSizePolicy(sizePolicy1)
+        self.b_tips_source.setMinimumSize(QSize(20, 0))
+        self.b_tips_source.setMaximumSize(QSize(20, 16777215))
+
+        self.lo_sourceFooter.addWidget(self.b_tips_source)
+
+        self.horizontalSpacer = QSpacerItem(30, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+
+        self.lo_sourceFooter.addItem(self.horizontalSpacer)
+
         self.b_source_checkAll = QPushButton(self.gb_sourceFooter)
         self.b_source_checkAll.setObjectName(u"b_source_checkAll")
 
@@ -110,8 +132,8 @@ class Ui_w_sourceBrowser(object):
         self.splitter.addWidget(self.w_source)
         self.w_destination = QWidget(self.splitter)
         self.w_destination.setObjectName(u"w_destination")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-        sizePolicy2.setHorizontalStretch(9)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        sizePolicy2.setHorizontalStretch(8)
         sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.w_destination.sizePolicy().hasHeightForWidth())
         self.w_destination.setSizePolicy(sizePolicy2)
@@ -156,14 +178,23 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_destPath.addWidget(self.b_browseDest)
 
+        self.b_refreshDest = QPushButton(self.gb_destPath)
+        self.b_refreshDest.setObjectName(u"b_refreshDest")
+        sizePolicy1.setHeightForWidth(self.b_refreshDest.sizePolicy().hasHeightForWidth())
+        self.b_refreshDest.setSizePolicy(sizePolicy1)
+        self.b_refreshDest.setMinimumSize(QSize(30, 0))
+        self.b_refreshDest.setMaximumSize(QSize(30, 16777215))
+
+        self.lo_destPath.addWidget(self.b_refreshDest)
+
 
         self.verticalLayout_11.addWidget(self.gb_destPath)
 
         self.tw_destination = QTableWidget(self.w_destination)
         self.tw_destination.setObjectName(u"tw_destination")
         self.tw_destination.setMaximumSize(QSize(16777215, 9999))
-        self.tw_destination.setContextMenuPolicy(Qt.NoContextMenu)
-        self.tw_destination.setSelectionMode(QAbstractItemView.NoSelection)
+        self.tw_destination.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self.tw_destination.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
 
         self.verticalLayout_11.addWidget(self.tw_destination)
 
@@ -172,6 +203,19 @@ class Ui_w_sourceBrowser(object):
         self.lo_destFooter = QHBoxLayout(self.gb_destFooter)
         self.lo_destFooter.setObjectName(u"lo_destFooter")
         self.lo_destFooter.setContentsMargins(0, 0, 0, 0)
+        self.b_tips_dest = QPushButton(self.gb_destFooter)
+        self.b_tips_dest.setObjectName(u"b_tips_dest")
+        sizePolicy1.setHeightForWidth(self.b_tips_dest.sizePolicy().hasHeightForWidth())
+        self.b_tips_dest.setSizePolicy(sizePolicy1)
+        self.b_tips_dest.setMinimumSize(QSize(30, 0))
+        self.b_tips_dest.setMaximumSize(QSize(20, 16777215))
+
+        self.lo_destFooter.addWidget(self.b_tips_dest)
+
+        self.horizontalSpacer_3 = QSpacerItem(30, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+
+        self.lo_destFooter.addItem(self.horizontalSpacer_3)
+
         self.b_dest_checkAll = QPushButton(self.gb_destFooter)
         self.b_dest_checkAll.setObjectName(u"b_dest_checkAll")
 
@@ -210,12 +254,16 @@ class Ui_w_sourceBrowser(object):
         self.l_sourceText.setText(QCoreApplication.translate("w_sourceBrowser", u"Source", None))
         self.b_sourcePathUp.setText("")
         self.b_browseSource.setText("")
+        self.b_refreshSource.setText("")
+        self.b_tips_source.setText("")
         self.b_source_checkAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Select All", None))
         self.b_source_uncheckAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Unselect All", None))
         self.b_source_addSel.setText(QCoreApplication.translate("w_sourceBrowser", u"Add Selected", None))
         self.l_destText.setText(QCoreApplication.translate("w_sourceBrowser", u"Destination", None))
         self.b_destPathUp.setText("")
         self.b_browseDest.setText("")
+        self.b_refreshDest.setText("")
+        self.b_tips_dest.setText("")
         self.b_dest_checkAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Select All", None))
         self.b_dest_uncheckAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Unselect All", None))
         self.b_dest_clearSel.setText(QCoreApplication.translate("w_sourceBrowser", u"Remove Selected", None))

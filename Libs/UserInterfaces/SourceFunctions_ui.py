@@ -8,16 +8,23 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
+from PySide6.QtWidgets import (QApplication, QCheckBox, QGroupBox, QHBoxLayout,
+    QLabel, QProgressBar, QPushButton, QSizePolicy,
+    QSpacerItem, QSplitter, QVBoxLayout, QWidget)
 
 class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
         w_sourceFunctions.resize(460, 480)
-        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(w_sourceFunctions.sizePolicy().hasHeightForWidth())
@@ -26,10 +33,10 @@ class Ui_w_sourceFunctions(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Horizontal)
+        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy1.setHorizontalStretch(8)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.w_functions.sizePolicy().hasHeightForWidth())
@@ -42,19 +49,84 @@ class Ui_w_sourceFunctions(object):
         self.gb_functions.setEnabled(True)
         self.gb_lo_functions = QVBoxLayout(self.gb_functions)
         self.gb_lo_functions.setObjectName(u"gb_lo_functions")
-        self.b_configure = QPushButton(self.gb_functions)
-        self.b_configure.setObjectName(u"b_configure")
+        self.b_globalSettings = QPushButton(self.gb_functions)
+        self.b_globalSettings.setObjectName(u"b_globalSettings")
 
-        self.gb_lo_functions.addWidget(self.b_configure)
+        self.gb_lo_functions.addWidget(self.b_globalSettings)
 
-        self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
+        self.b_openDestDir = QPushButton(self.gb_functions)
+        self.b_openDestDir.setObjectName(u"b_openDestDir")
+
+        self.gb_lo_functions.addWidget(self.b_openDestDir)
+
+        self.lo_ovr_fileNaming = QHBoxLayout()
+        self.lo_ovr_fileNaming.setObjectName(u"lo_ovr_fileNaming")
+        self.chb_ovr_fileNaming = QCheckBox(self.gb_functions)
+        self.chb_ovr_fileNaming.setObjectName(u"chb_ovr_fileNaming")
+
+        self.lo_ovr_fileNaming.addWidget(self.chb_ovr_fileNaming)
+
+        self.b_ovr_config_fileNaming = QPushButton(self.gb_functions)
+        self.b_ovr_config_fileNaming.setObjectName(u"b_ovr_config_fileNaming")
+
+        self.lo_ovr_fileNaming.addWidget(self.b_ovr_config_fileNaming)
+
+
+        self.gb_lo_functions.addLayout(self.lo_ovr_fileNaming)
+
+        self.lo_ovr_proxy = QHBoxLayout()
+        self.lo_ovr_proxy.setObjectName(u"lo_ovr_proxy")
+        self.chb_ovr_proxy = QCheckBox(self.gb_functions)
+        self.chb_ovr_proxy.setObjectName(u"chb_ovr_proxy")
+
+        self.lo_ovr_proxy.addWidget(self.chb_ovr_proxy)
+
+        self.b_ovr_config_proxy = QPushButton(self.gb_functions)
+        self.b_ovr_config_proxy.setObjectName(u"b_ovr_config_proxy")
+
+        self.lo_ovr_proxy.addWidget(self.b_ovr_config_proxy)
+
+
+        self.gb_lo_functions.addLayout(self.lo_ovr_proxy)
+
+        self.lo_ovr_metadata = QHBoxLayout()
+        self.lo_ovr_metadata.setObjectName(u"lo_ovr_metadata")
+        self.chb_ovr_metadata = QCheckBox(self.gb_functions)
+        self.chb_ovr_metadata.setObjectName(u"chb_ovr_metadata")
+
+        self.lo_ovr_metadata.addWidget(self.chb_ovr_metadata)
+
+        self.b_ovr_config_metadata = QPushButton(self.gb_functions)
+        self.b_ovr_config_metadata.setObjectName(u"b_ovr_config_metadata")
+
+        self.lo_ovr_metadata.addWidget(self.b_ovr_config_metadata)
+
+
+        self.gb_lo_functions.addLayout(self.lo_ovr_metadata)
+
+        self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.MinimumExpanding)
 
         self.gb_lo_functions.addItem(self.verticalSpacer)
+
+        self.lo_options = QHBoxLayout()
+        self.lo_options.setObjectName(u"lo_options")
+        self.chb_overwrite = QCheckBox(self.gb_functions)
+        self.chb_overwrite.setObjectName(u"chb_overwrite")
+
+        self.lo_options.addWidget(self.chb_overwrite)
 
         self.chb_copyProxy = QCheckBox(self.gb_functions)
         self.chb_copyProxy.setObjectName(u"chb_copyProxy")
 
-        self.gb_lo_functions.addWidget(self.chb_copyProxy)
+        self.lo_options.addWidget(self.chb_copyProxy)
+
+        self.chb_generateProxy = QCheckBox(self.gb_functions)
+        self.chb_generateProxy.setObjectName(u"chb_generateProxy")
+
+        self.lo_options.addWidget(self.chb_generateProxy)
+
+
+        self.gb_lo_functions.addLayout(self.lo_options)
 
 
         self.verticalLayout_8.addWidget(self.gb_functions)
@@ -124,7 +196,7 @@ class Ui_w_sourceFunctions(object):
 
         self.lo_transferStats.addWidget(self.l_time_remainText)
 
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self.lo_transferStats.addItem(self.horizontalSpacer)
 
@@ -152,6 +224,9 @@ class Ui_w_sourceFunctions(object):
 
 
         self.retranslateUi(w_sourceFunctions)
+        self.chb_ovr_fileNaming.toggled.connect(self.b_ovr_config_fileNaming.setEnabled)
+        self.chb_ovr_proxy.toggled.connect(self.b_ovr_config_proxy.setEnabled)
+        self.chb_ovr_metadata.toggled.connect(self.b_ovr_config_metadata.setEnabled)
 
         QMetaObject.connectSlotsByName(w_sourceFunctions)
     # setupUi
@@ -159,8 +234,17 @@ class Ui_w_sourceFunctions(object):
     def retranslateUi(self, w_sourceFunctions):
         w_sourceFunctions.setWindowTitle(QCoreApplication.translate("w_sourceFunctions", u"Media Browser", None))
         self.gb_functions.setTitle("")
-        self.b_configure.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
+        self.b_globalSettings.setText(QCoreApplication.translate("w_sourceFunctions", u"Global Tab Settings", None))
+        self.b_openDestDir.setText(QCoreApplication.translate("w_sourceFunctions", u"Open Destination Directory", None))
+        self.chb_ovr_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"File Naming", None))
+        self.b_ovr_config_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
+        self.chb_ovr_proxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Proxy", None))
+        self.b_ovr_config_proxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
+        self.chb_ovr_metadata.setText(QCoreApplication.translate("w_sourceFunctions", u"MetatData", None))
+        self.b_ovr_config_metadata.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
+        self.chb_overwrite.setText(QCoreApplication.translate("w_sourceFunctions", u"Allow Overwrite", None))
         self.chb_copyProxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Copy Proxy", None))
+        self.chb_generateProxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Generate Proxy", None))
         self.b_transfer_start.setText(QCoreApplication.translate("w_sourceFunctions", u"Start Transfer", None))
         self.b_transfer_pause.setText(QCoreApplication.translate("w_sourceFunctions", u"Pause Transfer", None))
         self.b_transfer_resume.setText(QCoreApplication.translate("w_sourceFunctions", u"Resume Transfer", None))

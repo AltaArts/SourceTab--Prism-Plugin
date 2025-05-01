@@ -124,7 +124,8 @@ class Prism_SourceTab_Functions(object):
                 "tabSettings": {
                     "playerEnabled": True,
                     "preferProxies": True,
-                    "copyProxy": False
+                    "copyProxy": False,
+                    "generateProxy": False
                 },
                 "settings": {
                     "max_thumbThreads": 12,
@@ -135,8 +136,23 @@ class Prism_SourceTab_Functions(object):
                     "useCompleteSound": True,
                     "useTransferReport": True,
                     "useCustomIcon": False,
-                    "customIconPath": ""
-                }
+                    "customIconPath": "", 
+                    "useViewLut": False,
+                    "useCustomThumbPath": False,
+                    "customThumbPath": ""
+                },
+                "viewLutPresets": {
+                    "Linear to Rec70924": {
+                        "transform_input": "Rec709Linear",
+                        "transform_output": "Rec70924",
+                        "look": "None"
+                        },
+                    "ACEScg to Rec70924": {
+                        "transform_input": "ACEScg",
+                        "transform_output": "Rec70924",
+                        "look": "None"
+                        },
+                    }
             }
 
         return sData

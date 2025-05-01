@@ -248,6 +248,54 @@
         </layout>
        </item>
        <item>
+        <layout class="QHBoxLayout" name="lo_viewLut">
+         <item>
+          <widget class="QCheckBox" name="chb_useViewLut">
+           <property name="layoutDirection">
+            <enum>Qt::LayoutDirection::RightToLeft</enum>
+           </property>
+           <property name="text">
+            <string>Use View Lut Presets:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_5">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_configureOcioPreets">
+           <property name="text">
+            <string>Configure OCIO Presets</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="lo_customThumbPath">
+         <item>
+          <widget class="QCheckBox" name="chb_useCustomThumbPath">
+           <property name="text">
+            <string>Thumb Path</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="le_customThumbPath"/>
+         </item>
+        </layout>
+       </item>
+       <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Orientation::Vertical</enum>

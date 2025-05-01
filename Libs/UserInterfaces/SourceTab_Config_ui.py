@@ -8,17 +8,9 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QDialogButtonBox,
-    QDoubleSpinBox, QHBoxLayout, QLabel, QLineEdit,
-    QSizePolicy, QSpacerItem, QSpinBox, QSplitter,
-    QVBoxLayout, QWidget)
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 class Ui_w_sourceConfig(object):
     def setupUi(self, w_sourceConfig):
@@ -173,6 +165,41 @@ class Ui_w_sourceConfig(object):
 
         self.verticalLayout_8.addLayout(self.lo_customIcon)
 
+        self.lo_viewLut = QHBoxLayout()
+        self.lo_viewLut.setObjectName(u"lo_viewLut")
+        self.chb_useViewLut = QCheckBox(self.w_config)
+        self.chb_useViewLut.setObjectName(u"chb_useViewLut")
+        self.chb_useViewLut.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+
+        self.lo_viewLut.addWidget(self.chb_useViewLut)
+
+        self.horizontalSpacer_5 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.lo_viewLut.addItem(self.horizontalSpacer_5)
+
+        self.b_configureOcioPreets = QPushButton(self.w_config)
+        self.b_configureOcioPreets.setObjectName(u"b_configureOcioPreets")
+
+        self.lo_viewLut.addWidget(self.b_configureOcioPreets)
+
+
+        self.verticalLayout_8.addLayout(self.lo_viewLut)
+
+        self.lo_customThumbPath = QHBoxLayout()
+        self.lo_customThumbPath.setObjectName(u"lo_customThumbPath")
+        self.chb_useCustomThumbPath = QCheckBox(self.w_config)
+        self.chb_useCustomThumbPath.setObjectName(u"chb_useCustomThumbPath")
+
+        self.lo_customThumbPath.addWidget(self.chb_useCustomThumbPath)
+
+        self.le_customThumbPath = QLineEdit(self.w_config)
+        self.le_customThumbPath.setObjectName(u"le_customThumbPath")
+
+        self.lo_customThumbPath.addWidget(self.le_customThumbPath)
+
+
+        self.verticalLayout_8.addLayout(self.lo_customThumbPath)
+
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
 
         self.verticalLayout_8.addItem(self.verticalSpacer)
@@ -203,5 +230,8 @@ class Ui_w_sourceConfig(object):
         self.chb_playSound.setText(QCoreApplication.translate("w_sourceConfig", u"Play Completion Sound", None))
         self.chb_useTransferReport.setText(QCoreApplication.translate("w_sourceConfig", u"Generate Transfer Report on Completion", None))
         self.chb_useCustomIcon.setText(QCoreApplication.translate("w_sourceConfig", u"Custom Icon", None))
+        self.chb_useViewLut.setText(QCoreApplication.translate("w_sourceConfig", u"Use View Lut Presets:", None))
+        self.b_configureOcioPreets.setText(QCoreApplication.translate("w_sourceConfig", u"Configure OCIO Presets", None))
+        self.chb_useCustomThumbPath.setText(QCoreApplication.translate("w_sourceConfig", u"Thumb Path", None))
     # retranslateUi
 

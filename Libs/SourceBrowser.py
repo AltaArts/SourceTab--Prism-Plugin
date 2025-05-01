@@ -106,6 +106,9 @@ import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
 from SourceTab_Config import SourceTab_Config
 
+from DisplayPopup import DisplayPopup
+
+
 import SourceBrowser_ui                                                 #   TODO
 
 
@@ -140,6 +143,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.core.parentWindow(self)
 
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff", ".flac", ".alac", ".ogg", ".wma"]
+
+        self.selectedTiles = set()             # A set of selected FileTile instances
+        self.lastClickedTile = None            # For shift selection
+
+
 
         self.transferList = []
         self.total_transferSize = 0.0
@@ -207,11 +215,26 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Set Icons
         upIcon = QIcon(os.path.join(iconDir, "up.png"))
         dirIcon = QIcon(os.path.join(iconDir, "file_folder.png"))
+        refreshIcon = QIcon(os.path.join(iconDir, "reset.png"))
+        tipIcon = QIcon(os.path.join(iconDir, "help.png"))
 
         ##   Source Panel
         #   Set Button Icons
         self.b_sourcePathUp.setIcon(upIcon)
         self.b_browseSource.setIcon(dirIcon)
+        self.b_refreshSource.setIcon(refreshIcon)
+        self.b_refreshDest.setIcon(refreshIcon)
+        self.b_tips_source.setIcon(tipIcon)
+        self.b_tips_dest.setIcon(tipIcon)
+
+        self.b_tips_source.setFixedWidth(30)
+        self.b_tips_dest.setFixedWidth(30)
+
+        sourceTip = self.getCheatsheet("source", tip=True)
+        self.b_tips_source.setToolTip(sourceTip)
+
+        destTip = self.getCheatsheet("dest", tip=True)
+        self.b_tips_dest.setToolTip(destTip)
 
         #   Source Table setup
         self.tw_source.setColumnCount(1)
@@ -308,6 +331,27 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
 
+        self.splitter.setSizes([1, 1, 1])                       #   TODO - FINISH SIZEING
+
+
+
+    @err_catcher(name=__name__)                                                     #   TODO - FINISH
+    def getCheatsheet(self, mode, tip=False):
+
+        cheatSheet = '''
+Up-Arror:  Go up one level in the Directory
+Folder:  Open Explorer to Choose Source Directory
+Double-Click Item:  Toogles the Item's Checkbox
+Double-Click Thumbnail:  Opens Media in External Player
+Double-Click PXY Icon:  Opens Proxy Media in External Player
+
+'''
+
+        if tip:
+            return cheatSheet
+        
+        else:
+            DisplayPopup.display(cheatSheet, title="Help")
 
 
     # @err_catcher(name=__name__)
@@ -330,28 +374,31 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.tw_destination.mmEvent = self.tw_destination.mouseMoveEvent
         # self.tw_destination.mouseMoveEvent = lambda x: self.w_preview.mediaPlayer.mouseDrag(x, self.tw_destination)
         # self.tw_destination.itemDoubleClicked.connect(self.onVersionDoubleClicked)
-        # self.tw_destination.customContextMenuRequested.connect(
-        #     lambda x: self.rclList(x, self.tw_destination)
-        #     )
 
+        #   Connect Right Click Menus
+        self.tw_source.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tw_source.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_source))
+        self.tw_destination.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tw_destination.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_destination))
 
+        #   Source Buttons
         self.b_source_addSel.clicked.connect(self.addSelected)
-
-        self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
-        self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
-
         self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
-        self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
-
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
-        self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
-
-        self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
-        self.b_dest_clearAll.clicked.connect(lambda: self.clearTransferList())
-
+        self.b_refreshSource.clicked.connect(self.refreshSourceItems)
+        self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
 
+        #   Destination Buttons
+        self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
+        self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
+        self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
+        self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
+        self.b_refreshDest.clicked.connect(self.refreshDestItems)
+        self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
+        self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
+        self.b_dest_clearAll.clicked.connect(lambda: self.clearTransferList())
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
 
@@ -366,7 +413,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer)
         self.sourceFuncts.b_transfer_reset.clicked.connect(self.resetTransfer)
 
-        self.sourceFuncts.b_configure.clicked.connect(self.openConfigWindow)
+        self.sourceFuncts.b_globalSettings.clicked.connect(self.openConfigWindow)
+        self.sourceFuncts.b_openDestDir.clicked.connect(lambda: self.openInExplorer(os.path.normpath(self.le_destPath.text())))
+        self.sourceFuncts.b_ovr_config_fileNaming.clicked.connect(self.configFileNaming)
+        self.sourceFuncts.b_ovr_config_proxy.clicked.connect(self.configProxy)
+        self.sourceFuncts.b_ovr_config_metadata.clicked.connect(self.configMetadata)
 
 
     #   Checks if Dragged Object has a Path
@@ -404,6 +455,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if e.mimeData().hasUrls():
             e.acceptProposedAction()
 
+            # Normal file/folder drop
             url = e.mimeData().urls()[0]
             path = os.path.normpath(url.toLocalFile())
 
@@ -419,8 +471,58 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     self.refreshDestItems()
             else:
                 self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
+
+        elif e.mimeData().hasFormat("application/x-sourcefileitem"):
+            # This is your custom item!
+            e.acceptProposedAction()
+
+            dataBytes = e.mimeData().data("application/x-sourcefileitem")
+            dataString = bytes(dataBytes).decode('utf-8')
+
+            # You can now parse this if needed
+            fileItem = self.createDestFileTile(dataString)
+
+            # Add to destination table widget
+            rowPosition = self.tw_destination.rowCount()
+            self.tw_destination.insertRow(rowPosition)
+            self.tw_destination.setCellWidget(rowPosition, 0, fileItem)
+
         else:
             e.ignore()
+
+
+
+    @err_catcher(name=__name__)
+    def mouseMoveEvent(self, event):
+        if event.buttons() != Qt.LeftButton:
+            return
+
+        drag = QDrag(self)
+        mimeData = QMimeData()
+
+        # Let's package your data as text (or json or anything you want)
+        dataString = self.serializeData()
+
+        mimeData.setData("application/x-sourcefileitem", dataString.encode('utf-8'))
+        drag.setMimeData(mimeData)
+
+        drag.exec_(Qt.CopyAction)
+
+
+    @err_catcher(name=__name__)
+    def serializeData(self):
+        return self.path  # Or json.dumps(dict) if more complex info
+
+
+    @err_catcher(name=__name__)
+    def getAllFileTiles(self):
+        tiles = []
+        for row in range(self.tw_source.rowCount()):
+            itemWidget = self.tw_source.cellWidget(row, 0)  # or appropriate column
+            if isinstance(itemWidget, TileWidget.SourceFileItem):
+                tiles.append(itemWidget)
+        return tiles
+
 
 
 
@@ -431,6 +533,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         tabSettings["playerEnabled"] = self.chb_enablePlayer.isChecked()
         tabSettings["preferProxies"] = self.chb_preferProxies.isChecked()
         tabSettings["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
+        tabSettings["generateProxy"] = self.sourceFuncts.chb_generateProxy.isChecked()
 
         return tabSettings
 
@@ -459,7 +562,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.useCompleteSound = settingData["useCompleteSound"]
         self.useTransferReport = settingData["useTransferReport"]
         self.useCustomIcon = settingData["useCustomIcon"]
-        self.customIconPath = os.path.normpath(settingData["customIconPath"])
+        self.customIconPath = os.path.normpath(settingData["customIconPath"].strip().strip('\'"'))
+        self.useViewLuts = settingData["useViewLut"]
+        self.useCustomThumbPath = settingData["useCustomThumbPath"]
+        self.customThumbPath = settingData ["customThumbPath"]
+
+        presetData = sData["viewLutPresets"]
+        self.configureViewLut(presetData)                 #   TODO - MOVE
 
 
         #   Get Tab (UI) Settings
@@ -468,14 +577,26 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         playerEnabled = tabData["playerEnabled"]
         self.chb_enablePlayer.setChecked(playerEnabled)
         self.toggleMediaPlayer(playerEnabled)
-        #   Prefer Proxies Checknox
+        #   Prefer Proxies Checkbox
         preferProxies = tabData["preferProxies"]
         self.chb_preferProxies.setChecked(preferProxies)
         self.togglePreferProxies(preferProxies)
-        #   Copy Proxies checkbox
+        #   Proxies Options
         self.sourceFuncts.chb_copyProxy.setChecked(tabData["copyProxy"])
+        self.sourceFuncts.chb_generateProxy.setChecked(tabData["generateProxy"])
 
 
+    @err_catcher(name=__name__)
+    def configureViewLut(self, presets=None):
+        self.mediaPlayer.container_viewLut.setVisible(self.useViewLuts)
+
+        if presets:
+            self.mediaPlayer.cb_viewLut.clear()
+
+            for pName in presets:
+                self.mediaPlayer.cb_viewLut.addItem(pName)
+
+        
 
     @err_catcher(name=__name__)
     def openConfigWindow(self):
@@ -495,6 +616,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         else:
             return None
+
+
+    @err_catcher(name=__name__)
+    def configFileNaming(self):
+        self.core.popup("Configureing File Naming Not Yet Implemented")
+
+
+    @err_catcher(name=__name__)
+    def configProxy(self):
+        self.core.popup("Configureing Proxy Not Yet Implemented")
+
+
+    @err_catcher(name=__name__)
+    def configMetadata(self):
+        self.core.popup("Configureing Metadata Not Yet Implemented")
 
 
     #   Returns File Size Formatted String
@@ -737,14 +873,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Determine Overall Status based on Priority
         if "Cancelled" in overall_statusList:
             overall_status = "Cancelled"
-            self.completeTranfer(overall_status)
         elif "Error" in overall_statusList:
             overall_status = "Error"
         elif "Issue" in overall_statusList:
             overall_status = "Issue"
         elif all(status == "Complete" for status in overall_statusList):
             overall_status = "Complete"
-            self.completeTranfer(overall_status)
         elif any(status == "Paused" for status in overall_statusList):
             overall_status = "Paused"
         elif any(status == "Transferring" for status in overall_statusList):
@@ -758,6 +892,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         progress = (total_copied / self.total_transferSize) * 100 if self.total_transferSize > 0 else 0
         self.sourceFuncts.progBar_total.setValue(progress)
 
+        if overall_status in ["Cancelled", "Complete"]:
+            self.completeTranfer(overall_status)
 
 
 
@@ -921,20 +1057,22 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             #   File Data Items
             for item in reportData:
                 baseName = os.path.basename(item.getDestMainPath())
+                date_str = item.data['source_mainFile_date']
                 sourcePath = item.getSource_mainfilePath()
                 destPath = item.getDestMainPath()
                 size_str = item.data['source_mainFile_size']
-                date_str = item.data['source_mainFile_date']
+                time_str = item.data["transferTime"]
                 hash_source = item.data['source_mainFile_hash']
                 hash_dest = item.data['dest_mainFile_hash']
                 hasProxy = item.data['hasProxy']
 
                 file_lines = [
                     ("Filename:", baseName),
+                    ("Date:", date_str),
                     ("Source:", sourcePath),
                     ("Destination:", destPath),
                     ("Size:", size_str),
-                    ("Date:", date_str),
+                    ("Transfer Time:", time_str),
                     ("Hash (source):", hash_source),
                     ("Hash (dest):", hash_dest),
                     ("Proxy present:", str(hasProxy))
@@ -1092,7 +1230,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             return
 
         origDir = getattr(self, attribute, "")
-        pastedAddr = addrBar.text().strip().strip('"')
+        pastedAddr = addrBar.text().strip().strip('\'"')
 
         if not os.path.exists(pastedAddr):
             addrBar.setText(origDir)
@@ -1168,9 +1306,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
-    def refreshSourceItems(self, restoreSelection=False):
+    def refreshSourceItems(self, restoreSelection=False):      
         sourceDir = getattr(self, "sourceDir", "")
-        self.le_sourcePath.setText(sourceDir)
+
+        metrics = QFontMetrics(self.le_sourcePath.font())
+        elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
+        self.le_sourcePath.setText(elided_text)
+
+        self.le_sourcePath.setToolTip(sourceDir)
 
         #   Colors the Addressbar if the Path is invalid
         if not os.path.exists(sourceDir):
@@ -1234,7 +1377,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
         destDir = getattr(self, "destDir", "")
-        self.le_destPath.setText(destDir)
+
+        metrics = QFontMetrics(self.le_destPath.font())
+        elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
+        self.le_destPath.setText(elided_text)
+
+        self.le_destPath.setToolTip(destDir)
 
         #   Colors the Addressbar if the Path is invalid
         if not os.path.exists(destDir):
@@ -1289,6 +1437,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def createDestFileTile(self, data):
         # Create the custom widget
         fileItem = TileWidget.DestFileItem(self, data)
+
+        # fileItem.setAttribute(Qt.WA_TransparentForMouseEvents)
+
 
         return fileItem
     
@@ -1359,8 +1510,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if not self.checkDuplicate(data):
             self.transferList.append(data)
 
-            if refresh:
-                self.refreshDestItems()
+        if refresh:
+            self.refreshDestItems()
 
 
     @err_catcher(name=__name__)
@@ -1374,8 +1525,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         for row in range(row_count):
             fileItem = self.tw_source.cellWidget(row, 0)
-            if fileItem is not None:
-                if fileItem.isSelected:
+            if fileItem is not None and fileItem.objectName() == "FileTile":
+                if fileItem.isChecked():
                     self.addToDestList(fileItem.getData())
 
         self.refreshDestItems()
@@ -1411,6 +1562,54 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
+    def generateTransferPopup(self, copyProxy):
+        # Build the header section
+        header = {
+            "Destination Path": self.le_destPath.text(),
+            "Number of Files": len(self.copyList),
+            "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),
+            "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
+            "Copy Proxy Files": copyProxy,
+            "Generate Proxy": self.sourceFuncts.chb_generateProxy.isChecked(),
+            "": ""
+        }
+
+
+        # Build the file list as separate groups
+        file_list = []
+
+        for item in self.copyList:
+            filename = os.path.basename(item.getDestMainPath())
+            
+            # Create a separate group for each file
+            group_box = QGroupBox(filename)
+            form_layout = QFormLayout()
+
+            # Add individual data items in separate lines
+            form_layout.addRow("Date:", QLabel(item.data.get('source_mainFile_date', 'Unknown')))
+            form_layout.addRow("Path:", QLabel(item.getSource_mainfilePath()))
+            form_layout.addRow("Size:", QLabel(item.data.get('source_mainFile_size', 'Unknown')))
+
+            if item.data.get('hasProxy'):
+                proxyPath = item.getSource_proxyfilePath()
+            else:
+                proxyPath = "None"
+
+            form_layout.addRow("Proxy:", QLabel(proxyPath))
+
+            group_box.setLayout(form_layout)
+            file_list.append(group_box)  # Add group box to the list
+
+        # Combine header and file groups into a final data dict
+        data = {
+            "Transfer:": header,
+            "Files": file_list
+        }
+
+        return data
+    
+
+    @err_catcher(name=__name__)                                         #   TODO  Move
     def startTransfer(self):
         # Timer for Progress Updates
         self.progressTimer = QTimer(self)
@@ -1438,8 +1637,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 if fileItem.isSelected:
                     self.copyList.append(fileItem)
 
-
-
         if len(self.copyList) == 0:
             self.core.popup("There are no Items Selected to Transfer")
             return False
@@ -1448,15 +1645,25 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.core.popup("YOU FORGOT TO SELECT DEST DIR")
             return False
 
-        self.progressTimer.start()
-        self.setTransferStatus("Transferring")
-        self.configTransUI("transfer")
+        #   Get Formatted Transfer Details
+        popupData = self.generateTransferPopup(copyProxy)
 
-        for item in self.copyList:
-            options = {}
-            options["copyProxy"] = copyProxy
-            
-            item.start_transfer(self, options)
+        #   Add Buttons
+        buttons = ["Start Transfer", "Cancel"]
+        #   Call Transfer Popup
+        result = DisplayPopup.display(popupData, title="Transfer", buttons=buttons)
+
+        #   If User Selects Transfer
+        if result == "Start Transfer":
+            self.progressTimer.start()
+            self.setTransferStatus("Transferring")
+            self.configTransUI("transfer")
+
+            for item in self.copyList:
+                options = {}
+                options["copyProxy"] = copyProxy
+                
+                item.start_transfer(self, options)
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -1605,26 +1812,24 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.core.pb.sceneBrowser.refreshEntityInfo()
         self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
 
+
     @err_catcher(name=__name__)
     def rclList(self, pos, lw):
         cpos = QCursor.pos()
         item = lw.itemAt(pos)
-        if item is not None:
-            pass
-
 
         rcmenu = QMenu(self)
-        if lw == self.tw_source:
-            refresh = self.refreshSourceItems
 
-        elif lw == self.tw_destination:
-            if item:
-                pass
+        if lw == self.tw_source and not item:
+            refreshAct = QAction("Refresh List", self)
+            refreshAct.triggered.connect(self.refreshSourceItems)
+            rcmenu.addAction(refreshAct)
+                # refresh = self.refreshSourceItems
 
-            else:
-                clearAct = QAction("Clear Transfer List", self)
-                clearAct.triggered.connect(self.clearTransferList)
-                rcmenu.addAction(clearAct)
+        elif lw == self.tw_destination and not item:
+            clearAct = QAction("Clear Transfer List", self)
+            clearAct.triggered.connect(self.clearTransferList)
+            rcmenu.addAction(clearAct)
 
 
         # act_refresh = QAction("Refresh", self)
@@ -1708,12 +1913,31 @@ class MediaPlayer(QWidget):
         self.l_info.setText("")
         self.l_info.setObjectName("l_info")
         self.lo_main.addWidget(self.l_info)
+
+
+        self.container_viewLut = QWidget()
+        self.lo_viewLut = QHBoxLayout(self.container_viewLut)
+        self.l_viewLut = QLabel("View Lut Preset:")
+        self.cb_viewLut = QComboBox()
+        self.lo_viewLut.addWidget(self.l_viewLut)
+        self.lo_viewLut.addWidget(self.cb_viewLut)
+        self.lo_main.addWidget(self.container_viewLut)
+
+
         self.l_preview = QLabel(self)
         self.l_preview.setContextMenuPolicy(Qt.CustomContextMenu)
         self.l_preview.setText("")
         self.l_preview.setAlignment(Qt.AlignCenter)
         self.l_preview.setObjectName("l_preview")
         self.lo_main.addWidget(self.l_preview)
+
+        #   Proxy Icon Label
+        pxyIconPath = os.path.join(iconDir, "pxy_icon.png")
+        pxyIcon = self.core.media.getColoredIcon(pxyIconPath)
+        self.l_pxyIcon = QLabel(self.l_preview)
+        self.l_pxyIcon.setPixmap(pxyIcon.pixmap(40, 40))
+        self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
+        self.l_pxyIcon.setVisible(False)
 
         self.l_loading = QLabel(self)
         self.l_loading.setAlignment(Qt.AlignCenter)
@@ -1931,9 +2155,11 @@ class MediaPlayer(QWidget):
     #     return self.core.mediaProducts.getFilesFromContext(context)
 
     @err_catcher(name=__name__)
-    def updatePreview(self, mediaFiles, regenerateThumb=False):
+    def updatePreview(self, mediaFiles, isProxy=False, regenerateThumb=False):
         if not self.previewEnabled:
             return
+        
+        self.l_pxyIcon.setVisible(isProxy)
 
         if self.timeline:
             curFrame = self.getCurrentFrame()
@@ -2548,10 +2774,10 @@ class MediaPlayer(QWidget):
     @err_catcher(name=__name__)
     def rclPreview(self, pos):
         menu = self.getMediaPreviewMenu()
-        self.core.callback(
-            name="mediaPlayerContextMenuRequested",
-            args=[self, menu],
-        )
+        # self.core.callback(
+        #     name="mediaPlayerContextMenuRequested",
+        #     args=[self, menu],
+        # )
         if not menu or menu.isEmpty():
             return
 
@@ -2646,30 +2872,30 @@ class MediaPlayer(QWidget):
         else:
             curSeqIdx = self.getCurrentFrame()
 
-        if len(self.seq) > 0 and self.core.media.getUseThumbnailForFile(self.seq[curSeqIdx]):
-            prvAct = QAction("Use thumbnail", self)
-            prvAct.setCheckable(True)
-            prvAct.setChecked(self.core.media.getUseThumbnails())
-            prvAct.toggled.connect(self.core.media.setUseThumbnails)
-            prvAct.triggered.connect(self.updatePreview)
-            rcmenu.addAction(prvAct)
+        # if len(self.seq) > 0 and self.core.media.getUseThumbnailForFile(self.seq[curSeqIdx]):
+        #     prvAct = QAction("Use thumbnail", self)
+        #     prvAct.setCheckable(True)
+        #     prvAct.setChecked(self.core.media.getUseThumbnails())
+        #     prvAct.toggled.connect(self.core.media.setUseThumbnails)
+        #     prvAct.triggered.connect(self.updatePreview)
+        #     rcmenu.addAction(prvAct)
 
-            if self.core.media.getUseThumbnails():
-                prvAct = QAction("Regenerate thumbnail", self)
-                prvAct.triggered.connect(self.regenerateThumbnail)
-                rcmenu.addAction(prvAct)
+        #     if self.core.media.getUseThumbnails():
+        #         prvAct = QAction("Regenerate thumbnail", self)
+        #         prvAct.triggered.connect(self.regenerateThumbnail)
+        #         rcmenu.addAction(prvAct)
 
-        if len(self.seq) > 0 and hasattr(self.origin, "getCurrentEntity"):
-            entity = self.origin.getCurrentEntity()
-            if entity["type"] == "asset":
-                prvAct = QAction("Set as assetpreview", self)
-                prvAct.triggered.connect(self.origin.setPreview)
-                rcmenu.addAction(prvAct)
+        # if len(self.seq) > 0 and hasattr(self.origin, "getCurrentEntity"):
+        #     entity = self.origin.getCurrentEntity()
+        #     if entity["type"] == "asset":
+        #         prvAct = QAction("Set as assetpreview", self)
+        #         prvAct.triggered.connect(self.origin.setPreview)
+        #         rcmenu.addAction(prvAct)
 
-            elif entity["type"] == "shot":
-                prvAct = QAction("Set as shotpreview", self)
-                prvAct.triggered.connect(self.origin.setPreview)
-                rcmenu.addAction(prvAct)
+        #     elif entity["type"] == "shot":
+        #         prvAct = QAction("Set as shotpreview", self)
+        #         prvAct.triggered.connect(self.origin.setPreview)
+        #         rcmenu.addAction(prvAct)
 
         act_refresh = QAction("Refresh", self)
         iconPath = os.path.join(
@@ -2680,11 +2906,11 @@ class MediaPlayer(QWidget):
         act_refresh.triggered.connect(self.updatePreview)
         rcmenu.addAction(act_refresh)
 
-        act_disable = QAction("Disabled", self)
-        act_disable.setCheckable(True)
-        act_disable.setChecked(self.state == "disabled")
-        act_disable.triggered.connect(self.onDisabledTriggered)
-        rcmenu.addAction(act_disable)
+        # act_disable = QAction("Disabled", self)
+        # act_disable.setCheckable(True)
+        # act_disable.setChecked(self.state == "disabled")
+        # act_disable.triggered.connect(self.onDisabledTriggered)
+        # rcmenu.addAction(act_disable)
 
         exp = QAction("Open in Explorer", self)
         exp.triggered.connect(lambda: self.core.openFolder(path))
