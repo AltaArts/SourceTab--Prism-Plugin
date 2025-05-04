@@ -55,13 +55,6 @@
          </property>
          <layout class="QVBoxLayout" name="gb_lo_functions">
           <item>
-           <widget class="QPushButton" name="b_globalSettings">
-            <property name="text">
-             <string>Global Tab Settings</string>
-            </property>
-           </widget>
-          </item>
-          <item>
            <widget class="QPushButton" name="b_openDestDir">
             <property name="text">
              <string>Open Destination Directory</string>

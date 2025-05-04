@@ -67,8 +67,6 @@ class Prism_SourceTab:
         Prism_SourceTab_Variables.__init__(self, core, self)
         Prism_SourceTab_Functions.__init__(self, core, self)
 
-        self.core.registerCallback("postInitialize", self.postInitialize, plugin=self, priority=40)   
-        self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self, priority=40)   
-        self.core.registerCallback("onProjectBrowserClose", self.saveSettings, plugin=self, priority=40)
+
 
 

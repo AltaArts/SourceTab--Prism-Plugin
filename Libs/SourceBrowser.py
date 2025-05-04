@@ -61,11 +61,6 @@ from functools import partial
 
 
 
-
-from Scripts.Prism_SourceTab_Functions import SETTINGS_FILE
-
-
-
 PRISMROOT = r"C:\Prism2"                                            ###   TODO
 prismRoot = os.getenv("PRISM_ROOT")
 if not prismRoot:
@@ -97,17 +92,13 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
-
 from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 
 import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
-from SourceTab_Config import SourceTab_Config
-
-from DisplayPopup import DisplayPopup
-
+from PopupWindows import DisplayPopup
 
 import SourceBrowser_ui                                                 #   TODO
 
@@ -250,7 +241,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_source.dragLeaveEvent = partial(self.onDragLeaveEvent, self.tw_source)
         self.tw_source.dropEvent = partial(self.onDropEvent, self.tw_source, "source")
 
-
         ##  Destination Panel
         #   Set Button Icons
         self.b_destPathUp.setIcon(upIcon)
@@ -269,8 +259,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_destination.dragMoveEvent = partial(self.onDragMoveEvent, self.tw_destination, "destTable")
         self.tw_destination.dragLeaveEvent = partial(self.onDragLeaveEvent, self.tw_destination)
         self.tw_destination.dropEvent = partial(self.onDropEvent, self.tw_destination, "dest")
-
-
 
         ##  Right Side Panel
         self.lo_rightPanel = QVBoxLayout()
@@ -297,7 +285,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.mediaPlayer.layout().addStretch()
 
         #   Functions Import
-        self.sourceFuncts = SourceFunctions()
+        self.sourceFuncts = SourceFunctions(self.core, self)
         # self.sourceFuncts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
 
@@ -412,12 +400,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
         self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer)
         self.sourceFuncts.b_transfer_reset.clicked.connect(self.resetTransfer)
-
-        self.sourceFuncts.b_globalSettings.clicked.connect(self.openConfigWindow)
-        self.sourceFuncts.b_openDestDir.clicked.connect(lambda: self.openInExplorer(os.path.normpath(self.le_destPath.text())))
-        self.sourceFuncts.b_ovr_config_fileNaming.clicked.connect(self.configFileNaming)
-        self.sourceFuncts.b_ovr_config_proxy.clicked.connect(self.configProxy)
-        self.sourceFuncts.b_ovr_config_metadata.clicked.connect(self.configMetadata)
 
 
     #   Checks if Dragged Object has a Path
@@ -551,7 +533,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         sData = self.getSettings()
 
         #   Get Main Settings
-        settingData = sData["settings"]
+        settingData = sData["globals"]
         self.max_thumbThreads = settingData["max_thumbThreads"]
         self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
         self.max_copyThreads = settingData["max_copyThreads"]
@@ -570,9 +552,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         presetData = sData["viewLutPresets"]
         self.configureViewLut(presetData)                 #   TODO - MOVE
 
-
         #   Get Tab (UI) Settings
         tabData = sData["tabSettings"]
+
         #   Media Player Enabled Checkbox
         playerEnabled = tabData["playerEnabled"]
         self.chb_enablePlayer.setChecked(playerEnabled)
@@ -581,9 +563,14 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         preferProxies = tabData["preferProxies"]
         self.chb_preferProxies.setChecked(preferProxies)
         self.togglePreferProxies(preferProxies)
-        #   Proxies Options
-        self.sourceFuncts.chb_copyProxy.setChecked(tabData["copyProxy"])
-        self.sourceFuncts.chb_generateProxy.setChecked(tabData["generateProxy"])
+
+        #   Options
+        self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
+        self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_Proxy"])
+        self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
+        self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
+        self.sourceFuncts.chb_copyProxy.setChecked(tabData["enable_copyProxy"])
+        self.sourceFuncts.chb_generateProxy.setChecked(tabData["enable_generateProxy"])
 
 
     @err_catcher(name=__name__)
@@ -595,42 +582,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             for pName in presets:
                 self.mediaPlayer.cb_viewLut.addItem(pName)
-
-        
-
-    @err_catcher(name=__name__)
-    def openConfigWindow(self):
-        #   Instantiate the Config Window
-        self.sourceConfig = SourceTab_Config(self, core=self.core, parent=self)
-        self.core.parentWindow(self.sourceConfig)
-
-        #    Launch and Capture the Save result
-        result = self.sourceConfig.exec_()
-
-        #   If Save, call the SaveSettings
-        if result == QDialog.Accepted:
-            cData = self.sourceConfig.cData
-            self.plugin.saveSettings(self, key="settings", data=cData)
-
-            self.loadSettings()
-
-        else:
-            return None
-
-
-    @err_catcher(name=__name__)
-    def configFileNaming(self):
-        self.core.popup("Configureing File Naming Not Yet Implemented")
-
-
-    @err_catcher(name=__name__)
-    def configProxy(self):
-        self.core.popup("Configureing Proxy Not Yet Implemented")
-
-
-    @err_catcher(name=__name__)
-    def configMetadata(self):
-        self.core.popup("Configureing Metadata Not Yet Implemented")
 
 
     #   Returns File Size Formatted String

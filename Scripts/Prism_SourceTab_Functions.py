@@ -34,6 +34,9 @@
 import os
 import sys
 import json
+import logging
+from functools import partial
+
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -45,9 +48,10 @@ pluginPath = os.path.dirname(os.path.dirname(__file__))                         
 sys.path.append(pluginPath)
 sys.path.append(os.path.join(pluginPath, "Libs"))
 
-SETTINGS_FILE = os.path.join(pluginPath, "settings.json")
 
 import SourceBrowser as SourceBrowser
+
+logger = logging.getLogger(__name__)
 
 
 class Prism_SourceTab_Functions(object):
@@ -56,12 +60,256 @@ class Prism_SourceTab_Functions(object):
         self.plugin = plugin
         self.sourceBrowser = None
 
+        # self.core.registerCallback("postInitialize", self.postInitialize, plugin=self, priority=40)   
+        # self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self, priority=40)   
+        # self.core.registerCallback("onProjectBrowserClose", self.saveSettings, plugin=self, priority=40)
+
+        #	Register callbacks
+        try:
+            callbacks = [
+                        # ("onProjectSettingsOpen", self.onProjectSettingsOpen),
+                        ("postInitialize", self.postInitialize),
+                        ("onProjectBrowserStartup", self.sourceBrowserStartup),
+                        ("onProjectBrowserClose", lambda *args, **kwargs: self.saveSettings(key="tabSettings")),
+
+                        ("projectSettings_loadUI", self.projectSettings_loadUI),
+                        ("preProjectSettingsLoad", self.preProjectSettingsLoad),
+                        ("preProjectSettingsSave", self.preProjectSettingsSave),
+                        ]
+
+            # Iterate through the list to register callbacks
+            for callback_name, method in callbacks:
+                self.core.registerCallback(callback_name, method, plugin=self.plugin)
+
+            logger.debug("Registered callbacks")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Registering callbacks failed:\n {e}")
+
 
     # if returns true, the plugin will be loaded by Prism
     @err_catcher(name=__name__)
     def isActive(self):
         return True
     
+
+
+
+    @err_catcher(name=__name__)
+    def projectSettings_loadUI(self, origin):
+        self.addUiToProjectSettings(origin)
+
+
+    @err_catcher(name=__name__)
+    def addUiToProjectSettings(self, projectSettings):
+        # Create the source tab widget
+        projectSettings.w_sourceTab = QWidget()
+        lo_sourceTab = QGridLayout()
+        projectSettings.w_sourceTab.setLayout(lo_sourceTab)
+
+        # Horizontal Layout for the configuration area (no splitter now)
+        projectSettings.horizontalLayout = QHBoxLayout()
+        projectSettings.horizontalLayout.setObjectName("horizontalLayout")
+
+        # Config widget that will contain the form
+        projectSettings.w_config = QWidget()
+        projectSettings.w_config.setObjectName("w_config")
+
+        # Size Policy and Layout Setup
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(8)
+        projectSettings.w_config.setSizePolicy(sizePolicy)
+        projectSettings.lo_sourceTabOptions = QVBoxLayout(projectSettings.w_config)
+        projectSettings.lo_sourceTabOptions.setObjectName("lo_sourceTabOptions")
+        projectSettings.lo_sourceTabOptions.setContentsMargins(0, 0, 0, 0)
+
+        # Maximum Thumbnail Threads
+        projectSettings.lo_thumbThreads = QHBoxLayout()
+        projectSettings.l_thumbThreads = QLabel("Maximum Thumbnail Threads", projectSettings.w_config)
+        projectSettings.sb_thumbThreads = QSpinBox(projectSettings.w_config)
+        projectSettings.sb_thumbThreads.setMinimum(1)
+        projectSettings.lo_thumbThreads.addWidget(projectSettings.l_thumbThreads)
+        projectSettings.lo_thumbThreads.addStretch()
+        projectSettings.lo_thumbThreads.addWidget(projectSettings.sb_thumbThreads)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_thumbThreads)
+
+        # Maximum Transfer Threads
+        projectSettings.lo_copyThreads = QHBoxLayout()
+        projectSettings.l_copyThreads = QLabel("Maximum Transfer Threads", projectSettings.w_config)
+        projectSettings.sb_copyThreads = QSpinBox(projectSettings.w_config)
+        projectSettings.sb_copyThreads.setMinimum(1)
+        projectSettings.lo_copyThreads.addWidget(projectSettings.l_copyThreads)
+        projectSettings.lo_copyThreads.addStretch()
+        projectSettings.lo_copyThreads.addWidget(projectSettings.sb_copyThreads)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_copyThreads)
+
+        # Transfer Chunk Size (megabytes)
+        projectSettings.lo_copyChunks = QHBoxLayout()
+        projectSettings.l_copyChunks = QLabel("Transfer Chunk Size (megabytes)", projectSettings.w_config)
+        projectSettings.sb_copyChunks = QSpinBox(projectSettings.w_config)
+        projectSettings.sb_copyChunks.setMinimum(1)
+        projectSettings.lo_copyChunks.addWidget(projectSettings.l_copyChunks)
+        projectSettings.lo_copyChunks.addStretch()
+        projectSettings.lo_copyChunks.addWidget(projectSettings.sb_copyChunks)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_copyChunks)
+
+        # Progress Bars Update Rate (seconds)
+        projectSettings.lo_progUpdateRate = QHBoxLayout()
+        projectSettings.l_progUpdateRate = QLabel("Progress Bars Update Rate (seconds)", projectSettings.w_config)
+        projectSettings.sp_progUpdateRate = QDoubleSpinBox(projectSettings.w_config)
+        projectSettings.sp_progUpdateRate.setDecimals(1)
+        projectSettings.sp_progUpdateRate.setMinimum(0.1)
+        projectSettings.sp_progUpdateRate.setSingleStep(0.1)
+        projectSettings.sp_progUpdateRate.setValue(0.5)
+        projectSettings.lo_progUpdateRate.addWidget(projectSettings.l_progUpdateRate)
+        projectSettings.lo_progUpdateRate.addStretch()
+        projectSettings.lo_progUpdateRate.addWidget(projectSettings.sp_progUpdateRate)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_progUpdateRate)
+
+        # Completion Popup options
+        projectSettings.lo_completePopup = QHBoxLayout()
+        projectSettings.chb_showPopup = QCheckBox("Show Completion Popup", projectSettings.w_config)
+        projectSettings.chb_playSound = QCheckBox("Play Completion Sound", projectSettings.w_config)
+        projectSettings.lo_completePopup.addWidget(projectSettings.chb_showPopup)
+        projectSettings.lo_completePopup.addWidget(projectSettings.chb_playSound)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_completePopup)
+
+        # Transfer Report Generation option
+        projectSettings.lo_transferReport = QHBoxLayout()
+        projectSettings.chb_useTransferReport = QCheckBox("Generate Transfer Report on Completion", projectSettings.w_config)
+        projectSettings.lo_transferReport.addWidget(projectSettings.chb_useTransferReport)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_transferReport)
+
+        # Custom Icon path option
+        projectSettings.lo_customIcon = QHBoxLayout()
+        projectSettings.chb_useCustomIcon = QCheckBox("Custom Icon", projectSettings.w_config)
+        projectSettings.le_customIconPath = QLineEdit(projectSettings.w_config)
+        projectSettings.lo_customIcon.addWidget(projectSettings.chb_useCustomIcon)
+        projectSettings.lo_customIcon.addWidget(projectSettings.le_customIconPath)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customIcon)
+
+        # View Lut option
+        projectSettings.lo_viewLut = QHBoxLayout()
+        projectSettings.chb_useViewLut = QCheckBox("Use View Lut Presets:", projectSettings.w_config)
+        projectSettings.b_configureOcioPreets = QPushButton("Configure OCIO Presets", projectSettings.w_config)
+        projectSettings.lo_viewLut.addWidget(projectSettings.chb_useViewLut)
+        projectSettings.lo_viewLut.addStretch()
+        projectSettings.lo_viewLut.addWidget(projectSettings.b_configureOcioPreets)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_viewLut)
+
+        # Custom Thumbnail Path option
+        projectSettings.lo_customThumbPath = QHBoxLayout()
+        projectSettings.chb_useCustomThumbPath = QCheckBox("Use Custom Thumbnail Path", projectSettings.w_config)
+        projectSettings.le_customThumbPath = QLineEdit(projectSettings.w_config)
+        projectSettings.lo_customThumbPath.addWidget(projectSettings.chb_useCustomThumbPath)
+        projectSettings.lo_customThumbPath.addWidget(projectSettings.le_customThumbPath)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customThumbPath)
+
+        projectSettings.lo_sourceTabOptions.addStretch()
+
+        # Finalize the layout (no splitter)
+        projectSettings.horizontalLayout.addWidget(projectSettings.w_config)
+
+        # Add the layout to the source tab
+        lo_sourceTab.addLayout(projectSettings.horizontalLayout, 0, 0)
+
+        # Add the tab to the projectSettings
+        projectSettings.addTab(projectSettings.w_sourceTab, "SourceTab")
+
+        # Connect slots for the UI components
+        QMetaObject.connectSlotsByName(projectSettings)
+
+        #   CONNECTIONS
+        projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
+
+
+    @err_catcher(name=__name__)
+    def preProjectSettingsLoad(self, origin, settings):
+        if not settings:
+            return
+        
+        if "sourceTab" in settings:
+            sData = settings["sourceTab"]["globals"]
+
+            if "max_thumbThreads" in sData:
+                origin.sb_thumbThreads.setValue(sData["max_thumbThreads"])
+
+            if "max_copyThreads" in sData:
+                origin.sb_copyThreads.setValue(sData["max_copyThreads"])
+
+            if "size_copyChunk" in sData:
+                origin.sb_copyChunks.setValue(sData["size_copyChunk"])						
+
+            if "updateInterval" in sData:
+                origin.sp_progUpdateRate.setValue(sData["updateInterval"])
+
+            if "useCompletePopup" in sData:
+                origin.chb_showPopup.setChecked(sData["useCompletePopup"])
+
+            if "useCompleteSound" in sData:
+                origin.chb_playSound.setChecked(sData["useCompleteSound"])
+
+            if "useTransferReport" in sData:
+                origin.chb_useTransferReport.setChecked(sData["useTransferReport"])	
+
+            if "useCustomIcon" in sData:
+                origin.chb_useCustomIcon.setChecked(sData["useCustomIcon"])
+
+            if "customIconPath" in sData:
+                origin.le_customIconPath.setText(sData["customIconPath"])
+
+            if "useViewLut" in sData:
+                origin.chb_useViewLut.setChecked(sData["useViewLut"])						
+
+            if "useCustomThumbPath" in sData:
+                origin.chb_useCustomThumbPath.setChecked(sData["useCustomThumbPath"])
+
+            if "customThumbPath" in sData:
+                origin.le_customThumbPath.setText(sData["customThumbPath"])
+
+
+    @err_catcher(name=__name__)
+    def preProjectSettingsSave(self, origin, settings):
+        if "sourceTab" not in settings:
+            settings["sourceTab"] = {}
+
+        sData = {
+            "max_thumbThreads": origin.sb_thumbThreads.value(),
+            "max_copyThreads": origin.sb_copyThreads.value(),
+            "size_copyChunk": origin.sb_copyChunks.value(),
+            "updateInterval": origin.sp_progUpdateRate.value(),
+            "useCompletePopup": origin.chb_showPopup.isChecked(),
+            "useCompleteSound": origin.chb_playSound.isChecked(),
+            "useTransferReport": origin.chb_useTransferReport.isChecked(),
+            "useCustomIcon": origin.chb_useCustomIcon.isChecked(),
+            "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
+            "useViewLut": origin.chb_useViewLut.isChecked(),
+            "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
+            "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
+            }
+
+
+        settings["sourceTab"]["globals"] = sData
+
+
+    @err_catcher(name=__name__)
+    def saveSettings(self, key=None, data=None, *args, **kwargs):                       #   TODO - ALSO SAVE TO MAIN PRISM SETTINGS.JSON
+        if key == "tabSettings":
+            tData = {}
+
+            tData["playerEnabled"] = self.sourceBrowser.chb_enablePlayer.isChecked()
+            tData["preferProxies"] = self.sourceBrowser.chb_preferProxies.isChecked()
+
+            functs = self.sourceBrowser.sourceFuncts
+            tData["enable_fileNaming"] = functs.chb_ovr_fileNaming.isChecked()
+            tData["enable_Proxy"] = functs.chb_ovr_proxy.isChecked()
+            tData["enable_metadata"] = functs.chb_ovr_metadata.isChecked()
+            tData["enable_overwrite"] = functs.chb_overwrite.isChecked()
+            tData["enable_copyProxy"] = functs.chb_copyProxy.isChecked()
+            tData["enable_generateProxy"] = functs.chb_generateProxy.isChecked()
+
+            self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
+
 
     @err_catcher(name=__name__)
     def sourceBrowserStartup(self, origin):
@@ -80,27 +328,16 @@ class Prism_SourceTab_Functions(object):
     #   Loads Saved SourceTab Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
-        if not os.path.exists(SETTINGS_FILE):
-            self.createSettings()
 
-        with open(SETTINGS_FILE, 'r') as file:
-            sData = json.load(file)
+        sData = self.core.getConfig("sourceTab", config="project") 
 
-            if sData:
-                return sData
+        if not sData:
+            sData = {}
+            sData["sourceTab"] = self.getDefaultSettings()
+            self.core.setConfig("sourceTab", data=sData, config="project")
 
-
-    #   Creates the Settings File
-    @err_catcher(name=__name__)
-    def createSettings(self):
-        default_data = self.getDefaultSettings()
-        try:
-            with open(SETTINGS_FILE, "w") as f:
-                json.dump(default_data, f, indent=4)
-
-        except Exception as e:
-            print(f"Failed to write settings file: {e}")
-
+        return sData
+    
 
     #   Default Settings File Data
     @err_catcher(name=__name__)
@@ -124,10 +361,14 @@ class Prism_SourceTab_Functions(object):
                 "tabSettings": {
                     "playerEnabled": True,
                     "preferProxies": True,
-                    "copyProxy": False,
-                    "generateProxy": False
+                    "enable_fileNaming": False,
+                    "enable_Proxy": False,
+                    "enable_metadata": False,
+                    "enable_overwrite": False,
+                    "enable_copyProxy": False,
+                    "enable_generateProxy": False
                 },
-                "settings": {
+                "globals": {
                     "max_thumbThreads": 12,
                     "max_copyThreads": 6,
                     "size_copyChunk": 1,
@@ -158,20 +399,34 @@ class Prism_SourceTab_Functions(object):
         return sData
 
 
-    #   Called from PB Close Callback
+
+    #   Default Settings File Data
     @err_catcher(name=__name__)
-    def saveSettings(self, origin, key=None, data=None):
-        #   Gets Current Settings
-        sData = self.loadSettings()
+    def openOcioPresets(self, entity=None):
 
-        #   If the SourceBrowser has been Loaded
-        if self.sourceBrowser:
-            #   Gets and Updates SourceBrowser UI Settings
-            tabSettings = self.sourceBrowser.getTabSettings()
-            sData["tabSettings"] = tabSettings
+        self.core.popup("NOT YET IMPLEMENTED")                      #   TODO
 
-        if key:
-            sData[key] = data
 
-        with open(SETTINGS_FILE, "w") as file:
-            json.dump(sData, file, indent=4)
+        # mediaEx = self.core.getPlugin("MediaExtension")
+        # entity = mediaEx
+
+        # import inspect
+        # print("########################")
+        # print(f"{entity} > Type: {str(type(entity))}")
+        # print("----")
+        # methods = [func for func in dir(entity) if callable(getattr(entity, func)) and not func.startswith("__")]
+        # for method in methods:
+        #     func = getattr(entity, method)
+        #     try:
+        #         sig = inspect.signature(func)
+        #         print(f"Method: {method}, Arguments: {sig}")
+        #     except:
+        #         print(f"Method: {method}")
+        # for attribute_name, attribute in entity.__dict__.items():
+        #     print(f"Attribute: {attribute_name} | {str(type(attribute))}")
+        # print("########################")
+
+
+        # ocio = mediaEx.browseOcioConfig(self)
+
+        # self.core.popup(ocio)

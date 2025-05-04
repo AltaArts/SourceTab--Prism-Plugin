@@ -49,11 +49,6 @@ class Ui_w_sourceFunctions(object):
         self.gb_functions.setEnabled(True)
         self.gb_lo_functions = QVBoxLayout(self.gb_functions)
         self.gb_lo_functions.setObjectName(u"gb_lo_functions")
-        self.b_globalSettings = QPushButton(self.gb_functions)
-        self.b_globalSettings.setObjectName(u"b_globalSettings")
-
-        self.gb_lo_functions.addWidget(self.b_globalSettings)
-
         self.b_openDestDir = QPushButton(self.gb_functions)
         self.b_openDestDir.setObjectName(u"b_openDestDir")
 
@@ -234,7 +229,6 @@ class Ui_w_sourceFunctions(object):
     def retranslateUi(self, w_sourceFunctions):
         w_sourceFunctions.setWindowTitle(QCoreApplication.translate("w_sourceFunctions", u"Media Browser", None))
         self.gb_functions.setTitle("")
-        self.b_globalSettings.setText(QCoreApplication.translate("w_sourceFunctions", u"Global Tab Settings", None))
         self.b_openDestDir.setText(QCoreApplication.translate("w_sourceFunctions", u"Open Destination Directory", None))
         self.chb_ovr_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"File Naming", None))
         self.b_ovr_config_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))

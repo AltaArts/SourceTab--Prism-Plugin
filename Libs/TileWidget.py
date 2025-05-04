@@ -92,7 +92,7 @@ sys.path.append(uiPath)
 EXIF_DIR = os.path.join(pyLibsPath, "ExifTool")
 import exiftool
 
-from DisplayPopup import DisplayPopup
+from PopupWindows import DisplayPopup
 
 
 # from PrismUtils import PrismWidgets
