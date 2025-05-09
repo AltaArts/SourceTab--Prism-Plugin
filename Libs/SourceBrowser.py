@@ -135,16 +135,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff", ".flac", ".alac", ".ogg", ".wma"]
 
-        self.selectedTiles = set()             # A set of selected FileTile instances
-        self.lastClickedTile = None            # For shift selection
-
-
-
+        #   Initialize Variables
+        self.selectedTiles = set()
+        self.lastClickedTile = None
+        self.nameMods = []
         self.transferList = []
         self.total_transferSize = 0.0
 
         self.initialized = False
         self.closeParm = "closeafterload"
+
         self.loadLayout()
         self.reset_ProgBar()
         self.connectEvents()
@@ -493,16 +493,18 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def serializeData(self):
-        return self.path  # Or json.dumps(dict) if more complex info
+        return self.path
 
 
     @err_catcher(name=__name__)
     def getAllFileTiles(self):
         tiles = []
+        
         for row in range(self.tw_source.rowCount()):
-            itemWidget = self.tw_source.cellWidget(row, 0)  # or appropriate column
+            itemWidget = self.tw_source.cellWidget(row, 0)
             if isinstance(itemWidget, TileWidget.SourceFileItem):
                 tiles.append(itemWidget)
+
         return tiles
 
 
@@ -580,8 +582,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         if presets:
             self.mediaPlayer.cb_viewLut.clear()
 
-            for pName in presets:
-                self.mediaPlayer.cb_viewLut.addItem(pName)
+            for preset in presets:
+                self.mediaPlayer.cb_viewLut.addItem(preset["name"])
 
 
     #   Returns File Size Formatted String

@@ -61,6 +61,14 @@ iconDir = os.path.join(uiPath, "Icons")
 def getModifiers():
     return Mods_BaseFilename.__subclasses__()
 
+
+#   Returns Matching Modifier from Name
+def getModClassByName(name):
+    for mod in getModifiers():
+        if mod.mod_name == name:
+            return mod
+        
+
 #   Adds the Specified Modifier
 def createModifier(mod_class):
     return mod_class()
@@ -75,7 +83,8 @@ class Mods_BaseFilename(QObject):
     def __init__(self):
         super().__init__()
 
-        self.enabled = True
+        #   Enabled State
+        self.isEnabled = True
 
         #   Enabled Checkbox
         self.chb_enableCheckbox = QCheckBox()
@@ -89,25 +98,26 @@ class Mods_BaseFilename(QObject):
         self.baseConnections()
 
 
+    #   Connect Checkbox to Enabled Method
     def baseConnections(self):
         self.chb_enableCheckbox.stateChanged.connect(self.onEnableChanged)
-        self.b_remove.clicked.connect(self.onRemoveModClicked)
 
 
+    #   Toggles Enabled State
     def onEnableChanged(self, state):
-        self.enabled = bool(state)
+        self.isEnabled = bool(state)
         self.onWidgetChanged()
 
 
+    #   Toggles Checkbox
+    def setCheckbox(self, state):
+        self.chb_enableCheckbox.setChecked(state)
+        self.onEnableChanged(state)
+
+
+    #   Signals for UI Refresh
     def onWidgetChanged(self, *args):
         self.modChanged.emit()
-
-
-    def onRemoveModClicked(self):
-        # Function to remove this mod from the active list
-        print(f"Removing modifier: {self.mod_name}")
-        # You should implement logic here to remove the mod from your active mods list
-        # For example, the mod could store a reference to the parent or have a callback to remove itself.
 
 
     #   Returns Base UI Items
@@ -127,49 +137,57 @@ class Mods_BaseFilename(QObject):
 
     #   Returns Un-Altered Name
     def applyMod(self, base_name):
-        if not self.enabled:
+        if not self.isEnabled:
             return base_name
         return base_name
 
 
 
-##   Suffix Modifier    ##
+##   Suffix Modifier    ##                  (each Modifier should use this as a Template)
 class Mods_AddSuffix(Mods_BaseFilename):
     mod_name = "Add Suffix"
 
     def __init__(self):
         super().__init__()
 
+        ##  UI Elements Definied Here   ##
+        ## vvvvvvvvvvvvvvvvvvvvvvvvvv   ##
+
         #   Suffix Text Box
         self.le_suffix_input = QLineEdit()
         self.le_suffix_input.setPlaceholderText("Enter suffix")
+        #   Use Extension Checkbox
         self.l_effectExt = QLabel("Extension")
         self.cb_effectExt = QCheckBox()
+
+        ##  ^^^^^^^^^^^^^^^^^^^^^^^^^   ##
 
         self.connections()
 
 
+    ##   Connect UI Elements to Refresh UI  ##
     def connections(self):
         self.le_suffix_input.textChanged.connect(self.onWidgetChanged)
         self.cb_effectExt.toggled.connect(self.onWidgetChanged)
 
 
-    #   Returns Modifier Widgets
+    ##  Creates Mod UI Layout and Returns the Layout    ##
     def getModUI(self):
         #   Get Base UI Elements
         base_widgets = super().getModUI()
 
-        layout = QHBoxLayout()
+        lo_mod = QHBoxLayout()
+
         #   Add Suffix Textbox
-        layout.addWidget(self.le_suffix_input)
-        layout.addWidget(self.l_effectExt)
-        layout.addWidget(self.cb_effectExt)
+        lo_mod.addWidget(self.le_suffix_input)
+        lo_mod.addWidget(self.l_effectExt)
+        lo_mod.addWidget(self.cb_effectExt)
 
         #   Add Remove Button
-        layout.addWidget(self.b_remove)
+        lo_mod.addWidget(self.b_remove)
 
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(lo_mod)
         
         #   Add Mod Widgets to Base Widgets
         base_widgets.append(container)
@@ -177,7 +195,22 @@ class Mods_AddSuffix(Mods_BaseFilename):
         return base_widgets
 
 
-    #   Alters Name
+    ##  Returns the Current Settings    ##
+    def getSettings(self):
+        return {
+            "suffix": self.le_suffix_input.text(),
+            "useExt": self.cb_effectExt.isChecked()
+        }
+    
+
+    ##  Sets Modifier Settings from Passed Data ##
+    def setSettings(self, data):
+        self.setCheckbox(data.get("enabled", False))
+        self.le_suffix_input.setText(data.get("suffix", ""))
+        self.cb_effectExt.setChecked(data.get("useExt", False))
+
+
+    ##  Modifier Logic to Edit the Name ##
     def applyMod(self, base_name):
         suffix = self.le_suffix_input.text()
 
@@ -207,17 +240,28 @@ class Mods_AddPrefix(Mods_BaseFilename):
     def getModUI(self):
         base_widgets = super().getModUI()
 
-        layout = QHBoxLayout()
+        lo_mod = QHBoxLayout()
 
-        layout.addWidget(self.le_prefix_input)
-        layout.addWidget(self.b_remove)
+        lo_mod.addWidget(self.le_prefix_input)
+        lo_mod.addWidget(self.b_remove)
 
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(lo_mod)
     
         base_widgets.append(container)
 
         return base_widgets
+
+
+    def getSettings(self):
+        return {
+            "prefix": self.le_prefix_input.text(),
+            }
+    
+
+    def setSettings(self, data):
+        self.setCheckbox(data.get("enabled", False))
+        self.le_prefix_input.setText(data.get("prefix", ""))
 
 
     def applyMod(self, base_name):
@@ -248,21 +292,40 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
     def getModUI(self):
         base_widgets = super().getModUI()
 
-        layout = QHBoxLayout()
+        lo_mod = QHBoxLayout()
         
-        layout.addWidget(self.cb_orientation)
-        layout.addWidget(self.sb_numCharactors)
-        layout.addStretch()
-        layout.addWidget(self.l_effectExt)
-        layout.addWidget(self.cb_effectExt)
-        layout.addWidget(self.b_remove)
+        lo_mod.addWidget(self.cb_orientation)
+        lo_mod.addWidget(self.sb_numCharactors)
+        lo_mod.addStretch()
+        lo_mod.addWidget(self.l_effectExt)
+        lo_mod.addWidget(self.cb_effectExt)
+        lo_mod.addWidget(self.b_remove)
 
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(lo_mod)
     
         base_widgets.append(container)
 
         return base_widgets
+
+
+    def getSettings(self):
+        return {
+            "orientation": self.cb_orientation.currentText(),
+            "numChar": self.sb_numCharactors.value(),
+            "useExt": self.cb_effectExt.isChecked()
+            }
+    
+
+    def setSettings(self, data):
+        self.setCheckbox(data.get("enabled", False))
+
+        idx = self.cb_orientation.findText(data.get("orientation", ""))
+        if idx != -1:
+            self.cb_orientation.setCurrentIndex(idx)
+        
+        self.sb_numCharactors.setValue(data.get("numChar", 0))
+        self.cb_effectExt.setChecked(data.get("useExt", False))
 
 
     def applyMod(self, base_name):
@@ -316,19 +379,32 @@ class Mods_InsertCharactors(Mods_BaseFilename):
     def getModUI(self):
         base_widgets = super().getModUI()
 
-        layout = QHBoxLayout()
+        lo_mod = QHBoxLayout()
         
-        layout.addWidget(self.sp_position)
-        layout.addWidget(self.le_insertText)
+        lo_mod.addWidget(self.sp_position)
+        lo_mod.addWidget(self.le_insertText)
 
-        layout.addWidget(self.b_remove)
+        lo_mod.addWidget(self.b_remove)
 
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(lo_mod)
     
         base_widgets.append(container)
 
         return base_widgets
+
+
+    def getSettings(self):
+        return {
+            "sp_position": self.sp_position.value(),
+            "insertText": self.le_insertText.text()
+            }
+    
+
+    def setSettings(self, data):
+        self.setCheckbox(data.get("enabled", False))
+        self.sp_position.setValue(data.get("sp_position", 0))
+        self.le_insertText.setText(data.get("insertText", ""))
 
 
     def applyMod(self, base_name):

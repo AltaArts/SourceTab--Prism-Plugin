@@ -50,6 +50,8 @@ sys.path.append(os.path.join(pluginPath, "Libs"))
 
 
 import SourceBrowser as SourceBrowser
+from PopupWindows import OcioConfigPopup
+
 
 logger = logging.getLogger(__name__)
 
@@ -60,26 +62,20 @@ class Prism_SourceTab_Functions(object):
         self.plugin = plugin
         self.sourceBrowser = None
 
-        # self.core.registerCallback("postInitialize", self.postInitialize, plugin=self, priority=40)   
-        # self.core.registerCallback("onProjectBrowserStartup", self.sourceBrowserStartup, plugin=self, priority=40)   
-        # self.core.registerCallback("onProjectBrowserClose", self.saveSettings, plugin=self, priority=40)
-
         #	Register callbacks
         try:
             callbacks = [
-                        # ("onProjectSettingsOpen", self.onProjectSettingsOpen),
-                        ("postInitialize", self.postInitialize),
-                        ("onProjectBrowserStartup", self.sourceBrowserStartup),
-                        ("onProjectBrowserClose", lambda *args, **kwargs: self.saveSettings(key="tabSettings")),
-
-                        ("projectSettings_loadUI", self.projectSettings_loadUI),
-                        ("preProjectSettingsLoad", self.preProjectSettingsLoad),
-                        ("preProjectSettingsSave", self.preProjectSettingsSave),
+                        ("onProjectBrowserStartup", self.onProjectBrowserStartup, 40),
+                        ("onProjectBrowserShow", self.onProjectBrowserShow, 20),
+                        ("onProjectBrowserClose", lambda *args, **kwargs: self.saveSettings(key="tabSettings"), 40),
+                        ("projectSettings_loadUI", self.projectSettings_loadUI, 40),
+                        ("preProjectSettingsLoad", self.preProjectSettingsLoad, 40),
+                        ("preProjectSettingsSave", self.preProjectSettingsSave, 40),
                         ]
 
             # Iterate through the list to register callbacks
-            for callback_name, method in callbacks:
-                self.core.registerCallback(callback_name, method, plugin=self.plugin)
+            for callback_name, method, priority in callbacks:
+                self.core.registerCallback(callback_name, method, plugin=self.plugin, priority=priority)
 
             logger.debug("Registered callbacks")
 
@@ -91,15 +87,15 @@ class Prism_SourceTab_Functions(object):
     @err_catcher(name=__name__)
     def isActive(self):
         return True
-    
 
 
-
+    #   From Callback to Load Settings UI
     @err_catcher(name=__name__)
     def projectSettings_loadUI(self, origin):
         self.addUiToProjectSettings(origin)
 
 
+    #   Creates Project Settings Tab UI
     @err_catcher(name=__name__)
     def addUiToProjectSettings(self, projectSettings):
         # Create the source tab widget
@@ -223,6 +219,7 @@ class Prism_SourceTab_Functions(object):
         projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
 
 
+    #   Gets SourceTab Settings when Prism Project Settings Loads
     @err_catcher(name=__name__)
     def preProjectSettingsLoad(self, origin, settings):
         if not settings:
@@ -268,6 +265,7 @@ class Prism_SourceTab_Functions(object):
                 origin.le_customThumbPath.setText(sData["customThumbPath"])
 
 
+    #   Saves SourceTab Settings when Prism Project Settings Saves
     @err_catcher(name=__name__)
     def preProjectSettingsSave(self, origin, settings):
         if "sourceTab" not in settings:
@@ -311,32 +309,22 @@ class Prism_SourceTab_Functions(object):
             self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
 
 
-    @err_catcher(name=__name__)
-    def sourceBrowserStartup(self, origin):
-        self.pbMenu = origin
-
-
-    @err_catcher(name=__name__)
-    def postInitialize(self):
-        self.pb = self.core.pb
-
-        #   Creates Source Browser
-        self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=self.pb, refresh=False)
-        self.pbMenu.addTab("Source", self.sourceBrowser, position=0)
-
-
     #   Loads Saved SourceTab Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
 
         sData = self.core.getConfig("sourceTab", config="project") 
 
-        if not sData:
-            sData = {}
-            sData["sourceTab"] = self.getDefaultSettings()
-            self.core.setConfig("sourceTab", data=sData, config="project")
+        if sData and "globals" in sData:
+            return sData
 
-        return sData
+        else:
+            sData = {}
+            defaultData = self.getDefaultSettings()
+            sData["sourceTab"] = defaultData
+            self.core.setConfig("sourceTab", data=sData, config="project")
+            return defaultData
+
     
 
     #   Default Settings File Data
@@ -382,29 +370,48 @@ class Prism_SourceTab_Functions(object):
                     "useCustomThumbPath": False,
                     "customThumbPath": ""
                 },
-                "viewLutPresets": {
-                    "Linear to Rec70924": {
-                        "transform_input": "Rec709Linear",
-                        "transform_output": "Rec70924",
-                        "look": "None"
-                        },
-                    "ACEScg to Rec70924": {
-                        "transform_input": "ACEScg",
-                        "transform_output": "Rec70924",
-                        "look": "None"
-                        },
-                    }
+                "viewLutPresets": [
+                    {
+                    "name": "Linear to Rec70924",
+                    "transform_input": "Rec709Linear",
+                    "transform_output": "Rec70924",
+                    "look": "None"
+                    },
+                    {
+                    "name": "ACEScg to Rec70924",
+                    "transform_input": "ACEScg",
+                    "transform_output": "Rec70924",
+                    "look": "None"
+                    },
+                ]
             }
 
         return sData
 
 
+    #   Executes When Project Browser is Initialized
+    @err_catcher(name=__name__)
+    def onProjectBrowserStartup(self, pb):
+        #   Creates Source Browser
+        self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=pb, refresh=False)
+
+
+    #   Executes When Project Browser is Displayed
+    @err_catcher(name=__name__)
+    def onProjectBrowserShow(self, pb):
+        #   Adds Source Tab to Project Browser
+        pb.addTab("Source", self.sourceBrowser, position=0)
+
 
     #   Default Settings File Data
     @err_catcher(name=__name__)
-    def openOcioPresets(self, entity=None):
+    def openOcioPresets(self):
+        sData = self.loadSettings()
+        oData = sData["viewLutPresets"]
 
-        self.core.popup("NOT YET IMPLEMENTED")                      #   TODO
+        OcioConfigPopup.display(self.core, oData)
+
+
 
 
         # mediaEx = self.core.getPlugin("MediaExtension")

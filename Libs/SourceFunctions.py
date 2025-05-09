@@ -78,7 +78,10 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         self.core = core
         self.sourceBrowser = origin
 
-        self.setupUi(self)  # This comes from Ui_w_sourceFunctions
+        #   Setup UI from Ui_w_sourceFunctions
+        self.setupUi(self)
+
+        self.configureUI()
         self.connections()
 
 
@@ -92,27 +95,49 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
 
     @err_catcher(name=__name__)
+    def configureUI(self):
+        self.b_ovr_config_fileNaming.setEnabled(self.chb_ovr_fileNaming.isChecked())
+        self.b_ovr_config_proxy.setEnabled(self.chb_ovr_proxy.isChecked())
+        self.b_ovr_config_metadata.setEnabled(self.chb_ovr_metadata.isChecked())
+        
+
+    @err_catcher(name=__name__)
     def openInExplorer(self, path):
         self.sourceBrowser.openInExplorer(os.path.normpath(path))
 
 
+    #   Opens File Naming Window to Configure
     @err_catcher(name=__name__)
     def configFileNaming(self):
-
         destList = self.sourceBrowser.tw_destination
         row_count = destList.rowCount()
 
+        #   If there is only the Blank Entry Use EXAMPLE
         if row_count < 2:
             fileName = "EXAMPLE"
         
+        #   Get the First File's Basename
         else:
             fileItem = self.sourceBrowser.tw_destination.cellWidget(0, 0)
             filePath = fileItem.getSource_mainfilePath()
             fileName = os.path.basename(filePath)
 
-        NamingPopup.display(fileName)
+        #   Call Popup and pass Basename and Existing Modifiers
+        namePopup = NamingPopup(self.core, fileName, mods=self.sourceBrowser.nameMods)
+        namePopup.exec_()
 
-
+        #   If User Clicked Apply
+        if namePopup.result == "Apply":
+            #   Clear Mods List
+            self.sourceBrowser.nameMods = []
+            #   Populate Mod List with Mods from Popup
+            for mod_instance, _ in namePopup.active_mods:
+                mod_data = {
+                    "mod_type": mod_instance.mod_name,
+                    "enabled": mod_instance.isEnabled,
+                    "settings": mod_instance.getSettings()
+                }
+                self.sourceBrowser.nameMods.append(mod_data)
 
 
     @err_catcher(name=__name__)
