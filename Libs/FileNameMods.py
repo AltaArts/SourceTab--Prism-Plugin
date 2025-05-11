@@ -211,10 +211,18 @@ class Mods_AddSuffix(Mods_BaseFilename):
 
 
     ##  Modifier Logic to Edit the Name ##
-    def applyMod(self, base_name):
-        suffix = self.le_suffix_input.text()
+    def applyMod(self, base_name, settings=None):
+        #   If Passed Settings
+        if settings:
+            suffix = settings["suffix"]
+            effectExt = settings["useExt"]
+        #   Else Use UI Input
+        else:
+            suffix = self.le_suffix_input.text()
+            effectExt = self.cb_effectExt.isChecked()
 
-        if self.cb_effectExt.isChecked():
+        #   Execute Modification
+        if effectExt:
             return f"{base_name}{suffix}"
         else:
             name, ext = os.path.splitext(base_name)
@@ -264,8 +272,13 @@ class Mods_AddPrefix(Mods_BaseFilename):
         self.le_prefix_input.setText(data.get("prefix", ""))
 
 
-    def applyMod(self, base_name):
-        return f"{self.le_prefix_input.text()}{base_name}"
+    def applyMod(self, base_name, settings=None):
+        if settings:
+            prefix = settings["prefix"]
+        else:
+            prefix = self.le_prefix_input.text()
+
+        return f"{prefix}{base_name}"
     
 
 
@@ -328,14 +341,19 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
         self.cb_effectExt.setChecked(data.get("useExt", False))
 
 
-    def applyMod(self, base_name):
-        num_chars = self.sb_numCharactors.value()
+    def applyMod(self, base_name, settings=None):
+        if settings:
+            num_chars = settings["numChar"]
+            orientation = settings["orientation"]
+            affect_ext = settings["useExt"]
+        
+        else:
+            num_chars = self.sb_numCharactors.value()
+            orientation = self.cb_orientation.currentText()
+            affect_ext = self.cb_effectExt.isChecked()
 
         if num_chars < 1:
             return base_name
-        
-        orientation = self.cb_orientation.currentText()
-        affect_ext = self.cb_effectExt.isChecked()
 
         # Separate extension if not affecting it
         if not affect_ext:
@@ -407,9 +425,14 @@ class Mods_InsertCharactors(Mods_BaseFilename):
         self.le_insertText.setText(data.get("insertText", ""))
 
 
-    def applyMod(self, base_name):
-        insert_text = self.le_insertText.text()
-        insert_pos = self.sp_position.value()
+    def applyMod(self, base_name, settings=None):
+        if settings:
+            insert_text = settings["insertText"]
+            insert_pos = settings["sp_position"]
+
+        else:
+            insert_text = self.le_insertText.text()
+            insert_pos = self.sp_position.value()
 
         name, ext = os.path.splitext(base_name)
 

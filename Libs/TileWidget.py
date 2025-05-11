@@ -1151,7 +1151,6 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def refreshUi(self):
-
         source_MainFilePath = self.getSource_mainfilePath()
         source_MainFileName = self.getBasename(source_MainFilePath)
 
@@ -1181,7 +1180,25 @@ class DestFileItem(BaseTileItem):
         self.setIcon(self.data["icon"])
 
         self.refreshPreview()
-    
+
+
+    #   Sets the FileName based on Name Modifiers
+    @err_catcher(name=__name__)
+    def nameOverride(self, override):
+        source_MainFilePath = self.getSource_mainfilePath()
+        source_MainFileName = self.getBasename(source_MainFilePath)
+
+        if override:
+            modName = self.getModifiedName(source_MainFileName)
+            self.l_fileName.setText(modName)
+        else:
+            self.l_fileName.setText(source_MainFileName)
+
+        
+    @err_catcher(name=__name__)
+    def getModifiedName(self, orig_name):
+        return self.browser.applyMods(orig_name)
+
 
     #   Returns File Size (can be slower)
     @err_catcher(name=__name__)
@@ -1196,13 +1213,13 @@ class DestFileItem(BaseTileItem):
             return f"{size_bytes / 1024 ** 3:.2f} GB"
         
 
-    #   Sets Proxy Icon and FilePath if Proxy Exists
+    #   Returns Proxy Source Path
     @err_catcher(name=__name__)
     def getProxy(self):
         return self.data.get("source_proxyFile_path", None)
 
 
-    #   Sets Proxy Icon and FilePath if Proxy Exists
+    #   Sets Destination Proxy Filepath and Icon
     @err_catcher(name=__name__)
     def setProxyFile(self):
         proxy = self.getProxy()
@@ -1222,17 +1239,21 @@ class DestFileItem(BaseTileItem):
 
 
 
-    #   Sets Proxy Icon and FilePath if Proxy Exists
+    #   Returns Destination Directory
     @err_catcher(name=__name__)
     def getDestPath(self):
         return os.path.normpath(self.browser.le_destPath.text())
 
 
-    #   Sets Proxy Icon and FilePath if Proxy Exists
+    #   Returns the Destination Mainfile Path
     @err_catcher(name=__name__)
     def getDestMainPath(self):
         sourceMainPath = self.getSource_mainfilePath()
         baseName = self.getBasename(sourceMainPath)
+
+        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+            baseName = self.getModifiedName(baseName)
+
         destPath = self.getDestPath()
 
         return os.path.join(destPath, baseName)
@@ -1367,12 +1388,17 @@ class DestFileItem(BaseTileItem):
         delAct.triggered.connect(self.removeFromDestList)
         rcmenu.addAction(delAct)
 
+
         showDataAct = QAction("Show Data", self.browser)                         #   TESTING
         showDataAct.triggered.connect(self.TEST_SHOW_DATA)
         rcmenu.addAction(showDataAct)
 
 
         if os.path.exists(self.getDestMainPath()):
+            mDataAct = QAction("Show All MetaData", self.browser)
+            mDataAct.triggered.connect(lambda: self.displayMetadata(self.getDestMainPath()))
+            rcmenu.addAction(mDataAct)
+
             expAct = QAction("Open Transferred File in Explorer", self)
             expAct.triggered.connect(lambda: self.openInExplorer(self.getDestMainPath()))
             rcmenu.addAction(expAct)

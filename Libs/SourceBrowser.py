@@ -395,6 +395,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.chb_preferProxies.toggled.connect(self.togglePreferProxies)
 
         #   Functions Panel
+        self.sourceFuncts.chb_ovr_fileNaming.toggled.connect(lambda: self.modifyFileNames())
         self.sourceFuncts.b_transfer_start.clicked.connect(self.startTransfer)
         self.sourceFuncts.b_transfer_pause.clicked.connect(self.pauseTransfer)
         self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
@@ -499,7 +500,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def getAllFileTiles(self):
         tiles = []
-        
+
         for row in range(self.tw_source.rowCount()):
             itemWidget = self.tw_source.cellWidget(row, 0)
             if isinstance(itemWidget, TileWidget.SourceFileItem):
@@ -1361,7 +1362,43 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         #   Add extra empty row to bottom
         self.tw_destination.insertRow(row)
 
+        #   Modify File Names if Applicable
+        self.modifyFileNames()
+
         self.refreshTotalTransSize()
+
+
+    #   Calls Each Tile Widget to Modify Name if Enabled
+    @err_catcher(name=__name__)
+    def modifyFileNames(self):
+        #   Get Override Checked
+        nameOverride = self.sourceFuncts.chb_ovr_fileNaming.isChecked()
+
+        #   Iterate Through all Items and Call Name Override Method in Widget
+        rows = self.tw_destination.rowCount()
+        for row in range(rows):
+            widget = self.tw_destination.cellWidget(row, 0)
+            if widget and hasattr(widget, "nameOverride"):
+                widget.nameOverride(nameOverride)
+
+
+    #   Called from Tile Widget to Modify Original Name based on Active Mods
+    @err_catcher(name=__name__)
+    def applyMods(self, origName):
+        #   Start with Orig Name
+        newName = origName
+
+        from FileNameMods import getModClassByName as GetModClass
+        from FileNameMods import createModifier as CreateMod
+
+        #    Loop Through All Modifiers
+        for mod in self.nameMods:
+            modClass = GetModClass(mod["mod_type"])
+            modifier = CreateMod(modClass)
+            newName = modifier.applyMod(newName, mod["settings"])
+
+        return newName
+
 
 
     @err_catcher(name=__name__)

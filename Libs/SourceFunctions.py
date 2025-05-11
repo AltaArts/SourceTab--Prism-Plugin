@@ -85,7 +85,6 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         self.connections()
 
 
-
     @err_catcher(name=__name__)
     def connections(self):
         self.b_openDestDir.clicked.connect(lambda: self.openInExplorer(self.sourceBrowser.le_destPath.text()))
@@ -131,7 +130,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             #   Clear Mods List
             self.sourceBrowser.nameMods = []
             #   Populate Mod List with Mods from Popup
-            for mod_instance, _ in namePopup.active_mods:
+            for mod_instance, _ in namePopup.activeMods:
                 mod_data = {
                     "mod_type": mod_instance.mod_name,
                     "enabled": mod_instance.isEnabled,

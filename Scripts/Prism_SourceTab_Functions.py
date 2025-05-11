@@ -65,8 +65,7 @@ class Prism_SourceTab_Functions(object):
         #	Register callbacks
         try:
             callbacks = [
-                        ("onProjectBrowserStartup", self.onProjectBrowserStartup, 40),
-                        ("onProjectBrowserShow", self.onProjectBrowserShow, 20),
+                        ("projectBrowser_loadUI", self.projectBrowser_loadUI, 20),
                         ("onProjectBrowserClose", lambda *args, **kwargs: self.saveSettings(key="tabSettings"), 40),
                         ("projectSettings_loadUI", self.projectSettings_loadUI, 40),
                         ("preProjectSettingsLoad", self.preProjectSettingsLoad, 40),
@@ -87,6 +86,16 @@ class Prism_SourceTab_Functions(object):
     @err_catcher(name=__name__)
     def isActive(self):
         return True
+
+
+    #   Called from Callback when ProjectBrowser is Created
+    @err_catcher(name=__name__)
+    def projectBrowser_loadUI(self, pb):
+        #   Creates Source Browser
+        self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=pb, refresh=False)
+
+        #   Adds Source Tab to Project Browser
+        pb.addTab("Source", self.sourceBrowser, position=0)
 
 
     #   From Callback to Load Settings UI
@@ -387,20 +396,6 @@ class Prism_SourceTab_Functions(object):
             }
 
         return sData
-
-
-    #   Executes When Project Browser is Initialized
-    @err_catcher(name=__name__)
-    def onProjectBrowserStartup(self, pb):
-        #   Creates Source Browser
-        self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=pb, refresh=False)
-
-
-    #   Executes When Project Browser is Displayed
-    @err_catcher(name=__name__)
-    def onProjectBrowserShow(self, pb):
-        #   Adds Source Tab to Project Browser
-        pb.addTab("Source", self.sourceBrowser, position=0)
 
 
     #   Default Settings File Data
