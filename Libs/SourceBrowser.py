@@ -383,7 +383,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
-        self.b_refreshDest.clicked.connect(self.refreshDestItems)
+        self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
         self.b_dest_clearAll.clicked.connect(lambda: self.clearTransferList())
@@ -451,7 +451,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     self.refreshSourceItems()
                 elif mode == "dest":
                     self.destDir = path
-                    self.refreshDestItems()
+                    self.refreshDestItems(restoreSelection=True)
             else:
                 self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
 
@@ -1108,7 +1108,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.le_destPath.setText(self.destDir)
         
         self.refreshSourceItems()
-        self.refreshDestItems()
+        self.refreshDestItems(restoreSelection=True)
 
         # self.entityChanged()
         self.refreshStatus = "valid"
@@ -1173,7 +1173,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.refreshSourceItems()
             elif mode == "dest":
                 self.destDir = os.path.normpath(selected_path)
-                self.refreshDestItems()
+                self.refreshDestItems(restoreSelection=True)
 
             return selected_path
         
@@ -1189,7 +1189,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         elif mode == "dest":
             attribute = "destDir"
             addrBar = self.le_destPath
-            refreshFunc = self.refreshDestItems
+            refreshFunc = lambda: self.refreshDestItems(restoreSelection=True)
         else:
             return
 
@@ -1233,7 +1233,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         elif mode == "dest":
             attribute = "destDir"
-            refreshFunc = self.refreshDestItems            
+            refreshFunc = lambda: self.refreshDestItems(restoreSelection=True)
         else:
             return
 
@@ -1342,6 +1342,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def refreshDestItems(self, restoreSelection=False):
         destDir = getattr(self, "destDir", "")
 
+        if restoreSelection:
+            self.fileItemSelectionState = {}
+
+            for row in range(self.tw_destination.rowCount()):
+                fileTile = self.tw_destination.cellWidget(row, 0)
+                if fileTile:
+                    key = fileTile.data["uuid"]
+                    self.fileItemSelectionState[key] = fileTile.isChecked()
+
+
         metrics = QFontMetrics(self.le_destPath.font())
         elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
         self.le_destPath.setText(elided_text)
@@ -1366,6 +1376,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             #   Add Tile Widget
             self.tw_destination.setCellWidget(row, 0, fileItem)
+
+            if restoreSelection:
+                key = iData["uuid"]
+                if key in self.fileItemSelectionState:
+                    fileItem.setChecked(self.fileItemSelectionState[key])
 
             row += 1
 
@@ -1511,7 +1526,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.transferList.append(data)
 
         if refresh:
-            self.refreshDestItems()
+            self.refreshDestItems(restoreSelection=True)
 
 
     @err_catcher(name=__name__)
@@ -1529,7 +1544,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 if fileItem.isChecked():
                     self.addToDestList(fileItem.getData())
 
-        self.refreshDestItems()
+        self.refreshDestItems(restoreSelection=True)
 
 
     @err_catcher(name=__name__)

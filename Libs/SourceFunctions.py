@@ -137,6 +137,8 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
                     "settings": mod_instance.getSettings()
                 }
                 self.sourceBrowser.nameMods.append(mod_data)
+            
+            self.sourceBrowser.refreshDestItems(restoreSelection=True)
 
 
     @err_catcher(name=__name__)
