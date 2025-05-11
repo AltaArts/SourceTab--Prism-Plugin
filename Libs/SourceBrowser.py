@@ -1418,12 +1418,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         #    Loop Through All Modifiers
         for mod in self.nameMods:
-            modClass = GetModClass(mod["mod_type"])
-            modifier = CreateMod(modClass)
-            newName = modifier.applyMod(newName, mod["settings"])
+            if mod["enabled"]:
+                modClass = GetModClass(mod["mod_type"])
+                modifier = CreateMod(modClass)
+                newName = modifier.applyMod(newName, mod["settings"])
 
         return newName
-
 
 
     @err_catcher(name=__name__)
