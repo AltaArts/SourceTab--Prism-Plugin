@@ -600,15 +600,7 @@ class BaseTileItem(QWidget):
 
     @err_catcher(name=__name__)
     def openInExplorer(self, path):
-        if os.path.isdir(path):
-            dir = path
-        elif os.path.isfile(path):
-            dir = os.path.dirname(path)
-        else:
-            logger.warning(f"ERROR:  Unable to open {path} in File Explorer")
-            return
-
-        self.core.openFolder(dir)
+        self.core.openFolder(path)
 
 
     @err_catcher(name=__name__)
@@ -1251,6 +1243,7 @@ class DestFileItem(BaseTileItem):
         sourceMainPath = self.getSource_mainfilePath()
         baseName = self.getBasename(sourceMainPath)
 
+        #   Modifiy Name is Enabled
         if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
             baseName = self.getModifiedName(baseName)
 
@@ -1275,6 +1268,10 @@ class DestFileItem(BaseTileItem):
 
         # Get just the proxy filename
         proxy_fileName = os.path.basename(source_proxyFilePath)
+
+        #   Modifiy Name is Enabled
+        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+            proxy_fileName = self.getModifiedName(proxy_fileName)
 
         # Apply the relative subdir to the dest main directory
         dest_mainDir = os.path.dirname(dest_MainFilePath)

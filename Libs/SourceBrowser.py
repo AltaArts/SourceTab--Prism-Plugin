@@ -1545,7 +1545,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for row in range(row_count):
                 fileItem = self.tw_destination.cellWidget(row, 0)
                 if fileItem is not None:
-                    if fileItem.isSelected:
+                    if fileItem.isChecked():
                         self.transferList.remove(fileItem.getData())
 
         self.refreshDestItems()
