@@ -483,7 +483,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         drag = QDrag(self)
         mimeData = QMimeData()
 
-        # Let's package your data as text (or json or anything you want)
+        #   Serialize the Item Data
         dataString = self.serializeData()
 
         mimeData.setData("application/x-sourcefileitem", dataString.encode('utf-8'))
@@ -498,7 +498,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)
-    def getAllFileTiles(self):
+    def getAllSourceTiles(self):
         tiles = []
 
         for row in range(self.tw_source.rowCount()):
@@ -507,8 +507,18 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 tiles.append(itemWidget)
 
         return tiles
+    
 
+    @err_catcher(name=__name__)
+    def getAllDestTiles(self):
+        tiles = []
 
+        for row in range(self.tw_destination.rowCount()):
+            itemWidget = self.tw_destination.cellWidget(row, 0)
+            if isinstance(itemWidget, TileWidget.DestFileItem):
+                tiles.append(itemWidget)
+
+        return tiles
 
 
     #   Called from _Functions Save Callback
@@ -1531,8 +1541,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.transferList.remove(item)
                 break
 
-        self.refreshDestItems()
-
 
     @err_catcher(name=__name__)
     def clearTransferList(self, checked=False):
@@ -1745,53 +1753,53 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #         self.showVersionInfoForItem(item)
 
 
-    @err_catcher(name=__name__)
-    def mouseDrag(self, event, element):
-        if (
-            (event.buttons() != Qt.LeftButton and element != self.cb_layer)
-            or (
-                event.buttons() == Qt.LeftButton
-                and (event.modifiers() & Qt.ShiftModifier)
-            )
-        ):
-            element.mmEvent(event)
-            return
-        elif element == self.cb_layer and event.buttons() != Qt.MiddleButton:
-            element.mmEvent(event)
-            return
+    # @err_catcher(name=__name__)
+    # def mouseDrag(self, event, element):
+    #     if (
+    #         (event.buttons() != Qt.LeftButton and element != self.cb_layer)
+    #         or (
+    #             event.buttons() == Qt.LeftButton
+    #             and (event.modifiers() & Qt.ShiftModifier)
+    #         )
+    #     ):
+    #         element.mmEvent(event)
+    #         return
+    #     elif element == self.cb_layer and event.buttons() != Qt.MiddleButton:
+    #         element.mmEvent(event)
+    #         return
 
-        contexts = self.getCurRenders()
-        urlList = []
-        mods = QApplication.keyboardModifiers()
-        for context in contexts:
-            if element == self.cb_layer:
-                version = self.getCurrentSource()
-                aovs = self.core.mediaProducts.getAOVsFromVersion(version)
-                for aov in aovs:
-                    url = os.path.normpath(aov["path"])
-                    urlList.append(QUrl(url))
-                break
-            else:
-                if mods == Qt.ControlModifier:
-                    url = os.path.normpath(context["path"])
-                    urlList.append(url)
-                else:
-                    imgSrc = self.core.media.getImgSources(context["path"], sequencePattern=False)
-                    for k in imgSrc:
-                        url = os.path.normpath(k)
-                        urlList.append(url)
+    #     contexts = self.getCurRenders()
+    #     urlList = []
+    #     mods = QApplication.keyboardModifiers()
+    #     for context in contexts:
+    #         if element == self.cb_layer:
+    #             version = self.getCurrentSource()
+    #             aovs = self.core.mediaProducts.getAOVsFromVersion(version)
+    #             for aov in aovs:
+    #                 url = os.path.normpath(aov["path"])
+    #                 urlList.append(QUrl(url))
+    #             break
+    #         else:
+    #             if mods == Qt.ControlModifier:
+    #                 url = os.path.normpath(context["path"])
+    #                 urlList.append(url)
+    #             else:
+    #                 imgSrc = self.core.media.getImgSources(context["path"], sequencePattern=False)
+    #                 for k in imgSrc:
+    #                     url = os.path.normpath(k)
+    #                     urlList.append(url)
 
-        if len(urlList) == 0:
-            return
+    #     if len(urlList) == 0:
+    #         return
 
-        drag = QDrag(self)
-        mData = QMimeData()
+    #     drag = QDrag(self)
+    #     mData = QMimeData()
 
-        urlData = [QUrl.fromLocalFile(urll) for urll in urlList]
-        mData.setUrls(urlData)
-        drag.setMimeData(mData)
+    #     urlData = [QUrl.fromLocalFile(urll) for urll in urlList]
+    #     mData.setUrls(urlData)
+    #     drag.setMimeData(mData)
 
-        drag.exec_(Qt.CopyAction | Qt.MoveAction)
+    #     drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
 
     @err_catcher(name=__name__)

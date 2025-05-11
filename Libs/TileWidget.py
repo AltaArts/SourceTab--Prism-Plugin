@@ -46,13 +46,9 @@
 
 
 import os
-# import shutil
 import sys
 import logging
 import time
-# from time import time
-# from datetime import datetime
-# import json
 import hashlib
 
 if sys.version[0] == "3":
@@ -104,16 +100,16 @@ logger = logging.getLogger(__name__)
 PROXY_NAMES = ["proxy", "pxy", "proxies", "proxys"]                         #   TODO - move to Settings?
 
 #   Colors
-COLOR_GREEN = QColor(0, 150, 0)
-COLOR_BLUE = QColor(115, 175, 215)
-COLOR_ORANGE = QColor(255, 140, 0)
-COLOR_RED = QColor(200, 0, 0)
-COLOR_GREY = QColor(100, 100, 100)
+COLOR_GREEN = "0, 150, 0"
+COLOR_BLUE = "115, 175, 215"
+COLOR_ORANGE = "255, 140, 0"
+COLOR_RED = "200, 0, 0"
+COLOR_GREY = "100, 100, 100"
 
 
 
 
-#   BASE FILE TILE FOR SHARED METHODS
+##   BASE FILE TILE FOR SHARED METHODS  ##
 class BaseTileItem(QWidget):
 
     #   Signals
@@ -149,11 +145,7 @@ class BaseTileItem(QWidget):
 
         self.state = "deselected"
 
-        self.setMouseTracking(True)  # Not critical but nice
-
-
-        # #   Set initial Selected State
-        # self.isSelected = False
+        self.setMouseTracking(True)
 
         #   Get ExifTool EXE
         self.exifToolEXE = self.findExiftool()
@@ -167,17 +159,20 @@ class BaseTileItem(QWidget):
         #    Limit Max Threads
         self.threadPool.setMaxThreadCount(self.max_thumbThreads)
 
-        # #   Calls the SetupUI Method of the Child Tile
-        # self.setupUi()
-        # #   Calls the Refresh Method of the Child Tile
-        # self.refreshUi()
 
-
-    #   Launches the Double-click File Action
+    #   Launches the Single-click File Action
     @err_catcher(name=__name__)
     def mousePressEvent(self, event):
-        # child = self.childAt(event.pos())
-        self.setSelected()
+        if event.button() == Qt.LeftButton:
+            self.setSelected()
+        elif event.button() == Qt.RightButton:
+            if self not in self.browser.selectedTiles:
+                # Don't clear others, just add this one
+                self.state = "selected"
+                self.applyStyle(self.state)
+                self.browser.selectedTiles.add(self)
+                self.browser.lastClickedTile = self
+
         super().mousePressEvent(event)
 
 
@@ -189,15 +184,12 @@ class BaseTileItem(QWidget):
     #   Launches the Double-click File Action
     @err_catcher(name=__name__)
     def mouseDoubleClickEvent(self, event):
-
-        print("IN DOUBLE CLICK")                            #   TESTING
-        
         child = self.childAt(event.pos())
 
-        #   If Thumbnail
+        #   Thumbnail
         if child == self.l_preview:
             self.doubleClickFile(self.getSource_mainfilePath())
-        #   If Proxy Icon
+        #   Proxy Icon
         elif child == self.l_pxyIcon:
             self.doubleClickFile(self.getSource_proxyfilePath())
         #   Anywhere Else
@@ -205,18 +197,6 @@ class BaseTileItem(QWidget):
             self.sendToViewer()
         else:
             self.toggleChecked()
-
-
-
-    # #   Sets the Tile State Selected
-    # @err_catcher(name=__name__)
-    # def select(self):
-    #     wasSelected = self.isSelected()
-    #     self.signalSelect.emit(self)
-    #     if not wasSelected:
-    #         self.state = "selected"
-    #         self.applyStyle(self.state)
-    #         self.setFocus()
 
 
     @err_catcher(name=__name__)
@@ -230,12 +210,6 @@ class BaseTileItem(QWidget):
         if self.state != "deselected":
             self.state = "deselected"
             self.applyStyle(self.state)
-
-
-    # #   Returns if the State is Selected                        #   NEEDED?  THE SAME AS ISSELCTED()
-    # @err_catcher(name=__name__)
-    # def getSelected(self):
-    #     return self.isSelected
     
 
     #   Sets the State Selected based on the Checkbox
@@ -244,12 +218,12 @@ class BaseTileItem(QWidget):
         modifiers = QApplication.keyboardModifiers()
 
         # SHIFT: Select range from lastClickedTile to this one
-        if modifiers == Qt.ShiftModifier and self.browser.lastClickedTile:
+        if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
             self.selectRange()
             return
 
         # CTRL: Toggle this tile's selection
-        elif modifiers == Qt.ControlModifier:
+        elif modifiers & Qt.ControlModifier:
             if self in self.browser.selectedTiles:
                 self.deselect()
                 self.browser.selectedTiles.discard(self)
@@ -278,13 +252,19 @@ class BaseTileItem(QWidget):
 
     @err_catcher(name=__name__)
     def selectRange(self):
-        # Get all tiles in order (must be implemented in browser)
-        allTiles = self.browser.getAllFileTiles()
+        # Get all tiles in order
+        if isinstance(self, SourceFileItem):
+            allTiles = self.browser.getAllSourceTiles()
+        elif isinstance(self, DestFileItem):
+            allTiles = self.browser.getAllDestTiles()
+        else:
+            return
+        
         try:
             start = allTiles.index(self.browser.lastClickedTile)
             end = allTiles.index(self)
         except ValueError:
-            return  # Something's wrong
+            return
 
         if start > end:
             start, end = end, start
@@ -303,12 +283,17 @@ class BaseTileItem(QWidget):
         self.browser.lastClickedTile = self
 
 
-
     #   Sets the Checkbox and sets the State
     @err_catcher(name=__name__)
     def setChecked(self, checked):
-        self.chb_selected.setChecked(checked)
-        self.setSelected()
+        if len(self.browser.selectedTiles) > 1:
+            for tile in list(self.browser.selectedTiles):
+                tile.chb_selected.setChecked(checked)
+                tile.setSelected()
+        
+        else:
+            self.chb_selected.setChecked(checked)
+            self.setSelected()
 
 
     #   Toggles the Checkbox
@@ -321,7 +306,11 @@ class BaseTileItem(QWidget):
     #   Checks the Checkbox
     @err_catcher(name=__name__)
     def isChecked(self):
-        return self.chb_selected.isChecked()
+        try:
+            checked = self.chb_selected.isChecked()
+        except:
+            checked = False
+        return checked
 
 
     @err_catcher(name=__name__)
@@ -339,64 +328,62 @@ class BaseTileItem(QWidget):
 
     @err_catcher(name=__name__)
     def applyStyle(self, styleType):
-        if hasattr(self, "getDestMainPath") and os.path.exists(self.getDestMainPath()):
-            borderColor = (
-                "rgb(255, 140, 0)" if self.state == "selected" else "rgb(255, 140, 0)"
-            )
-        else:
-            borderColor = (
-                "rgb(70, 90, 120)" if self.state == "selected" else "rgb(70, 90, 120)"
-            )
+        ###     BORDER      ###
+        borderColor = "70, 90, 120"  # default fallback
 
-        ssheet = (
-            """
-            QWidget#FileTile {
-                border: 1px solid %s;
+        if self.tileType == "sourceTile":
+            if self.isChecked():
+                borderColor = COLOR_GREEN
+
+        elif self.tileType == "destTile":
+            if "transferTime" not in self.data and os.path.exists(self.getDestMainPath()):
+                borderColor = COLOR_ORANGE
+
+        # Construct base stylesheet with just the border
+        borderStyle = f"""
+            QWidget#FileTile {{
+                border: 1px solid rgb({borderColor});
                 border-radius: 10px;
-            }
-            """
-            % borderColor
-        )
-        if styleType == "deselected":
-            pass
-        elif styleType == "selected":
-            ssheet = """
+            }}
+        """
+
+        ####    BACKGROUND      ####
+        backgroundStyle = ""
+        if styleType == "selected":
+            backgroundStyle = """
                 QWidget#FileTile {
-                    border: 1px solid rgb(70, 90, 120);
                     background-color: rgba(115, 175, 215, 100);
-                    border-radius: 10px;
                 }
                 QWidget {
                     background-color: rgba(255, 255, 255, 0);
                 }
-
             """
         elif styleType == "hoverSelected":
-            ssheet = """
+            backgroundStyle = """
                 QWidget#FileTile {
-                    border: 1px solid rgb(70, 90, 120);
                     background-color: rgba(115, 175, 215, 150);
-                    border-radius: 10px;
                 }
                 QWidget {
                     background-color: rgba(255, 255, 255, 0);
                 }
-
             """
         elif styleType == "hover":
-            ssheet += """
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
+            backgroundStyle = """
                 QWidget#FileTile, QWidget#FolderTile {
                     background-color: rgba(255, 255, 255, 20);
                 }
+                QWidget {
+                    background-color: rgba(255, 255, 255, 0);
+                }
             """
+
+        # Combine styles
+        fullStyle = borderStyle + backgroundStyle
+
         try:
-            self.setStyleSheet(ssheet)
+            self.setStyleSheet(fullStyle)
         except RuntimeError:
             pass
-
 
 
     #   Opens the File in the OS
@@ -422,10 +409,24 @@ class BaseTileItem(QWidget):
     def getFileDate(self, filePath):
         return os.path.getmtime(filePath)
 
+
     #   Returns the File Size from the OS
     @err_catcher(name=__name__)
     def getFileSize(self, filePath):
         return os.stat(filePath).st_size
+    
+
+    #   Returns File Size (can be slower)
+    @err_catcher(name=__name__)
+    def getSizeString(self, size_bytes):
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 ** 2:
+            return f"{size_bytes / 1024:.2f} KB"
+        elif size_bytes < 1024 ** 3:
+            return f"{size_bytes / 1024 ** 2:.2f} MB"
+        else:
+            return f"{size_bytes / 1024 ** 3:.2f} GB"
 
 
     #   Returns the Filepath
@@ -617,7 +618,6 @@ class BaseTileItem(QWidget):
         logger.warning(f"ERROR:  Unable to Find ExifTool")
         return None
 
-        
 
     #   Returns File MetaData
     @err_catcher(name=__name__)
@@ -706,11 +706,11 @@ class BaseTileItem(QWidget):
 
 
 
-#   FILE TILES ON THE SOURCE SIDE (Inherits from BaseTileItem)
+##   FILE TILES ON THE SOURCE SIDE (Inherits from BaseTileItem)     ##
 class SourceFileItem(BaseTileItem):
     def __init__(self, browser, data):
         super(SourceFileItem, self).__init__(browser, data)
-
+        self.tileType = "sourceTile"
 
         #   Calls the SetupUI Method of the Child Tile
         self.setupUi()
@@ -870,10 +870,6 @@ class SourceFileItem(BaseTileItem):
         self.setProxyFile()
 
 
-
-
-
-
     #   Populates Hash when ready from Thread
     @err_catcher(name=__name__)
     def onMainfileHashReady(self, result_hash):
@@ -966,54 +962,60 @@ class SourceFileItem(BaseTileItem):
         # self.l_fileSize.setToolTip(f"Hash: {result_hash}")
 
 
-
-
-
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
 
-
+        #   Displayed Always
         addlAct = QAction("Add to Transfer List", self.browser)
         addlAct.triggered.connect(self.addToDestList)
         rcmenu.addAction(addlAct)
 
+        selAct = QAction("Set Selected", self.browser)
+        selAct.triggered.connect(lambda: self.setChecked(True))
+        rcmenu.addAction(selAct)
 
-        mDataAct = QAction("Show All MetaData", self.browser)
-        mDataAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
-        rcmenu.addAction(mDataAct)
+        unSelAct = QAction("Un-Select", self.browser)
+        unSelAct.triggered.connect(lambda: self.setChecked(False))
+        rcmenu.addAction(unSelAct)
+
+        #   Displayed if Multi-Selection
+        if len(self.browser.selectedTiles) == 1:
+            mDataAct = QAction("Show All MetaData", self.browser)
+            mDataAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
+            rcmenu.addAction(mDataAct)
 
 
-        playerAct = QAction("Show in Player", self.browser)
-        playerAct.triggered.connect(self.sendToViewer)
-        rcmenu.addAction(playerAct)
+            playerAct = QAction("Show in Player", self.browser)
+            playerAct.triggered.connect(self.sendToViewer)
+            rcmenu.addAction(playerAct)
 
-        expAct = QAction("Open in Explorer", self)
-        expAct.triggered.connect(lambda: self.openInExplorer(self.getSource_mainfilePath()))
-        rcmenu.addAction(expAct)
+            expAct = QAction("Open in Explorer", self)
+            expAct.triggered.connect(lambda: self.openInExplorer(self.getSource_mainfilePath()))
+            rcmenu.addAction(expAct)
 
         rcmenu.exec_(QCursor.pos())
 
 
     @err_catcher(name=__name__)
     def addToDestList(self):
-        self.browser.addToDestList(self.data)
+        if len(self.browser.selectedTiles) > 1:
+            for tile in list(self.browser.selectedTiles):
+                self.browser.addToDestList(tile.data)
+        else:
+            self.browser.addToDestList(self.data)
+        
+        self.browser.refreshDestItems()
 
 
 
-
-
-
-#   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)
+##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
 class DestFileItem(BaseTileItem):
-
-    # progressChanged = Signal()
-
     def __init__(self, browser, data):
         super(DestFileItem, self).__init__(browser, data)
+        self.tileType = "destTile"
 
         self.worker = None
-
         self.transferState = None
 
         #   Calls the SetupUI Method of the Child Tile
@@ -1023,7 +1025,7 @@ class DestFileItem(BaseTileItem):
 
 
     def mouseReleaseEvent(self, event):
-        # super(DestFileItem, self).mouseReleaseEvent(event)
+        super(DestFileItem, self).mouseReleaseEvent(event)
         self.signalReleased.emit(self)
         event.accept()
 
@@ -1032,8 +1034,8 @@ class DestFileItem(BaseTileItem):
     def setupUi(self):
         self.setObjectName("FileTile")
         self.applyStyle("deselected")
-
         self.setAttribute(Qt.WA_StyledBackground, True)
+
         self.lo_main = QHBoxLayout()
         self.setLayout(self.lo_main)
         self.lo_main.setSpacing(5)
@@ -1140,15 +1142,12 @@ class DestFileItem(BaseTileItem):
         self.progressBar.setVisible(True)
 
 
-
     @err_catcher(name=__name__)
     def refreshUi(self):
         source_MainFilePath = self.getSource_mainfilePath()
         source_MainFileName = self.getBasename(source_MainFilePath)
 
         self.data["dest_mainFile_path"] = self.getDestMainPath()
-
-        # self.refreshPreview()
 
         icon = self.getIcon()
         self.setIcon(icon)
@@ -1190,20 +1189,7 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def getModifiedName(self, orig_name):
         return self.browser.applyMods(orig_name)
-
-
-    #   Returns File Size (can be slower)
-    @err_catcher(name=__name__)
-    def getCopiedSize(self, size_bytes):
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1024 ** 2:
-            return f"{size_bytes / 1024:.2f} KB"
-        elif size_bytes < 1024 ** 3:
-            return f"{size_bytes / 1024 ** 2:.2f} MB"
-        else:
-            return f"{size_bytes / 1024 ** 3:.2f} GB"
-        
+       
 
     #   Returns Proxy Source Path
     @err_catcher(name=__name__)
@@ -1214,9 +1200,7 @@ class DestFileItem(BaseTileItem):
     #   Sets Destination Proxy Filepath and Icon
     @err_catcher(name=__name__)
     def setProxyFile(self):
-        proxy = self.getProxy()
-
-        if proxy:
+        if self.getProxy():
             #   Show Proxy Icon
             self.l_pxyIcon.show()
 
@@ -1283,62 +1267,6 @@ class DestFileItem(BaseTileItem):
         return dest_proxyFilePath
 
 
-
-    # @err_catcher(name=__name__)
-    # def applyStyle(self, styleType):
-    #     borderColor = ( "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)")
-
-    #     ssheet = (
-    #         """
-    #         QWidget#FileTile {
-    #             border: 1px solid %s;
-    #             border-radius: 10px;
-    #         }
-    #     """
-    #         % borderColor
-    #         )
-        
-    #     if styleType is not True:
-    #         pass
-
-    #     elif styleType is True:
-    #         ssheet = """
-    #             QWidget#FileTile {
-    #                 border: 1px solid rgb(70, 90, 120);
-    #                 background-color: rgba(255, 255, 255, 30);
-    #                 border-radius: 10px;
-    #             }
-    #             QWidget {
-    #                 background-color: rgba(255, 255, 255, 0);
-    #             }
-
-    #         """
-    #     elif styleType == "hoverSelected":
-    #         ssheet = """
-    #             QWidget#FileTile {
-    #                 border: 1px solid rgb(70, 90, 120);
-    #                 background-color: rgba(255, 255, 255, 35);
-    #                 border-radius: 10px;
-    #             }
-    #             QWidget {
-    #                 background-color: rgba(255, 255, 255, 0);
-    #             }
-
-    #         """
-    #     elif styleType == "hover":
-    #         ssheet += """
-    #             QWidget {
-    #                 background-color: rgba(255, 255, 255, 0);
-    #             }
-    #             QWidget#FileTile {
-    #                 background-color: rgba(255, 255, 255, 20);
-    #             }
-    #         """
-
-    #     self.setStyleSheet(ssheet)
-
-
-
     @err_catcher(name=__name__)
     def setTransferStatus(self, status, tooltip=None):
         self.transferState = status
@@ -1366,7 +1294,7 @@ class DestFileItem(BaseTileItem):
             self.progressBar.setToolTip(status)
 
         #   Convert Color to rgb format string
-        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
+        color_str = f"rgb({statusColor})"
         
         #   Set Prog Bar StyleSheet
         self.progressBar.setStyleSheet(f"""
@@ -1380,32 +1308,40 @@ class DestFileItem(BaseTileItem):
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
 
-
+        #   Displayed Always
         delAct = QAction("Remove from Transfer List", self.browser)
         delAct.triggered.connect(self.removeFromDestList)
         rcmenu.addAction(delAct)
 
+        selAct = QAction("Set Selected", self.browser)
+        selAct.triggered.connect(lambda: self.setChecked(True))
+        rcmenu.addAction(selAct)
 
-        showDataAct = QAction("Show Data", self.browser)                         #   TESTING
-        showDataAct.triggered.connect(self.TEST_SHOW_DATA)
-        rcmenu.addAction(showDataAct)
+        unSelAct = QAction("Un-Select", self.browser)
+        unSelAct.triggered.connect(lambda: self.setChecked(False))
+        rcmenu.addAction(unSelAct)
 
+        #   Displayed if Multi-Selection
+        if len(self.browser.selectedTiles) == 1:
+            showDataAct = QAction("Show Data", self.browser)                         #   TESTING
+            showDataAct.triggered.connect(self.TEST_SHOW_DATA)
+            rcmenu.addAction(showDataAct)
 
-        if os.path.exists(self.getDestMainPath()):
-            mDataAct = QAction("Show All MetaData", self.browser)
-            mDataAct.triggered.connect(lambda: self.displayMetadata(self.getDestMainPath()))
-            rcmenu.addAction(mDataAct)
+            #   If Transferred Files Exists
+            if os.path.exists(self.getDestMainPath()):
+                mDataAct = QAction("Show All MetaData", self.browser)
+                mDataAct.triggered.connect(lambda: self.displayMetadata(self.getDestMainPath()))
+                rcmenu.addAction(mDataAct)
 
-            expAct = QAction("Open Transferred File in Explorer", self)
-            expAct.triggered.connect(lambda: self.openInExplorer(self.getDestMainPath()))
-            rcmenu.addAction(expAct)
-
+                expAct = QAction("Open Transferred File in Explorer", self)
+                expAct.triggered.connect(lambda: self.openInExplorer(self.getDestMainPath()))
+                rcmenu.addAction(expAct)
 
         rcmenu.exec_(QCursor.pos())
 
 
 
-
+    ####    TEMP TESTING    ####
     @err_catcher(name=__name__)                                                  # TESTING
     def TEST_SHOW_DATA(self):
         if not hasattr(self, "data") or not isinstance(self.data, dict):
@@ -1414,25 +1350,27 @@ class DestFileItem(BaseTileItem):
 
         data_str = "\n\n".join(f"{key}: {value}" for key, value in self.data.items())
         self.core.popup(data_str)
-
-
-
-
+    ####    ^^^^^^^^^^^^^    ####
 
 
 
     @err_catcher(name=__name__)
     def removeFromDestList(self):
-        self.browser.removeFromDestList(self.data)
+        if len(self.browser.selectedTiles) > 1:
+            for tile in list(self.browser.selectedTiles):
+                self.browser.removeFromDestList(tile.data)
+        else:
+            self.browser.removeFromDestList(self.data)
+
+        self.browser.refreshDestItems()
 
 
     @err_catcher(name=__name__)
     def start_transfer(self, origin, options):
         self.setTransferStatus("Transferring")
 
-        self.transferTimer = QTimer(self)                                       #   TESTING
+        self.transferTimer = QTimer(self)
         self.transferStartTime = time.time()
-
 
         copyData = {"sourcePath": self.getSource_mainfilePath(),
                     "destPath": self.getDestMainPath(),
@@ -1446,7 +1384,6 @@ class DestFileItem(BaseTileItem):
             destProxyDir = os.path.dirname(self.getDestProxyPath())
             if not os.path.exists(destProxyDir):
                 os.makedirs(destProxyDir)
-
         
         #   Call the Transfer Worker Thread
         self.worker = FileCopyWorker(self, copyData)
@@ -1460,21 +1397,15 @@ class DestFileItem(BaseTileItem):
     def pause_transfer(self, origin):
         if self.worker and self.transferState != "Complete":
             self.setTransferStatus("Paused")
-
             self.transferTimer.stop()
-
-
             self.worker.pause()
-
 
 
     @err_catcher(name=__name__)
     def resume_transfer(self, origin):
         if self.worker and self.transferState == "Paused":
             self.setTransferStatus("Transferring")
-
             self.transferTimer.start()
-
             self.worker.resume()
 
 
@@ -1482,9 +1413,7 @@ class DestFileItem(BaseTileItem):
     def cancel_transfer(self, origin):
         if self.worker and self.transferState != "Complete":
             self.setTransferStatus("Cancelled")
-
             self.transferTimer.stop()
-
             self.worker.cancel()
 
 
@@ -1492,9 +1421,7 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def update_progress(self, value, copied_size):
         self.progressBar.setValue(value)
-        
-        self.l_size_copied.setText(self.getCopiedSize(copied_size))
-        
+        self.l_size_copied.setText(self.getSizeString(copied_size))
         self.copied_size = copied_size
 
 
@@ -1554,17 +1481,17 @@ class DestFileItem(BaseTileItem):
         self.setTransferStatus(status, tooltip=hashMsg)
 
 
-#   FOLDER TILES (Inherits from BaseTileItem)
+
+##   FOLDER TILES (Inherits from BaseTileItem)  ##
 class FolderItem(BaseTileItem):
     def __init__(self, browser, data):
         super(FolderItem, self).__init__(browser, data)
-
+        self.tileType = "folderTile"
 
         #   Calls the SetupUI Method of the Child Tile
         self.setupUi()
         #   Calls the Refresh Method of the Child Tile
         self.refreshUi()
-
 
 
     def mouseReleaseEvent(self, event):
@@ -1576,9 +1503,7 @@ class FolderItem(BaseTileItem):
     @err_catcher(name=__name__)
     def setupUi(self):
         self.setObjectName("FolderTile")
-
         self.applyStyle(self.state)
-
         self.setAttribute(Qt.WA_StyledBackground, True)
 
         # Main horizontal layout
@@ -1607,8 +1532,6 @@ class FolderItem(BaseTileItem):
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
 
-        # self.refreshUi()
-
 
     @err_catcher(name=__name__)
     def refreshUi(self):
@@ -1624,61 +1547,6 @@ class FolderItem(BaseTileItem):
         self.l_fileName.setText(folder_name)
 
 
-    # @err_catcher(name=__name__)
-    # def applyStyle(self, styleType):
-    #     pass
-
-    #     # borderColor = (
-    #     #     "rgb(70, 90, 120)" if self.isSelected is True else "rgb(70, 90, 120)"
-    #     # )
-    #     # ssheet = (
-    #     #     """
-    #     #     QWidget#FolderItem {
-    #     #         border: 1px solid %s;
-    #     #         border-radius: 10px;
-    #     #     }
-    #     # """
-    #     #     % borderColor
-    #     # )
-    #     # if styleType is not True:
-    #     #     pass
-    #     # elif styleType is True:
-    #     #     ssheet = """
-    #     #         QWidget#FolderItem {
-    #     #             border: 1px solid rgb(70, 90, 120);
-    #     #             background-color: rgba(255, 255, 255, 30);
-    #     #             border-radius: 10px;
-    #     #         }
-    #     #         QWidget {
-    #     #             background-color: rgba(255, 255, 255, 0);
-    #     #         }
-
-    #     #     """
-    #     # elif styleType == "hoverSelected":
-    #     #     ssheet = """
-    #     #         QWidget#FolderItem {
-    #     #             border: 1px solid rgb(70, 90, 120);
-    #     #             background-color: rgba(255, 255, 255, 35);
-    #     #             border-radius: 10px;
-    #     #         }
-    #     #         QWidget {
-    #     #             background-color: rgba(255, 255, 255, 0);
-    #     #         }
-
-    #     #     """
-    #     # elif styleType == "hover":
-    #     #     ssheet += """
-    #     #         QWidget {
-    #     #             background-color: rgba(255, 255, 255, 0);
-    #     #         }
-    #     #         QWidget#FolderItem {
-    #     #             background-color: rgba(255, 255, 255, 20);
-    #     #         }
-    #     #     """
-
-    #     # self.setStyleSheet(ssheet)
-
-
     @err_catcher(name=__name__)
     def mouseDoubleClickEvent(self, event):
         self.browser.doubleClickFolder(self.data["dirPath"], mode="source")
@@ -1687,26 +1555,6 @@ class FolderItem(BaseTileItem):
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
         pass
-        # rcmenu = QMenu(self.browser)
-
-        # copAct = QAction("Capture preview", self.browser)
-        # copAct.triggered.connect(lambda: self.captureScenePreview(self.data))
-
-        # exp = QAction("Browse preview...", self.browser)
-        # exp.triggered.connect(self.browseScenePreview)
-        # rcmenu.addAction(exp)
-
-        # rcmenu.addAction(copAct)
-        # clipAct = QAction("Paste preview from clipboard", self.browser)
-        # clipAct.triggered.connect(
-        #     lambda: self.pasteScenePreviewFromClipboard(self.data)
-        # )
-        # rcmenu.addAction(clipAct)
-
-        # prvAct = QAction("Set as %spreview" % self.data.get("type", ""), self)
-        # prvAct.triggered.connect(self.setPreview)
-        # rcmenu.addAction(prvAct)
-        # rcmenu.exec_(QCursor.pos())
 
 
 
@@ -1750,6 +1598,7 @@ class ThumbnailWorker(QRunnable, QObject):
                 crop = False
                 scale = 0.5
                 logger.debug(f"Using File Icon for Unsupported Format: {extension}")
+
             else:
                 thumbPath = self.getThumbnailPath(self.filePath)
                 if os.path.exists(thumbPath):
@@ -1778,6 +1627,7 @@ class ThumbnailWorker(QRunnable, QObject):
         finally:
             self.finished.emit()
             self.origin.thumb_semaphore.release()
+
 
 
 ###     Hash Worker Thread
