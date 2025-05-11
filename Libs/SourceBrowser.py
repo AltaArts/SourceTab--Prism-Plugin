@@ -766,7 +766,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         for row in range(rowCount):
             fileItem = self.tw_destination.cellWidget(row, 0)
             
-            if fileItem is not None and fileItem.isSelected:
+            if fileItem is not None and fileItem.isChecked():
                 total_transferSize += fileItem.getTransferSize(includeProxy=copyProxy)
 
         return total_transferSize
@@ -1647,7 +1647,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             fileItem = self.tw_destination.cellWidget(row, 0)
             
             if fileItem is not None:
-                if fileItem.isSelected:
+                if fileItem.isChecked():
                     self.copyList.append(fileItem)
 
         if len(self.copyList) == 0:
