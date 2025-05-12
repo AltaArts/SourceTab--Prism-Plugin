@@ -1574,9 +1574,43 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.refreshDestItems()
 
 
+    #   Get Storage Space Stats
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def getDriveSpace(self, path):
+        total, used, free = shutil.disk_usage(path)   
+        return free 
+    
+
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def getTransferErrors(self):
+        errors = {}
+
+        #   Check Drive Space Available
+        spaceAvail = self.getDriveSpace(os.path.normpath(self.le_destPath.text()))
+        transferSize = self.getTotalTransferSize()
+
+        if transferSize >= spaceAvail:
+            transSize_str = self.getFileSizeStr(transferSize)
+            spaceAvail_str = self.getFileSizeStr(spaceAvail)
+            errors["Not Enough Storage Space:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+        
+        elif (spaceAvail - transferSize) < 100 * 1024 * 1024:  # 100 MB
+            transSize_str = self.getFileSizeStr(transferSize)
+            spaceAvail_str = self.getFileSizeStr(spaceAvail)
+            errors["Storage Space Low:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+        
+
+        if not errors:
+            errors["None"] = ""
+
+        errors[""] = ""
+
+        return errors
+
+
     @err_catcher(name=__name__)                                         #   TODO  Move
     def generateTransferPopup(self, copyProxy):
-        # Build the header section
+        ##  HEADER SECTION
         header = {
             "Destination Path": self.le_destPath.text(),
             "Number of Files": len(self.copyList),
@@ -1587,8 +1621,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             "": ""
         }
 
+        ##   WARNINGS SECTION
+        warnings = self.getTransferErrors()
 
-        # Build the file list as separate groups
+        ##   FILES SECTION
         file_list = []
 
         for item in self.copyList:
@@ -1616,6 +1652,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         # Combine header and file groups into a final data dict
         data = {
             "Transfer:": header,
+            "Warnings": warnings,
             "Files": file_list
         }
 

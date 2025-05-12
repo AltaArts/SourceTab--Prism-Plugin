@@ -181,6 +181,7 @@ class BaseTileItem(QWidget):
         super().mouseMoveEvent(event)
 
 
+
     #   Launches the Double-click File Action
     @err_catcher(name=__name__)
     def mouseDoubleClickEvent(self, event):
