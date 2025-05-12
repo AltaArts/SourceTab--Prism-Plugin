@@ -55,13 +55,6 @@
          </property>
          <layout class="QVBoxLayout" name="gb_lo_functions">
           <item>
-           <widget class="QPushButton" name="b_openDestDir">
-            <property name="text">
-             <string>Open Destination Directory</string>
-            </property>
-           </widget>
-          </item>
-          <item>
            <layout class="QHBoxLayout" name="lo_ovr_fileNaming">
             <item>
              <widget class="QCheckBox" name="chb_ovr_fileNaming">
@@ -193,6 +186,13 @@
           <widget class="QPushButton" name="b_transfer_reset">
            <property name="text">
             <string>Reset</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="b_openDestDir">
+           <property name="text">
+            <string>Open Destination Directory</string>
            </property>
           </widget>
          </item>

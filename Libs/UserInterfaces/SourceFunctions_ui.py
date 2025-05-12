@@ -8,22 +8,15 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QCheckBox, QGroupBox, QHBoxLayout,
-    QLabel, QProgressBar, QPushButton, QSizePolicy,
-    QSpacerItem, QSplitter, QVBoxLayout, QWidget)
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
-        w_sourceFunctions.resize(460, 480)
+        w_sourceFunctions.resize(617, 480)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -49,11 +42,6 @@ class Ui_w_sourceFunctions(object):
         self.gb_functions.setEnabled(True)
         self.gb_lo_functions = QVBoxLayout(self.gb_functions)
         self.gb_lo_functions.setObjectName(u"gb_lo_functions")
-        self.b_openDestDir = QPushButton(self.gb_functions)
-        self.b_openDestDir.setObjectName(u"b_openDestDir")
-
-        self.gb_lo_functions.addWidget(self.b_openDestDir)
-
         self.lo_ovr_fileNaming = QHBoxLayout()
         self.lo_ovr_fileNaming.setObjectName(u"lo_ovr_fileNaming")
         self.chb_ovr_fileNaming = QCheckBox(self.gb_functions)
@@ -153,6 +141,11 @@ class Ui_w_sourceFunctions(object):
 
         self.lo_transferButtons.addWidget(self.b_transfer_reset)
 
+        self.b_openDestDir = QPushButton(self.w_functions)
+        self.b_openDestDir.setObjectName(u"b_openDestDir")
+
+        self.lo_transferButtons.addWidget(self.b_openDestDir)
+
 
         self.verticalLayout_8.addLayout(self.lo_transferButtons)
 
@@ -229,7 +222,6 @@ class Ui_w_sourceFunctions(object):
     def retranslateUi(self, w_sourceFunctions):
         w_sourceFunctions.setWindowTitle(QCoreApplication.translate("w_sourceFunctions", u"Media Browser", None))
         self.gb_functions.setTitle("")
-        self.b_openDestDir.setText(QCoreApplication.translate("w_sourceFunctions", u"Open Destination Directory", None))
         self.chb_ovr_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"File Naming", None))
         self.b_ovr_config_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
         self.chb_ovr_proxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Proxy", None))
@@ -244,6 +236,7 @@ class Ui_w_sourceFunctions(object):
         self.b_transfer_resume.setText(QCoreApplication.translate("w_sourceFunctions", u"Resume Transfer", None))
         self.b_transfer_cancel.setText(QCoreApplication.translate("w_sourceFunctions", u"Cancel Transfer", None))
         self.b_transfer_reset.setText(QCoreApplication.translate("w_sourceFunctions", u"Reset", None))
+        self.b_openDestDir.setText(QCoreApplication.translate("w_sourceFunctions", u"Open Destination Directory", None))
         self.l_time_elapsed.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))
         self.l_time_elapsedText.setText(QCoreApplication.translate("w_sourceFunctions", u"(elapsed)", None))
         self.l_time_remain.setText(QCoreApplication.translate("w_sourceFunctions", u"--", None))
