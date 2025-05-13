@@ -985,6 +985,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             ("Report ID:", report_uuid),
             ("Project:", projectName),
             ("User:", user),
+            ("Number of Files:", str(len(reportData))),
             ("Transfer Size:", transferSize),
             ("Transfer Time:", transferTime)
         ]
