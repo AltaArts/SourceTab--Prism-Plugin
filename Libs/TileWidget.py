@@ -337,7 +337,7 @@ class BaseTileItem(QWidget):
                 borderColor = COLOR_GREEN
 
         elif self.tileType == "destTile":
-            if "transferTime" not in self.data and os.path.exists(self.getDestMainPath()):
+            if "transferTime" not in self.data and self.destFileExists():
                 borderColor = COLOR_ORANGE
 
         # Construct base stylesheet with just the border
@@ -1235,7 +1235,13 @@ class DestFileItem(BaseTileItem):
         destPath = self.getDestPath()
 
         return os.path.join(destPath, baseName)
+    
 
+     #   Checks if File Exists at Destination
+    @err_catcher(name=__name__)
+    def destFileExists(self):   
+        return os.path.exists(self.getDestMainPath())
+    
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
     @err_catcher(name=__name__)

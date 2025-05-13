@@ -1586,24 +1586,33 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def getTransferErrors(self):
         errors = {}
 
-        #   Check Drive Space Available
+        ##   Check Drive Space Available
+        #   Get Stats
         spaceAvail = self.getDriveSpace(os.path.normpath(self.le_destPath.text()))
         transferSize = self.getTotalTransferSize()
 
+        #   Not Enough Space
         if transferSize >= spaceAvail:
             transSize_str = self.getFileSizeStr(transferSize)
             spaceAvail_str = self.getFileSizeStr(spaceAvail)
             errors["Not Enough Storage Space:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
-        
+        #   Low Space
         elif (spaceAvail - transferSize) < 100 * 1024 * 1024:  # 100 MB
             transSize_str = self.getFileSizeStr(transferSize)
             spaceAvail_str = self.getFileSizeStr(spaceAvail)
             errors["Storage Space Low:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
-        
 
+        ##  File Exists
+        for file in self.transferList:
+            destPath = file["dest_mainFile_path"]
+            if os.path.exists(destPath):
+                errors[f"{os.path.basename(destPath)}: "] = "File Exists in Destination"
+
+        #   NO ERRORS
         if not errors:
             errors["None"] = ""
 
+        #   Add Blank Line at the End
         errors[""] = ""
 
         return errors
