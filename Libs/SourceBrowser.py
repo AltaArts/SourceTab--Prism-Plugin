@@ -52,7 +52,6 @@ import logging
 import traceback
 from collections import OrderedDict, deque
 import shutil
-import json
 import uuid
 import hashlib
 from datetime import datetime
@@ -373,13 +372,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_source_addSel.clicked.connect(self.addSelected)
         self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
+        self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
 
         #   Destination Buttons
-        self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
@@ -1177,7 +1176,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.refreshDestItems(restoreSelection=True)
 
             return selected_path
-        
+
 
     #   Handles Addressbar Logic
     @err_catcher(name=__name__)
@@ -1436,7 +1435,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def createSourceFileTile(self, filePath):
-
         #   Create Data
         data = {}
         data["tileType"] = "file"
@@ -1462,7 +1460,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def createFolderTile(self, dirPath):
-
         data = {}
         data["tileType"] = "folder"
         data["dirPath"] = dirPath
@@ -1582,9 +1579,26 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         return free 
     
 
+    #   Return List of Checked Dest File Tiles
+    @err_catcher(name=__name__)                                         #   TODO  Move
+    def getCopyList(self):
+        row_count = self.tw_destination.rowCount()
+        self.copyList = []
+
+        for row in range(row_count):
+            fileItem = self.tw_destination.cellWidget(row, 0)
+            
+            if fileItem is not None:
+                if fileItem.isChecked():
+                    self.copyList.append(fileItem)
+
+        return self.copyList
+
+
     @err_catcher(name=__name__)                                         #   TODO  Move
     def getTransferErrors(self):
         errors = {}
+        warnings = {}
 
         ##   Check Drive Space Available
         #   Get Stats
@@ -1596,26 +1610,39 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             transSize_str = self.getFileSizeStr(transferSize)
             spaceAvail_str = self.getFileSizeStr(spaceAvail)
             errors["Not Enough Storage Space:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+
         #   Low Space
         elif (spaceAvail - transferSize) < 100 * 1024 * 1024:  # 100 MB
             transSize_str = self.getFileSizeStr(transferSize)
             spaceAvail_str = self.getFileSizeStr(spaceAvail)
-            errors["Storage Space Low:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+            warnings["Storage Space Low:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
 
         ##  File Exists
-        for file in self.transferList:
-            destPath = file["dest_mainFile_path"]
-            if os.path.exists(destPath):
-                errors[f"{os.path.basename(destPath)}: "] = "File Exists in Destination"
+        for fileTile in self.copyList:
+            if fileTile.destFileExists():
+                basename = os.path.basename(fileTile.getDestMainPath())
+                if self.sourceFuncts.chb_overwrite.isChecked():
+                    warnings[f"{basename}: "] = "File Exists in Destination"
+                else:
+                    errors[f"{basename}: "] = "File Exists in Destination"
+
+        hasErrors = True if len(errors) > 0 else False
 
         #   NO ERRORS
         if not errors:
             errors["None"] = ""
 
+        #   NO ERRORS
+        if not warnings:
+            warnings["None"] = ""
+
         #   Add Blank Line at the End
         errors[""] = ""
 
-        return errors
+        #   Add Blank Line at the End
+        warnings[""] = ""
+
+        return errors, warnings, hasErrors
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -1632,7 +1659,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         }
 
         ##   WARNINGS SECTION
-        warnings = self.getTransferErrors()
+        errors, warnings, hasErrors = self.getTransferErrors()
 
         ##   FILES SECTION
         file_list = []
@@ -1662,11 +1689,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         # Combine header and file groups into a final data dict
         data = {
             "Transfer:": header,
+            "Errors:": errors,
             "Warnings": warnings,
             "Files": file_list
         }
 
-        return data
+        return data, hasErrors
     
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -1676,7 +1704,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.progressTimer.setInterval(self.progUpdateInterval * 1000)
         self.progressTimer.timeout.connect(self.updateTransfer)
 
-
         self.transferStartTime = time()
 
         #   Initialize Time Remaining Calc
@@ -1684,18 +1711,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
 
-        row_count = self.tw_destination.rowCount()
-        self.copyList = []
-
         self.refreshTotalTransSize()
 
-
-        for row in range(row_count):
-            fileItem = self.tw_destination.cellWidget(row, 0)
-            
-            if fileItem is not None:
-                if fileItem.isChecked():
-                    self.copyList.append(fileItem)
+        self.copyList = self.getCopyList()
 
         if len(self.copyList) == 0:
             self.core.popup("There are no Items Selected to Transfer")
@@ -1706,7 +1724,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return False
 
         #   Get Formatted Transfer Details
-        popupData = self.generateTransferPopup(copyProxy)
+        popupData, hasErrors = self.generateTransferPopup(copyProxy)
 
         #   Add Buttons
         buttons = ["Start Transfer", "Cancel"]
@@ -1715,6 +1733,17 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         #   If User Selects Transfer
         if result == "Start Transfer":
+            #   Abort if there are Any Errors
+            if hasErrors:
+                errors = popupData.get('Errors:', {})
+                errorText = "\n".join(f"{key}   {value}" for key, value in errors.items())
+
+                self.core.popup("Unable to Start Transfer.\n\n"
+                                "Errors:\n\n"
+                                f"{errorText}")
+                #   Abort
+                return
+
             self.progressTimer.start()
             self.setTransferStatus("Transferring")
             self.configTransUI("transfer")
@@ -1734,7 +1763,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.progressTimer.stop()
         self.setTransferStatus("Paused")
         self.configTransUI("pause")
-
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -1762,7 +1790,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def resetTransfer(self):
-
         self.progressTimer.stop()
         self.reset_ProgBar()
         self.setTransferStatus("Idle")
