@@ -1178,6 +1178,121 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return selected_path
 
 
+    # #   Launch Libraries window and return selected Import Path(s)
+    # @err_catcher(name=__name__)
+    # def launchLibBrowser(self):
+    #     try:
+    #         #   Get Libraries Plugin
+    #         libs = self.core.getPlugin("Libraries")
+    #         if not libs:
+    #             raise Exception
+    #     except:
+    #         logger.warning("ERROR:  Libraries Plugin not installed.  Use the 'Open Explorer' button to choose Texture Set.")
+    #         self.core.popup("Libraries Plugin not installed.\n\n"
+    #                        "Use the 'Open Explorer' button to choose Texture Set.")
+    #         return None
+
+    #     # try:
+
+
+    #     #   Call Libraries popup and return selected file path(s)
+
+
+
+    #     self.list_props(libs)                                   #   TESTING
+    #     self.list_props(entity.plugin)
+
+
+
+    #     # self.deep_inspect(libs, max_depth=1)
+    #     # self.find_line_edits_and_views(libs)
+
+
+    #     paths = libs.getAssetImportPaths()
+
+    #     if not paths:
+    #         logger.debug("Texture selection canceled.")
+    #         return None
+        
+    #     return paths
+            
+    #     # except Exception as e:
+    #     #     self.core.popup(f"ERROR: Failed  Texture Set: {e}")
+    #     #     logger.warning(f"ERROR: selecting Texture Set: {e}")
+    #     #     return None
+
+
+
+    # def find_line_edits_and_views(self, widget):
+    #     for child in widget.findChildren(QtWidgets.QWidget):
+    #         if isinstance(child, QtWidgets.QLineEdit):
+    #             print(f"QLineEdit: {child.objectName()} = {child.text()}")
+    #         elif isinstance(child, (QtWidgets.QTreeView, QtWidgets.QListView)):
+    #             print(f"{child.__class__.__name__}: {child.objectName()}")
+    #         elif hasattr(child, "currentIndex"):
+    #             try:
+    #                 idx = child.currentIndex()
+    #                 if hasattr(idx, "data"):
+    #                     print(f"{child.__class__.__name__}: {child.objectName()} currentIndex = {idx.data()}")
+    #             except Exception as e:
+    #                 print(f"Error reading currentIndex for {child.objectName()}: {e}")
+
+
+    # #   TEMP TESTING                                        #   TESTING
+    # def list_props(self, entity):
+    #     import inspect
+    #     print("########################")
+    #     print(f"{entity} > Type: {str(type(entity))}")
+    #     print("----")
+    #     methods = [func for func in dir(entity) if callable(getattr(entity, func)) and not func.startswith("__")]
+    #     for method in methods:
+    #         func = getattr(entity, method)
+    #         try:
+    #             sig = inspect.signature(func)
+    #             print(f"Method: {method}, Arguments: {sig}")
+    #         except:
+    #             print(f"Method: {method}")
+    #     for attribute_name, attribute in entity.__dict__.items():
+    #         print(f"Attribute: {attribute_name} | {str(type(attribute))}")
+    #     print("########################")
+
+
+    # def deep_inspect(self, obj, depth=0, max_depth=3, seen=None):
+    #     import inspect
+    #     indent = "  " * depth
+    #     seen = seen or set()
+    #     if id(obj) in seen or depth > max_depth:
+    #         return
+    #     seen.add(id(obj))
+
+    #     print(f"{indent}Inspecting: {obj} ({type(obj)})")
+    #     try:
+    #         methods = [m for m in dir(obj) if callable(getattr(obj, m)) and not m.startswith("__")]
+    #         for m in methods:
+    #             try:
+    #                 sig = inspect.signature(getattr(obj, m))
+    #                 print(f"{indent}  Method: {m}{sig}")
+    #             except Exception:
+    #                 print(f"{indent}  Method: {m} (signature not available)")
+    #     except Exception as e:
+    #         print(f"{indent}  Error inspecting methods: {e}")
+
+    #     try:
+    #         for attr in dir(obj):
+    #             if attr.startswith("__"):
+    #                 continue
+    #             try:
+    #                 val = getattr(obj, attr)
+    #                 print(f"{indent}  Attr: {attr} ({type(val)})")
+    #                 self.deep_inspect(val, depth+1, max_depth, seen)
+    #             except Exception as e:
+    #                 print(f"{indent}  Attr: {attr} (unreadable: {e})")
+    #     except Exception as e:
+    #         print(f"{indent}  Error accessing attributes: {e}")
+
+
+
+
     #   Handles Addressbar Logic
     @err_catcher(name=__name__)
     def onPasteAddress(self, mode):
@@ -1710,6 +1825,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.speedSamples = deque(maxlen=10)
 
         copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
+        generateProxy = self.sourceFuncts.chb_generateProxy.isChecked()
 
         self.refreshTotalTransSize()
 
@@ -1751,6 +1867,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for item in self.copyList:
                 options = {}
                 options["copyProxy"] = copyProxy
+                options["generateProxy"] = generateProxy
                 
                 item.start_transfer(self, options)
 
@@ -1796,6 +1913,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.configTransUI("idle")
 
         self.refreshDestItems()
+
 
 
     @err_catcher(name=__name__)

@@ -50,6 +50,7 @@ import sys
 import logging
 import time
 import hashlib
+from collections import OrderedDict
 
 if sys.version[0] == "3":
     pVersion = 3
@@ -1389,6 +1390,8 @@ class DestFileItem(BaseTileItem):
             destProxyDir = os.path.dirname(self.getDestProxyPath())
             if not os.path.exists(destProxyDir):
                 os.makedirs(destProxyDir)
+
+        self.data["generateProxy"] = options["generateProxy"]
         
         #   Call the Transfer Worker Thread
         self.worker = FileCopyWorker(self, copyData)
@@ -1452,6 +1455,9 @@ class DestFileItem(BaseTileItem):
             if os.path.isfile(destMainPath):
                 #   Calls for Hash Generation with Callback
                 self.setFileHash(destMainPath, self.onDestHashReady)
+
+                if self.data["generateProxy"]:
+                    self.generateProxy()
                 return
             else:
                 hashMsg = "ERROR:  Transfer File Does Not Exist"
@@ -1484,6 +1490,101 @@ class DestFileItem(BaseTileItem):
                 f"Transfer Hash: {dest_hash}")
 
         self.setTransferStatus(status, tooltip=hashMsg)
+
+
+
+    @err_catcher(name=__name__)
+    def generateProxy(self, settings=None):
+
+        inputPath = self.getDestMainPath()
+        input_baseFile = os.path.basename(inputPath)
+        input_dirName = os.path.dirname(inputPath)
+        proxy_Path = os.path.join(input_dirName, "proxy")
+        input_baseName = os.path.splitext(input_baseFile)[0]
+
+        outputPath = os.path.join(proxy_Path, input_baseName + ".mp4")
+
+        extension = ".mp4"                              #   TESTING
+
+        # if checkRes:
+        #     if self.pwidth and self.pwidth == "?":
+        #         self.core.popup("Cannot read media file.")
+        #         return
+
+        #     if (
+        #         extension == ".mp4"
+        #         and self.pwidth is not None
+        #         and self.pheight is not None
+        #         and (
+        #             int(self.pwidth) % 2 == 1
+        #             or int(self.pheight) % 2 == 1
+        #         )
+        #     ):
+        #         self.core.popup("Media with odd resolution can't be converted to mp4.")
+        #         return
+
+        conversionSettings = settings or OrderedDict()
+
+        if extension == ".mov" and not settings:
+            conversionSettings["-c"] = "prores"
+            conversionSettings["-profile"] = 2
+            conversionSettings["-pix_fmt"] = "yuv422p10le"
+
+        # if self.prvIsSequence:
+        #     inputpath = (
+        #         os.path.splitext(inputpath)[0][: -self.core.framePadding]
+        #         + "%04d".replace("4", str(self.core.framePadding))
+        #         + inputExt
+        #     )
+
+        # context = self.origin.getCurrentAOV()
+        # if not context:
+        #     context = self.origin.getCurrentVersion()
+        # outputpath = self.core.paths.getMediaConversionOutputPath(
+        #     context, inputpath, extension
+        # )
+
+        # if not outputpath:
+        #     return
+
+        # if self.prvIsSequence:
+        #     startNum = self.pstart
+        # else:
+
+        startNum = 0
+
+        conversionSettings["-start_number"] = None
+        conversionSettings["-start_number_out"] = None
+        conversionSettings["-vf"] = "scale=iw/2:ih/2"
+
+        result = self.core.media.convertMedia(
+            inputPath, startNum, outputPath, settings=conversionSettings
+        )
+
+        print(f"*** result:  {result}")                                              #    TESTING
+
+        # if (
+        #     extension not in self.core.media.videoFormats
+        #     and self.prvIsSequence
+        # ):
+        #     outputpath = outputpath % int(startNum)
+
+
+        # if os.path.exists(outputpath) and os.stat(outputpath).st_size > 0:
+        #     msg = "The images were converted successfully."
+        #     self.core.popup(msg, severity="info")
+
+        # else:
+        #     msg = "The images could not be converted."
+        #     logger.warning("expected outputpath: %s" % outputpath)
+        #     self.core.ffmpegError("Image conversion", msg, result)
+
+
+
+
+
+
+
 
 
 
