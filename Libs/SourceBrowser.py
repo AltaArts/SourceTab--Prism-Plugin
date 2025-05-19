@@ -140,14 +140,19 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.nameMods = []
         self.transferList = []
         self.total_transferSize = 0.0
-
         self.initialized = False
         self.closeParm = "closeafterload"
 
+        #   Load UI
         self.loadLayout()
+        #   Reset Total Prog Bar
         self.reset_ProgBar()
+        #   Signal Connections
         self.connectEvents()
+        #   Load Settings from Prism Project Settings
         self.loadSettings()
+        #   Setup Worker Threadpools and Semephore Slots
+        self.setupThreadpools()
 
         #   Callbacks
         self.core.callback(name="onSourceBrowserOpen", args=[self])
@@ -525,12 +530,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         #   Get Main Settings
         settingData = sData["globals"]
         self.max_thumbThreads = settingData["max_thumbThreads"]
-        self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
         self.max_copyThreads = settingData["max_copyThreads"]
-        self.copy_semaphore = QSemaphore(self.max_copyThreads)
         self.size_copyChunk = settingData["size_copyChunk"]
         self.max_proxyThreads = settingData["max_proxyThreads"]
-        self.proxy_semaphore = QSemaphore(self.max_proxyThreads)
         self.progUpdateInterval = settingData["updateInterval"]
         self.useCompletePopup = settingData["useCompletePopup"]
         self.useCompleteSound = settingData["useCompleteSound"]
@@ -563,6 +565,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
         self.sourceFuncts.chb_copyProxy.setChecked(tabData["enable_copyProxy"])
         self.sourceFuncts.chb_generateProxy.setChecked(tabData["enable_generateProxy"])
+
+
+    #   Initializes Worker Threadpools and Semephore Slots
+    @err_catcher(name=__name__)
+    def setupThreadpools(self):
+        self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
+        self.copy_semaphore = QSemaphore(self.max_copyThreads)
+        self.proxy_semaphore = QSemaphore(self.max_proxyThreads)
+
+        self.thumb_threadpool = QThreadPool()
+        self.thumb_threadpool.setMaxThreadCount(self.max_thumbThreads)
+
+        self.dataOps_threadpool = QThreadPool()
+        self.dataOps_threadpool.setMaxThreadCount(12)
+
 
 
     @err_catcher(name=__name__)
@@ -710,7 +727,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 statusColor = COLOR_GREY
             case "Cancelled":
                 statusColor = COLOR_RED
-            case "Issue":
+            case "Warning":
                 statusColor = COLOR_ORANGE
             case "Complete":
                 statusColor = COLOR_GREEN
@@ -824,8 +841,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             overall_status = "Cancelled"
         elif "Error" in overall_statusList:
             overall_status = "Error"
-        elif "Issue" in overall_statusList:
-            overall_status = "Issue"
+        elif "Warning" in overall_statusList:
+            overall_status = "Warning"
         elif all(status == "Complete" for status in overall_statusList):
             overall_status = "Complete"
         elif any(status == "Paused" for status in overall_statusList):

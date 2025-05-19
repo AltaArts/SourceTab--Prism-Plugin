@@ -380,7 +380,7 @@ class Prism_SourceTab_Functions(object):
                     "enable_generateProxy": False
                 },
                 "globals": {
-                    "max_thumbThreads": 12,
+                    "max_thumbThreads": 6,
                     "max_copyThreads": 6,
                     "size_copyChunk": 1,
                     "max_proxyThreads": 2,

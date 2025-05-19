@@ -49,6 +49,7 @@ import os
 import sys
 import logging
 import time
+import re
 import hashlib
 from collections import OrderedDict
 import subprocess
@@ -123,9 +124,6 @@ class BaseTileItem(QWidget):
 
     #   Properties from the SourceTab Config Settings
     @property
-    def max_thumbThreads(self):
-        return self.browser.max_thumbThreads
-    @property
     def thumb_semaphore(self):
         return self.browser.thumb_semaphore
     @property
@@ -140,6 +138,12 @@ class BaseTileItem(QWidget):
     @property
     def progUpdateInterval(self):
         return self.browser.progUpdateInterval
+    @property
+    def thumb_threadpool(self):
+        return self.browser.thumb_threadpool
+    @property
+    def dataOps_threadpool(self):
+        return self.browser.dataOps_threadpool
 
 
     def __init__(self, browser, data):
@@ -158,11 +162,6 @@ class BaseTileItem(QWidget):
         #   Thumbnail Size
         self.itemPreviewWidth = 120
         self.itemPreviewHeight = 69
-
-        #   Sets Thread Pool
-        self.threadPool = QThreadPool.globalInstance()
-        #    Limit Max Threads
-        self.threadPool.setMaxThreadCount(self.max_thumbThreads)
 
 
     #   Launches the Single-click File Action
@@ -344,7 +343,6 @@ class BaseTileItem(QWidget):
             if "transferTime" not in self.data and self.destFileExists():
                 borderColor = COLOR_ORANGE
 
-        # Construct base stylesheet with just the border
         borderStyle = f"""
             QWidget#FileTile {{
                 border: 1px solid rgb({borderColor});
@@ -382,7 +380,7 @@ class BaseTileItem(QWidget):
                 }
             """
 
-        # Combine styles
+        #   Combine Styles
         fullStyle = borderStyle + backgroundStyle
 
         try:
@@ -476,12 +474,15 @@ class BaseTileItem(QWidget):
         return total_size
 
 
-    #   Returns the Numbr of Frames of the File(s) to Transfer
+    #   Gets the Number of Frames of the File(s) to Transfer
     @err_catcher(name=__name__)
     def setDuration(self, filePath, callback=None):
-        framesWorker = FileDurationWorker(self, self.core, filePath)
-        framesWorker.signals.finished.connect(callback)
-        self.threadPool.start(framesWorker)
+        #   Create Worker Instance
+        worker_frames = FileDurationWorker(self, self.core, filePath)
+        #   Connect to Finished Callback
+        worker_frames.finished.connect(callback)
+        #   Launch Worker in DataOps Treadpool
+        self.dataOps_threadpool.start(worker_frames)
 
 
      #   Returns the Filepath
@@ -493,9 +494,12 @@ class BaseTileItem(QWidget):
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
     def setFileHash(self, filePath, callback=None):
-        hashWorker = FileHashWorker(filePath)
-        hashWorker.signals.finished.connect(callback)
-        self.threadPool.start(hashWorker)
+        #   Create Worker Instance
+        worker_hash = FileHashWorker(filePath)
+        #   Connect to Finished Callback
+        worker_hash.finished.connect(callback)
+        #   Launch Worker in DataOps Treadpool
+        self.dataOps_threadpool.start(worker_hash)
     
 
     @err_catcher(name=__name__)
@@ -529,7 +533,7 @@ class BaseTileItem(QWidget):
         filePath = self.getSource_mainfilePath()
 
         # Create Worker Thread
-        worker = ThumbnailWorker(
+        worker_thumb = ThumbnailWorker(
             self,
             filePath=filePath,
             getPixmapFromPath=self.core.media.getPixmapFromPath,
@@ -539,8 +543,10 @@ class BaseTileItem(QWidget):
             getThumbnailPath=self.getThumbnailPath,
             scalePixmapFunc=self.core.media.scalePixmap
         )
-        worker.result.connect(self.updatePreview)
-        self.threadPool.start(worker)
+
+        worker_thumb.setAutoDelete(True)
+        worker_thumb.result.connect(self.updatePreview)
+        self.thumb_threadpool.start(worker_thumb)
         
 
     @err_catcher(name=__name__)
@@ -1045,7 +1051,7 @@ class DestFileItem(BaseTileItem):
         super(DestFileItem, self).__init__(browser, data)
         self.tileType = "destTile"
 
-        self.copyWorker = None
+        self.worker_copy = None
         self.transferState = None
 
         #   Calls the SetupUI Method of the Child Tile
@@ -1120,14 +1126,23 @@ class DestFileItem(BaseTileItem):
         #   File Type Icon
         self.l_icon = QLabel()
 
-        # Add progress bar
-        self.progressBar = QProgressBar()
-        self.progressBar.setMinimum(0)
-        self.progressBar.setMaximum(100)
-        self.progressBar.setValue(0)
-        self.progressBar.setFixedHeight(10)
-        self.progressBar.setTextVisible(False)
-        self.progressBar.setVisible(False)
+        #   Transfer Progress bar
+        self.transferProgBar = QProgressBar()
+        self.transferProgBar.setMinimum(0)
+        self.transferProgBar.setMaximum(100)
+        self.transferProgBar.setValue(0)
+        self.transferProgBar.setFixedHeight(10)
+        self.transferProgBar.setTextVisible(False)
+        self.transferProgBar.setVisible(False)
+
+        #   Proxy Progress bar
+        self.proxyProgBar = QProgressBar()
+        self.proxyProgBar.setMinimum(0)
+        self.proxyProgBar.setMaximum(100)
+        self.proxyProgBar.setValue(0)
+        self.proxyProgBar.setFixedHeight(10)
+        self.proxyProgBar.setTextVisible(False)
+        self.proxyProgBar.setVisible(False)
 
         #   File Size Layout
         self.fileSizeContainer = QWidget()
@@ -1149,7 +1164,8 @@ class DestFileItem(BaseTileItem):
 
         #   Add Items to Bottom Layout
         self.lo_bottom.addWidget(self.l_icon, alignment=Qt.AlignVCenter)
-        self.lo_bottom.addWidget(self.progressBar)
+        self.lo_bottom.addWidget(self.transferProgBar)
+        self.lo_bottom.addWidget(self.proxyProgBar)
         self.lo_bottom.addWidget(self.fileSizeContainer)
 
         #   Add Top and Bottom to Details Layout
@@ -1168,8 +1184,9 @@ class DestFileItem(BaseTileItem):
         self.customContextMenuRequested.connect(self.rightClicked)
 
         #   Reset Progress Bar
-        self.setTransferStatus(status="Idle")
-        self.progressBar.setVisible(True)
+        self.setTransferStatus(progBar="transfer", status="Idle")
+        self.transferProgBar.setVisible(True)
+        self.setTransferStatus(progBar="proxy", status="Idle")
 
 
     @err_catcher(name=__name__)
@@ -1178,10 +1195,6 @@ class DestFileItem(BaseTileItem):
         source_MainFileName = self.getBasename(source_MainFilePath)
 
         self.data["dest_mainFile_path"] = self.getDestMainPath()
-
-        icon = self.getIcon()
-        self.setIcon(icon)
-
         self.setProxyFile()
 
         self.l_fileName.setText(source_MainFileName)
@@ -1190,6 +1203,10 @@ class DestFileItem(BaseTileItem):
                f"Destination File:  {self.getDestPath()}")
         self.l_fileName.setToolTip(tip)
 
+        #   Set Filetype Icon
+        self.setIcon(self.data["icon"])
+
+        #   Set Size String
         self.l_size_total.setText(self.data["source_mainFile_size"])
 
         # Get File Path
@@ -1197,8 +1214,9 @@ class DestFileItem(BaseTileItem):
         self.l_fileName.setText(self.getBasename(filePath))
         self.l_fileName.setToolTip(f"FilePath:  {filePath}")
 
-        #   Set Filetype Icon
-        self.setIcon(self.data["icon"])
+        if (self.browser.sourceFuncts.chb_generateProxy.isChecked()
+            and self.getFileExtension().lower() in self.core.media.videoFormats):
+            self.proxyProgBar.setVisible(True)
 
         self.refreshPreview()
 
@@ -1304,8 +1322,12 @@ class DestFileItem(BaseTileItem):
 
 
     @err_catcher(name=__name__)
-    def setTransferStatus(self, status, tooltip=None):
+    def setTransferStatus(self, progBar, status, tooltip=None):
         self.transferState = status
+        if progBar == "transfer":
+            progWdget = self.transferProgBar
+        elif progBar == "proxy":
+            progWdget = self.proxyProgBar
 
         match status:
             case "Idle":
@@ -1318,22 +1340,22 @@ class DestFileItem(BaseTileItem):
                 statusColor = COLOR_RED
             case "Complete":
                 statusColor = COLOR_GREEN
-            case "Issue":
+            case "Warning":
                 statusColor = COLOR_ORANGE
             case "Error":
                 statusColor = COLOR_RED
 
         #   Set the Prog Bar Tooltip
         if tooltip:
-            self.progressBar.setToolTip(tooltip)
+            progWdget.setToolTip(tooltip)
         else:
-            self.progressBar.setToolTip(status)
+            progWdget.setToolTip(status)
 
         #   Convert Color to rgb format string
         color_str = f"rgb({statusColor})"
         
         #   Set Prog Bar StyleSheet
-        self.progressBar.setStyleSheet(f"""
+        progWdget.setStyleSheet(f"""
             QProgressBar::chunk {{
                 background-color: {color_str};  /* Set the chunk color */
             }}
@@ -1378,7 +1400,7 @@ class DestFileItem(BaseTileItem):
 
 
     ####    TEMP TESTING    ####
-    @err_catcher(name=__name__)                                                  # TESTING
+    @err_catcher(name=__name__)                                                             # TESTING
     def TEST_SHOW_DATA(self):
         if not hasattr(self, "data") or not isinstance(self.data, dict):
             self.core.popup("No data to display or 'data' is not a dictionary.")
@@ -1403,7 +1425,7 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def start_transfer(self, origin, options):
-        self.setTransferStatus("Transferring")
+        self.setTransferStatus(progBar="transfer", status="Transferring")
 
         self.transferTimer = QTimer(self)
         self.transferStartTime = time.time()
@@ -1426,46 +1448,54 @@ class DestFileItem(BaseTileItem):
             self.data["proxySettings"] = options["proxySettings"]
         
         #   Call the Transfer Worker Thread
-        self.copyWorker = FileCopyWorker(self, copyData)
+        self.worker_copy = FileCopyWorker(self, copyData)
         #   Connect the Progress Signals
-        self.copyWorker.progress.connect(self.update_progress)
-        self.copyWorker.finished.connect(self.copy_complete)
-        self.copyWorker.start()
+        self.worker_copy.progress.connect(self.update_transferProgress)
+        self.worker_copy.finished.connect(self.transfer_complete)
+        self.worker_copy.start()
 
 
     @err_catcher(name=__name__)
     def pause_transfer(self, origin):
-        if self.copyWorker and self.transferState != "Complete":
-            self.setTransferStatus("Paused")
+        if self.worker_copy and self.transferState != "Complete":
+            self.setTransferStatus(progBar="transfer", status="Paused")
             self.transferTimer.stop()
-            self.copyWorker.pause()
+            self.worker_copy.pause()
 
 
     @err_catcher(name=__name__)
     def resume_transfer(self, origin):
-        if self.copyWorker and self.transferState == "Paused":
-            self.setTransferStatus("Transferring")
+        if self.worker_copy and self.transferState == "Paused":
+            self.setTransferStatus(progBar="transfer", status="Transferring")
             self.transferTimer.start()
-            self.copyWorker.resume()
+            self.worker_copy.resume()
 
 
     @err_catcher(name=__name__)
     def cancel_transfer(self, origin):
-        if self.copyWorker and self.transferState != "Complete":
-            self.setTransferStatus("Cancelled")
+        if self.worker_copy and self.transferState != "Complete":
+            self.setTransferStatus(progBar="transfer", status="Cancelled")
             self.transferTimer.stop()
-            self.copyWorker.cancel()
+            self.worker_copy.cancel()
 
-        if self.proxyWorker:                                            #   TODO - FINISH IMPLEMENTATION
-            self.proxyWorker.cancel()
+        if self.worker_proxy:                                            #   TODO - FINISH IMPLEMENTATION
+            self.worker_proxy.cancel()
 
 
     #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
-    def update_progress(self, value, copied_size):
-        self.progressBar.setValue(value)
+    def update_transferProgress(self, value, copied_size):
+        self.transferProgBar.setValue(value)
         self.l_size_copied.setText(self.getSizeString(copied_size))
         self.copied_size = copied_size
+
+
+    #   Updates the UI During the Transfer
+    @err_catcher(name=__name__)
+    def update_proxyProgress(self, value, copied_size):
+        self.proxyProgBar.setValue(value)
+        # self.l_size_copied.setText(self.getSizeString(copied_size))
+        # self.copied_size = copied_size
 
 
     @err_catcher(name=__name__)
@@ -1475,7 +1505,7 @@ class DestFileItem(BaseTileItem):
 
     #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
-    def copy_complete(self, success):
+    def transfer_complete(self, success):
         destMainPath = self.getDestMainPath()
 
         self.transferTimer.stop()
@@ -1485,19 +1515,17 @@ class DestFileItem(BaseTileItem):
         self.l_fileName.setToolTip(os.path.normpath(destMainPath))
 
         if success:
-            self.progressBar.setValue(100)
+            self.transferProgBar.setValue(100)
 
             if os.path.isfile(destMainPath):
                 #   Calls for Hash Generation with Callback
                 self.setFileHash(destMainPath, self.onDestHashReady)
 
-
-
-                if self.data["generateProxy"]:
+                #   Generate Proxy if Enabled
+                if self.data["generateProxy"]:                                          ####   WORKING
                     self.generateProxy(self.data["proxySettings"])
-                return
-            
 
+                return
             
             else:
                 hashMsg = "ERROR:  Transfer File Does Not Exist"
@@ -1507,7 +1535,7 @@ class DestFileItem(BaseTileItem):
             logger.warning(f"Transfer failed: {destMainPath}")
 
         # Final fallback (error case only)
-        self.setTransferStatus("Error", tooltip=hashMsg)
+        self.setTransferStatus(progBar="transfer", status="Error", tooltip=hashMsg)
 
 
     #   Called After Hash Genertaion for UI Feedback
@@ -1522,38 +1550,36 @@ class DestFileItem(BaseTileItem):
             logger.debug(f"Transfer complete: {self.getSource_mainfilePath()}")
         else:
             statusMsg = "ERROR:  Transfered Hash Incorrect"
-            status = "Issue"
+            status = "Warning"
             logger.debug(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
 
         hashMsg = (f"Status: {statusMsg}\n\n"
                 f"Source Hash:   {orig_hash}\n"
                 f"Transfer Hash: {dest_hash}")
 
-        self.setTransferStatus(status, tooltip=hashMsg)
+        self.setTransferStatus(progBar="transfer", status=status, tooltip=hashMsg)
 
 
-
+    #   Generates Proxy with FFmpeg in a Worker Thread
     @err_catcher(name=__name__)
     def generateProxy(self, settings):
-
+        #   Get File Paths
         inputPath = self.getDestMainPath()
         input_baseFile = os.path.basename(inputPath)
         input_dirName = os.path.dirname(inputPath)
         proxy_Path = os.path.join(input_dirName, "proxy")
         input_baseName = os.path.splitext(input_baseFile)[0]
-
+        #   Generate Proxy File Path
         outputPath = os.path.join(proxy_Path, input_baseName + ".mp4")
+        #   Add Duration to settings Data
+        settings["frames"] = self.data["source_mainFile_duration"]
 
         #   Call the Transfer Worker Thread
-        self.proxyWorker = ProxyGenerationWorker(self, self.core, inputPath, outputPath, settings)
+        self.worker_proxy = ProxyGenerationWorker(self, self.core, inputPath, outputPath, settings)
         #   Connect the Progress Signals
-        self.copyWorker.progress.connect(self.update_progress)
-        self.copyWorker.finished.connect(self.copy_complete)
-        self.proxyWorker.start()
-
-
-
-
+        self.worker_proxy.progress.connect(self.update_proxyProgress)
+        # self.proxyWorker.finished.connect(self.copy_complete)
+        self.worker_proxy.start()
 
 
 
@@ -1633,21 +1659,17 @@ class FolderItem(BaseTileItem):
         pass
 
 
+####    THREAD WORKERS    ####
 
-###     Thumbnail Worker Thread
-
-#   Signal object to communicate between threads and the main UI
-class ThumbnailSignal(QObject):
-    finished = Signal(QPixmap, str)
-
-class ThumbnailWorker(QRunnable, QObject):
-    finished = Signal()
-    result = Signal(QPixmap)  # Only return final scaled pixmap now
+###     Thumbnail Worker Thread ###
+class ThumbnailWorker(QObject, QRunnable):
+    result = Signal(QPixmap)
 
     def __init__(self, origin, filePath, getPixmapFromPath, supportedFormats,
                  width, height, getThumbnailPath, scalePixmapFunc):
-        super().__init__()
         QObject.__init__(self)
+        QRunnable.__init__(self)
+
         self.origin = origin
         self.filePath = filePath
         self.getPixmapFromPath = getPixmapFromPath
@@ -1656,6 +1678,7 @@ class ThumbnailWorker(QRunnable, QObject):
         self.height = height
         self.getThumbnailPath = getThumbnailPath
         self.scalePixmapFunc = scalePixmapFunc
+
 
     @Slot()
     def run(self):
@@ -1701,21 +1724,22 @@ class ThumbnailWorker(QRunnable, QObject):
                 self.result.emit(scaledPixmap)
 
         finally:
-            self.finished.emit()
             self.origin.thumb_semaphore.release()
 
 
 
-###     Hash Worker Thread
-class FileHashWorkerSignals(QObject):
+###     Hash Worker Thread    ###
+class FileHashWorker(QObject, QRunnable):
     finished = Signal(str)
 
-class FileHashWorker(QRunnable):
     def __init__(self, filePath):
-        super(FileHashWorker, self).__init__()
-        self.filePath = filePath
-        self.signals = FileHashWorkerSignals()
+        QObject.__init__(self)
+        QRunnable.__init__(self)
 
+        self.filePath = filePath
+
+
+    @Slot()
     def run(self):
         try:
             chunk_size = 8192
@@ -1728,27 +1752,28 @@ class FileHashWorker(QRunnable):
             file_size = os.path.getsize(self.filePath)
             hash_func.update(str(file_size).encode())
             result_hash = hash_func.hexdigest()
-            self.signals.finished.emit(result_hash)
+            self.finished.emit(result_hash)
 
         except Exception as e:
             print(f"[FileHashWorker] Error hashing {self.filePath} - {e}")
-            self.signals.finished.emit("Error")
+            self.finished.emit("Error")
 
 
 
-###     File Duration (Frames) Worker Thread
-class FileDurationWorkerSignals(QObject):
+###     File Duration (Frames) Worker Thread    ###
+class FileDurationWorker(QObject, QRunnable):                                #   TODO - FINISH DURATION FOR SEQUENCES
     finished = Signal(int)
 
-class FileDurationWorker(QRunnable):                                #   TODO - FINISH DURATION FOR SEQUENCES
     def __init__(self, origin, core, filePath):
-        super(FileDurationWorker, self).__init__()
+        QObject.__init__(self)
+        QRunnable.__init__(self)
+
         self.origin = origin
         self.core = core
         self.filePath = filePath
-        self.signals = FileDurationWorkerSignals()
 
 
+    @Slot()
     def run(self):
         try:
             extension = os.path.splitext(os.path.basename(self.filePath))[1].lower()
@@ -1808,21 +1833,22 @@ class FileDurationWorker(QRunnable):                                #   TODO - F
 
 
             #   Emit Frames to Main Thread
-            self.signals.finished.emit(int(frames))
+            self.finished.emit(int(frames))
 
         except Exception as e:
             print(f"[Duration Worker] ERROR: {self.filePath} - {e}")
-            self.signals.finished.emit("Error")
+            self.finished.emit("Error")
 
 
 
-###     Transfer Worker Thread
+###     Transfer Worker Thread     ###
 class FileCopyWorker(QThread):
     progress = Signal(int, float)
     finished = Signal(bool)
 
     def __init__(self, origin, copyData):
         super().__init__()
+        
         self.origin = origin
         self.copyData = copyData
         self.hasProxy = self.copyData["hasProxy"]
@@ -1842,7 +1868,6 @@ class FileCopyWorker(QThread):
         self.cancel_flag = True
 
     def run(self):
-
         sourcePath = self.copyData["sourcePath"]
         destPath = self.copyData["destPath"]
 
@@ -1904,57 +1929,56 @@ class FileCopyWorker(QThread):
 
 
 
-
-###     Transfer Worker Thread
+###     Proxy Generation Worker Thread    ###
 class ProxyGenerationWorker(QThread):
     progress = Signal(int, float)
     finished = Signal(bool)
 
     def __init__(self, origin, core, inputPath, outputPath, settings=None):
         super().__init__()
+
         self.origin = origin
         self.core = core
-        self.origin = origin
-
         self.inputPath = inputPath
         self.outputPath = outputPath
-        self.settings = settings
+        self.settings = settings or {}
 
         self.running = True
         self.pause_flag = False
         self.cancel_flag = False
         self.last_emit_time = 0
 
-
     def pause(self):
         self.pause_flag = True
-
 
     def resume(self):
         self.pause_flag = False
 
-
     def cancel(self):
         self.cancel_flag = True
 
-
     def run(self):
-
         ffmpegPath = self.core.media.getFFmpeg(validate=True)
-
         if not ffmpegPath:
             self.finished.emit(False)
-            return "ERROR:  FFMPEG is not Found"
+            return
+
+        # total frames from settings
+        total_frames = int(self.settings.get("frames", 0))
+        if total_frames <= 0:
+            print("[ProxyWorker] Invalid total frame count!")
+            self.finished.emit(False)
+            return
         
+        settings_copy = dict(self.settings)
+        settings_copy.pop("frames", None)
+
+        # ——— build ffmpeg args exactly as you had them ———
         startNum = 0
-
-
         inputExt = os.path.splitext(os.path.basename(self.inputPath))[1].lower()
         outputExt = os.path.splitext(os.path.basename(self.outputPath))[1].lower()
-
-
         videoInput = inputExt in [".mp4", ".mov", ".m4v"]
-        startNum = str(startNum) if startNum is not None else None
+        startNum = str(startNum)
 
         if not os.path.exists(os.path.dirname(self.outputPath)):
             try:
@@ -1963,80 +1987,60 @@ class ProxyGenerationWorker(QThread):
                 pass
 
         if videoInput:
-            args = OrderedDict(
-                [
-                    ("-apply_trc", "iec61966_2_1"),
-                    ("-i", self.inputPath),
-                    ("-pix_fmt", "yuva420p"),
-                    ("-start_number", startNum),
-                ]
-            )
-
+            args = OrderedDict([
+                ("-apply_trc", "iec61966_2_1"),
+                ("-i", self.inputPath),
+                ("-pix_fmt", "yuva420p"),
+                ("-start_number", startNum),
+            ])
         else:
             fps = "25"
-            if self.core.getConfig(
-                "globals", "forcefps", configPath=self.core.prismIni
-            ):
-                fps = self.core.getConfig(
-                    "globals", "fps", configPath=self.core.prismIni
-                )
-
-            args = OrderedDict(
-                [
-                    ("-start_number", startNum),
-                    ("-framerate", fps),
-                    ("-apply_trc", "iec61966_2_1"),
-                    ("-i", self.inputPath),
-                    ("-pix_fmt", "yuva420p"),
-                    ("-start_number_out", startNum),
-                ]
-            )
-
+            if self.core.getConfig("globals", "forcefps", configPath=self.core.prismIni):
+                fps = self.core.getConfig("globals", "fps", configPath=self.core.prismIni)
+            args = OrderedDict([
+                ("-start_number", startNum),
+                ("-framerate", fps),
+                ("-apply_trc", "iec61966_2_1"),
+                ("-i", self.inputPath),
+                ("-pix_fmt", "yuva420p"),
+                ("-start_number_out", startNum),
+            ])
             if startNum is None:
                 args.popitem(last=False)
                 args.popitem(last=True)
 
         if outputExt == ".jpg":
-            quality = self.core.getConfig(
-                "media", "jpgCompression", dft=4, config="project"
-            )
+            quality = self.core.getConfig("media", "jpgCompression", dft=4, config="project")
             args["-qscale:v"] = str(quality)
-
         if outputExt == ".mp4":
-            quality = self.core.getConfig(
-                "media", "mp4Compression", dft=18, config="project"
-            )
+            quality = self.core.getConfig("media", "mp4Compression", dft=18, config="project")
             args["-crf"] = str(quality)
 
         if self.settings:
-            args.update(self.settings)
+            args.update(settings_copy)
 
+        # flatten into a list
         argList = [ffmpegPath]
-
-        for k in args.keys():
-            if not args[k]:
+        for k, v in args.items():
+            if not v:
                 continue
-
-            if isinstance(args[k], list):
-                al = [k]
-                al.extend([str(x) for x in args[k]])
+            if isinstance(v, list):
+                argList += [k] + [str(x) for x in v]
             else:
-                val = str(args[k])
-                if k == "-start_number_out":
-                    k = "-start_number"
-                al = [k, val]
-
-            argList += al
-
+                key = "-start_number" if k == "-start_number_out" else k
+                argList += [key, str(v)]
         argList += [self.outputPath, "-y"]
-        if platform.system() == "Windows":
-            shell = True
-        else:
-            shell = False
 
+        # shell = (platform.system() == "Windows")
+        shell = False
+
+        # Regex to catch e.g. "frame=  1234"
+        frame_re = re.compile(r"frame=\s*(\d+)")
 
         self.origin.proxy_semaphore.acquire()
 
+
+        print(f"*** argList:  {argList}")                                              #    TESTING
 
         nProc = subprocess.Popen(
             argList,
@@ -2047,39 +2051,51 @@ class ProxyGenerationWorker(QThread):
             bufsize=1
         )
 
-        try:
-            while True:
-                # Check for cancellation
-                if self.cancel_flag:
-                    print("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")
-                    nProc.terminate()
-                    try:
-                        nProc.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        print("[ProxyWorker] FFmpeg did not terminate cleanly, killing.")
-                        nProc.kill()
-                    self.finished.emit(False)
-                    return
-
-                line = nProc.stderr.readline()
-                if not line:
-                    break
-                print(line.strip())  # Or handle progress parsing here
-
-            nProc.wait()
-
-            if nProc.returncode == 0:
-                self.finished.emit(True)
-            else:
-                print(f"[ProxyWorker] FFmpeg exited with code {nProc.returncode}")
+        # try:
+        while True:
+            # cancel?
+            if self.cancel_flag:
+                print("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")
+                nProc.terminate()
+                try:
+                    nProc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    print("[ProxyWorker] Killing FFmpeg.")
+                    nProc.kill()
                 self.finished.emit(False)
+                return
 
-        except Exception as e:
-            print(f"[ProxyWorker] Exception: {e}")
-            if nProc.poll() is None:
-                nProc.kill()
-            self.finished.emit(False)
+            # pause?
+            if self.pause_flag:
+                time.sleep(0.1)
+                continue
 
-        finally:
-            self.origin.proxy_semaphore.release()
-            self.running = False
+            line = nProc.stderr.readline()
+            if not line:
+                break
+
+            # parse frame count
+            m = frame_re.search(line)
+            if m:
+                current = int(m.group(1))
+                pct = int((current / total_frames) * 100)
+
+                now = time.time()
+                if (now - self.last_emit_time >= self.origin.progUpdateInterval) or (pct == 100):
+                    # second parameter is bytes‐copied; FFmpeg parsing for that is extra work
+                    self.progress.emit(pct, 0.0)
+                    self.last_emit_time = now
+
+        nProc.wait()
+        self.finished.emit(nProc.returncode == 0)
+
+        # except Exception as e:
+        #     print(f"[ProxyWorker] Exception: {e}")
+        #     if nProc.poll() is None:
+        #         nProc.kill()
+        #     self.finished.emit(False)
+
+        # finally:
+        self.origin.proxy_semaphore.release()
+        self.running = False
+
