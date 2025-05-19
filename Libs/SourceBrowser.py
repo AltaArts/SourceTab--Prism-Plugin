@@ -155,28 +155,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if refresh:
             self.entered()
 
-        ### TESTING    ###
-        # self.tempTesting()                                                #   TESTING
-
-
-
-    #   TESTING!!!
-    @err_catcher(name=__name__)
-    def tempTesting(self):
-        try:
-            if os.path.exists(r"C:\\Users\\Alta Arts\\Desktop\\TempImages"):
-                self.sourceDir = r"C:\\Users\\Alta Arts\\Desktop\\TempImages"
-                self.destDir = r"C:\\Users\\Alta Arts\\Desktop\\TempDestination"
-
-            elif os.path.exists(r"C:\\Users\\Joshua Breckeen\\Desktop\\TempImages"):
-                self.sourceDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempImages"
-                self.destDir = r"C:\\Users\\Joshua Breckeen\\Desktop\\TempDestination"
-
-        except:
-            pass
-
-        self.refreshUI()
-
 
 
     @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
@@ -551,6 +529,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.max_copyThreads = settingData["max_copyThreads"]
         self.copy_semaphore = QSemaphore(self.max_copyThreads)
         self.size_copyChunk = settingData["size_copyChunk"]
+        self.max_proxyThreads = settingData["max_proxyThreads"]
+        self.proxy_semaphore = QSemaphore(self.max_proxyThreads)
         self.progUpdateInterval = settingData["updateInterval"]
         self.useCompletePopup = settingData["useCompletePopup"]
         self.useCompleteSound = settingData["useCompleteSound"]
@@ -594,6 +574,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             for preset in presets:
                 self.mediaPlayer.cb_viewLut.addItem(preset["name"])
+
+
+    #   Returns FFprobe Path
+    @err_catcher(name=__name__)
+    def getFFprobePath(self):
+        return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
 
 
     #   Returns File Size Formatted String
@@ -1868,6 +1854,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 options = {}
                 options["copyProxy"] = copyProxy
                 options["generateProxy"] = generateProxy
+
+                if generateProxy:                                   #   TODO:  Add Proxy Options
+                    proxySettings = {}
+                    options["proxySettings"] = proxySettings
                 
                 item.start_transfer(self, options)
 

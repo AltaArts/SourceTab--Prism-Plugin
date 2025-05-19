@@ -51,6 +51,10 @@ import logging
 import time
 import hashlib
 from collections import OrderedDict
+import subprocess
+import platform
+
+
 
 if sys.version[0] == "3":
     pVersion = 3
@@ -78,16 +82,16 @@ pyLibsPath = os.path.join(pluginRoot, "PythonLibs")
 uiPath = os.path.join(pluginRoot, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
 sys.path.append(os.path.join(rootScripts, "Libs"))
-sys.path.append(pyLibsPath)
+sys.path.insert(0, pyLibsPath)
 sys.path.append(pluginRoot)
 sys.path.append(uiPath)
+# sys.path.append(os.path.join(pyLibsPath))
 
 # if os.path.exists(os.path.join(pyLibsPath, "Python311")):                 #   TODO Add python libs check
 
 
-
-EXIF_DIR = os.path.join(pyLibsPath, "ExifTool")
 import exiftool
+EXIF_DIR = os.path.join(pyLibsPath, "ExifTool")
 
 from PopupWindows import DisplayPopup
 
@@ -125,14 +129,14 @@ class BaseTileItem(QWidget):
     def thumb_semaphore(self):
         return self.browser.thumb_semaphore
     @property
-    def max_copyThreads(self):
-        return self.browser.max_copyThreads
-    @property
     def copy_semaphore(self):
         return self.browser.copy_semaphore
     @property
     def size_copyChunk(self):
         return self.browser.size_copyChunk
+    @property
+    def proxy_semaphore(self):
+        return self.browser.proxy_semaphore
     @property
     def progUpdateInterval(self):
         return self.browser.progUpdateInterval
@@ -472,6 +476,14 @@ class BaseTileItem(QWidget):
         return total_size
 
 
+    #   Returns the Numbr of Frames of the File(s) to Transfer
+    @err_catcher(name=__name__)
+    def setDuration(self, filePath, callback=None):
+        framesWorker = FileDurationWorker(self, self.core, filePath)
+        framesWorker.signals.finished.connect(callback)
+        self.threadPool.start(framesWorker)
+
+
      #   Returns the Filepath
     @err_catcher(name=__name__)
     def getBasename(self, filePath):
@@ -481,9 +493,9 @@ class BaseTileItem(QWidget):
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
     def setFileHash(self, filePath, callback=None):
-        worker = FileHashWorker(filePath)
-        worker.signals.finished.connect(callback)
-        self.threadPool.start(worker)
+        hashWorker = FileHashWorker(filePath)
+        hashWorker.signals.finished.connect(callback)
+        self.threadPool.start(hashWorker)
     
 
     @err_catcher(name=__name__)
@@ -784,6 +796,9 @@ class SourceFileItem(BaseTileItem):
         #   File Type Icon
         self.l_icon = QLabel()
 
+        #   Frames Label
+        self.l_frames = QLabel("")
+
         #   Create Date Layout
         self.lo_date = QHBoxLayout()
         #   Date Icon
@@ -816,6 +831,9 @@ class SourceFileItem(BaseTileItem):
 
         #   Add Items to Bottom Layout
         self.lo_bottom.addWidget(self.l_icon, alignment=Qt.AlignVCenter)
+
+        self.lo_bottom.addWidget(self.l_frames, alignment=Qt.AlignVCenter)
+
         self.lo_bottom.addStretch()
         self.lo_bottom.addLayout(self.lo_date)
         self.lo_bottom.addStretch()
@@ -862,12 +880,24 @@ class SourceFileItem(BaseTileItem):
         self.data["source_mainFile_size"] = mainSize_str
         self.l_fileSize.setText(mainSize_str)
 
+        #   Set Number of Frames
+        fileType = self.browser.getFileType(filePath)
+        if fileType in ["image", "video"]:
+            self.setDuration(filePath, self.onMainfileDurationReady)
+
         #   Set Hash
         self.l_fileSize.setToolTip("Calculating file hash...")
         self.setFileHash(filePath, self.onMainfileHashReady)
 
         self.refreshPreview()
         self.setProxyFile()
+
+
+    #   Populates Frames when ready from Thread
+    @err_catcher(name=__name__)
+    def onMainfileDurationReady(self, duration):
+        self.data["source_mainFile_duration"] = duration
+        self.l_frames.setText(str(duration))
 
 
     #   Populates Hash when ready from Thread
@@ -1015,7 +1045,7 @@ class DestFileItem(BaseTileItem):
         super(DestFileItem, self).__init__(browser, data)
         self.tileType = "destTile"
 
-        self.worker = None
+        self.copyWorker = None
         self.transferState = None
 
         #   Calls the SetupUI Method of the Child Tile
@@ -1392,37 +1422,42 @@ class DestFileItem(BaseTileItem):
                 os.makedirs(destProxyDir)
 
         self.data["generateProxy"] = options["generateProxy"]
+        if options["generateProxy"]:
+            self.data["proxySettings"] = options["proxySettings"]
         
         #   Call the Transfer Worker Thread
-        self.worker = FileCopyWorker(self, copyData)
+        self.copyWorker = FileCopyWorker(self, copyData)
         #   Connect the Progress Signals
-        self.worker.progress.connect(self.update_progress)
-        self.worker.finished.connect(self.copy_complete)
-        self.worker.start()
+        self.copyWorker.progress.connect(self.update_progress)
+        self.copyWorker.finished.connect(self.copy_complete)
+        self.copyWorker.start()
 
 
     @err_catcher(name=__name__)
     def pause_transfer(self, origin):
-        if self.worker and self.transferState != "Complete":
+        if self.copyWorker and self.transferState != "Complete":
             self.setTransferStatus("Paused")
             self.transferTimer.stop()
-            self.worker.pause()
+            self.copyWorker.pause()
 
 
     @err_catcher(name=__name__)
     def resume_transfer(self, origin):
-        if self.worker and self.transferState == "Paused":
+        if self.copyWorker and self.transferState == "Paused":
             self.setTransferStatus("Transferring")
             self.transferTimer.start()
-            self.worker.resume()
+            self.copyWorker.resume()
 
 
     @err_catcher(name=__name__)
     def cancel_transfer(self, origin):
-        if self.worker and self.transferState != "Complete":
+        if self.copyWorker and self.transferState != "Complete":
             self.setTransferStatus("Cancelled")
             self.transferTimer.stop()
-            self.worker.cancel()
+            self.copyWorker.cancel()
+
+        if self.proxyWorker:                                            #   TODO - FINISH IMPLEMENTATION
+            self.proxyWorker.cancel()
 
 
     #   Updates the UI During the Transfer
@@ -1456,9 +1491,14 @@ class DestFileItem(BaseTileItem):
                 #   Calls for Hash Generation with Callback
                 self.setFileHash(destMainPath, self.onDestHashReady)
 
+
+
                 if self.data["generateProxy"]:
-                    self.generateProxy()
+                    self.generateProxy(self.data["proxySettings"])
                 return
+            
+
+            
             else:
                 hashMsg = "ERROR:  Transfer File Does Not Exist"
                 logger.warning(f"Transfer failed: {destMainPath}")
@@ -1494,7 +1534,7 @@ class DestFileItem(BaseTileItem):
 
 
     @err_catcher(name=__name__)
-    def generateProxy(self, settings=None):
+    def generateProxy(self, settings):
 
         inputPath = self.getDestMainPath()
         input_baseFile = os.path.basename(inputPath)
@@ -1504,82 +1544,12 @@ class DestFileItem(BaseTileItem):
 
         outputPath = os.path.join(proxy_Path, input_baseName + ".mp4")
 
-        extension = ".mp4"                              #   TESTING
-
-        # if checkRes:
-        #     if self.pwidth and self.pwidth == "?":
-        #         self.core.popup("Cannot read media file.")
-        #         return
-
-        #     if (
-        #         extension == ".mp4"
-        #         and self.pwidth is not None
-        #         and self.pheight is not None
-        #         and (
-        #             int(self.pwidth) % 2 == 1
-        #             or int(self.pheight) % 2 == 1
-        #         )
-        #     ):
-        #         self.core.popup("Media with odd resolution can't be converted to mp4.")
-        #         return
-
-        conversionSettings = settings or OrderedDict()
-
-        if extension == ".mov" and not settings:
-            conversionSettings["-c"] = "prores"
-            conversionSettings["-profile"] = 2
-            conversionSettings["-pix_fmt"] = "yuv422p10le"
-
-        # if self.prvIsSequence:
-        #     inputpath = (
-        #         os.path.splitext(inputpath)[0][: -self.core.framePadding]
-        #         + "%04d".replace("4", str(self.core.framePadding))
-        #         + inputExt
-        #     )
-
-        # context = self.origin.getCurrentAOV()
-        # if not context:
-        #     context = self.origin.getCurrentVersion()
-        # outputpath = self.core.paths.getMediaConversionOutputPath(
-        #     context, inputpath, extension
-        # )
-
-        # if not outputpath:
-        #     return
-
-        # if self.prvIsSequence:
-        #     startNum = self.pstart
-        # else:
-
-        startNum = 0
-
-        conversionSettings["-start_number"] = None
-        conversionSettings["-start_number_out"] = None
-        conversionSettings["-vf"] = "scale=iw/2:ih/2"
-
-        result = self.core.media.convertMedia(
-            inputPath, startNum, outputPath, settings=conversionSettings
-        )
-
-        print(f"*** result:  {result}")                                              #    TESTING
-
-        # if (
-        #     extension not in self.core.media.videoFormats
-        #     and self.prvIsSequence
-        # ):
-        #     outputpath = outputpath % int(startNum)
-
-
-        # if os.path.exists(outputpath) and os.stat(outputpath).st_size > 0:
-        #     msg = "The images were converted successfully."
-        #     self.core.popup(msg, severity="info")
-
-        # else:
-        #     msg = "The images could not be converted."
-        #     logger.warning("expected outputpath: %s" % outputpath)
-        #     self.core.ffmpegError("Image conversion", msg, result)
-
-
+        #   Call the Transfer Worker Thread
+        self.proxyWorker = ProxyGenerationWorker(self, self.core, inputPath, outputPath, settings)
+        #   Connect the Progress Signals
+        self.copyWorker.progress.connect(self.update_progress)
+        self.copyWorker.finished.connect(self.copy_complete)
+        self.proxyWorker.start()
 
 
 
@@ -1738,7 +1708,7 @@ class ThumbnailWorker(QRunnable, QObject):
 
 ###     Hash Worker Thread
 class FileHashWorkerSignals(QObject):
-    finished = Signal(str)  # emits the final hash
+    finished = Signal(str)
 
 class FileHashWorker(QRunnable):
     def __init__(self, filePath):
@@ -1762,6 +1732,86 @@ class FileHashWorker(QRunnable):
 
         except Exception as e:
             print(f"[FileHashWorker] Error hashing {self.filePath} - {e}")
+            self.signals.finished.emit("Error")
+
+
+
+###     File Duration (Frames) Worker Thread
+class FileDurationWorkerSignals(QObject):
+    finished = Signal(int)
+
+class FileDurationWorker(QRunnable):                                #   TODO - FINISH DURATION FOR SEQUENCES
+    def __init__(self, origin, core, filePath):
+        super(FileDurationWorker, self).__init__()
+        self.origin = origin
+        self.core = core
+        self.filePath = filePath
+        self.signals = FileDurationWorkerSignals()
+
+
+    def run(self):
+        try:
+            extension = os.path.splitext(os.path.basename(self.filePath))[1].lower()
+
+            frames = 1
+
+            #   Return None if not Media File
+            if extension not in self.core.media.supportedFormats:
+                return
+            
+            #   Use ffProbe for Video Files
+            if extension in self.core.media.videoFormats:
+                #   Get ffProbe path from Plugin Libs
+                ffprobePath = self.origin.browser.getFFprobePath()
+
+                #   Execute Quick Method
+                result = subprocess.run(
+                    [
+                        ffprobePath,
+                        "-v", "error",
+                        "-select_streams", "v:0",
+                        "-show_entries", "stream=nb_frames",
+                        "-of", "default=nokey=1:noprint_wrappers=1",
+                        self.filePath
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+
+                #   Get Frames from Output
+                frames = result.stdout.strip()
+
+                #   If Quick Method didnt work, try Slower Fallback Method
+                if frames == 'N/A' or not frames.isdigit():
+                    result = subprocess.run(
+                        [
+                            ffprobePath,
+                            "-v", "error",
+                            "-select_streams", "v:0",
+                            "-count_frames",
+                            "-show_entries", "stream=nb_read_frames",
+                            "-of", "default=nokey=1:noprint_wrappers=1",
+                            self.filePath
+                        ],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True
+                    )
+
+                    frames = result.stdout.strip()
+
+            else:                                                   #   TODO - Add Sequence Count
+                baseFile = os.path.basename(self.filePath)
+                seq = self.core.media.detectSequence(self.filePath, baseFile=baseFile)
+                # frames = len(seq)
+
+
+            #   Emit Frames to Main Thread
+            self.signals.finished.emit(int(frames))
+
+        except Exception as e:
+            print(f"[Duration Worker] ERROR: {self.filePath} - {e}")
             self.signals.finished.emit("Error")
 
 
@@ -1853,3 +1903,183 @@ class FileCopyWorker(QThread):
             self.running = False
 
 
+
+
+###     Transfer Worker Thread
+class ProxyGenerationWorker(QThread):
+    progress = Signal(int, float)
+    finished = Signal(bool)
+
+    def __init__(self, origin, core, inputPath, outputPath, settings=None):
+        super().__init__()
+        self.origin = origin
+        self.core = core
+        self.origin = origin
+
+        self.inputPath = inputPath
+        self.outputPath = outputPath
+        self.settings = settings
+
+        self.running = True
+        self.pause_flag = False
+        self.cancel_flag = False
+        self.last_emit_time = 0
+
+
+    def pause(self):
+        self.pause_flag = True
+
+
+    def resume(self):
+        self.pause_flag = False
+
+
+    def cancel(self):
+        self.cancel_flag = True
+
+
+    def run(self):
+
+        ffmpegPath = self.core.media.getFFmpeg(validate=True)
+
+        if not ffmpegPath:
+            self.finished.emit(False)
+            return "ERROR:  FFMPEG is not Found"
+        
+        startNum = 0
+
+
+        inputExt = os.path.splitext(os.path.basename(self.inputPath))[1].lower()
+        outputExt = os.path.splitext(os.path.basename(self.outputPath))[1].lower()
+
+
+        videoInput = inputExt in [".mp4", ".mov", ".m4v"]
+        startNum = str(startNum) if startNum is not None else None
+
+        if not os.path.exists(os.path.dirname(self.outputPath)):
+            try:
+                os.makedirs(os.path.dirname(self.outputPath))
+            except FileExistsError:
+                pass
+
+        if videoInput:
+            args = OrderedDict(
+                [
+                    ("-apply_trc", "iec61966_2_1"),
+                    ("-i", self.inputPath),
+                    ("-pix_fmt", "yuva420p"),
+                    ("-start_number", startNum),
+                ]
+            )
+
+        else:
+            fps = "25"
+            if self.core.getConfig(
+                "globals", "forcefps", configPath=self.core.prismIni
+            ):
+                fps = self.core.getConfig(
+                    "globals", "fps", configPath=self.core.prismIni
+                )
+
+            args = OrderedDict(
+                [
+                    ("-start_number", startNum),
+                    ("-framerate", fps),
+                    ("-apply_trc", "iec61966_2_1"),
+                    ("-i", self.inputPath),
+                    ("-pix_fmt", "yuva420p"),
+                    ("-start_number_out", startNum),
+                ]
+            )
+
+            if startNum is None:
+                args.popitem(last=False)
+                args.popitem(last=True)
+
+        if outputExt == ".jpg":
+            quality = self.core.getConfig(
+                "media", "jpgCompression", dft=4, config="project"
+            )
+            args["-qscale:v"] = str(quality)
+
+        if outputExt == ".mp4":
+            quality = self.core.getConfig(
+                "media", "mp4Compression", dft=18, config="project"
+            )
+            args["-crf"] = str(quality)
+
+        if self.settings:
+            args.update(self.settings)
+
+        argList = [ffmpegPath]
+
+        for k in args.keys():
+            if not args[k]:
+                continue
+
+            if isinstance(args[k], list):
+                al = [k]
+                al.extend([str(x) for x in args[k]])
+            else:
+                val = str(args[k])
+                if k == "-start_number_out":
+                    k = "-start_number"
+                al = [k, val]
+
+            argList += al
+
+        argList += [self.outputPath, "-y"]
+        if platform.system() == "Windows":
+            shell = True
+        else:
+            shell = False
+
+
+        self.origin.proxy_semaphore.acquire()
+
+
+        nProc = subprocess.Popen(
+            argList,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=shell,
+            universal_newlines=True,
+            bufsize=1
+        )
+
+        try:
+            while True:
+                # Check for cancellation
+                if self.cancel_flag:
+                    print("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")
+                    nProc.terminate()
+                    try:
+                        nProc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        print("[ProxyWorker] FFmpeg did not terminate cleanly, killing.")
+                        nProc.kill()
+                    self.finished.emit(False)
+                    return
+
+                line = nProc.stderr.readline()
+                if not line:
+                    break
+                print(line.strip())  # Or handle progress parsing here
+
+            nProc.wait()
+
+            if nProc.returncode == 0:
+                self.finished.emit(True)
+            else:
+                print(f"[ProxyWorker] FFmpeg exited with code {nProc.returncode}")
+                self.finished.emit(False)
+
+        except Exception as e:
+            print(f"[ProxyWorker] Exception: {e}")
+            if nProc.poll() is None:
+                nProc.kill()
+            self.finished.emit(False)
+
+        finally:
+            self.origin.proxy_semaphore.release()
+            self.running = False

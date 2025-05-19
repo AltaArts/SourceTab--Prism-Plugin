@@ -158,6 +158,16 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_copyChunks.addWidget(projectSettings.sb_copyChunks)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_copyChunks)
 
+        # Maximum Proxy Generation Threads
+        projectSettings.lo_proxyThreads = QHBoxLayout()
+        projectSettings.l_proxyThreads = QLabel("Maximum Proxy Generation Threads", projectSettings.w_config)
+        projectSettings.sb_proxyThreads = QSpinBox(projectSettings.w_config)
+        projectSettings.sb_proxyThreads.setMinimum(1)
+        projectSettings.lo_proxyThreads.addWidget(projectSettings.l_proxyThreads)
+        projectSettings.lo_proxyThreads.addStretch()
+        projectSettings.lo_proxyThreads.addWidget(projectSettings.sb_proxyThreads)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_proxyThreads)
+
         # Progress Bars Update Rate (seconds)
         projectSettings.lo_progUpdateRate = QHBoxLayout()
         projectSettings.l_progUpdateRate = QLabel("Progress Bars Update Rate (seconds)", projectSettings.w_config)
@@ -244,7 +254,10 @@ class Prism_SourceTab_Functions(object):
                 origin.sb_copyThreads.setValue(sData["max_copyThreads"])
 
             if "size_copyChunk" in sData:
-                origin.sb_copyChunks.setValue(sData["size_copyChunk"])						
+                origin.sb_copyChunks.setValue(sData["size_copyChunk"])	
+
+            if "max_proxyThreads" in sData:
+                origin.sb_proxyThreads.setValue(sData["max_proxyThreads"])
 
             if "updateInterval" in sData:
                 origin.sp_progUpdateRate.setValue(sData["updateInterval"])
@@ -284,6 +297,7 @@ class Prism_SourceTab_Functions(object):
             "max_thumbThreads": origin.sb_thumbThreads.value(),
             "max_copyThreads": origin.sb_copyThreads.value(),
             "size_copyChunk": origin.sb_copyChunks.value(),
+            "max_proxyThreads": origin.sb_proxyThreads.value(),
             "updateInterval": origin.sp_progUpdateRate.value(),
             "useCompletePopup": origin.chb_showPopup.isChecked(),
             "useCompleteSound": origin.chb_playSound.isChecked(),
@@ -369,6 +383,7 @@ class Prism_SourceTab_Functions(object):
                     "max_thumbThreads": 12,
                     "max_copyThreads": 6,
                     "size_copyChunk": 1,
+                    "max_proxyThreads": 2,
                     "updateInterval": 1,
                     "useCompletePopup": True,
                     "useCompleteSound": True,
