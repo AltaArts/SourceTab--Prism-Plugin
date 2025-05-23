@@ -137,6 +137,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Initialize Variables
         self.selectedTiles = set()
         self.lastClickedTile = None
+        self.proxyEnabled = False
+        self.proxyMode = None
         self.nameMods = []
         self.transferList = []
         self.total_transferSize = 0.0
@@ -377,6 +379,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.chb_preferProxies.toggled.connect(self.togglePreferProxies)
 
         #   Functions Panel
+        self.sourceFuncts.chb_ovr_proxy.toggled.connect(self.toggleProxy)
         self.sourceFuncts.chb_ovr_fileNaming.toggled.connect(lambda: self.modifyFileNames())
         self.sourceFuncts.b_transfer_start.clicked.connect(self.startTransfer)
         self.sourceFuncts.b_transfer_pause.clicked.connect(self.pauseTransfer)
@@ -503,18 +506,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         return tiles
 
 
-    #   Called from _Functions Save Callback
-    @err_catcher(name=__name__)
-    def getTabSettings(self):
-        tabSettings = {}
-        tabSettings["playerEnabled"] = self.chb_enablePlayer.isChecked()
-        tabSettings["preferProxies"] = self.chb_preferProxies.isChecked()
-        tabSettings["copyProxy"] = self.sourceFuncts.chb_copyProxy.isChecked()
-        tabSettings["generateProxy"] = self.sourceFuncts.chb_generateProxy.isChecked()
-
-        return tabSettings
-
-
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
     def getSettings(self):
@@ -543,8 +534,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.useCustomThumbPath = settingData["useCustomThumbPath"]
         self.customThumbPath = settingData ["customThumbPath"]
 
-        presetData = sData["viewLutPresets"]
-        self.configureViewLut(presetData)                 #   TODO - MOVE
+        #   Get Proxy Presets Dict
+        self.proxyPresetDict = sData["proxyPresets"]
+
+        #   Get OCIO View Presets
+        lutPresetData = sData["viewLutPresets"]
+        self.configureViewLut(lutPresetData)                 #   TODO - MOVE
 
         #   Get Tab (UI) Settings
         tabData = sData["tabSettings"]
@@ -559,12 +554,17 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.togglePreferProxies(preferProxies)
 
         #   Options
+        self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_proxy"])
         self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
-        self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_Proxy"])
         self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
         self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
-        self.sourceFuncts.chb_copyProxy.setChecked(tabData["enable_copyProxy"])
-        self.sourceFuncts.chb_generateProxy.setChecked(tabData["enable_generateProxy"])
+        self.proxyEnabled = tabData["enable_proxy"]
+        self.proxyMode = tabData["proxyMode"]
+        self.sourceFuncts.updateUI()
+
+        #   Name Mods
+        if "activeNameMods" in sData:
+            self.nameMods = sData["activeNameMods"]
 
 
     #   Initializes Worker Threadpools and Semephore Slots
@@ -713,44 +713,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             item.setEnabled(enabled)
 
 
-    #   Sets Transfer Status and Prog Bar Color and Tooltip
-    @err_catcher(name=__name__)
-    def setTransferStatus(self, status, tooltip=None):
-        self.transferState = status
-
-        match status:
-            case "Idle":
-                statusColor = COLOR_BLUE
-            case "Transferring":
-                statusColor = COLOR_BLUE
-            case "Paused":
-                statusColor = COLOR_GREY
-            case "Cancelled":
-                statusColor = COLOR_RED
-            case "Warning":
-                statusColor = COLOR_ORANGE
-            case "Complete":
-                statusColor = COLOR_GREEN
-            case "Error":
-                statusColor = COLOR_RED
-
-        #   Set the Prog Bar Tooltip
-        if tooltip:
-            self.sourceFuncts.progBar_total.setToolTip(tooltip)
-        else:
-            self.sourceFuncts.progBar_total.setToolTip(status)
-
-        #   Convert Color to rgb format string
-        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
-        
-        #   Set Prog Bar StyleSheet
-        self.sourceFuncts.progBar_total.setStyleSheet(f"""
-            QProgressBar::chunk {{
-                background-color: {color_str};  /* Set the chunk color */
-            }}
-        """)
-
-
     #   Reset Total Progess Bar
     @err_catcher(name=__name__)
     def reset_ProgBar(self):
@@ -760,7 +722,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Reset Total Progess Bar
     @err_catcher(name=__name__)
     def getTotalTransferSize(self):
-        copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
+        # copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
+        copyProxy = self.proxyMode in ["Copy Proxys", "Generate Missing Proxys"]
         rowCount = self.tw_destination.rowCount()
 
         total_transferSize = 0.0
@@ -813,91 +776,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         return time_remaining
 
 
-
-    #   Update Total Progess Bar based on self.progressTimer
-    @err_catcher(name=__name__)
-    def updateTransfer(self):
-        # Get Transferred Amount from Every FileTile
-        total_copied = sum(item.copied_size for item in self.copyList if hasattr(item, "copied_size"))
-        #   Update Copied Size in the UI
-        totalSize_str = self.getFileSizeStr(total_copied)
-        self.sourceFuncts.l_size_copied.setText(totalSize_str)
-
-        #   Calculate the Time Elapsed
-        timeElapsed = self.getTimeElapsed()
-        self.timeElapsed = timeElapsed
-        self.sourceFuncts.l_time_elapsed.setText(self.getFormattedTimeStr(timeElapsed))
-
-        #   Calculate the Estimated Time Remaining
-        timeRemaining = self.getTimeRemaining(total_copied, self.total_transferSize)
-        #   Update Time Remaining in the UI
-        self.sourceFuncts.l_time_remain.setText(self.getFormattedTimeStr(timeRemaining))
-
-        #   Get Tranfer Status for Every FileTile
-        overall_statusList = [transfer.transferState for transfer in self.copyList]
-
-        #   Determine Overall Status based on Priority
-        if "Cancelled" in overall_statusList:
-            overall_status = "Cancelled"
-        elif "Error" in overall_statusList:
-            overall_status = "Error"
-        elif "Warning" in overall_statusList:
-            overall_status = "Warning"
-        elif all(status == "Complete" for status in overall_statusList):
-            overall_status = "Complete"
-        elif any(status == "Paused" for status in overall_statusList):
-            overall_status = "Paused"
-        elif any(status == "Transferring" for status in overall_statusList):
-            overall_status = "Transferring"
-        else:
-            overall_status = "Idle"
-
-        self.setTransferStatus(overall_status)
-
-        # Update progress bar
-        progress = (total_copied / self.total_transferSize) * 100 if self.total_transferSize > 0 else 0
-        self.sourceFuncts.progBar_total.setValue(progress)
-
-        if overall_status in ["Cancelled", "Complete"]:
-            self.completeTranfer(overall_status)
-
-
-
-    @err_catcher(name=__name__)                                                 #   TODO
-    def completeTranfer(self, result):
-        self.progressTimer.stop()
-        self.setTransferStatus(result)
-        self.configTransUI("complete")
-        # if result == "complete":
-
-        if self.useTransferReport:
-            self.createTransferReport()
-
-        if self.useCompleteSound:
-            try:
-                playsound(SOUND_SUCCESS)
-                # playsound(SOUND_ERROR)
-            except:
-                QApplication.beep()
-
-        if self.useCompletePopup:
-            text = "Transfer Complete"
-            title = "Transfer Complete"
-
-            if self.useTransferReport:
-                buttons = ["Open in Explorer", "Open Report", "Close"]
-            else:
-                buttons = ["Open in Explorer", "Close"]
-
-            result = self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
-
-            if result == "Open in Explorer":
-                self.openInExplorer(os.path.normpath(self.le_destPath.text()))
-
-            elif result == "Open Report":
-                self.core.openFile(self.transferReportPath)
-
-
     #   Creates Transfer Report PDF
     @err_catcher(name=__name__)
     def getCustomIcon(self):
@@ -913,158 +791,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 return prismIcon
         except:
             logger.warning(f"ERROR:  Unable to get Icon")
-
-
-
-
-    #   Creates Transfer Report PDF
-    @err_catcher(name=__name__)
-    def createTransferReport(self):
-        #   Gets Destination Directory for Save Path
-        saveDir = self.le_destPath.text()
-        #   Uses CopyList for Report
-        reportData = self.copyList
-
-        #   Header Data Items
-        report_uuid = self.createUUID()
-        timestamp_file = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        projectName = self.core.projectName
-        user = self.core.username
-        transferSize = self.getFileSizeStr(self.total_transferSize)
-        transferTime = self.getFormattedTimeStr(self.timeElapsed)
-
-        #   Creates Report Filename
-        reportFilename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
-        self.transferReportPath = os.path.join(saveDir, reportFilename)
-
-        #   Creates New PDF Canvas
-        c = canvas.Canvas(self.transferReportPath, pagesize=A4)
-        width, height = A4
-
-        #   Icon
-        icon = self.getCustomIcon()
-        icon_size = 18
-        icon_x = 50
-        icon_y = height - 48
-
-        #   Margin and Spacing
-        left_margin = 50
-        col_spacing = 75
-
-        #   Page number helper
-        def draw_page_number():
-            page_num = c.getPageNumber()
-            c.setFont("Helvetica", 9)
-            c.drawRightString(width - 50, 30, f"Page {page_num}")
-
-        def next_page():
-            draw_page_number()
-            c.showPage()
-            c.setFont("Helvetica", 11)
-
-        ## --- Page 1: Header info ---  ##
-
-        #   Add Prims Icon to Left of Title Line
-        if os.path.exists(icon):
-            try:
-                c.drawImage(icon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
-            except Exception as e:
-                logger.warning(f"ERROR: Failed to load icon: {e}")
-
-        #   Add Title Line
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(icon_x + icon_size + 5, height - 45, "File Transfer Completion Report")
-
-        #   Header Data Spacing
-        header_y = height - 70
-        header_line_height = 14
-        c.setFont("Helvetica", 10)
-
-        #   Add Header Data Items
-        header_data = [
-            ("Transfer Date:", timestamp_text),
-            ("Report ID:", report_uuid),
-            ("Project:", projectName),
-            ("User:", user),
-            ("Number of Files:", str(len(reportData))),
-            ("Transfer Size:", transferSize),
-            ("Transfer Time:", transferTime)
-        ]
-
-        #   Add Each Data Item
-        for label, value in header_data:
-            c.drawString(left_margin, header_y, label)
-            c.drawString(left_margin + col_spacing, header_y, value)
-            header_y -= header_line_height
-
-        ## --- Page 2 (and on): File info ---    ##
-
-        next_page()
-
-        #   Files Section Spacing
-        y = height - 50
-        line_height = 11
-        block_spacing = 10
-
-        #   If No Transferd Files
-        if not reportData:
-            c.setFont("Helvetica", 10)
-            c.drawString(left_margin, y, "No files were transferred.")
-
-        #   Add Files Section Title Line
-        else:
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(left_margin, y, f"Transferred {len(reportData)} file(s):")
-            y -= line_height + 4
-
-            #   Font for Files Section
-            c.setFont("Helvetica", 9)
-
-            #   File Data Items
-            for item in reportData:
-                baseName = os.path.basename(item.getDestMainPath())
-                date_str = item.data['source_mainFile_date']
-                sourcePath = item.getSource_mainfilePath()
-                destPath = item.getDestMainPath()
-                size_str = item.data['source_mainFile_size']
-                time_str = item.data["transferTime"]
-                hash_source = item.data['source_mainFile_hash']
-                hash_dest = item.data['dest_mainFile_hash']
-                hasProxy = item.data['hasProxy']
-
-                file_lines = [
-                    ("Filename:", baseName),
-                    ("Date:", date_str),
-                    ("Source:", sourcePath),
-                    ("Destination:", destPath),
-                    ("Size:", size_str),
-                    ("Transfer Time:", time_str),
-                    ("Hash (source):", hash_source),
-                    ("Hash (dest):", hash_dest),
-                    ("Proxy present:", str(hasProxy))
-                ]
-
-                #   Check if the Current File Block Can Fit on Page
-                block_height = len(file_lines) * line_height + block_spacing
-                if y - block_height < 50:
-                    next_page()
-                    c.setFont("Helvetica", 9)
-                    y = height - 50
-
-                #   Create File Block
-                for label, value in file_lines:
-                    c.drawString(left_margin, y, label)
-                    c.drawString(left_margin + col_spacing, y, value)
-                    y -= line_height
-
-                y -= block_spacing
-
-        draw_page_number()
-        c.save()
-
-
-
 
 
     #	Creates UUID
@@ -1511,6 +1237,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.refreshTotalTransSize()
 
 
+    #   Sets Each Tile Widget Proxy UI
+    @err_catcher(name=__name__)
+    def toggleProxy(self, checked):
+        self.proxyEnabled = checked
+        self.sourceFuncts.updateUI()
+
+        for item in self.getAllDestTiles():
+            item.toggleProxyProgbar()
+
+
     #   Calls Each Tile Widget to Modify Name if Enabled
     @err_catcher(name=__name__)
     def modifyFileNames(self):
@@ -1523,6 +1259,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             widget = self.tw_destination.cellWidget(row, 0)
             if widget and hasattr(widget, "nameOverride"):
                 widget.nameOverride(nameOverride)
+
+        self.sourceFuncts.updateUI()
 
 
     #   Called from Tile Widget to Modify Original Name based on Active Mods
@@ -1764,15 +1502,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
-    def generateTransferPopup(self, copyProxy):
+    def generateTransferPopup(self):
         ##  HEADER SECTION
         header = {
             "Destination Path": self.le_destPath.text(),
             "Number of Files": len(self.copyList),
             "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),
             "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
-            "Copy Proxy Files": copyProxy,
-            "Generate Proxy": self.sourceFuncts.chb_generateProxy.isChecked(),
+            "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
+            # "Copy Proxy Files": copyProxy,
+            # "Generate Proxy": self.sourceFuncts.chb_generateProxy.isChecked(),
             "": ""
         }
 
@@ -1815,6 +1554,45 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         return data, hasErrors
     
 
+    #   Sets Transfer Status and Prog Bar Color and Tooltip
+    @err_catcher(name=__name__)
+    def setTransferStatus(self, status, tooltip=None):
+        self.transferState = status
+
+        match status:
+            case "Idle":
+                statusColor = COLOR_BLUE
+            case "Transferring":
+                statusColor = COLOR_BLUE
+            case "Paused":
+                statusColor = COLOR_GREY
+            case "Cancelled":
+                statusColor = COLOR_RED
+            case "Warning":
+                statusColor = COLOR_ORANGE
+            case "Complete":
+                statusColor = COLOR_GREEN
+            case "Error":
+                statusColor = COLOR_RED
+
+        #   Set the Prog Bar Tooltip
+        if tooltip:
+            self.sourceFuncts.progBar_total.setToolTip(tooltip)
+        else:
+            self.sourceFuncts.progBar_total.setToolTip(status)
+
+        #   Convert Color to rgb format string
+        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
+        
+        #   Set Prog Bar StyleSheet
+        self.sourceFuncts.progBar_total.setStyleSheet(f"""
+            QProgressBar::chunk {{
+                background-color: {color_str};  /* Set the chunk color */
+            }}
+        """)
+
+
+
     @err_catcher(name=__name__)                                         #   TODO  Move
     def startTransfer(self):
         # Timer for Progress Updates
@@ -1827,8 +1605,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         #   Initialize Time Remaining Calc
         self.speedSamples = deque(maxlen=10)
 
-        copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
-        generateProxy = self.sourceFuncts.chb_generateProxy.isChecked()
+        # copyProxy = self.proxyMode in ["Copy Proxys", "Generate  Missing Proxys"]
+        # copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
+        # generateProxy = self.sourceFuncts.chb_generateProxy.isChecked()
 
         self.refreshTotalTransSize()
 
@@ -1843,7 +1622,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return False
 
         #   Get Formatted Transfer Details
-        popupData, hasErrors = self.generateTransferPopup(copyProxy)
+        popupData, hasErrors = self.generateTransferPopup()
 
         #   Add Buttons
         buttons = ["Start Transfer", "Cancel"]
@@ -1869,17 +1648,34 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             for item in self.copyList:
                 options = {}
-                options["copyProxy"] = copyProxy
-                options["generateProxy"] = generateProxy
+                if self.proxyEnabled:
 
-                if generateProxy:                                   #   TODO:  Add Proxy Options
-                    proxySettings = {}
+                    TEMP_PRESET = "Fast H.264 Proxy"                     #   TODO - TEMP TESTING
+                    # TEMP_PRESET = "ProRes Proxy"                     #   TODO - TEMP TESTING
+                    # TEMP_PRESET = "Ultra-Light Preview"                     #   TODO - TEMP TESTING
+
+                    TEMP_SCALE = "50%"
+
+                    # look up the preset (will raise if it doesn’t exist)
+                    try:
+                        preset = self.proxyPresetDict[TEMP_PRESET]
+                    except KeyError:
+                        raise RuntimeError(f"Proxy preset '{TEMP_PRESET}' not found in settings")                #   TODO HANDLE ERROR
+
+
+                    proxySettings = {
+                        "scale": TEMP_SCALE,
+                        "encode_video_params": preset["encode_video_params"],
+                        "encode_audio_params": preset["encode_audio_params"],
+                        "output_ext": preset["output_ext"],
+                    }
+
                     options["proxySettings"] = proxySettings
                 
-                item.start_transfer(self, options)
+                item.start_transfer(self, options, self.proxyEnabled, self.proxyMode)
 
 
-    @err_catcher(name=__name__)                                         #   TODO  Move
+    @err_catcher(name=__name__)
     def pauseTransfer(self):
         for item in self.copyList:
             item.pause_transfer(self)
@@ -1889,7 +1685,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.configTransUI("pause")
 
 
-    @err_catcher(name=__name__)                                         #   TODO  Move
+    @err_catcher(name=__name__)
     def resumeTransfer(self):
         #   Initialize Time Remaining Calc
         self.speedSamples = deque(maxlen=10)
@@ -1902,7 +1698,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.configTransUI("resume")
 
 
-    @err_catcher(name=__name__)                                         #   TODO  Move
+    @err_catcher(name=__name__)
     def cancelTransfer(self):
         for item in self.copyList:
             item.cancel_transfer(self)
@@ -1912,7 +1708,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.configTransUI("idle")
 
 
-    @err_catcher(name=__name__)                                         #   TODO  Move
+    @err_catcher(name=__name__)
     def resetTransfer(self):
         self.progressTimer.stop()
         self.reset_ProgBar()
@@ -1920,6 +1716,244 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.configTransUI("idle")
 
         self.refreshDestItems()
+
+
+    #   Update Total Progess Bar based on self.progressTimer
+    @err_catcher(name=__name__)
+    def updateTransfer(self):
+        # Get Transferred Amount from Every FileTile
+        total_copied = sum(item.copied_size for item in self.copyList if hasattr(item, "copied_size"))
+        #   Update Copied Size in the UI
+        totalSize_str = self.getFileSizeStr(total_copied)
+        self.sourceFuncts.l_size_copied.setText(totalSize_str)
+
+        #   Calculate the Time Elapsed
+        timeElapsed = self.getTimeElapsed()
+        self.timeElapsed = timeElapsed
+        self.sourceFuncts.l_time_elapsed.setText(self.getFormattedTimeStr(timeElapsed))
+
+        #   Calculate the Estimated Time Remaining
+        timeRemaining = self.getTimeRemaining(total_copied, self.total_transferSize)
+        #   Update Time Remaining in the UI
+        self.sourceFuncts.l_time_remain.setText(self.getFormattedTimeStr(timeRemaining))
+
+        #   Get Tranfer Status for Every FileTile
+        overall_statusList = [transfer.transferState for transfer in self.copyList]
+
+        #   Determine Overall Status based on Priority
+        if "Cancelled" in overall_statusList:
+            overall_status = "Cancelled"
+        elif "Error" in overall_statusList:
+            overall_status = "Error"
+        elif "Warning" in overall_statusList:
+            overall_status = "Warning"
+        elif all(status == "Complete" for status in overall_statusList):
+            overall_status = "Complete"
+        elif any(status == "Paused" for status in overall_statusList):
+            overall_status = "Paused"
+        elif any(status == "Transferring" for status in overall_statusList):
+            overall_status = "Transferring"
+        elif any(status == "Generating Proxy" for status in overall_statusList):
+            overall_status = "Generating Proxy"
+        else:
+            overall_status = "Idle"
+
+        self.setTransferStatus(overall_status)
+
+        # Update progress bar
+        progress = (total_copied / self.total_transferSize) * 100 if self.total_transferSize > 0 else 0
+        self.sourceFuncts.progBar_total.setValue(progress)
+
+        if overall_status in ["Cancelled", "Complete"]:
+            self.completeTranfer(overall_status)
+
+
+
+    @err_catcher(name=__name__)                                                 #   TODO
+    def completeTranfer(self, result):
+        self.progressTimer.stop()
+        self.setTransferStatus(result)
+        self.configTransUI("complete")
+        # if result == "complete":
+
+        if self.useTransferReport:
+            self.createTransferReport()
+
+        if self.useCompleteSound:
+            try:
+                playsound(SOUND_SUCCESS)
+                # playsound(SOUND_ERROR)
+            except:
+                QApplication.beep()
+
+        if self.useCompletePopup:
+            text = "Transfer Complete"
+            title = "Transfer Complete"
+
+            if self.useTransferReport:
+                buttons = ["Open in Explorer", "Open Report", "Close"]
+            else:
+                buttons = ["Open in Explorer", "Close"]
+
+            result = self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
+
+            if result == "Open in Explorer":
+                self.openInExplorer(os.path.normpath(self.le_destPath.text()))
+
+            elif result == "Open Report":
+                self.core.openFile(self.transferReportPath)
+
+
+
+
+    #   Creates Transfer Report PDF
+    @err_catcher(name=__name__)
+    def createTransferReport(self):
+        #   Gets Destination Directory for Save Path
+        saveDir = self.le_destPath.text()
+        #   Uses CopyList for Report
+        reportData = self.copyList
+
+        #   Header Data Items
+        report_uuid = self.createUUID()
+        timestamp_file = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        projectName = self.core.projectName
+        user = self.core.username
+        transferSize = self.getFileSizeStr(self.total_transferSize)
+        transferTime = self.getFormattedTimeStr(self.timeElapsed)
+
+        #   Creates Report Filename
+        reportFilename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
+        self.transferReportPath = os.path.join(saveDir, reportFilename)
+
+        #   Creates New PDF Canvas
+        c = canvas.Canvas(self.transferReportPath, pagesize=A4)
+        width, height = A4
+
+        #   Icon
+        icon = self.getCustomIcon()
+        icon_size = 18
+        icon_x = 50
+        icon_y = height - 48
+
+        #   Margin and Spacing
+        left_margin = 50
+        col_spacing = 75
+
+        #   Page number helper
+        def draw_page_number():
+            page_num = c.getPageNumber()
+            c.setFont("Helvetica", 9)
+            c.drawRightString(width - 50, 30, f"Page {page_num}")
+
+        def next_page():
+            draw_page_number()
+            c.showPage()
+            c.setFont("Helvetica", 11)
+
+        ## --- Page 1: Header info ---  ##
+
+        #   Add Prims Icon to Left of Title Line
+        if os.path.exists(icon):
+            try:
+                c.drawImage(icon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
+            except Exception as e:
+                logger.warning(f"ERROR: Failed to load icon: {e}")
+
+        #   Add Title Line
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(icon_x + icon_size + 5, height - 45, "File Transfer Completion Report")
+
+        #   Header Data Spacing
+        header_y = height - 70
+        header_line_height = 14
+        c.setFont("Helvetica", 10)
+
+        #   Add Header Data Items
+        header_data = [
+            ("Transfer Date:", timestamp_text),
+            ("Report ID:", report_uuid),
+            ("Project:", projectName),
+            ("User:", user),
+            ("Number of Files:", str(len(reportData))),
+            ("Transfer Size:", transferSize),
+            ("Transfer Time:", transferTime)
+        ]
+
+        #   Add Each Data Item
+        for label, value in header_data:
+            c.drawString(left_margin, header_y, label)
+            c.drawString(left_margin + col_spacing, header_y, value)
+            header_y -= header_line_height
+
+        ## --- Page 2 (and on): File info ---    ##
+
+        next_page()
+
+        #   Files Section Spacing
+        y = height - 50
+        line_height = 11
+        block_spacing = 10
+
+        #   If No Transferd Files
+        if not reportData:
+            c.setFont("Helvetica", 10)
+            c.drawString(left_margin, y, "No files were transferred.")
+
+        #   Add Files Section Title Line
+        else:
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(left_margin, y, f"Transferred {len(reportData)} file(s):")
+            y -= line_height + 4
+
+            #   Font for Files Section
+            c.setFont("Helvetica", 9)
+
+            #   File Data Items
+            for item in reportData:
+                baseName = os.path.basename(item.getDestMainPath())
+                date_str = item.data['source_mainFile_date']
+                sourcePath = item.getSource_mainfilePath()
+                destPath = item.getDestMainPath()
+                size_str = item.data['source_mainFile_size']
+                time_str = item.data["transferTime"]
+                hash_source = item.data['source_mainFile_hash']
+                hash_dest = item.data['dest_mainFile_hash']
+                hasProxy = item.data['hasProxy']
+
+                file_lines = [
+                    ("Filename:", baseName),
+                    ("Date:", date_str),
+                    ("Source:", sourcePath),
+                    ("Destination:", destPath),
+                    ("Size:", size_str),
+                    ("Transfer Time:", time_str),
+                    ("Hash (source):", hash_source),
+                    ("Hash (dest):", hash_dest),
+                    ("Proxy present:", str(hasProxy))
+                ]
+
+                #   Check if the Current File Block Can Fit on Page
+                block_height = len(file_lines) * line_height + block_spacing
+                if y - block_height < 50:
+                    next_page()
+                    c.setFont("Helvetica", 9)
+                    y = height - 50
+
+                #   Create File Block
+                for label, value in file_lines:
+                    c.drawString(left_margin, y, label)
+                    c.drawString(left_margin + col_spacing, y, value)
+                    y -= line_height
+
+                y -= block_spacing
+
+        draw_page_number()
+        c.save()
+
+
+
 
 
 

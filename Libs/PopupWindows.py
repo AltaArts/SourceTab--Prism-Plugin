@@ -500,3 +500,120 @@ class NamingPopup(QDialog):
     def _onButtonClicked(self, text):
         self.result = text
         self.accept()
+
+
+
+
+class ProxyPopup(QDialog):
+    def __init__(self, core, sourceFuncts, settings):
+        super().__init__()
+
+        self.core = core
+        self.sourceFuncts = sourceFuncts
+        self.settings = settings
+
+        self.result = None
+
+        self.setupUI()
+        self.setWindowTitle("Proxy Configuration")
+
+        
+
+        self.refreshUI()
+
+
+    def setupUI(self):
+        #   Set up Sizing and Position
+        screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        width = screen_geometry.width() // 3
+        height = screen_geometry.height() // 2
+        x_pos = (screen_geometry.width() - width) // 2
+        y_pos = (screen_geometry.height() - height) // 2
+        self.setGeometry(x_pos, y_pos, width, height)
+
+        #   Main layout
+        lo_main = QVBoxLayout(self)
+
+        ##   Proxy Mode
+        boldFont = QFont()
+        boldFont.setBold(True)
+
+        modeTip = """
+        <b>Proxy Handling Mode:</b><br><br>
+        <table cellpadding="6">
+        <tr><td><b>Copy Proxys:</b></td><td>Detected Proxys will be Transferred with the Source File</td></tr>
+        <tr><td><b>Generate Proxys:</b></td><td>Proxy Files will be Generated for all Source Files</td></tr>
+        <tr><td><b>Generate Missing Proxys:</b></td><td>
+            Detected Proxys will be Transferred AND<br>
+            Proxys will be Generated for missing Proxys
+        </td></tr>
+        </table>
+        """
+
+        l_proxyMode = QLabel("Proxy Mode:")
+        l_proxyMode.setFont(boldFont)
+        l_proxyMode.setToolTip(modeTip)
+        lo_main.addWidget(l_proxyMode)
+
+        #   Proxy Mode Radio Buttons
+        lo_radio = QHBoxLayout()
+        lo_radio.setContentsMargins(100, 0, 100, 0)
+
+        self.radio_group = QButtonGroup(self)
+
+        radio_labels = ["Copy Proxys", "Generate Proxys", "Generate Missing Proxys"]
+        self.radio_buttons = {}
+
+        for i, label in enumerate(radio_labels):
+            rb = QRadioButton(label)
+            rb.setFont(boldFont)
+            rb.setToolTip(modeTip)
+            self.radio_group.addButton(rb, i)
+            lo_radio.addWidget(rb)
+            self.radio_buttons[label] = rb
+
+        # Set default checked
+        # self.radio_buttons["None"].setChecked(True)
+
+        lo_main.addLayout(lo_radio)
+
+        #   Add Stretch to Bottom to Buttons
+        lo_main.addStretch()
+
+        # Buttons
+        lo_buttons = QHBoxLayout()
+        lo_buttons.addStretch(1)
+
+        buttons = ["Apply", "Close"]
+
+        for button_text in buttons:
+            button = QPushButton(button_text)
+            button.clicked.connect(lambda _, t=button_text: self._onButtonClicked(t))
+            lo_buttons.addWidget(button)
+
+        lo_main.addLayout(lo_buttons)
+
+
+    def refreshUI(self):
+        proxyMode = self.settings.get("proxyMode", "none")
+
+        label = self.sourceFuncts.proxyNameMap.get(proxyMode)
+
+        if label and label in self.radio_buttons:
+            self.radio_buttons[label].setChecked(True)
+
+    def _onButtonClicked(self, text):
+        self.result = text
+        self.accept()
+
+
+    def getProxyMode(self):
+        checkedButton = self.radio_group.checkedButton()
+        if checkedButton:
+            label = checkedButton.text()
+            for shortMode, uiLabel in self.sourceFuncts.proxyNameMap.items():
+                if uiLabel == label:
+                    return shortMode
+        
+        return "None"

@@ -65,7 +65,7 @@ from PrismUtils.Decorators import err_catcher
 
 from SourceFunctions_ui import Ui_w_sourceFunctions
 
-from PopupWindows import NamingPopup
+from PopupWindows import NamingPopup, ProxyPopup
 
 
 logger = logging.getLogger(__name__)
@@ -78,18 +78,26 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         self.core = core
         self.sourceBrowser = origin
 
+        self.proxyNameMap = {
+            "copy": "Copy Proxys",
+            "generate": "Generate Proxys",
+            "missing": "Generate Missing Proxys"
+            }
+
         #   Setup UI from Ui_w_sourceFunctions
         self.setupUi(self)
 
         self.configureUI()
         self.connections()
 
+        self.updateUI()
+
 
     @err_catcher(name=__name__)
     def connections(self):
         self.b_openDestDir.clicked.connect(lambda: self.openInExplorer(self.sourceBrowser.le_destPath.text()))
-        self.b_ovr_config_fileNaming.clicked.connect(self.configFileNaming)
         self.b_ovr_config_proxy.clicked.connect(self.configProxy)
+        self.b_ovr_config_fileNaming.clicked.connect(self.configFileNaming)
         self.b_ovr_config_metadata.clicked.connect(self.configMetadata)
 
 
@@ -98,7 +106,31 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         self.b_ovr_config_fileNaming.setEnabled(self.chb_ovr_fileNaming.isChecked())
         self.b_ovr_config_proxy.setEnabled(self.chb_ovr_proxy.isChecked())
         self.b_ovr_config_metadata.setEnabled(self.chb_ovr_metadata.isChecked())
-        
+
+
+    @err_catcher(name=__name__)
+    def updateUI(self):
+        #   Configure Proxy UI
+        proxyEnabled = self.sourceBrowser.proxyEnabled
+        if proxyEnabled:
+            proxyMode = self.sourceBrowser.proxyMode
+            proxyModeStr = self.proxyNameMap.get(proxyMode, "None")
+        else:
+            proxyModeStr = "DISABLED"
+
+        self.l_proxyMode.setText(proxyModeStr)
+        self.l_proxyMode.setEnabled(proxyEnabled)
+
+        #   Configure File Name Mods UI
+        fileNamingEnabled = self.chb_ovr_fileNaming.isChecked()
+        if fileNamingEnabled:
+            numMods = f"{str(len(self.sourceBrowser.nameMods))} Modifiers"
+        else:
+            numMods = "DISABLED"
+
+        self.l_enabledNameMods.setText(numMods)
+        self.l_enabledNameMods.setEnabled(fileNamingEnabled)
+
 
     @err_catcher(name=__name__)
     def openInExplorer(self, path):
@@ -138,12 +170,26 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
                 }
                 self.sourceBrowser.nameMods.append(mod_data)
             
+            #   Refresh List
             self.sourceBrowser.refreshDestItems(restoreSelection=True)
+            #   Save Mods to Project Settings
+            self.sourceBrowser.plugin.saveSettings(key="nameMods")
 
 
     @err_catcher(name=__name__)
     def configProxy(self):
-        self.core.popup("Configureing Proxy Not Yet Implemented")
+        #   Get Settings
+        pData = {
+            "proxyMode": self.sourceBrowser.proxyMode
+        }
+
+        #   Call Popup
+        proxyPopup = ProxyPopup(self.core, self, pData)
+        proxyPopup.exec_()
+
+        if proxyPopup.result == "Apply":
+            self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
+            self.updateUI()
 
 
     @err_catcher(name=__name__)

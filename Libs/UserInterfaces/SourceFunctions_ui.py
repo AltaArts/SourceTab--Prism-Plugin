@@ -16,8 +16,8 @@ class Ui_w_sourceFunctions(object):
     def setupUi(self, w_sourceFunctions):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
-        w_sourceFunctions.resize(617, 480)
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        w_sourceFunctions.resize(460, 480)
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(w_sourceFunctions.sizePolicy().hasHeightForWidth())
@@ -26,10 +26,9 @@ class Ui_w_sourceFunctions(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         sizePolicy1.setHorizontalStretch(8)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.w_functions.sizePolicy().hasHeightForWidth())
@@ -42,27 +41,17 @@ class Ui_w_sourceFunctions(object):
         self.gb_functions.setEnabled(True)
         self.gb_lo_functions = QVBoxLayout(self.gb_functions)
         self.gb_lo_functions.setObjectName(u"gb_lo_functions")
-        self.lo_ovr_fileNaming = QHBoxLayout()
-        self.lo_ovr_fileNaming.setObjectName(u"lo_ovr_fileNaming")
-        self.chb_ovr_fileNaming = QCheckBox(self.gb_functions)
-        self.chb_ovr_fileNaming.setObjectName(u"chb_ovr_fileNaming")
-
-        self.lo_ovr_fileNaming.addWidget(self.chb_ovr_fileNaming)
-
-        self.b_ovr_config_fileNaming = QPushButton(self.gb_functions)
-        self.b_ovr_config_fileNaming.setObjectName(u"b_ovr_config_fileNaming")
-
-        self.lo_ovr_fileNaming.addWidget(self.b_ovr_config_fileNaming)
-
-
-        self.gb_lo_functions.addLayout(self.lo_ovr_fileNaming)
-
         self.lo_ovr_proxy = QHBoxLayout()
         self.lo_ovr_proxy.setObjectName(u"lo_ovr_proxy")
         self.chb_ovr_proxy = QCheckBox(self.gb_functions)
         self.chb_ovr_proxy.setObjectName(u"chb_ovr_proxy")
 
         self.lo_ovr_proxy.addWidget(self.chb_ovr_proxy)
+
+        self.l_proxyMode = QLabel(self.gb_functions)
+        self.l_proxyMode.setObjectName(u"l_proxyMode")
+
+        self.lo_ovr_proxy.addWidget(self.l_proxyMode)
 
         self.b_ovr_config_proxy = QPushButton(self.gb_functions)
         self.b_ovr_config_proxy.setObjectName(u"b_ovr_config_proxy")
@@ -72,12 +61,37 @@ class Ui_w_sourceFunctions(object):
 
         self.gb_lo_functions.addLayout(self.lo_ovr_proxy)
 
+        self.lo_ovr_fileNaming = QHBoxLayout()
+        self.lo_ovr_fileNaming.setObjectName(u"lo_ovr_fileNaming")
+        self.chb_ovr_fileNaming = QCheckBox(self.gb_functions)
+        self.chb_ovr_fileNaming.setObjectName(u"chb_ovr_fileNaming")
+
+        self.lo_ovr_fileNaming.addWidget(self.chb_ovr_fileNaming)
+
+        self.l_enabledNameMods = QLabel(self.gb_functions)
+        self.l_enabledNameMods.setObjectName(u"l_enabledNameMods")
+
+        self.lo_ovr_fileNaming.addWidget(self.l_enabledNameMods)
+
+        self.b_ovr_config_fileNaming = QPushButton(self.gb_functions)
+        self.b_ovr_config_fileNaming.setObjectName(u"b_ovr_config_fileNaming")
+
+        self.lo_ovr_fileNaming.addWidget(self.b_ovr_config_fileNaming)
+
+
+        self.gb_lo_functions.addLayout(self.lo_ovr_fileNaming)
+
         self.lo_ovr_metadata = QHBoxLayout()
         self.lo_ovr_metadata.setObjectName(u"lo_ovr_metadata")
         self.chb_ovr_metadata = QCheckBox(self.gb_functions)
         self.chb_ovr_metadata.setObjectName(u"chb_ovr_metadata")
 
         self.lo_ovr_metadata.addWidget(self.chb_ovr_metadata)
+
+        self.l_enabledMetaData = QLabel(self.gb_functions)
+        self.l_enabledMetaData.setObjectName(u"l_enabledMetaData")
+
+        self.lo_ovr_metadata.addWidget(self.l_enabledMetaData)
 
         self.b_ovr_config_metadata = QPushButton(self.gb_functions)
         self.b_ovr_config_metadata.setObjectName(u"b_ovr_config_metadata")
@@ -87,7 +101,7 @@ class Ui_w_sourceFunctions(object):
 
         self.gb_lo_functions.addLayout(self.lo_ovr_metadata)
 
-        self.verticalSpacer = QSpacerItem(20, 50, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.MinimumExpanding)
+        self.verticalSpacer = QSpacerItem(50, 20, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.gb_lo_functions.addItem(self.verticalSpacer)
 
@@ -97,16 +111,6 @@ class Ui_w_sourceFunctions(object):
         self.chb_overwrite.setObjectName(u"chb_overwrite")
 
         self.lo_options.addWidget(self.chb_overwrite)
-
-        self.chb_copyProxy = QCheckBox(self.gb_functions)
-        self.chb_copyProxy.setObjectName(u"chb_copyProxy")
-
-        self.lo_options.addWidget(self.chb_copyProxy)
-
-        self.chb_generateProxy = QCheckBox(self.gb_functions)
-        self.chb_generateProxy.setObjectName(u"chb_generateProxy")
-
-        self.lo_options.addWidget(self.chb_generateProxy)
 
 
         self.gb_lo_functions.addLayout(self.lo_options)
@@ -184,7 +188,7 @@ class Ui_w_sourceFunctions(object):
 
         self.lo_transferStats.addWidget(self.l_time_remainText)
 
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.lo_transferStats.addItem(self.horizontalSpacer)
 
@@ -222,15 +226,16 @@ class Ui_w_sourceFunctions(object):
     def retranslateUi(self, w_sourceFunctions):
         w_sourceFunctions.setWindowTitle(QCoreApplication.translate("w_sourceFunctions", u"Media Browser", None))
         self.gb_functions.setTitle("")
-        self.chb_ovr_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"File Naming", None))
-        self.b_ovr_config_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
         self.chb_ovr_proxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Proxy", None))
+        self.l_proxyMode.setText("")
         self.b_ovr_config_proxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
+        self.chb_ovr_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"File Naming", None))
+        self.l_enabledNameMods.setText("")
+        self.b_ovr_config_fileNaming.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
         self.chb_ovr_metadata.setText(QCoreApplication.translate("w_sourceFunctions", u"MetatData", None))
+        self.l_enabledMetaData.setText("")
         self.b_ovr_config_metadata.setText(QCoreApplication.translate("w_sourceFunctions", u"Configure", None))
         self.chb_overwrite.setText(QCoreApplication.translate("w_sourceFunctions", u"Allow Overwrite", None))
-        self.chb_copyProxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Copy Proxy", None))
-        self.chb_generateProxy.setText(QCoreApplication.translate("w_sourceFunctions", u"Generate Proxy", None))
         self.b_transfer_start.setText(QCoreApplication.translate("w_sourceFunctions", u"Start Transfer", None))
         self.b_transfer_pause.setText(QCoreApplication.translate("w_sourceFunctions", u"Pause Transfer", None))
         self.b_transfer_resume.setText(QCoreApplication.translate("w_sourceFunctions", u"Resume Transfer", None))

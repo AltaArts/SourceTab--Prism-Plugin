@@ -33,9 +33,7 @@
 
 import os
 import sys
-import json
 import logging
-from functools import partial
 
 
 from qtpy.QtCore import *
@@ -309,7 +307,6 @@ class Prism_SourceTab_Functions(object):
             "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
             }
 
-
         settings["sourceTab"]["globals"] = sData
 
 
@@ -320,22 +317,24 @@ class Prism_SourceTab_Functions(object):
 
             tData["playerEnabled"] = self.sourceBrowser.chb_enablePlayer.isChecked()
             tData["preferProxies"] = self.sourceBrowser.chb_preferProxies.isChecked()
+            tData["proxyMode"] = self.sourceBrowser.proxyMode
 
             functs = self.sourceBrowser.sourceFuncts
+            tData["enable_proxy"] = functs.chb_ovr_proxy.isChecked()
             tData["enable_fileNaming"] = functs.chb_ovr_fileNaming.isChecked()
-            tData["enable_Proxy"] = functs.chb_ovr_proxy.isChecked()
             tData["enable_metadata"] = functs.chb_ovr_metadata.isChecked()
             tData["enable_overwrite"] = functs.chb_overwrite.isChecked()
-            tData["enable_copyProxy"] = functs.chb_copyProxy.isChecked()
-            tData["enable_generateProxy"] = functs.chb_generateProxy.isChecked()
 
             self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
+
+        elif key == "nameMods":
+            nData = self.sourceBrowser.nameMods
+            self.core.setConfig(cat="sourceTab", param="activeNameMods", val=nData, config="project")
 
 
     #   Loads Saved SourceTab Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
-
         sData = self.core.getConfig("sourceTab", config="project") 
 
         if sData and "globals" in sData:
@@ -347,7 +346,6 @@ class Prism_SourceTab_Functions(object):
             sData["sourceTab"] = defaultData
             self.core.setConfig("sourceTab", data=sData, config="project")
             return defaultData
-
     
 
     #   Default Settings File Data
@@ -372,12 +370,11 @@ class Prism_SourceTab_Functions(object):
                 "tabSettings": {
                     "playerEnabled": True,
                     "preferProxies": True,
+                    "enable_proxy": False,
+                    "proxyMode": "None",
                     "enable_fileNaming": False,
-                    "enable_Proxy": False,
                     "enable_metadata": False,
-                    "enable_overwrite": False,
-                    "enable_copyProxy": False,
-                    "enable_generateProxy": False
+                    "enable_overwrite": False
                 },
                 "globals": {
                     "max_thumbThreads": 6,
@@ -394,6 +391,8 @@ class Prism_SourceTab_Functions(object):
                     "useCustomThumbPath": False,
                     "customThumbPath": ""
                 },
+                "activeNameMods":
+                [],
                 "viewLutPresets": [
                     {
                     "name": "Linear to Rec70924",
@@ -407,7 +406,39 @@ class Prism_SourceTab_Functions(object):
                     "transform_output": "Rec70924",
                     "look": "None"
                     },
-                ]
+                ],
+                "proxyPresets": {
+                    "Fast H.264 Proxy": {
+                        "description": "Quick and small proxy, good for review or offline editing",
+                        "encode_video_params": "-c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p",
+                        "encode_audio_params": "-c:a aac -b:a 128k",
+                        "output_ext": ".mp4"
+                    },
+                    "ProRes Proxy": {
+                        "description": "Edit-friendly proxy for high-performance workflows (large size)",
+                        "encode_video_params": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
+                        "encode_audio_params": "-c:a copy",
+                        "output_ext": ".mov"
+                    },
+                    "DNxHD 36M Proxy": {
+                        "description": "Avid-style proxy with intra-frame compression (36 Mbps)",
+                        "encode_video_params": "-c:v dnxhd -b:v 36M -pix_fmt yuv422p",
+                        "encode_audio_params": "-c:a pcm_s16le",
+                        "output_ext": ".mov"
+                    },
+                    "Ultra-Light Preview": {
+                        "description": "Low-res H.264 preview for web or quick review",
+                        "encode_video_params": "-c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p",
+                        "encode_audio_params": "-c:a aac -b:a 96k",
+                        "output_ext": ".mp4"
+                    },
+                    "Full-Res H.264": {
+                        "description": "Full-resolution H.264 transcode, good quality balance",
+                        "encode_video_params": "-c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p",
+                        "encode_audio_params": "-c:a aac -b:a 192k",
+                        "output_ext": ".mp4"
+                    }
+                }
             }
 
         return sData
@@ -420,9 +451,6 @@ class Prism_SourceTab_Functions(object):
         oData = sData["viewLutPresets"]
 
         OcioConfigPopup.display(self.core, oData)
-
-
-
 
         # mediaEx = self.core.getPlugin("MediaExtension")
         # entity = mediaEx
