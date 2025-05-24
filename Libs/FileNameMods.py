@@ -143,6 +143,58 @@ class Mods_BaseFilename(QObject):
 
 
 
+class Mods_AddPrefix(Mods_BaseFilename):
+    mod_name = "Add Prefix"
+
+    def __init__(self):
+        super().__init__()
+        self.le_prefix_input = QLineEdit()
+        self.le_prefix_input.setPlaceholderText("Enter prefix")
+
+        self.connections()
+
+
+    def connections(self):
+        self.le_prefix_input.textChanged.connect(self.onWidgetChanged)
+
+
+    def getModUI(self):
+        base_widgets = super().getModUI()
+
+        lo_mod = QHBoxLayout()
+
+        lo_mod.addWidget(self.le_prefix_input)
+        lo_mod.addWidget(self.b_remove)
+
+        container = QWidget()
+        container.setLayout(lo_mod)
+    
+        base_widgets.append(container)
+
+        return base_widgets
+
+
+    def getSettings(self):
+        return {
+            "prefix": self.le_prefix_input.text(),
+            }
+    
+
+    def setSettings(self, data):
+        self.setCheckbox(data.get("enabled", False))
+        self.le_prefix_input.setText(data.get("prefix", ""))
+
+
+    def applyMod(self, base_name, settings=None):
+        if settings:
+            prefix = settings["prefix"]
+        else:
+            prefix = self.le_prefix_input.text()
+
+        return f"{prefix}{base_name}"
+ 
+
+
 ##   Suffix Modifier    ##                  (each Modifier should use this as a Template)
 class Mods_AddSuffix(Mods_BaseFilename):
     mod_name = "Add Suffix"
@@ -227,71 +279,19 @@ class Mods_AddSuffix(Mods_BaseFilename):
         else:
             name, ext = os.path.splitext(base_name)
             return f"{name}{suffix}{ext}"
-            
-    
-
-class Mods_AddPrefix(Mods_BaseFilename):
-    mod_name = "Add Prefix"
-
-    def __init__(self):
-        super().__init__()
-        self.le_prefix_input = QLineEdit()
-        self.le_prefix_input.setPlaceholderText("Enter prefix")
-
-        self.connections()
+   
 
 
-    def connections(self):
-        self.le_prefix_input.textChanged.connect(self.onWidgetChanged)
-
-
-    def getModUI(self):
-        base_widgets = super().getModUI()
-
-        lo_mod = QHBoxLayout()
-
-        lo_mod.addWidget(self.le_prefix_input)
-        lo_mod.addWidget(self.b_remove)
-
-        container = QWidget()
-        container.setLayout(lo_mod)
-    
-        base_widgets.append(container)
-
-        return base_widgets
-
-
-    def getSettings(self):
-        return {
-            "prefix": self.le_prefix_input.text(),
-            }
-    
-
-    def setSettings(self, data):
-        self.setCheckbox(data.get("enabled", False))
-        self.le_prefix_input.setText(data.get("prefix", ""))
-
-
-    def applyMod(self, base_name, settings=None):
-        if settings:
-            prefix = settings["prefix"]
-        else:
-            prefix = self.le_prefix_input.text()
-
-        return f"{prefix}{base_name}"
-    
-
-
-class Mods_RemoveCharactors(Mods_BaseFilename):
-    mod_name = "Remove Charactors"
+class Mods_RemoveStartEnd(Mods_BaseFilename):
+    mod_name = "Remove Start/End"
 
     def __init__(self):
         super().__init__()
-        self.cb_orientation = QComboBox()
+        self.cb_orientation   = QComboBox()
         self.cb_orientation.addItems(["Beginning", "End"])
         self.sb_numCharactors = QSpinBox()
-        self.l_effectExt = QLabel("Extension")
-        self.cb_effectExt = QCheckBox()
+        self.l_effectExt      = QLabel("Extension")
+        self.cb_effectExt     = QCheckBox()
 
         self.connections()
 
@@ -325,8 +325,8 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
     def getSettings(self):
         return {
             "orientation": self.cb_orientation.currentText(),
-            "numChar": self.sb_numCharactors.value(),
-            "useExt": self.cb_effectExt.isChecked()
+            "numChar":     self.sb_numCharactors.value(),
+            "useExt":      self.cb_effectExt.isChecked()
             }
     
 
@@ -343,14 +343,14 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
 
     def applyMod(self, base_name, settings=None):
         if settings:
-            num_chars = settings["numChar"]
+            num_chars   = settings["numChar"]
             orientation = settings["orientation"]
-            affect_ext = settings["useExt"]
+            affect_ext  = settings["useExt"]
         
         else:
-            num_chars = self.sb_numCharactors.value()
+            num_chars   = self.sb_numCharactors.value()
             orientation = self.cb_orientation.currentText()
-            affect_ext = self.cb_effectExt.isChecked()
+            affect_ext  = self.cb_effectExt.isChecked()
 
         if num_chars < 1:
             return base_name
@@ -371,7 +371,82 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
                 name = name[:-num_chars]
 
         return f"{name}{ext}"
+
+
+
+class Mods_RemoveCharactors(Mods_BaseFilename):
+    mod_name = "Remove Charactors"
+
+    def __init__(self):
+        super().__init__()
+
+        self.l_position       = QLabel("Position")
+        self.sb_position      = QSpinBox()
+        self.l_numCharactors  = QLabel("Charactors")
+        self.sb_numCharactors = QSpinBox()
+
+        self.connections()
+
     
+    def connections(self):
+        self.sb_position.valueChanged.connect(self.onWidgetChanged)
+        self.sb_numCharactors.valueChanged.connect(self.onWidgetChanged)
+        
+
+    def getModUI(self):
+        base_widgets = super().getModUI()
+
+        lo_mod = QHBoxLayout()
+
+        lo_mod.addWidget(self.l_numCharactors)
+        lo_mod.addWidget(self.sb_numCharactors)
+        lo_mod.addWidget(self.l_position)
+        lo_mod.addWidget(self.sb_position)
+        lo_mod.addStretch()
+        lo_mod.addWidget(self.b_remove)
+
+        container = QWidget()
+        container.setLayout(lo_mod)
+    
+        base_widgets.append(container)
+
+        return base_widgets
+
+
+    def getSettings(self):
+        return {
+            "position": self.sb_position.value(),
+            "numChar":  self.sb_numCharactors.value(),
+            }
+    
+
+    def setSettings(self, data):
+        self.setCheckbox(data.get("enabled", False))
+        
+        self.sb_position.setValue(data.get("position", 0))
+        self.sb_numCharactors.setValue(data.get("numChar", 0))
+
+
+    def applyMod(self, base_name, settings=None):
+        if settings:
+            position = settings["position"]
+            numChar  = settings["numChar"]
+        
+        else:
+            position = self.sb_position.value()
+            numChar  = self.sb_numCharactors.value()
+
+        #   Clamp Position to Valid Range
+        position = max(0, min(position, len(base_name)))
+
+        #   Adjust numChar to keep Inbounds
+        numChar = min(numChar, len(base_name) - position)
+
+        #   Remove Characters
+        name = base_name[:position] + base_name[position + numChar:]
+
+        return name
+
 
 
 class Mods_InsertCharactors(Mods_BaseFilename):
@@ -380,10 +455,9 @@ class Mods_InsertCharactors(Mods_BaseFilename):
     def __init__(self):
         super().__init__()
 
-        self.l_position = QLabel("Position")
-        self.sp_position = QSpinBox()
-
-        self.le_insertText = QLineEdit()
+        self.l_position     = QLabel("Position")
+        self.sp_position    = QSpinBox()
+        self.le_insertText  = QLineEdit()
         self.le_insertText.setPlaceholderText("Enter text")
 
         self.connections()
@@ -414,25 +488,24 @@ class Mods_InsertCharactors(Mods_BaseFilename):
 
     def getSettings(self):
         return {
-            "sp_position": self.sp_position.value(),
-            "insertText": self.le_insertText.text()
+            "position":  self.sp_position.value(),
+            "insertText":   self.le_insertText.text()
             }
     
 
     def setSettings(self, data):
         self.setCheckbox(data.get("enabled", False))
-        self.sp_position.setValue(data.get("sp_position", 0))
+        self.sp_position.setValue(data.get("position", 0))
         self.le_insertText.setText(data.get("insertText", ""))
 
 
     def applyMod(self, base_name, settings=None):
         if settings:
             insert_text = settings["insertText"]
-            insert_pos = settings["sp_position"]
-
+            insert_pos  = settings["position"]
         else:
             insert_text = self.le_insertText.text()
-            insert_pos = self.sp_position.value()
+            insert_pos  = self.sp_position.value()
 
         name, ext = os.path.splitext(base_name)
 
@@ -441,5 +514,102 @@ class Mods_InsertCharactors(Mods_BaseFilename):
 
         # Insert text into name
         new_name = name[:insert_pos] + insert_text + name[insert_pos:]
+
+        return new_name + ext
+
+
+
+class Mods_ShiftCharactors(Mods_BaseFilename):
+    mod_name = "Shift Charactors"
+
+    def __init__(self):
+        super().__init__()
+
+        self.l_position    = QLabel("Position")
+        self.sb_position   = QSpinBox()
+        self.l_numChar     = QLabel("Charactors")
+        self.sb_numChar    = QSpinBox()
+        self.l_shift       = QLabel("Shift")
+        self.sb_shift      = QSpinBox()
+        self.sb_shift.setRange(-999, 999)
+
+        self.connections()
+
+
+    def connections(self):
+        self.sb_position.valueChanged.connect(self.onWidgetChanged)
+        self.sb_numChar.valueChanged.connect(self.onWidgetChanged)
+        self.sb_shift.valueChanged.connect(self.onWidgetChanged)
+
+
+    def getModUI(self):
+        base_widgets = super().getModUI()
+
+        lo_mod = QHBoxLayout()
+
+        lo_mod.addWidget(self.l_numChar)
+        lo_mod.addWidget(self.sb_numChar)
+        lo_mod.addWidget(self.l_position)
+        lo_mod.addWidget(self.sb_position)
+        lo_mod.addWidget(self.l_shift)
+        lo_mod.addWidget(self.sb_shift)
+        lo_mod.addStretch()
+        lo_mod.addWidget(self.b_remove)
+
+        container = QWidget()
+        container.setLayout(lo_mod)
+
+        base_widgets.append(container)
+
+        return base_widgets
+    
+
+    def getSettings(self):
+        return {
+            "position": self.sb_position.value(),
+            "numChar":  self.sb_numChar.value(),
+            "shift":    self.sb_shift.value(),
+            }
+    
+
+    def setSettings(self, data):
+        self.setCheckbox(data.get("enabled", False))
+        self.sb_position.setValue(data.get("position", 0))
+        self.sb_numChar.setValue(data.get("numChar", 0))
+        self.sb_shift.setValue(data.get("shift", 0))
+
+
+    def applyMod(self, base_name, settings=None):
+        if settings:
+            position = settings["position"]
+            numChar  = settings["numChar"]
+            shift    = settings["shift"]
+        else:
+            position = self.sb_position.value()
+            numChar  = self.sb_numChar.value()
+            shift    = self.sb_shift.value()
+
+        name, ext = os.path.splitext(base_name)
+
+        #   Clamp position to valid range
+        position = max(0, min(position, len(name)))
+
+        #   Adjust numChar to keep Inbounds
+        numChar = min(numChar, len(name) - position)
+
+        #   Return Original if Nothing
+        if numChar < 1 or shift == 0:
+            return base_name
+
+        #   Extract the Substring and Remove
+        segment   = name[position:position + numChar]
+        remainder = name[:position] + name[position + numChar:]
+
+        #   Find New Position
+        new_pos = position + shift
+        new_pos = max(0, min(new_pos, len(remainder)))
+
+        #   Insert at Position
+        new_name = remainder[:new_pos] + segment + remainder[new_pos:]
 
         return new_name + ext

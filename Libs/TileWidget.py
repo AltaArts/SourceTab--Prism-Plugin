@@ -2117,7 +2117,7 @@ class ProxyGenerationWorker(QThread):
         self.cancel_flag = True
 
     def run(self):
-        ffmpegPath = self.core.media.getFFmpeg(validate=True)                           #   TODO - Handle Errors
+        ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))                           #   TODO - Handle Errors
         if not ffmpegPath:
             self.finished.emit(False)
             return

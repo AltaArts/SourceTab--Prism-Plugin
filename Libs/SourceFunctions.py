@@ -115,7 +115,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         if proxyEnabled:
             proxyMode = self.sourceBrowser.proxyMode
             proxyModeStr = self.proxyNameMap.get(proxyMode, "None")
-            # pData = self.sourceBrowser.proxySettings
+            # pData = self.sourceBrowser.proxySettings                          #   TODO - Add to Functions Panel UI
             # presetStr = f"({pData['proxyPreset']} - {pData['proxyScale']})"
             # proxyModeStr += presetStr
         else:

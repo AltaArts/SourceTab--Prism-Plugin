@@ -46,6 +46,11 @@
 
 
 import os
+import sys
+import subprocess
+import shlex
+import re
+
 
 #   Get Name Mod Methods
 from FileNameMods import getModifiers as GetMods
@@ -291,7 +296,7 @@ class NamingPopup(QDialog):
         #   Set up Sizing and Position
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
-        width = screen_geometry.width() // 3
+        width = screen_geometry.width() // 2.5
         height = screen_geometry.height() // 1.5
         x_pos = (screen_geometry.width() - width) // 2
         y_pos = (screen_geometry.height() - height) // 2
@@ -323,7 +328,6 @@ class NamingPopup(QDialog):
         lo_newName.addWidget(l_newName)
         lo_newName.addWidget(self.le_newName)
         scroll_layout.addLayout(lo_newName)
-
 
         #   Groupbox for Added Modifiers
         self.gb_activeMods = QGroupBox("Active Modifiers")
@@ -414,10 +418,14 @@ class NamingPopup(QDialog):
         self.clearLayout(self.lo_activeMods)
 
         for mod_data in mods:
-            modifierClass = GetModByName(mod_data["mod_type"])
-            modifier = CreateMod(modifierClass)
+            try:
+                modifierClass = GetModByName(mod_data["mod_type"])
+                modifier = CreateMod(modifierClass)
 
-            self.addModToUi(modifier, mod_data)
+                self.addModToUi(modifier, mod_data)
+
+            except Exception as e:
+                print(f"ERROR:  Unable to add Filename Mod: {modifierClass}:\n{e}")         #   TODO - Add Logging
 
 
     #   Creates New Modifier from Selected Combo
@@ -471,13 +479,17 @@ class NamingPopup(QDialog):
 
         #    Loop Through All Modifiers
         for mod_instance, _ in self.activeMods:
-            #   If Checkbox is Enabled
-            if mod_instance.isEnabled:
-                #   Execute Mod's Apply Method
-                newName = mod_instance.applyMod(newName)
+            try:
+                #   If Checkbox is Enabled
+                if mod_instance.isEnabled:
+                    #   Execute Mod's Apply Method
+                    newName = mod_instance.applyMod(newName)
+                
+            except Exception as e:
+                print(f"ERROR:  Unable to Add Filename Modifier:\n{e}")
 
         return newName
-    
+            
 
     #   Removes Modifier (obviously)
     def removeModifier(self, mod_instance):
@@ -796,6 +808,7 @@ class ProxyPresetsEditor(QDialog):
         self.b_edit   = QPushButton("Edit")
         self.b_add    = QPushButton("Add")
         self.b_remove = QPushButton("Remove")
+        self.b_test   = QPushButton("Validate Preset")
         self.b_reset = QPushButton("Reset to Defaults")
         self.b_moveup = QPushButton("Move Up")
         self.b_moveDn = QPushButton("Move Down")
@@ -805,6 +818,8 @@ class ProxyPresetsEditor(QDialog):
         lo_buttonBox.addWidget(self.b_edit)
         lo_buttonBox.addWidget(self.b_add)
         lo_buttonBox.addWidget(self.b_remove)
+        lo_buttonBox.addStretch()
+        lo_buttonBox.addWidget(self.b_test)
         lo_buttonBox.addWidget(self.b_reset)
         lo_buttonBox.addStretch()
         lo_buttonBox.addWidget(self.b_moveup)
@@ -826,6 +841,7 @@ class ProxyPresetsEditor(QDialog):
         self.b_edit.clicked.connect(self._onEdit)
         self.b_add.clicked.connect(self._onAdd)
         self.b_remove.clicked.connect(self._onRemove)
+        self.b_test.clicked.connect(self._onValidate)
         self.b_reset.clicked.connect(self._onReset)
         self.b_moveup.clicked.connect(self._onMoveUp)
         self.b_moveDn.clicked.connect(self._onMoveDown)
@@ -914,6 +930,121 @@ class ProxyPresetsEditor(QDialog):
         if result == "Remove":
             if row >= 0:
                 self.tw_presets.removeRow(row)
+
+
+    #   Handle Tests for Preset
+    def _onValidate(self):
+        row = self.tw_presets.currentRow()
+        if row == -1:
+            self.core.popup(title="No Selection", text="Please select a preset to validate.")
+            return
+
+        # Get data from the table
+        name = self.tw_presets.item(row, 0).text()
+        desc = self.tw_presets.item(row, 1).text()
+        vid  = self.tw_presets.item(row, 2).text()
+        aud  = self.tw_presets.item(row, 3).text()
+        ext  = self.tw_presets.item(row, 4).text()
+
+        #   Make Preset Dict
+        preset = {
+            "Description": desc,
+            "Video_Parameters": vid,
+            "Audio_Parameters": aud,
+            "Output_Extension": ext
+        }
+
+        #   Get Errors from Validations
+        errors = self._validatePreset(name, preset)
+
+        if errors:                                                                  #   TODO - Add Logging
+            self.core.popup(
+                title="Preset Validation Failed",
+                text=f"Preset '{name}' has the following issues:\n\n- " + "\n- ".join(errors)
+            )
+        else:
+            self.core.popup(
+                title="Preset Validation",
+                text=f"Preset '{name}' passed validation successfully."
+            )
+
+    #   Runs Several Sanity Checks on Presets
+    def _validatePreset(self, name, data):
+        ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
+
+        errors = []
+
+        #   1. Extension check
+        if not re.match(r'^\.\w+$', data["Output_Extension"]):
+            errors.append("Output extension must begin with a period (e.g., .mp4)")
+
+        #   2. Required Flags
+        if "-c:v" not in data["Video_Parameters"]:
+            errors.append("Missing -c:v (video codec) in video parameters")
+
+        if "-c:a" not in data["Audio_Parameters"]:
+            errors.append("Missing -c:a (audio codec) in audio parameters")
+
+        #   3. Allowed codecs for extension
+        allowed = {
+            '.mp4': {'libx264', 'libx265', 'mpeg4', 'h264_nvenc', 'hevc_nvenc'},
+            '.mov': {'prores_ks', 'prores_aw', 'dnxhd', 'dnxhr', 'libx264', 'libx265', 'mpeg4'},
+            '.mkv': {'libx264', 'libx265', 'vp8', 'vp9', 'av1', 'mpeg4'},
+            '.webm': {'vp8', 'vp9', 'libvpx', 'libvpx-vp9'},
+            '.avi': {'mpeg4', 'msmpeg4v2', 'libx264', 'libxvid'},
+            '.flv': {'flv', 'libx264'},
+            '.mxf': {'dnxhd', 'dnxhr', 'mpeg2video', 'libx264'},
+            '.mpg': {'mpeg1video', 'mpeg2video'},
+            }
+
+        video_tokens = data["Video_Parameters"].split()
+
+        try:
+            vid_codec = video_tokens[video_tokens.index("-c:v") + 1]
+
+            if vid_codec not in allowed.get(data["Output_Extension"], set()):
+                errors.append(f"Codec '{vid_codec}' may not be compatible with extension '{data['Output_Extension']}'")
+
+        except (ValueError, IndexError):
+            pass
+
+        #   4. FFmpeg dry-run test
+        try:
+            #   Build Command with Generated Test Image
+            cmd = [
+                ffmpegPath,
+                "-hide_banner", "-v", "error",
+                "-f", "lavfi", "-i", "testsrc=duration=0.1",
+                "-f", "lavfi", "-i", "anullsrc=duration=0.1",
+            ]
+
+            cmd.extend(shlex.split(data["Video_Parameters"]))
+            cmd.extend(shlex.split(data["Audio_Parameters"]))
+            cmd.extend(["-f", "null", "-"])
+
+            print(f"ffmpeg Validation Command:\n{cmd}")                             #   TODO - Add Logging
+
+            kwargs = {
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.PIPE,
+                "timeout": 10,
+            }
+
+            #   Suppress Popup CMD Window
+            if sys.platform == "win32":
+                kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+            #   Run ffmpeg Test
+            result = subprocess.run(cmd, **kwargs)
+
+            #   Add Errors to List
+            if result.returncode != 0:
+                errors.append("FFmpeg error:\n" + result.stderr.decode("utf-8").strip())
+
+        except Exception as e:
+            errors.append(f"Failed to run FFmpeg test: {e}")
+
+        return errors
 
 
     #   Resets the Presets to Default Data from Prism_SourceTab_Functions.py
