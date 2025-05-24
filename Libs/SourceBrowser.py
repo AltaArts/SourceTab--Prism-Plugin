@@ -139,6 +139,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.lastClickedTile = None
         self.proxyEnabled = False
         self.proxyMode = None
+        self.proxySettings = None
         self.nameMods = []
         self.transferList = []
         self.total_transferSize = 0.0
@@ -508,8 +509,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
-    def getSettings(self):
-        return self.plugin.loadSettings()
+    def getSettings(self, key=None):
+        sData = self.plugin.loadSettings()
+        if key and key in sData:
+            return sData[key]
+
+        else:
+            return sData
 
 
     #   Configures UI from Saved Settings
@@ -535,7 +541,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.customThumbPath = settingData ["customThumbPath"]
 
         #   Get Proxy Presets Dict
-        self.proxyPresetDict = sData["proxyPresets"]
+        self.ffmpegPresets = sData["ffmpegPresets"]
 
         #   Get OCIO View Presets
         lutPresetData = sData["viewLutPresets"]
@@ -561,6 +567,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.proxyEnabled = tabData["enable_proxy"]
         self.proxyMode = tabData["proxyMode"]
         self.sourceFuncts.updateUI()
+
+        #   Proxy Options
+        if "proxyPresets" in sData:
+            self.proxySettings = sData["proxyPresets"]
 
         #   Name Mods
         if "activeNameMods" in sData:
@@ -1089,23 +1099,57 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             refreshFunc()
 
 
+    #   Returns Bool if File in Prism Supported Formats
+    @err_catcher(name=__name__)
+    def isSupportedFormat(self, path=None, ext=None):
+        if path:
+            _, extension = os.path.splitext(os.path.basename(path))
+        elif ext:
+            extension = ext
+        else:
+            extension = self.getFileExtension()
+        
+        return  extension.lower() in self.core.media.supportedFormats
+
+
+
+    #   Returns Bool if File in Prism Video Formats
+    @err_catcher(name=__name__)
+    def isVideo(self, path=None, ext=None):
+        if path:
+            _, extension = os.path.splitext(os.path.basename(path))
+        elif ext:
+            extension = ext
+        else:
+            extension = self.getFileExtension()
+        
+        return  extension.lower() in self.core.media.videoFormats
+    
+
+    #   Returns Bool if File in Prism Video Formats
+    @err_catcher(name=__name__)
+    def isAudio(self, path=None, ext=None):
+        if path:
+            _, extension = os.path.splitext(os.path.basename(path))
+        elif ext:
+            extension = ext
+        else:
+            extension = self.getFileExtension()
+        
+        return  extension.lower() in self.audioFormats
+
+
     @err_catcher(name=__name__)
     def getFileType(self, filePath):
         if os.path.isdir(filePath):
             return "folder"
         
         else:
-            _, fileType = os.path.splitext(os.path.basename(filePath))
-
-            if (fileType.lower() in self.core.media.supportedFormats
-                and fileType.lower() not in self.core.media.videoFormats
-                ):
+            if self.isSupportedFormat(path=filePath) and not self.isVideo(path=filePath):
                 fileType = "image"
-            
-            elif fileType.lower() in self.core.media.videoFormats:
+            elif self.isVideo(path=filePath):
                 fileType = "video"
-
-            elif fileType.lower() in self.audioFormats:
+            elif self.isAudio(path=filePath):
                 fileType = "audio"
             else:
                 fileType = "other"
@@ -1564,6 +1608,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 statusColor = COLOR_BLUE
             case "Transferring":
                 statusColor = COLOR_BLUE
+            case "Generating Proxy":
+                statusColor = COLOR_BLUE
             case "Paused":
                 statusColor = COLOR_GREY
             case "Cancelled":
@@ -1649,22 +1695,14 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for item in self.copyList:
                 options = {}
                 if self.proxyEnabled:
-
-                    TEMP_PRESET = "Fast H.264 Proxy"                     #   TODO - TEMP TESTING
-                    # TEMP_PRESET = "ProRes Proxy"                     #   TODO - TEMP TESTING
-                    # TEMP_PRESET = "Ultra-Light Preview"                     #   TODO - TEMP TESTING
-
-                    TEMP_SCALE = "50%"
-
-                    # look up the preset (will raise if it doesn’t exist)
+                    # look up the preset
                     try:
-                        preset = self.proxyPresetDict[TEMP_PRESET]
+                        preset = self.ffmpegPresets[self.proxySettings["proxyPreset"]]
                     except KeyError:
-                        raise RuntimeError(f"Proxy preset '{TEMP_PRESET}' not found in settings")                #   TODO HANDLE ERROR
-
+                        raise RuntimeError(f"Proxy preset {self.proxySettings['proxyPreset']} not found in settings")                #   TODO HANDLE ERROR
 
                     proxySettings = {
-                        "scale": TEMP_SCALE,
+                        "scale": self.proxySettings["proxyScale"],
                         "encode_video_params": preset["encode_video_params"],
                         "encode_audio_params": preset["encode_audio_params"],
                         "output_ext": preset["output_ext"],
@@ -2542,6 +2580,7 @@ class MediaPlayer(QWidget):
                 resolution = self.core.media.getMediaResolution(prvFile, videoReader=vidReader)
                 self.pwidth = resolution["width"]
                 self.pheight = resolution["height"]
+                pass
 
         ext = os.path.splitext(prvFile)[1].lower()
         if ext in self.core.media.videoFormats:
@@ -2549,7 +2588,8 @@ class MediaPlayer(QWidget):
                 if self.core.isStr(vidReader) or self.state == "disabled":
                     duration = 1
                 else:
-                    duration = self.core.media.getVideoDuration(prvFile, videoReader=vidReader)
+                    # duration = self.core.media.getVideoDuration(prvFile, videoReader=vidReader)
+                    duration = self.getVideoDuration(prvFile)
                     if not duration:
                         duration = 1
 
@@ -2680,6 +2720,70 @@ class MediaPlayer(QWidget):
         self.setInfoText(infoStr)
         self.l_info.setToolTip(infoStr)
         self.l_preview.setToolTip(self.previewTooltip)
+
+
+####################    TESTING ####################
+
+
+
+
+
+    @err_catcher(name=__name__)
+    def getVideoDuration(self, filePath):
+        ffprobePath = self.origin.getFFprobePath()
+
+        kwargs = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text":   True,
+        }
+
+        if sys.platform == "win32":
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+        #   Execute Quick Method
+        result = subprocess.run(
+            [
+                ffprobePath,
+                "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=nb_frames",
+                "-of", "default=nokey=1:noprint_wrappers=1",
+                filePath
+            ],
+            **kwargs
+        )
+
+        #   Get Frames from Output
+        frames = result.stdout.strip()
+
+        #   If Quick Method didnt work, try Slower Fallback Method
+        if frames == 'N/A' or not frames.isdigit():
+            result = subprocess.run(
+                [
+                    ffprobePath,
+                    "-v", "error",
+                    "-select_streams", "v:0",
+                    "-count_frames",
+                    "-show_entries", "stream=nb_read_frames",
+                    "-of", "default=nokey=1:noprint_wrappers=1",
+                    filePath
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            frames = result.stdout.strip() 
+
+
+        return int(frames)
+
+
+
+
+##################################
+
 
 
     @err_catcher(name=__name__)

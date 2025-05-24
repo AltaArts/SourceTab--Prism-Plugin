@@ -327,6 +327,10 @@ class Prism_SourceTab_Functions(object):
 
             self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
 
+        elif key == "proxyPresets":
+            pData = self.sourceBrowser.proxySettings
+            self.core.setConfig(cat="sourceTab", param="proxyPresets", val=pData, config="project")
+
         elif key == "nameMods":
             nData = self.sourceBrowser.nameMods
             self.core.setConfig(cat="sourceTab", param="activeNameMods", val=nData, config="project")
@@ -391,6 +395,8 @@ class Prism_SourceTab_Functions(object):
                     "useCustomThumbPath": False,
                     "customThumbPath": ""
                 },
+                "proxyPresets":
+                {},
                 "activeNameMods":
                 [],
                 "viewLutPresets": [
@@ -407,7 +413,7 @@ class Prism_SourceTab_Functions(object):
                     "look": "None"
                     },
                 ],
-                "proxyPresets": {
+                "ffmpegPresets": {
                     "Fast H.264 Proxy": {
                         "description": "Quick and small proxy, good for review or offline editing",
                         "encode_video_params": "-c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p",

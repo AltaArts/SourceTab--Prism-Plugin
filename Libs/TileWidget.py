@@ -341,7 +341,7 @@ class BaseTileItem(QWidget):
                 borderColor = COLOR_GREEN
 
         elif self.tileType == "destTile":
-            if "transferTime" not in self.data and self.destFileExists():
+            if "transferTime" not in self.data and self.destFileExists():                       #   TODO FIX
                 borderColor = COLOR_ORANGE
 
         borderStyle = f"""
@@ -565,6 +565,19 @@ class BaseTileItem(QWidget):
         _, extension = os.path.splitext(basefile)
 
         return extension
+    
+
+    #   Returns Bool if File in Prism Video Formats
+    @err_catcher(name=__name__)
+    def isVideo(self, path=None, ext=None):
+        if path:
+            _, extension = os.path.splitext(os.path.basename(path))
+        elif ext:
+            extension = ext
+        else:
+            extension = self.getFileExtension()
+        
+        return  extension.lower() in self.core.media.videoFormats
 
     
     #   Returns UUID
@@ -1052,7 +1065,7 @@ class DestFileItem(BaseTileItem):
         super(DestFileItem, self).__init__(browser, data)
         self.tileType = "destTile"
 
-        self.worker_copy = None
+        self.main_transfer_worker = None
         self.worker_proxy = None
         self.transferState = None
 
@@ -1229,7 +1242,15 @@ class DestFileItem(BaseTileItem):
     #   Sets the FileName based on Name Modifiers
     @err_catcher(name=__name__)
     def toggleProxyProgbar(self):
-        enabled = self.browser.proxyEnabled and self.getFileExtension().lower() in self.core.media.videoFormats
+        enabled = False
+
+        if self.browser.proxyEnabled and self.isVideo():
+            if self.browser.proxyMode == "copy":
+                enabled = self.data.get("hasProxy", False)
+            else:
+                enabled = True
+        
+        self.useProxy = enabled
         self.proxyProgBar.setVisible(enabled)
 
 
@@ -1331,6 +1352,11 @@ class DestFileItem(BaseTileItem):
         dest_proxyFilePath = os.path.join(dest_proxyDir, proxy_fileName)
 
         return dest_proxyFilePath
+    
+    
+    @err_catcher(name=__name__)
+    def getTimeElapsed(self):
+        return (time.time() - self.transferStartTime)
 
 
     @err_catcher(name=__name__)
@@ -1346,7 +1372,13 @@ class DestFileItem(BaseTileItem):
                 statusColor = COLOR_BLUE
             case "Transferring":
                 statusColor = COLOR_BLUE
+            case "Transferring Proxy":
+                statusColor = COLOR_BLUE
             case "Generating Proxy":
+                statusColor = COLOR_BLUE
+            case "Generating Hash":
+                statusColor = COLOR_BLUE
+            case "Queued":
                 statusColor = COLOR_BLUE
             case "Paused":
                 statusColor = COLOR_GREY
@@ -1358,6 +1390,8 @@ class DestFileItem(BaseTileItem):
                 statusColor = COLOR_ORANGE
             case "Error":
                 statusColor = COLOR_RED
+            case _:
+                statusColor = COLOR_ORANGE
 
         #   Add Status to Widget UI
         self.l_transStatus.setText(status)
@@ -1442,73 +1476,103 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def start_transfer(self, origin, options, proxyEnabled, proxyMode):
-        self.setTransferStatus(progBar="transfer", status="Transferring")
-
+        #   Set and Lock Modes
         self.proxyEnabled = proxyEnabled
         self.proxyMode = proxyMode
-
+        #   Setup Transfer UI
         self.l_amountCopied.setText("--")
         self.l_size_dash.setText("of")
 
-        self.transferTimer = QTimer(self)
-        self.transferStartTime = time.time()
+        #   Create Transfer Dict for Use Later
+        self.transferData = {
+            "proxyEnabled": proxyEnabled,
+            "copyProxy": False,
+            "generateProxy": False
+        }
 
-        copyData = {"sourcePath": self.getSource_mainfilePath(),
-                    "destPath": self.getDestMainPath(),
-                    "hasProxy": False}
-        
-        if proxyEnabled:
+        if proxyEnabled and self.isVideo():
+            self.transferData["proxyMode"] = proxyMode
+
             #   Handle Copy Proxys
             if proxyMode == "copy" and self.data["hasProxy"]:
-                copyData["hasProxy"] = True
-                copyData["sourceProxy"] = self.data["source_proxyFile_path"]
-                copyData["destProxy"] = self.getDestProxyPath()
+                self.transferData["copyProxy"] = True
+                self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+                self.transferData["destProxy"] = self.getDestProxyPath()
 
             #   Handle Generate Proxys
             elif proxyMode == "generate":
-                self.data["proxySettings"] = options["proxySettings"]
+                self.transferData["generateProxy"] = True
+                self.transferData["proxySettings"] = options["proxySettings"]
 
             #   Handle Generate Missing Proxys
             elif proxyMode == "missing":
                 if self.data["hasProxy"]:
-                    copyData["hasProxy"] = True
-                    copyData["sourceProxy"] = self.data["source_proxyFile_path"]
-                    copyData["destProxy"] = self.getDestProxyPath()
+                    self.transferData["copyProxy"] = True
+                    self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+                    self.transferData["destProxy"] = self.getDestProxyPath()
 
                 else:
-                    self.data["proxySettings"] = options["proxySettings"]
+                    self.transferData["generateProxy"] = True
+                    self.transferData["proxySettings"] = options["proxySettings"]
 
-        #   Call the Transfer Worker Thread
-        self.worker_copy = FileCopyWorker(self, copyData)
+        #   Get Main Paths
+        sourcePath = self.getSource_mainfilePath()
+        destPath = self.getDestMainPath()
+
+        #   Start Timers
+        self.transferTimer = QTimer(self)
+        self.transferStartTime = time.time()
+
+        #   Call Main File Transfer
+        self.transferMainFile(sourcePath, destPath)
+
+
+    
+    @err_catcher(name=__name__)
+    def transferMainFile(self, sourcePath, destPath):
+        self.setTransferStatus(progBar="transfer", status="Queued")
+
+        #   Call the Transfer Worker Thread for Main File
+        self.main_transfer_worker = FileCopyWorker(self, "transfer", sourcePath, destPath)
         #   Connect the Progress Signals
-        self.worker_copy.progress.connect(self.update_transferProgress)
-        self.worker_copy.finished.connect(self.transfer_complete)
+        self.main_transfer_worker.progress.connect(self.update_main_transferProgress)
+        self.main_transfer_worker.finished.connect(self.main_transfer_complete)
         #   Execute Transfer
-        self.worker_copy.start()
+        self.main_transfer_worker.start()
+
+
+    @err_catcher(name=__name__)
+    def _onTransferStart(self, transType):
+        self.setTransferStatus(progBar=transType, status="Transferring")
+
+
+    @err_catcher(name=__name__)
+    def _onProxyGenStart(self):
+        self.setTransferStatus(progBar="proxy", status="Generating Proxy")
 
 
     @err_catcher(name=__name__)
     def pause_transfer(self, origin):
-        if self.worker_copy and self.transferState != "Complete":
+        if self.main_transfer_worker and self.transferState != "Complete":
             self.setTransferStatus(progBar="transfer", status="Paused")
             self.transferTimer.stop()
-            self.worker_copy.pause()
+            self.main_transfer_worker.pause()
 
 
     @err_catcher(name=__name__)
     def resume_transfer(self, origin):
-        if self.worker_copy and self.transferState == "Paused":
+        if self.main_transfer_worker and self.transferState == "Paused":
             self.setTransferStatus(progBar="transfer", status="Transferring")
             self.transferTimer.start()
-            self.worker_copy.resume()
+            self.main_transfer_worker.resume()
 
 
     @err_catcher(name=__name__)
     def cancel_transfer(self, origin):
-        if self.worker_copy and self.transferState != "Complete":
+        if self.main_transfer_worker and self.transferState != "Complete":
             self.setTransferStatus(progBar="transfer", status="Cancelled")
             self.transferTimer.stop()
-            self.worker_copy.cancel()
+            self.main_transfer_worker.cancel()
 
         if self.worker_proxy:                                            #   TODO - FINISH IMPLEMENTATION
             self.worker_proxy.cancel()
@@ -1516,7 +1580,9 @@ class DestFileItem(BaseTileItem):
 
     #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
-    def update_transferProgress(self, value, copied_size):
+    def update_main_transferProgress(self, value, copied_size):
+        self.setTransferStatus(progBar="transfer", status="Transferring")
+
         self.transferProgBar.setValue(value)
         self.l_amountCopied.setText(self.getSizeString(copied_size))
         self.copied_size = copied_size
@@ -1524,19 +1590,26 @@ class DestFileItem(BaseTileItem):
 
     #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
-    def update_proxyProgress(self, value, frame):
+    def update_proxyCopyProgress(self, value, frame):
+        self.setTransferStatus(progBar="proxy", status="Transferring Proxy")
+
         self.proxyProgBar.setValue(value)
         self.l_amountCopied.setText(str(frame))
 
 
+    #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
-    def getTimeElapsed(self):
-        return (time.time() - self.transferStartTime)
-    
+    def update_proxyGenerateProgress(self, value, frame):
+        self.setTransferStatus(progBar="proxy", status="Generating Proxy")
+
+        self.proxyProgBar.setValue(value)
+        self.l_amountCopied.setText(str(frame))
+
+
 
     #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
-    def transfer_complete(self, success):
+    def main_transfer_complete(self, success):
         destMainPath = self.getDestMainPath()
 
         self.transferTimer.stop()
@@ -1549,19 +1622,25 @@ class DestFileItem(BaseTileItem):
             self.transferProgBar.setValue(100)
 
             if os.path.isfile(destMainPath):
+                self.setTransferStatus(progBar="transfer", status="Generating Hash")
+
                 #   Calls for Hash Generation with Callback
                 self.setFileHash(destMainPath, self.onDestHashReady)
 
+                #   Do Nothing Else if Proxy Not Enabled
                 if not self.proxyEnabled:
                     return
 
+                if self.transferData["copyProxy"]:
+                    self.transferProxy()
+
                 #   Generate Proxy if Enabled
-                if self.proxyMode == "generate" or (self.proxyMode == "missing" and not self.data["hasProxy"]):          ####   WORKING
+                if self.transferData["generateProxy"]:
                     self.l_amountCopied.setText("--")
                     self.l_size_dash.setText("of")
                     self.l_amountTotal.setText(str(self.data["source_mainFile_duration"]))
 
-                    self.generateProxy(self.data["proxySettings"])
+                    self.generateProxy()
 
                 return
             
@@ -1576,12 +1655,26 @@ class DestFileItem(BaseTileItem):
         self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
 
 
+    #   Generates Proxy with FFmpeg in a Worker Thread
+    @err_catcher(name=__name__)
+    def transferProxy(self):
+        sourcePath = self.transferData["sourceProxy"]
+        destPath = self.transferData["destProxy"]
 
+        #   Call the Transfer Worker Thread for Main File
+        self.proxy_transfer_worker = FileCopyWorker(self, "proxy", sourcePath, destPath)
+        #   Connect the Progress Signals
+        self.proxy_transfer_worker.progress.connect(self.update_proxyCopyProgress)
+        self.proxy_transfer_worker.finished.connect(self.proxy_complete)
+        #   Execute Transfer
+        self.proxy_transfer_worker.start()
 
 
     #   Generates Proxy with FFmpeg in a Worker Thread
     @err_catcher(name=__name__)
-    def generateProxy(self, settings):
+    def generateProxy(self):
+        settings = self.transferData["proxySettings"]
+
         #   Get File Paths
         input_path = self.getDestMainPath()
         input_dirName = os.path.dirname(input_path)
@@ -1590,12 +1683,11 @@ class DestFileItem(BaseTileItem):
         #   Add Duration to settings Data
         settings["frames"] = self.data["source_mainFile_duration"]
 
-        self.setTransferStatus("proxy", "Generating Proxy")
 
         #   Call the Transfer Worker Thread
         self.worker_proxy = ProxyGenerationWorker(self, self.core, input_path, proxy_Path, settings)
         #   Connect the Progress Signals
-        self.worker_proxy.progress.connect(self.update_proxyProgress)
+        self.worker_proxy.progress.connect(self.update_proxyGenerateProgress)
         self.worker_proxy.finished.connect(self.proxy_complete)
         self.worker_proxy.start()
 
@@ -1605,7 +1697,7 @@ class DestFileItem(BaseTileItem):
     def proxy_complete(self, success):
         if success:
             self.proxyProgBar.setValue(100)
-            self.setTransferStatus("proxy", "Complete", tooltip="Proxy Generated")
+            self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Generated")
 
             return
             
@@ -1628,8 +1720,17 @@ class DestFileItem(BaseTileItem):
 
         if dest_hash == orig_hash:
             statusMsg = "Transfer Successful"
-            status = "Complete"
+            self.setTransferStatus(progBar="transfer", status="Complete")
+
+            if self.useProxy:
+                status = "Queued"
+            else:
+                status = "Complete"
+            self.setTransferStatus(progBar="proxy", status=status)
+
             logger.debug(f"Transfer complete: {self.getSource_mainfilePath()}")
+            return
+            
         else:
             statusMsg = "ERROR:  Transfered Hash Incorrect"
             status = "Warning"
@@ -1638,8 +1739,9 @@ class DestFileItem(BaseTileItem):
         hashMsg = (f"Status: {statusMsg}\n\n"
                 f"Source Hash:   {orig_hash}\n"
                 f"Transfer Hash: {dest_hash}")
-
+        
         self.setTransferStatus(progBar="transfer", status=status, tooltip=hashMsg)
+
 
 
 
@@ -1845,9 +1947,18 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                 return
             
             #   Use ffProbe for Video Files
-            if extension in self.core.media.videoFormats:
+            if self.origin.isVideo(ext=extension):
                 #   Get ffProbe path from Plugin Libs
                 ffprobePath = self.origin.browser.getFFprobePath()
+
+                kwargs = {
+                    "stdout": subprocess.PIPE,
+                    "stderr": subprocess.PIPE,
+                    "text":   True,
+                }
+
+                if sys.platform == "win32":
+                    kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
                 #   Execute Quick Method
                 result = subprocess.run(
@@ -1859,9 +1970,7 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                         "-of", "default=nokey=1:noprint_wrappers=1",
                         self.filePath
                     ],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
+                    **kwargs
                 )
 
                 #   Get Frames from Output
@@ -1905,12 +2014,13 @@ class FileCopyWorker(QThread):
     progress = Signal(int, float)
     finished = Signal(bool)
 
-    def __init__(self, origin, copyData):
+    def __init__(self, origin, transType, sourcePath, destPath):
         super().__init__()
         
         self.origin = origin
-        self.copyData = copyData
-        self.hasProxy = self.copyData["hasProxy"]
+        self.transType = transType
+        self.sourcePath = sourcePath
+        self.destPath = destPath
 
         self.running = True
         self.pause_flag = False
@@ -1928,51 +2038,43 @@ class FileCopyWorker(QThread):
         self.cancel_flag = True
 
     def run(self):
-        sourcePath = self.copyData["sourcePath"]
-        destPath = self.copyData["destPath"]
-
         try:
-            copyList = [(sourcePath, destPath)]
-
-            if self.hasProxy:
-                sourceProxyPath = self.copyData["sourceProxy"]
-                destProxyPath = self.copyData["destProxy"]
-                copyList.append((sourceProxyPath, destProxyPath))
-
-            total_size = sum(os.path.getsize(src) for src, _ in copyList)
+            total_size = os.path.getsize(self.sourcePath)
             copied_size = 0
 
             buffer_size = 1024 * 1024 * self.origin.size_copyChunk
             self.origin.copy_semaphore.acquire()
 
-            for src_path, dst_path in copyList:
-                #   Create Dir if Needed
-                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+            #   Create Dir if Needed
+            os.makedirs(os.path.dirname(self.destPath), exist_ok=True)
 
-                with open(src_path, 'rb') as fsrc, open(dst_path, 'wb') as fdst:
-                    while True:
-                        if self.cancel_flag:
-                            self.finished.emit(False)
-                            fdst.close()
-                            os.remove(dst_path)
-                            return
+            #   Trigger Start UI
+            self.origin._onTransferStart(self.transType)
 
-                        if self.pause_flag:
-                            time.sleep(0.1)
-                            continue
+            with open(self.sourcePath, 'rb') as fsrc, open(self.destPath, 'wb') as fdst:
+                while True:
+                    if self.cancel_flag:
+                        self.finished.emit(False)
+                        fdst.close()
+                        os.remove(self.destPath)
+                        return
 
-                        chunk = fsrc.read(buffer_size)
-                        if not chunk:
-                            break
+                    if self.pause_flag:
+                        time.sleep(0.1)
+                        continue
 
-                        fdst.write(chunk)
-                        copied_size += len(chunk)
-                        progress_percent = int((copied_size / total_size) * 100)
+                    chunk = fsrc.read(buffer_size)
+                    if not chunk:
+                        break
 
-                        now = time.time()
-                        if now - self.last_emit_time >= self.origin.progUpdateInterval or progress_percent == 100:
-                            self.progress.emit(progress_percent, copied_size)
-                            self.last_emit_time = now
+                    fdst.write(chunk)
+                    copied_size += len(chunk)
+                    progress_percent = int((copied_size / total_size) * 100)
+
+                    now = time.time()
+                    if now - self.last_emit_time >= self.origin.progUpdateInterval or progress_percent == 100:
+                        self.progress.emit(progress_percent, copied_size)
+                        self.last_emit_time = now
 
             self.finished.emit(True)
 
@@ -2091,9 +2193,6 @@ class ProxyGenerationWorker(QThread):
         #   Add Output Path
         argList += [outputPath, "-y"]
 
-        print(f"*** argList:  {argList}")                                              #    TESTING
-
-
         #   Set Shell True if Windows
         shell = (platform.system() == "Windows")
 
@@ -2102,6 +2201,8 @@ class ProxyGenerationWorker(QThread):
 
         #   Get Thread Slot
         self.origin.proxy_semaphore.acquire()
+
+        self.origin._onProxyGenStart()
 
         #   Execute FFmpeg Command
         nProc = subprocess.Popen(

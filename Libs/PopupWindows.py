@@ -516,10 +516,9 @@ class ProxyPopup(QDialog):
 
         self.setupUI()
         self.setWindowTitle("Proxy Configuration")
+       
 
-        
-
-        self.refreshUI()
+        self.initUI()
 
 
     def setupUI(self):
@@ -558,7 +557,7 @@ class ProxyPopup(QDialog):
 
         #   Proxy Mode Radio Buttons
         lo_radio = QHBoxLayout()
-        lo_radio.setContentsMargins(100, 0, 100, 0)
+        lo_radio.setContentsMargins(50, 0, 50, 0)
 
         self.radio_group = QButtonGroup(self)
 
@@ -573,10 +572,44 @@ class ProxyPopup(QDialog):
             lo_radio.addWidget(rb)
             self.radio_buttons[label] = rb
 
-        # Set default checked
-        # self.radio_buttons["None"].setChecked(True)
+        self.radio_group.buttonClicked.connect(self._onProxyModeChanged)
 
         lo_main.addLayout(lo_radio)
+
+        spacer_1 = QSpacerItem(10, 20)
+        lo_main.addItem(spacer_1)
+
+
+        # --- FFMPEG Settings GroupBox ---
+        self.gb_ffmpegSettings = QGroupBox("FFMPEG Settings")
+        lo_ffmpeg = QHBoxLayout()
+
+        # Label: Proxy Presets
+        l_ffmpegPresets = QLabel("Proxy Presets")
+        lo_ffmpeg.addWidget(l_ffmpegPresets)
+
+        # ComboBox: Proxy Presets (to be filled later)
+        self.cb_proxyPresets = QComboBox()
+        lo_ffmpeg.addWidget(self.cb_proxyPresets)
+
+        # Spacer
+        lo_ffmpeg.addSpacing(20)
+
+        # Label: Proxy Scale
+        l_proxyScale = QLabel("Proxy Scale")
+        lo_ffmpeg.addWidget(l_proxyScale)
+
+        # ComboBox: Proxy Scale
+        self.cb_proxyScale = QComboBox()
+        self.cb_proxyScale.addItems(["25%", "50%", "75%", "100%", "150%", "200%"])
+        self.cb_proxyScale.setCurrentText("100%")
+        lo_ffmpeg.addWidget(self.cb_proxyScale)
+
+        self.gb_ffmpegSettings.setLayout(lo_ffmpeg)
+        lo_main.addWidget(self.gb_ffmpegSettings)
+
+
+
 
         #   Add Stretch to Bottom to Buttons
         lo_main.addStretch()
@@ -595,13 +628,42 @@ class ProxyPopup(QDialog):
         lo_main.addLayout(lo_buttons)
 
 
-    def refreshUI(self):
+    def initUI(self):
         proxyMode = self.settings.get("proxyMode", "none")
 
         label = self.sourceFuncts.proxyNameMap.get(proxyMode)
 
         if label and label in self.radio_buttons:
             self.radio_buttons[label].setChecked(True)
+
+        presets = self.sourceFuncts.sourceBrowser.getSettings(key="ffmpegPresets")
+        for preset in presets:
+            self.cb_proxyPresets.addItem(preset)
+
+        ffmpegSettings = self.settings.get("proxySettings", {})
+        
+        if "proxyPreset" in ffmpegSettings:
+            curPreset = ffmpegSettings["proxyPreset"]
+            idx = self.cb_proxyPresets.findText(curPreset)
+            if idx != -1:
+                self.cb_proxyPresets.setCurrentIndex(idx)
+
+        if "proxyScale" in ffmpegSettings:
+            curScale = ffmpegSettings["proxyScale"]
+            idx = self.cb_proxyScale.findText(curScale)
+            if idx != -1:
+                self.cb_proxyScale.setCurrentIndex(idx)
+
+
+        self._onProxyModeChanged()
+
+
+
+    def _onProxyModeChanged(self):
+        mode = self.getProxyMode()
+        # Only show ffmpeg settings for "generate" or "missing"
+        self.gb_ffmpegSettings.setVisible(mode in ("generate", "missing"))
+
 
     def _onButtonClicked(self, text):
         self.result = text
@@ -617,3 +679,12 @@ class ProxyPopup(QDialog):
                     return shortMode
         
         return "None"
+    
+
+    def getProxySettings(self):
+        pData = {
+            "proxyPreset": self.cb_proxyPresets.currentText(),
+            "proxyScale": self.cb_proxyScale.currentText()
+        }
+        
+        return pData

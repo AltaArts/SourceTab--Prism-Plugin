@@ -145,7 +145,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         #   If there is only the Blank Entry Use EXAMPLE
         if row_count < 2:
-            fileName = "EXAMPLE"
+            fileName = "EXAMPLEFILENAME"
         
         #   Get the First File's Basename
         else:
@@ -180,7 +180,8 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
     def configProxy(self):
         #   Get Settings
         pData = {
-            "proxyMode": self.sourceBrowser.proxyMode
+            "proxyMode": self.sourceBrowser.proxyMode,
+            "proxySettings": self.sourceBrowser.proxySettings
         }
 
         #   Call Popup
@@ -189,7 +190,11 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         if proxyPopup.result == "Apply":
             self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
+            self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
             self.updateUI()
+
+            self.sourceBrowser.plugin.saveSettings(key="proxyPresets")
+
 
 
     @err_catcher(name=__name__)
