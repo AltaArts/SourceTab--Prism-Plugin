@@ -2131,9 +2131,9 @@ class ProxyGenerationWorker(QThread):
             return
 
         #   Get Settings
-        output_ext   = self.settings.get("output_ext", "")
-        vid_params   = self.settings.get("encode_video_params", "")
-        aud_params   = self.settings.get("encode_audio_params", "")
+        output_ext   = self.settings.get("Output_Extension", "")
+        vid_params   = self.settings.get("Video_Parameters", "")
+        aud_params   = self.settings.get("Audio_Parameters", "")
         scale_str    = self.settings.get("scale", None)
 
         #   Make File Names/Paths

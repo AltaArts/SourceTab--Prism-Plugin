@@ -540,9 +540,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.useCustomThumbPath = settingData["useCustomThumbPath"]
         self.customThumbPath = settingData ["customThumbPath"]
 
-        #   Get Proxy Presets Dict
-        self.ffmpegPresets = sData["ffmpegPresets"]
-
         #   Get OCIO View Presets
         lutPresetData = sData["viewLutPresets"]
         self.configureViewLut(lutPresetData)                 #   TODO - MOVE
@@ -1697,15 +1694,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 if self.proxyEnabled:
                     # look up the preset
                     try:
-                        preset = self.ffmpegPresets[self.proxySettings["proxyPreset"]]
+                        presets = self.getSettings(key="ffmpegPresets")
+                        preset = presets[self.proxySettings["proxyPreset"]]
                     except KeyError:
                         raise RuntimeError(f"Proxy preset {self.proxySettings['proxyPreset']} not found in settings")                #   TODO HANDLE ERROR
 
                     proxySettings = {
                         "scale": self.proxySettings["proxyScale"],
-                        "encode_video_params": preset["encode_video_params"],
-                        "encode_audio_params": preset["encode_audio_params"],
-                        "output_ext": preset["output_ext"],
+                        "Video_Parameters": preset["Video_Parameters"],
+                        "Audio_Parameters": preset["Audio_Parameters"],
+                        "Output_Extension": preset["Output_Extension"],
                     }
 
                     options["proxySettings"] = proxySettings

@@ -331,6 +331,9 @@ class Prism_SourceTab_Functions(object):
             pData = self.sourceBrowser.proxySettings
             self.core.setConfig(cat="sourceTab", param="proxyPresets", val=pData, config="project")
 
+        elif key == "ffmpegPresets":
+            self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
+            
         elif key == "nameMods":
             nData = self.sourceBrowser.nameMods
             self.core.setConfig(cat="sourceTab", param="activeNameMods", val=nData, config="project")
@@ -354,7 +357,7 @@ class Prism_SourceTab_Functions(object):
 
     #   Default Settings File Data
     @err_catcher(name=__name__)
-    def getDefaultSettings(self):
+    def getDefaultSettings(self, key=None):
         sData = {
                 "proxySearch": [
                     "@MAINFILEDIR@\\proxy\\@MAINFILENAME@",
@@ -415,39 +418,46 @@ class Prism_SourceTab_Functions(object):
                 ],
                 "ffmpegPresets": {
                     "Fast H.264 Proxy": {
-                        "description": "Quick and small proxy, good for review or offline editing",
-                        "encode_video_params": "-c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p",
-                        "encode_audio_params": "-c:a aac -b:a 128k",
-                        "output_ext": ".mp4"
+                        "Description": "Quick and small proxy, good for review or offline editing",
+                        "Video_Parameters": "-c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p",
+                        "Audio_Parameters": "-c:a aac -b:a 128k",
+                        "Output_Extension": ".mp4"
                     },
                     "ProRes Proxy": {
-                        "description": "Edit-friendly proxy for high-performance workflows (large size)",
-                        "encode_video_params": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
-                        "encode_audio_params": "-c:a copy",
-                        "output_ext": ".mov"
+                        "Description": "Edit-friendly proxy for high-performance workflows (large size)",
+                        "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
+                        "Audio_Parameters": "-c:a copy",
+                        "Output_Extension": ".mov"
                     },
                     "DNxHD 36M Proxy": {
-                        "description": "Avid-style proxy with intra-frame compression (36 Mbps)",
-                        "encode_video_params": "-c:v dnxhd -b:v 36M -pix_fmt yuv422p",
-                        "encode_audio_params": "-c:a pcm_s16le",
-                        "output_ext": ".mov"
+                        "Description": "Avid-style proxy with intra-frame compression (36 Mbps)",
+                        "Video_Parameters": "-c:v dnxhd -b:v 36M -pix_fmt yuv422p",
+                        "Audio_Parameters": "-c:a pcm_s16le",
+                        "Output_Extension": ".mov"
                     },
                     "Ultra-Light Preview": {
-                        "description": "Low-res H.264 preview for web or quick review",
-                        "encode_video_params": "-c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p",
-                        "encode_audio_params": "-c:a aac -b:a 96k",
-                        "output_ext": ".mp4"
+                        "Description": "Low-res H.264 preview for web or quick review",
+                        "Video_Parameters": "-c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p",
+                        "Audio_Parameters": "-c:a aac -b:a 96k",
+                        "Output_Extension": ".mp4"
                     },
                     "Full-Res H.264": {
-                        "description": "Full-resolution H.264 transcode, good quality balance",
-                        "encode_video_params": "-c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p",
-                        "encode_audio_params": "-c:a aac -b:a 192k",
-                        "output_ext": ".mp4"
+                        "Description": "Full-resolution H.264 transcode, good quality balance",
+                        "Video_Parameters": "-c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p",
+                        "Audio_Parameters": "-c:a aac -b:a 192k",
+                        "Output_Extension": ".mp4"
                     }
                 }
             }
 
-        return sData
+        #   Return Specific Key Default
+        if key and key in sData:
+            return sData[key]
+        
+        #   Return Entire Defaults Dict
+        else:
+            return sData
+    
 
 
     #   Default Settings File Data

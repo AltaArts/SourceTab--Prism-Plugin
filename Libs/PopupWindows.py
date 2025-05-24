@@ -503,7 +503,6 @@ class NamingPopup(QDialog):
 
 
 
-
 class ProxyPopup(QDialog):
     def __init__(self, core, sourceFuncts, settings):
         super().__init__()
@@ -517,8 +516,7 @@ class ProxyPopup(QDialog):
         self.setupUI()
         self.setWindowTitle("Proxy Configuration")
        
-
-        self.initUI()
+        self.loadUI()
 
 
     def setupUI(self):
@@ -538,6 +536,7 @@ class ProxyPopup(QDialog):
         boldFont = QFont()
         boldFont.setBold(True)
 
+        #   Tooltip
         modeTip = """
         <b>Proxy Handling Mode:</b><br><br>
         <table cellpadding="6">
@@ -580,41 +579,46 @@ class ProxyPopup(QDialog):
         lo_main.addItem(spacer_1)
 
 
-        # --- FFMPEG Settings GroupBox ---
+        ##  FFMPEG Settings
         self.gb_ffmpegSettings = QGroupBox("FFMPEG Settings")
         lo_ffmpeg = QHBoxLayout()
+        lo_ffmpeg.setContentsMargins(20,10,20,10)
 
-        # Label: Proxy Presets
+        #   Presets Label
         l_ffmpegPresets = QLabel("Proxy Presets")
         lo_ffmpeg.addWidget(l_ffmpegPresets)
-
-        # ComboBox: Proxy Presets (to be filled later)
+        #   Presets Combo
         self.cb_proxyPresets = QComboBox()
         lo_ffmpeg.addWidget(self.cb_proxyPresets)
 
-        # Spacer
-        lo_ffmpeg.addSpacing(20)
+        spacer_2 = QSpacerItem(40, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        lo_ffmpeg.addItem(spacer_2)
 
-        # Label: Proxy Scale
+        #   Scale Label
         l_proxyScale = QLabel("Proxy Scale")
         lo_ffmpeg.addWidget(l_proxyScale)
 
-        # ComboBox: Proxy Scale
+        #   Scale Combo
         self.cb_proxyScale = QComboBox()
         self.cb_proxyScale.addItems(["25%", "50%", "75%", "100%", "150%", "200%"])
         self.cb_proxyScale.setCurrentText("100%")
         lo_ffmpeg.addWidget(self.cb_proxyScale)
 
+        spacer_3 = QSpacerItem(40, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        lo_ffmpeg.addItem(spacer_3)
+
+        #   Edit Preset Button
+        self.b_editPresets = QPushButton("Edit Presets")
+        lo_ffmpeg.addWidget(self.b_editPresets)
+
+        #   Add to Layout
         self.gb_ffmpegSettings.setLayout(lo_ffmpeg)
         lo_main.addWidget(self.gb_ffmpegSettings)
-
-
-
 
         #   Add Stretch to Bottom to Buttons
         lo_main.addStretch()
 
-        # Buttons
+        #   Bottom Buttons
         lo_buttons = QHBoxLayout()
         lo_buttons.addStretch(1)
 
@@ -628,18 +632,19 @@ class ProxyPopup(QDialog):
         lo_main.addLayout(lo_buttons)
 
 
-    def initUI(self):
+    #   Populate UI from Passed Settings
+    def loadUI(self):
+        #   Proxy Mode
         proxyMode = self.settings.get("proxyMode", "none")
-
+        #   Match Mode to Radio Button Label
         label = self.sourceFuncts.proxyNameMap.get(proxyMode)
-
         if label and label in self.radio_buttons:
             self.radio_buttons[label].setChecked(True)
 
-        presets = self.sourceFuncts.sourceBrowser.getSettings(key="ffmpegPresets")
-        for preset in presets:
-            self.cb_proxyPresets.addItem(preset)
+        #   Populate Preset Combo
+        self.populatePresetCombo()
 
+        #   Preset Settings
         ffmpegSettings = self.settings.get("proxySettings", {})
         
         if "proxyPreset" in ffmpegSettings:
@@ -654,15 +659,73 @@ class ProxyPopup(QDialog):
             if idx != -1:
                 self.cb_proxyScale.setCurrentIndex(idx)
 
+        #   Connections
+        self.b_editPresets.clicked.connect(self._onEditPresetsClicked)
 
         self._onProxyModeChanged()
 
 
+    #   Returns FFmpeg Preset Dict
+    def getFFmpegPresets(self):
+        return self.sourceFuncts.sourceBrowser.getSettings(key="ffmpegPresets")
+
+
+    #   Populate Preset Combo with Presets
+    def populatePresetCombo(self):
+        self.cb_proxyPresets.clear()
+
+        for preset in self.getFFmpegPresets():
+            self.cb_proxyPresets.addItem(preset)
+
+        self.createPresetsTooltip()
+
+
+    #   Creates and Adds Tooltip to Preset Combo
+    def createPresetsTooltip(self):
+        presets = self.getFFmpegPresets()
+
+        #   Start HTML with div wrapper
+        tooltip_html = "<div style='min-width: 400px;'>"
+        tooltip_html += "<table>"
+
+        #   Make Separate Rows for each Preset
+        for name, data in presets.items():
+            desc = data.get("Description", "")
+            tooltip_html += f"""
+                <tr>
+                    <td><b>{name}</b></td>
+                    <td style='padding-left: 10px;'>{desc}</td>
+                </tr>
+                <tr><td colspan='2' style='height: 10px;'>&nbsp;</td></tr>  <!-- spacer row -->
+            """
+
+        tooltip_html += "</table></div>"
+
+        self.cb_proxyPresets.setToolTip(tooltip_html)
+
 
     def _onProxyModeChanged(self):
         mode = self.getProxyMode()
-        # Only show ffmpeg settings for "generate" or "missing"
+        #   Only Show ffmpeg Settings for "generate" or "missing"
         self.gb_ffmpegSettings.setVisible(mode in ("generate", "missing"))
+
+
+    #   Open Window to Edit Presets
+    def _onEditPresetsClicked(self):
+        #   Get Existing Presets
+        pData = self.getFFmpegPresets()
+
+        #   Instanciate and Execute Window
+        editWindow = ProxyPresetsEditor(self.core, self, pData)
+        editWindow.exec_()
+
+        if editWindow.result() == "Save":
+            #   Get Updated Data
+            fData = editWindow.getData()
+            #   Save to Settings
+            self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="ffmpegPresets", data=fData)
+            #   Reload Combo
+            self.populatePresetCombo()
 
 
     def _onButtonClicked(self, text):
@@ -670,6 +733,7 @@ class ProxyPopup(QDialog):
         self.accept()
 
 
+    #   Return Selected Proxy Mode
     def getProxyMode(self):
         checkedButton = self.radio_group.checkedButton()
         if checkedButton:
@@ -681,6 +745,7 @@ class ProxyPopup(QDialog):
         return "None"
     
 
+    #   Return Selected Proxy Preset Name and Scale
     def getProxySettings(self):
         pData = {
             "proxyPreset": self.cb_proxyPresets.currentText(),
@@ -688,3 +753,232 @@ class ProxyPopup(QDialog):
         }
         
         return pData
+    
+
+class ProxyPresetsEditor(QDialog):
+    def __init__(self, core, origin, presets):
+        super().__init__(origin)
+        self.core = core
+        self.origin = origin
+
+        self.presetData = presets.copy()
+        self._action = None
+
+        self.setWindowTitle("FFMPEG Proxy Presets")
+
+        self.setupUI()
+        self.connections()
+        self.populateTable(self.presetData)
+
+
+    def setupUI(self):
+        #   Set up Sizing and Position
+        screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        width = screen_geometry.width() // 1.5
+        height = screen_geometry.height() // 2
+        x_pos = (screen_geometry.width() - width) // 2
+        y_pos = (screen_geometry.height() - height) // 2
+        self.setGeometry(x_pos, y_pos, width, height)
+
+        #   Create Main Layout
+        lo_main = QVBoxLayout(self)
+
+        #   Create table
+        self.headers = ["Name"] + list(next(iter(self.presetData.values())).keys())
+        self.tw_presets = QTableWidget(len(self.presetData), len(self.headers), self)
+        self.tw_presets.setHorizontalHeaderLabels(self.headers)
+        self.tw_presets.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tw_presets.setEditTriggers(QTableWidget.NoEditTriggers)
+
+        #   Footer Buttons
+        lo_buttonBox = QHBoxLayout()
+        self.b_edit   = QPushButton("Edit")
+        self.b_add    = QPushButton("Add")
+        self.b_remove = QPushButton("Remove")
+        self.b_reset = QPushButton("Reset to Defaults")
+        self.b_moveup = QPushButton("Move Up")
+        self.b_moveDn = QPushButton("Move Down")
+        self.b_save   = QPushButton("Save")
+        self.b_cancel = QPushButton("Cancel")
+        
+        lo_buttonBox.addWidget(self.b_edit)
+        lo_buttonBox.addWidget(self.b_add)
+        lo_buttonBox.addWidget(self.b_remove)
+        lo_buttonBox.addWidget(self.b_reset)
+        lo_buttonBox.addStretch()
+        lo_buttonBox.addWidget(self.b_moveup)
+        lo_buttonBox.addWidget(self.b_moveDn)
+        lo_buttonBox.addStretch()
+        lo_buttonBox.addWidget(self.b_save)
+        lo_buttonBox.addWidget(self.b_cancel)
+
+        #   Add to Main Layout
+        lo_main.addWidget(self.tw_presets)
+        lo_main.addLayout(lo_buttonBox)
+
+        #   Stretch Columns over Entire Width
+        self.tw_presets.horizontalHeader().setStretchLastSection(False)
+        self.tw_presets.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+
+    def connections(self):
+        self.b_edit.clicked.connect(self._onEdit)
+        self.b_add.clicked.connect(self._onAdd)
+        self.b_remove.clicked.connect(self._onRemove)
+        self.b_reset.clicked.connect(self._onReset)
+        self.b_moveup.clicked.connect(self._onMoveUp)
+        self.b_moveDn.clicked.connect(self._onMoveDown)
+        self.b_save.clicked.connect(lambda: self._onFinish("Save"))
+        self.b_cancel.clicked.connect(lambda: self._onFinish("Cancel"))
+
+
+    #   Gets Called when Window is Displayed
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(0, self.adjustColumnWidths)
+
+
+    #   Adjusts Column Widths to fit Window
+    def adjustColumnWidths(self):
+        total_width = self.tw_presets.viewport().width()
+
+        #   Column weights (column index → weight)
+        weights = {
+            0: 1,  # Name
+            1: 3,  # Description
+            2: 3,  # Video Params
+            3: 2,  # Audio Params
+            4: 1   # Extension
+        }
+
+        total_weight = sum(weights.values())
+        #   Intterate and Set Widths
+        for col in range(self.tw_presets.columnCount()):
+            weight = weights.get(col, 1)
+            col_width = int((weight / total_weight) * total_width)
+            self.tw_presets.setColumnWidth(col, col_width)
+
+
+    def populateTable(self, pData):
+        #   Clear Table
+        self.tw_presets.setRowCount(0)
+
+        #   Create Row per Preset form Data
+        for name, fields in pData.items():
+            row = self.tw_presets.rowCount()
+            self.tw_presets.insertRow(row)
+            self.tw_presets.setItem(row, 0, QTableWidgetItem(name))
+            for col, key in enumerate(self.headers[1:], start=1):
+                self.tw_presets.setItem(row, col, QTableWidgetItem(fields.get(key, "")))
+
+        #   Re-Apply Widths
+        QTimer.singleShot(0, self.adjustColumnWidths)
+
+
+    #   Sets Row Editable
+    def _onEdit(self):
+        row = self.tw_presets.currentRow()
+        if row < 0: 
+            return
+        
+        self.tw_presets.setEditTriggers(QTableWidget.DoubleClicked | QTableWidget.SelectedClicked)
+        self.tw_presets.editItem(self.tw_presets.item(row, 0))
+
+
+    #   Adds Empty Row
+    def _onAdd(self):
+        #   Insert Blank Row after Current
+        row = max(0, self.tw_presets.currentRow() + 1)
+        self.tw_presets.insertRow(row)
+
+        for col in range(self.tw_presets.columnCount()):
+            self.tw_presets.setItem(row, col, QTableWidgetItem(""))
+
+        self.tw_presets.selectRow(row)
+
+
+    #   Remove Selected Row
+    def _onRemove(self):
+        row = self.tw_presets.currentRow()
+        #   Gets Item Info
+        preset_item = self.tw_presets.item(row, 0)
+        preset_name = preset_item.text() if preset_item else "Unknown"
+
+        #   Create Question
+        title = "Remove Preset"
+        text = f"Would you like to Remove preset:\n\n{preset_name}"
+        buttons = ["Remove", "Cancel"]
+        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+        #   Remove if Affirmed
+        if result == "Remove":
+            if row >= 0:
+                self.tw_presets.removeRow(row)
+
+
+    #   Resets the Presets to Default Data from Prism_SourceTab_Functions.py
+    def _onReset(self):
+        #   Create Question
+        title = "Reset Presets to Default"
+        text = ("Would you like to Resets the Proxy Presets to\n"
+                "the Factory Defaults?\n\n"
+                "All Custom Presets will be lost.\n\n"
+                "This effects all Users in this Prism Project.")
+        buttons = ["Reset", "Cancel"]
+        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+
+        if result == "Reset":
+            #   Get Default Presets
+            fData = self.origin.getFFmpegPresets()
+            #   Re-assign presetData
+            self.presetData = fData
+            #   Populate Table with Default Data
+            self.populateTable(fData)
+
+
+    def _onMoveUp(self):
+        row = self.tw_presets.currentRow()
+        if row > 0:
+            self._swapRows(row, row-1)
+            self.tw_presets.selectRow(row-1)
+
+
+    def _onMoveDown(self):
+        row = self.tw_presets.currentRow()
+        if row < self.tw_presets.rowCount() - 1:
+            self._swapRows(row, row+1)
+            self.tw_presets.selectRow(row+1)
+
+
+    def _swapRows(self, r1, r2):
+        for c in range(self.tw_presets.columnCount()):
+            t1 = self.tw_presets.takeItem(r1, c)
+            t2 = self.tw_presets.takeItem(r2, c)
+            self.tw_presets.setItem(r1, c, t2)
+            self.tw_presets.setItem(r2, c, t1)
+
+
+    def _onFinish(self, action):
+        self._action = action
+        if action == "Save":
+            newData = {}
+
+            #   Re-assign self.presetData from UI data
+            for row in range(self.tw_presets.rowCount()):
+                name = self.tw_presets.item(row, 0).text().strip()
+                fields = {
+                    self.headers[c]: self.tw_presets.item(row, c).text().strip()
+                    for c in range(1, len(self.headers))
+                }
+                newData[name] = fields
+            self.presetData = newData
+
+        self.accept()
+
+
+    def result(self):
+        return self._action
+
+
+    def getData(self):
+        return self.presetData
