@@ -222,12 +222,12 @@ class BaseTileItem(QWidget):
     def setSelected(self, checked=None):
         modifiers = QApplication.keyboardModifiers()
 
-        # SHIFT: Select range from lastClickedTile to this one
+        #   SHIFT: Select range from lastClickedTile to this one
         if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
-            self.selectRange()
+            self._selectRange()
             return
 
-        # CTRL: Toggle this tile's selection
+        #   CTRL: Toggle this tile's selection
         elif modifiers & Qt.ControlModifier:
             if self in self.browser.selectedTiles:
                 self.deselect()
@@ -240,7 +240,7 @@ class BaseTileItem(QWidget):
             self.browser.lastClickedTile = self
             return
 
-        # Default (no modifier): exclusive selection
+        #   Default (no modifier): exclusive selection
         for tile in list(self.browser.selectedTiles):
             tile.deselect()
         self.browser.selectedTiles.clear()
@@ -256,7 +256,7 @@ class BaseTileItem(QWidget):
 
 
     @err_catcher(name=__name__)
-    def selectRange(self):
+    def _selectRange(self):
         # Get all tiles in order
         if isinstance(self, SourceFileItem):
             allTiles = self.browser.getAllSourceTiles()
@@ -336,12 +336,14 @@ class BaseTileItem(QWidget):
         ###     BORDER      ###
         borderColor = "70, 90, 120"  # default fallback
 
+        #   Green if Checked
         if self.tileType == "sourceTile":
             if self.isChecked():
                 borderColor = COLOR_GREEN
 
+        #   Orange if Exists in Destination
         elif self.tileType == "destTile":
-            if "transferTime" not in self.data and self.destFileExists():                       #   TODO FIX
+            if self.transferState == "Idle" and self.destFileExists():
                 borderColor = COLOR_ORANGE
 
         borderStyle = f"""
@@ -422,15 +424,8 @@ class BaseTileItem(QWidget):
 
     #   Returns File Size (can be slower)
     @err_catcher(name=__name__)
-    def getSizeString(self, size_bytes):
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1024 ** 2:
-            return f"{size_bytes / 1024:.2f} KB"
-        elif size_bytes < 1024 ** 3:
-            return f"{size_bytes / 1024 ** 2:.2f} MB"
-        else:
-            return f"{size_bytes / 1024 ** 3:.2f} GB"
+    def getFileSizeStr(self, size_bytes):
+        return self.browser.getFileSizeStr(size_bytes)
 
 
     #   Returns the Filepath
@@ -528,7 +523,7 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def refreshPreview(self):
         if hasattr(self.data, "thumbnail"):
-            self.updatePreview(self.data["thumbnail"])
+            self.setThumbnail(self.data["thumbnail"])
             return
 
         filePath = self.getSource_mainfilePath()
@@ -546,12 +541,13 @@ class BaseTileItem(QWidget):
         )
 
         worker_thumb.setAutoDelete(True)
-        worker_thumb.result.connect(self.updatePreview)
+        worker_thumb.result.connect(self.setThumbnail)
         self.thumb_threadpool.start(worker_thumb)
         
 
+    #   Adds Thumbnail to FileTile Label
     @err_catcher(name=__name__)
-    def updatePreview(self, scaledPixmap):
+    def setThumbnail(self, scaledPixmap):
         self.l_preview.setAlignment(Qt.AlignCenter)
         self.l_preview.setPixmap(scaledPixmap)
         self.data["thumbnail"] = scaledPixmap
@@ -585,25 +581,6 @@ class BaseTileItem(QWidget):
     def getUid(self):
         return self.data.get("uuid", "")
     
-
-    #   Returns File Size (can be slower)
-    @err_catcher(name=__name__)
-    def getFileSizeStr(self, size_bytes):
-        size_mb = size_bytes / 1024.0 / 1024.0
-
-        if size_mb < 1:
-            size_kb = size_bytes / 1024.0
-            sizeStr = "%.2f KB" % size_kb
-
-        elif size_mb < 1024:
-            sizeStr = "%.2f MB" % size_mb
-
-        else:
-            size_gb = size_mb / 1024.0
-            sizeStr = "%.2f GB" % size_gb
-
-        return sizeStr
-
 
     @err_catcher(name=__name__)
     def setIcon(self, icon):
@@ -744,9 +721,7 @@ class SourceFileItem(BaseTileItem):
         super(SourceFileItem, self).__init__(browser, data)
         self.tileType = "sourceTile"
 
-        #   Calls the SetupUI Method of the Child Tile
         self.setupUi()
-        #   Calls the Refresh Method of the Child Tile
         self.refreshUi()
 
 
@@ -873,7 +848,6 @@ class SourceFileItem(BaseTileItem):
         #   Context Menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.rightClicked)
-
 
 
     @err_catcher(name=__name__)
@@ -1059,6 +1033,8 @@ class SourceFileItem(BaseTileItem):
 
 
 
+
+
 ##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
 class DestFileItem(BaseTileItem):
     def __init__(self, browser, data):
@@ -1069,9 +1045,7 @@ class DestFileItem(BaseTileItem):
         self.worker_proxy = None
         self.transferState = None
 
-        #   Calls the SetupUI Method of the Child Tile
         self.setupUi()
-        #   Calls the Refresh Method of the Child Tile
         self.refreshUi()
 
 
@@ -1169,8 +1143,8 @@ class DestFileItem(BaseTileItem):
         self.fileSizeContainer.setFixedWidth(150)
 
         #   File Size Labels
-        self.l_amountCopied = QLabel("--")
-        self.l_size_dash = QLabel("of")
+        self.l_amountCopied = QLabel()
+        self.l_size_dash = QLabel()
         self.l_amountTotal = QLabel("--")
 
         #    Add Sizes to Layout
@@ -1224,11 +1198,8 @@ class DestFileItem(BaseTileItem):
         #   Set Filetype Icon
         self.setIcon(self.data["icon"])
 
-        #   Set Size String
-        if "source_mainFile_duration" in self.data:
-            self.l_amountCopied.setText(str(self.data["source_mainFile_duration"]))
-            self.l_size_dash.setText("frames -")
-        self.l_amountTotal.setText(self.data["source_mainFile_size"])
+        #   Set Quanity Details
+        self.setQuanityUI("idle")
 
         # Get File Path
         filePath = self.getSource_mainfilePath()
@@ -1293,7 +1264,6 @@ class DestFileItem(BaseTileItem):
             self.l_pxyIcon.setToolTip(tip)
 
             self.data["dest_proxyFile_path"] = self.getDestProxyPath()
-
 
 
     #   Returns Destination Directory
@@ -1413,6 +1383,39 @@ class DestFileItem(BaseTileItem):
         """)
 
 
+    #   Sets the Quality UI for Each Mode
+    @err_catcher(name=__name__)
+    def setQuanityUI(self, mode):
+        copied = ""
+        dash = ""
+        total = ""
+
+        if mode in ["idle", "complete"]:
+            if "source_mainFile_duration" in self.data:
+                copied = str(self.data["source_mainFile_duration"])
+                dash = "frames -"
+            total = self.data["source_mainFile_size"]
+
+        elif mode == "copyMain":
+            copied = "--"
+            dash = "of"
+            total = self.data["source_mainFile_size"]
+
+        elif mode == "copyProxy":
+            copied = "--"
+            dash = "of"
+            total = self.data["source_proxyFile_size"]
+
+        elif mode == "generate":
+            copied = "--"
+            dash = "of"
+            total = str(self.data["source_mainFile_duration"])
+
+        self.l_amountCopied.setText(copied)
+        self.l_size_dash.setText(dash)
+        self.l_amountTotal.setText(total)
+
+
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
@@ -1479,9 +1482,6 @@ class DestFileItem(BaseTileItem):
         #   Set and Lock Modes
         self.proxyEnabled = proxyEnabled
         self.proxyMode = proxyMode
-        #   Setup Transfer UI
-        self.l_amountCopied.setText("--")
-        self.l_size_dash.setText("of")
 
         #   Create Transfer Dict for Use Later
         self.transferData = {
@@ -1527,10 +1527,12 @@ class DestFileItem(BaseTileItem):
         self.transferMainFile(sourcePath, destPath)
 
 
-    
+    #   Call Worker Thread to Copy Main File
     @err_catcher(name=__name__)
     def transferMainFile(self, sourcePath, destPath):
         self.setTransferStatus(progBar="transfer", status="Queued")
+        self.setQuanityUI("copyMain")
+
 
         #   Call the Transfer Worker Thread for Main File
         self.main_transfer_worker = FileCopyWorker(self, "transfer", sourcePath, destPath)
@@ -1541,11 +1543,13 @@ class DestFileItem(BaseTileItem):
         self.main_transfer_worker.start()
 
 
+    #   Gets called when Transfer Thread Starts in Queue
     @err_catcher(name=__name__)
     def _onTransferStart(self, transType):
         self.setTransferStatus(progBar=transType, status="Transferring")
 
 
+    #   Gets called when Proxy Thread Starts in Queue
     @err_catcher(name=__name__)
     def _onProxyGenStart(self):
         self.setTransferStatus(progBar="proxy", status="Generating Proxy")
@@ -1554,9 +1558,10 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def pause_transfer(self, origin):
         if self.main_transfer_worker and self.transferState != "Complete":
-            self.setTransferStatus(progBar="transfer", status="Paused")
             self.transferTimer.stop()
             self.main_transfer_worker.pause()
+            if self.transferState != "Queued":
+                self.setTransferStatus(progBar="transfer", status="Paused")
 
 
     @err_catcher(name=__name__)
@@ -1584,17 +1589,17 @@ class DestFileItem(BaseTileItem):
         self.setTransferStatus(progBar="transfer", status="Transferring")
 
         self.transferProgBar.setValue(value)
-        self.l_amountCopied.setText(self.getSizeString(copied_size))
+        self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
         self.copied_size = copied_size
 
 
     #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
-    def update_proxyCopyProgress(self, value, frame):
+    def update_proxyCopyProgress(self, value, copied_size):
         self.setTransferStatus(progBar="proxy", status="Transferring Proxy")
 
         self.proxyProgBar.setValue(value)
-        self.l_amountCopied.setText(str(frame))
+        self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
 
 
     #   Updates the UI During the Transfer
@@ -1604,7 +1609,6 @@ class DestFileItem(BaseTileItem):
 
         self.proxyProgBar.setValue(value)
         self.l_amountCopied.setText(str(frame))
-
 
 
     #   Gets Called from the Finished Signal
@@ -1626,33 +1630,57 @@ class DestFileItem(BaseTileItem):
 
                 #   Calls for Hash Generation with Callback
                 self.setFileHash(destMainPath, self.onDestHashReady)
-
-                #   Do Nothing Else if Proxy Not Enabled
-                if not self.proxyEnabled:
-                    return
-
-                if self.transferData["copyProxy"]:
-                    self.transferProxy()
-
-                #   Generate Proxy if Enabled
-                if self.transferData["generateProxy"]:
-                    self.l_amountCopied.setText("--")
-                    self.l_size_dash.setText("of")
-                    self.l_amountTotal.setText(str(self.data["source_mainFile_duration"]))
-
-                    self.generateProxy()
-
-                return
             
             else:
                 errorMsg = "ERROR:  Transfer File Does Not Exist"
                 logger.warning(f"Transfer failed: {destMainPath}")
+                self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
+
         else:
             errorMsg = "ERROR:  Transfer failed"
             logger.warning(f"Transfer failed: {destMainPath}")
+            self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
 
-        # Final fallback (error case only)
-        self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
+
+    #   Called After Hash Genertaion for UI Feedback
+    @err_catcher(name=__name__)
+    def onDestHashReady(self, dest_hash):
+        self.data["dest_mainFile_hash"] = dest_hash
+        orig_hash = self.data.get("source_mainFile_hash", None)
+
+        #   If Transfer Hash Check is Good
+        if dest_hash == orig_hash:
+            statusMsg = "Transfer Successful"
+            self.setTransferStatus(progBar="transfer", status="Complete")
+            self.setQuanityUI("complete")
+
+            #   Proxy Enabled
+            if self.useProxy:
+                self.setTransferStatus(progBar="proxy", status="Queued")
+
+                #   Copy Proxy if Applicable
+                if self.transferData["copyProxy"]:
+                    self.setQuanityUI("copyProxy")
+                    self.transferProxy()
+
+                #   Generate Proxy if Enabled
+                if self.transferData["generateProxy"]:
+                    self.setQuanityUI("generate")
+                    self.generateProxy()
+
+            logger.debug(f"Transfer complete: {self.getSource_mainfilePath()}")
+            
+        #   Transfer Hash is Not Correct
+        else:
+            statusMsg = "ERROR:  Transfered Hash Incorrect"
+            status = "Warning"
+            logger.debug(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
+
+            hashMsg = (f"Status: {statusMsg}\n\n"
+                    f"Source Hash:   {orig_hash}\n"
+                    f"Transfer Hash: {dest_hash}")
+            
+            self.setTransferStatus(progBar="transfer", status=status, tooltip=hashMsg)
 
 
     #   Generates Proxy with FFmpeg in a Worker Thread
@@ -1683,7 +1711,6 @@ class DestFileItem(BaseTileItem):
         #   Add Duration to settings Data
         settings["frames"] = self.data["source_mainFile_duration"]
 
-
         #   Call the Transfer Worker Thread
         self.worker_proxy = ProxyGenerationWorker(self, self.core, input_path, proxy_Path, settings)
         #   Connect the Progress Signals
@@ -1698,11 +1725,12 @@ class DestFileItem(BaseTileItem):
         if success:
             self.proxyProgBar.setValue(100)
             self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Generated")
+            self.setQuanityUI("complete")
 
             return
             
             # else:
-            #     hashMsg = "ERROR:  Transfer File Does Not Exist"
+            #     hashMsg = "ERROR:  Transfer File Does Not Exist"                      #   TODO - ADD ERROR CHECKING
             #     logger.warning(f"Transfer failed: {destMainPath}")
         # else:
         #     hashMsg = "ERROR:  Transfer failed"
@@ -1710,37 +1738,6 @@ class DestFileItem(BaseTileItem):
 
         # Final fallback (error case only)
         # self.setTransferStatus(progBar="transfer", status="Error", tooltip=hashMsg)
-
-
-    #   Called After Hash Genertaion for UI Feedback
-    @err_catcher(name=__name__)
-    def onDestHashReady(self, dest_hash):
-        self.data["dest_mainFile_hash"] = dest_hash
-        orig_hash = self.data.get("source_mainFile_hash", None)
-
-        if dest_hash == orig_hash:
-            statusMsg = "Transfer Successful"
-            self.setTransferStatus(progBar="transfer", status="Complete")
-
-            if self.useProxy:
-                status = "Queued"
-            else:
-                status = "Complete"
-            self.setTransferStatus(progBar="proxy", status=status)
-
-            logger.debug(f"Transfer complete: {self.getSource_mainfilePath()}")
-            return
-            
-        else:
-            statusMsg = "ERROR:  Transfered Hash Incorrect"
-            status = "Warning"
-            logger.debug(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
-
-        hashMsg = (f"Status: {statusMsg}\n\n"
-                f"Source Hash:   {orig_hash}\n"
-                f"Transfer Hash: {dest_hash}")
-        
-        self.setTransferStatus(progBar="transfer", status=status, tooltip=hashMsg)
 
 
 

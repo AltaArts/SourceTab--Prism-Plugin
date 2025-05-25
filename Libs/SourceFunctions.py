@@ -103,6 +103,12 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def configureUI(self):
+        configIcon = self.sourceBrowser.getIconFromPath(os.path.join(uiPath, "Icons", "configure.png"))
+
+        self.b_ovr_config_fileNaming.setIcon(configIcon)
+        self.b_ovr_config_proxy.setIcon(configIcon)
+        self.b_ovr_config_metadata.setIcon(configIcon)
+
         self.b_ovr_config_fileNaming.setEnabled(self.chb_ovr_fileNaming.isChecked())
         self.b_ovr_config_proxy.setEnabled(self.chb_ovr_proxy.isChecked())
         self.b_ovr_config_metadata.setEnabled(self.chb_ovr_metadata.isChecked())
@@ -112,22 +118,39 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
     def updateUI(self):
         #   Configure Proxy UI
         proxyEnabled = self.sourceBrowser.proxyEnabled
+
+        #   If Proxy Enabled, Add Mode and Settings to UI
         if proxyEnabled:
             proxyMode = self.sourceBrowser.proxyMode
-            proxyModeStr = self.proxyNameMap.get(proxyMode, "None")
-            # pData = self.sourceBrowser.proxySettings                          #   TODO - Add to Functions Panel UI
-            # presetStr = f"({pData['proxyPreset']} - {pData['proxyScale']})"
-            # proxyModeStr += presetStr
-        else:
-            proxyModeStr = "DISABLED"
+            #   Get UI Mode String
+            proxyModeStr = self.proxyNameMap.get(proxyMode, "")
+            #   Add Mode String
+            proxyDisplayStr = proxyModeStr
 
-        self.l_proxyMode.setText(proxyModeStr)
+            #   If Proxy Generation
+            if proxyMode in ["generate", "missing"]:
+                #   Get Proxy Settings
+                pData = self.sourceBrowser.proxySettings
+                #   If Exists, Add Settings to UI
+                if pData:
+                    presetStr = f"({pData['proxyPreset']} - {pData['proxyScale']})"
+                    proxyDisplayStr = f"{proxyModeStr}   {presetStr}"
+
+        #   Add Disabled to UI
+        else:
+            proxyDisplayStr = "DISABLED"
+
+        self.l_proxyMode.setText(proxyDisplayStr)
         self.l_proxyMode.setEnabled(proxyEnabled)
 
         #   Configure File Name Mods UI
         fileNamingEnabled = self.chb_ovr_fileNaming.isChecked()
+
+        #   If Enabled, Add to UI
         if fileNamingEnabled:
             numMods = f"{str(len(self.sourceBrowser.nameMods))} Modifiers"
+
+        #   Add Disabled to UI
         else:
             numMods = "DISABLED"
 

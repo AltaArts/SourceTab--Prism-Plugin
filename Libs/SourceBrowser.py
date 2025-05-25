@@ -189,10 +189,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def loadLayout(self):
         #   Set Icons
-        upIcon = QIcon(os.path.join(iconDir, "up.png"))
-        dirIcon = QIcon(os.path.join(iconDir, "file_folder.png"))
-        refreshIcon = QIcon(os.path.join(iconDir, "reset.png"))
-        tipIcon = QIcon(os.path.join(iconDir, "help.png"))
+        upIcon = self.getIconFromPath(os.path.join(iconDir, "up.png"))
+        dirIcon = self.getIconFromPath(os.path.join(iconDir, "file_folder.png"))
+        refreshIcon = self.getIconFromPath(os.path.join(iconDir, "reset.png"))
+        tipIcon = self.getIconFromPath(os.path.join(iconDir, "help.png"))
 
         ##   Source Panel
         #   Set Button Icons
@@ -604,24 +604,77 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def getFFprobePath(self):
         return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
+    
+    
+    #   Returns QIcon with Both Normal and Disabled Versions
+    @err_catcher(name=__name__)
+    def getIconFromPath(self, imagePath, normalLevel=0.9, dimLevel=0.4):
+        normal_pixmap = QPixmap(imagePath)
+        normal_image = normal_pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
 
+        #   Darken Normal Version Slightly (normalLevel)
+        darkened_normal_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+
+        for y in range(normal_image.height()):
+            for x in range(normal_image.width()):
+                color = normal_image.pixelColor(x, y)
+
+                #   Reduce brightness to normalLevel
+                dark = int(color.red() * normalLevel)
+                color = QColor(dark, dark, dark, color.alpha())
+                darkened_normal_image.setPixelColor(x, y, color)
+
+        darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
+
+        #   Darken Disbled Version More (dimLevel)
+        disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+
+        for y in range(normal_image.height()):
+            for x in range(normal_image.width()):
+                color = normal_image.pixelColor(x, y)
+
+                # Reduce brightness to 40%
+                dark = int(color.red() * dimLevel)
+                color = QColor(dark, dark, dark, color.alpha())
+                disabled_image.setPixelColor(x, y, color)
+
+        disabled_pixmap = QPixmap.fromImage(disabled_image)
+
+        #   Convert to QIcon
+        icon = QIcon()
+        icon.addPixmap(darkened_normal_pixmap, QIcon.Normal)
+        icon.addPixmap(disabled_pixmap, QIcon.Disabled)
+
+        return icon
+    
 
     #   Returns File Size Formatted String
     @err_catcher(name=__name__)
     def getFileSizeStr(self, size_bytes):
         size_mb = size_bytes / 1024.0 / 1024.0
 
+        #   Set Size Unit
         if size_mb < 1:
             size_kb = size_bytes / 1024.0
-            sizeStr = "%.2f KB" % size_kb
-
+            size = size_kb
+            unit = "KB"
         elif size_mb < 1024:
-            sizeStr = "%.2f MB" % size_mb
-
+            size = size_mb
+            unit = "MB"
         else:
-            size_gb = size_mb / 1024.0
-            sizeStr = "%.2f GB" % size_gb
+            size = size_mb / 1024.0
+            unit = "GB"
 
+        #   Set Decimal Digits Based on Integer Digits
+        int_digits = len(str(int(size)))
+        if int_digits >= 3:
+            fmt = "%.0f"
+        elif int_digits == 2:
+            fmt = "%.1f"
+        else:
+            fmt = "%.2f"
+
+        sizeStr = f"{fmt % size} {unit}"
         return sizeStr
     
 
@@ -679,6 +732,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 "b_transfer_resume": False,
                 "b_transfer_cancel": True,
             },
+            "cancel": {
+                "b_transfer_start": False,
+                "b_transfer_pause": False,
+                "b_transfer_resume": False,
+                "b_transfer_cancel": False,
+                "b_transfer_reset": True,
+            },
             "complete": {
                 "b_transfer_start": False,
                 "b_transfer_pause": False,
@@ -707,7 +767,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         #   Enable/Disable During Transfer
         if mode in ["idle", "complete"]:
             enabled = True
-        elif mode in ["transfer", "pause", "resume"]:
+        elif mode in ["transfer", "pause", "resume", "cancel"]:
             enabled = False
 
         lockItems = [self.sourceFuncts.gb_functions,
@@ -1258,6 +1318,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
 
             fileItem = self.createDestFileTile(iData)
+            fileItem.applyStyle("None")
 
             #   Add Tile Widget
             self.tw_destination.setCellWidget(row, 0, fileItem)
@@ -1741,10 +1802,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         self.progressTimer.stop()
         self.setTransferStatus("Cancelled")
-        self.configTransUI("idle")
+        self.configTransUI("cancel")
 
 
-    @err_catcher(name=__name__)
+    @err_catcher(name=__name__)                         #   TODO - RESET TILES
     def resetTransfer(self):
         self.progressTimer.stop()
         self.reset_ProgBar()

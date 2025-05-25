@@ -939,7 +939,7 @@ class ProxyPresetsEditor(QDialog):
             self.core.popup(title="No Selection", text="Please select a preset to validate.")
             return
 
-        # Get data from the table
+        #   Get data from the table
         name = self.tw_presets.item(row, 0).text()
         desc = self.tw_presets.item(row, 1).text()
         vid  = self.tw_presets.item(row, 2).text()
@@ -954,38 +954,55 @@ class ProxyPresetsEditor(QDialog):
             "Output_Extension": ext
         }
 
-        #   Get Errors from Validations
-        errors = self._validatePreset(name, preset)
+        #   Get Full Validation Results
+        results = self._validatePreset(name, preset)
 
-        if errors:                                                                  #   TODO - Add Logging
-            self.core.popup(
-                title="Preset Validation Failed",
-                text=f"Preset '{name}' has the following issues:\n\n- " + "\n- ".join(errors)
-            )
-        else:
-            self.core.popup(
-                title="Preset Validation",
-                text=f"Preset '{name}' passed validation successfully."
-            )
+        #   Format Output
+        lines = [f"Preset '{name}' Validation Report:\n"]
+        all_passed = True
+
+        for label, passed, msg in results:
+            if passed:
+                lines.append(f"✅ {label} — Passed")
+                lines.append("")
+            else:
+                lines.append(f"❌ {label} — Failed: {msg}")
+                lines.append("")
+
+                all_passed = False
+
+        #   Show Popup
+        self.core.popup(
+            title="Preset Validation Results",
+            text="\n".join(lines)
+        )
+
 
     #   Runs Several Sanity Checks on Presets
     def _validatePreset(self, name, data):
         ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
 
-        errors = []
+        results = []
 
-        #   1. Extension check
-        if not re.match(r'^\.\w+$', data["Output_Extension"]):
-            errors.append("Output extension must begin with a period (e.g., .mp4)")
+        # 1. Extension check
+        ext = data["Output_Extension"]
+        if not re.match(r'^\.\w+$', ext):
+            results.append(("Output Extension", False, "Must begin with a period (e.g., .mp4)"))
+        else:
+            results.append(("Output Extension", True, ""))
 
-        #   2. Required Flags
+        # 2. Required codec flags
         if "-c:v" not in data["Video_Parameters"]:
-            errors.append("Missing -c:v (video codec) in video parameters")
+            results.append(("Video Codec (-c:v)", False, "Missing -c:v in video parameters"))
+        else:
+            results.append(("Video Codec (-c:v)", True, ""))
 
         if "-c:a" not in data["Audio_Parameters"]:
-            errors.append("Missing -c:a (audio codec) in audio parameters")
+            results.append(("Audio Codec (-c:a)", False, "Missing -c:a in audio parameters"))
+        else:
+            results.append(("Audio Codec (-c:a)", True, ""))
 
-        #   3. Allowed codecs for extension
+        # 3. Codec compatibility check
         allowed = {
             '.mp4': {'libx264', 'libx265', 'mpeg4', 'h264_nvenc', 'hevc_nvenc'},
             '.mov': {'prores_ks', 'prores_aw', 'dnxhd', 'dnxhr', 'libx264', 'libx265', 'mpeg4'},
@@ -995,22 +1012,20 @@ class ProxyPresetsEditor(QDialog):
             '.flv': {'flv', 'libx264'},
             '.mxf': {'dnxhd', 'dnxhr', 'mpeg2video', 'libx264'},
             '.mpg': {'mpeg1video', 'mpeg2video'},
-            }
+        }
 
         video_tokens = data["Video_Parameters"].split()
-
         try:
             vid_codec = video_tokens[video_tokens.index("-c:v") + 1]
-
-            if vid_codec not in allowed.get(data["Output_Extension"], set()):
-                errors.append(f"Codec '{vid_codec}' may not be compatible with extension '{data['Output_Extension']}'")
-
+            if vid_codec not in allowed.get(ext, set()):
+                results.append(("Codec Compatibility", False, f"'{vid_codec}' may not be compatible with '{ext}'"))
+            else:
+                results.append(("Codec Compatibility", True, ""))
         except (ValueError, IndexError):
-            pass
+            results.append(("Codec Compatibility", False, "Unable to determine -c:v codec"))
 
-        #   4. FFmpeg dry-run test
+        # 4. FFmpeg Dry Run
         try:
-            #   Build Command with Generated Test Image
             cmd = [
                 ffmpegPath,
                 "-hide_banner", "-v", "error",
@@ -1022,7 +1037,7 @@ class ProxyPresetsEditor(QDialog):
             cmd.extend(shlex.split(data["Audio_Parameters"]))
             cmd.extend(["-f", "null", "-"])
 
-            print(f"ffmpeg Validation Command:\n{cmd}")                             #   TODO - Add Logging
+            print(f"ffmpeg Validation Command:\n{cmd}")                          # TODO - Logging
 
             kwargs = {
                 "stdout": subprocess.PIPE,
@@ -1030,21 +1045,20 @@ class ProxyPresetsEditor(QDialog):
                 "timeout": 10,
             }
 
-            #   Suppress Popup CMD Window
             if sys.platform == "win32":
                 kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
-            #   Run ffmpeg Test
             result = subprocess.run(cmd, **kwargs)
 
-            #   Add Errors to List
             if result.returncode != 0:
-                errors.append("FFmpeg error:\n" + result.stderr.decode("utf-8").strip())
-
+                msg = result.stderr.decode("utf-8").strip()
+                results.append(("FFmpeg Dry Run", False, msg))
+            else:
+                results.append(("FFmpeg Dry Run", True, ""))
         except Exception as e:
-            errors.append(f"Failed to run FFmpeg test: {e}")
+            results.append(("FFmpeg Dry Run", False, str(e)))
 
-        return errors
+        return results
 
 
     #   Resets the Presets to Default Data from Prism_SourceTab_Functions.py
