@@ -71,7 +71,7 @@ from qtpy.QtWidgets import *
 
 
 class DisplayPopup(QDialog):
-    def __init__(self, data, title="Display Data", buttons=None):
+    def __init__(self, data, title="Display Data", buttons=None, xScale=2, yScale=2):
         super().__init__()
 
         self.result = None
@@ -80,10 +80,10 @@ class DisplayPopup(QDialog):
         #   Set up Sizing and Position
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
-        width = screen_geometry.width() // 2
-        height = screen_geometry.height() // 2
-        x_pos = (screen_geometry.width() - width) // 2
-        y_pos = (screen_geometry.height() - height) // 2
+        width   = screen_geometry.width() // xScale
+        height  = screen_geometry.height() // yScale
+        x_pos   = (screen_geometry.width() - width) // xScale
+        y_pos   = (screen_geometry.height() - height) // yScale
         self.setGeometry(x_pos, y_pos, width, height)
 
         lo_main = QVBoxLayout(self)
@@ -146,8 +146,8 @@ class DisplayPopup(QDialog):
 
 
     @staticmethod
-    def display(data, title="Display Data", buttons=None):
-        dialog = DisplayPopup(data, title=title, buttons=buttons)
+    def display(data, title="Display Data", buttons=None, xScale=2, yScale=2):
+        dialog = DisplayPopup(data, title=title, buttons=buttons, xScale=xScale, yScale=yScale)
         dialog.exec_()
         return dialog.result
 
@@ -174,10 +174,10 @@ class OcioConfigPopup(QDialog):
         #   Set up Sizing and Position
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
-        width = screen_geometry.width() // 2
-        height = screen_geometry.height() // 2
-        x_pos = (screen_geometry.width() - width) // 2
-        y_pos = (screen_geometry.height() - height) // 2
+        width   = screen_geometry.width() // 2
+        height  = screen_geometry.height() // 2
+        x_pos   = (screen_geometry.width() - width) // 2
+        y_pos   = (screen_geometry.height() - height) // 2
         self.setGeometry(x_pos, y_pos, width, height)
 
         lo_main = QVBoxLayout(self)
@@ -296,18 +296,18 @@ class NamingPopup(QDialog):
         #   Set up Sizing and Position
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
-        width = screen_geometry.width() // 2.5
-        height = screen_geometry.height() // 1.5
-        x_pos = (screen_geometry.width() - width) // 2
-        y_pos = (screen_geometry.height() - height) // 2
+        width   = screen_geometry.width() // 2.5
+        height  = screen_geometry.height() // 1.5
+        x_pos   = (screen_geometry.width() - width) // 2
+        y_pos   = (screen_geometry.height() - height) // 2
         self.setGeometry(x_pos, y_pos, width, height)
 
         #   Main Window Layout
-        lo_main = QVBoxLayout(self)
-        scroll_area = QScrollArea()
+        lo_main         = QVBoxLayout(self)
+        scroll_area     = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_widget = QWidget()
-        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_widget   = QWidget()
+        scroll_layout   = QVBoxLayout(scroll_widget)
 
         ##  Display content
 
@@ -432,7 +432,7 @@ class NamingPopup(QDialog):
     def onAddModifierClicked(self):
         #   Get Mod Name from Combo
         selIndx = self.cb_availMods.currentIndex()
-        selMod = self.modDefs[selIndx]["class"]
+        selMod  = self.modDefs[selIndx]["class"]
         #   Create New Modifier
         modifier = CreateMod(selMod)
         #   Add to UI
@@ -591,7 +591,57 @@ class ProxyPopup(QDialog):
         lo_main.addItem(spacer_1)
 
 
-        ##  FFMPEG Settings
+        ##  Global Settings GroupBox
+        self.gb_globalSettings = QGroupBox("Global Proxy Settings")
+        lo_globalSettings = QVBoxLayout()
+        lo_globalSettings.setContentsMargins(20,10,20,10)
+
+        #   Fallback Layout
+        lo_fallBackDir = QHBoxLayout()
+        #   Create Widgets
+        l_fallbackDir = QLabel("Fallback Proxy Directory:  ")
+        self.chb_fallbackDir_relative = QCheckBox()
+        l_fallbackDir_relative = QLabel("relative")
+        self.le_fallbackDir = QLineEdit()
+        #   Add Widgets to Layout
+        lo_fallBackDir.addWidget(l_fallbackDir)
+        lo_fallBackDir.addWidget(self.chb_fallbackDir_relative)
+        lo_fallBackDir.addWidget(l_fallbackDir_relative)
+        lo_fallBackDir.addWidget(self.le_fallbackDir)
+        #   Add Fallback Layout to Global Layout
+        lo_globalSettings.addLayout(lo_fallBackDir)
+
+        #   Override Layout
+        lo_ovrProxyDir = QHBoxLayout()
+        #   Create Widgets
+        self.chb_useOvrProxyDir = QCheckBox()
+        l_ovrProxyDir = QLabel("Override Proxy Directory:  ")
+        self.chb_ovrProxyDir_relative = QCheckBox()
+        l_chb_ovrProxyDir_relative = QLabel("relative")
+        self.le_ovrProxyDir = QLineEdit()
+        #   Add Widgets to Layout
+        lo_ovrProxyDir.addWidget(self.chb_useOvrProxyDir)
+        lo_ovrProxyDir.addWidget(l_ovrProxyDir)
+        lo_ovrProxyDir.addWidget(self.chb_ovrProxyDir_relative)
+        lo_ovrProxyDir.addWidget(l_chb_ovrProxyDir_relative)
+        lo_ovrProxyDir.addWidget(self.le_ovrProxyDir)
+        #   Add Override Layout to Global Layout
+        lo_globalSettings.addLayout(lo_ovrProxyDir)
+
+
+
+
+
+        #   Add Global Layout to Main Layout
+        self.gb_globalSettings.setLayout(lo_globalSettings)
+        lo_main.addWidget(self.gb_globalSettings)
+
+
+        spacer_2 = QSpacerItem(10, 20)
+        lo_main.addItem(spacer_2)
+
+
+        ##  FFMPEG Settings GroupBox
         self.gb_ffmpegSettings = QGroupBox("FFMPEG Settings")
         lo_ffmpeg = QHBoxLayout()
         lo_ffmpeg.setContentsMargins(20,10,20,10)
@@ -603,8 +653,8 @@ class ProxyPopup(QDialog):
         self.cb_proxyPresets = QComboBox()
         lo_ffmpeg.addWidget(self.cb_proxyPresets)
 
-        spacer_2 = QSpacerItem(40, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        lo_ffmpeg.addItem(spacer_2)
+        spacer_3 = QSpacerItem(40, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        lo_ffmpeg.addItem(spacer_3)
 
         #   Scale Label
         l_proxyScale = QLabel("Proxy Scale")
@@ -616,14 +666,14 @@ class ProxyPopup(QDialog):
         self.cb_proxyScale.setCurrentText("100%")
         lo_ffmpeg.addWidget(self.cb_proxyScale)
 
-        spacer_3 = QSpacerItem(40, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
-        lo_ffmpeg.addItem(spacer_3)
+        spacer_4 = QSpacerItem(40, 10, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        lo_ffmpeg.addItem(spacer_4)
 
         #   Edit Preset Button
         self.b_editPresets = QPushButton("Edit Presets")
         lo_ffmpeg.addWidget(self.b_editPresets)
 
-        #   Add to Layout
+        #   Add FFmpeg Layout to Main Layout
         self.gb_ffmpegSettings.setLayout(lo_ffmpeg)
         lo_main.addWidget(self.gb_ffmpegSettings)
 
@@ -641,6 +691,7 @@ class ProxyPopup(QDialog):
             button.clicked.connect(lambda _, t=button_text: self._onButtonClicked(t))
             lo_buttons.addWidget(button)
 
+        #   Add Buttons Layout to Main Layout
         lo_main.addLayout(lo_buttons)
 
 
@@ -657,16 +708,31 @@ class ProxyPopup(QDialog):
         self.populatePresetCombo()
 
         #   Preset Settings
-        ffmpegSettings = self.settings.get("proxySettings", {})
-        
-        if "proxyPreset" in ffmpegSettings:
-            curPreset = ffmpegSettings["proxyPreset"]
+        proxySettings = self.settings.get("proxySettings", {})
+
+        if "fallback_proxyDir" in proxySettings:
+            self.le_fallbackDir.setText(proxySettings["fallback_proxyDir"])
+
+        if "fallback_proxyDir_relative" in proxySettings:
+            self.chb_fallbackDir_relative.setChecked(proxySettings["fallback_proxyDir_relative"])
+
+        if "use_ovrProxyDir" in proxySettings:
+            self.chb_useOvrProxyDir.setChecked(proxySettings["use_ovrProxyDir"])
+
+        if "ovr_proxyDir_relative" in proxySettings:
+            self.chb_ovrProxyDir_relative.setChecked(proxySettings["ovr_proxyDir_relative"])
+
+        if "ovr_proxyDir" in proxySettings:
+            self.le_ovrProxyDir.setText(proxySettings["ovr_proxyDir"])
+
+        if "proxyPreset" in proxySettings:
+            curPreset = proxySettings["proxyPreset"]
             idx = self.cb_proxyPresets.findText(curPreset)
             if idx != -1:
                 self.cb_proxyPresets.setCurrentIndex(idx)
 
-        if "proxyScale" in ffmpegSettings:
-            curScale = ffmpegSettings["proxyScale"]
+        if "proxyScale" in proxySettings:
+            curScale = proxySettings["proxyScale"]
             idx = self.cb_proxyScale.findText(curScale)
             if idx != -1:
                 self.cb_proxyScale.setCurrentIndex(idx)
@@ -760,9 +826,14 @@ class ProxyPopup(QDialog):
     #   Return Selected Proxy Preset Name and Scale
     def getProxySettings(self):
         pData = {
-            "proxyPreset": self.cb_proxyPresets.currentText(),
-            "proxyScale": self.cb_proxyScale.currentText()
-        }
+            "fallback_proxyDir":            self.le_fallbackDir.text(),
+            "fallback_proxyDir_relative":   self.chb_fallbackDir_relative.isChecked(),
+            "use_ovrProxyDir":              self.chb_useOvrProxyDir.isChecked(),
+            "ovr_proxyDir":                 self.le_ovrProxyDir.text(),
+            "ovr_proxyDir_relative":        self.chb_ovrProxyDir_relative.isChecked(),
+            "proxyPreset":                  self.cb_proxyPresets.currentText(),
+            "proxyScale":                   self.cb_proxyScale.currentText()
+            }
         
         return pData
     
@@ -804,16 +875,16 @@ class ProxyPresetsEditor(QDialog):
         self.tw_presets.setEditTriggers(QTableWidget.NoEditTriggers)
 
         #   Footer Buttons
-        lo_buttonBox = QHBoxLayout()
-        self.b_edit   = QPushButton("Edit")
-        self.b_add    = QPushButton("Add")
-        self.b_remove = QPushButton("Remove")
-        self.b_test   = QPushButton("Validate Preset")
-        self.b_reset = QPushButton("Reset to Defaults")
-        self.b_moveup = QPushButton("Move Up")
-        self.b_moveDn = QPushButton("Move Down")
-        self.b_save   = QPushButton("Save")
-        self.b_cancel = QPushButton("Cancel")
+        lo_buttonBox    = QHBoxLayout()
+        self.b_edit     = QPushButton("Edit")
+        self.b_add      = QPushButton("Add")
+        self.b_remove   = QPushButton("Remove")
+        self.b_test     = QPushButton("Validate Preset")
+        self.b_reset    = QPushButton("Reset to Defaults")
+        self.b_moveup   = QPushButton("Move Up")
+        self.b_moveDn   = QPushButton("Move Down")
+        self.b_save     = QPushButton("Save")
+        self.b_cancel   = QPushButton("Cancel")
         
         lo_buttonBox.addWidget(self.b_edit)
         lo_buttonBox.addWidget(self.b_add)
@@ -861,11 +932,12 @@ class ProxyPresetsEditor(QDialog):
 
         #   Column weights (column index → weight)
         weights = {
-            0: 1,  # Name
-            1: 3,  # Description
-            2: 3,  # Video Params
-            3: 2,  # Audio Params
-            4: 1   # Extension
+            0: 1.3,  # Name
+            1: 3.2,  # Description
+            2: 3.2,  # Video Params
+            3: 1.8,  # Audio Params
+            4: 0.7,  # Extension
+            5: 0.7   # Compression Multiplier
         }
 
         total_weight = sum(weights.values())
@@ -886,7 +958,10 @@ class ProxyPresetsEditor(QDialog):
             self.tw_presets.insertRow(row)
             self.tw_presets.setItem(row, 0, QTableWidgetItem(name))
             for col, key in enumerate(self.headers[1:], start=1):
-                self.tw_presets.setItem(row, col, QTableWidgetItem(fields.get(key, "")))
+                # self.tw_presets.setItem(row, col, QTableWidgetItem(fields.get(key, "")))
+                value = fields.get(key, "")
+                self.tw_presets.setItem(row, col, QTableWidgetItem(str(value)))
+
 
         #   Re-Apply Widths
         QTimer.singleShot(0, self.adjustColumnWidths)
@@ -940,18 +1015,20 @@ class ProxyPresetsEditor(QDialog):
             return
 
         #   Get data from the table
-        name = self.tw_presets.item(row, 0).text()
-        desc = self.tw_presets.item(row, 1).text()
-        vid  = self.tw_presets.item(row, 2).text()
-        aud  = self.tw_presets.item(row, 3).text()
-        ext  = self.tw_presets.item(row, 4).text()
+        name    = self.tw_presets.item(row, 0).text()
+        desc    = self.tw_presets.item(row, 1).text()
+        vid     = self.tw_presets.item(row, 2).text()
+        aud     = self.tw_presets.item(row, 3).text()
+        ext     = self.tw_presets.item(row, 4).text()
+        mult  = self.tw_presets.item(row, 5).text()
 
         #   Make Preset Dict
         preset = {
             "Description": desc,
             "Video_Parameters": vid,
             "Audio_Parameters": aud,
-            "Output_Extension": ext
+            "Extension": ext,
+            "Multiplier": mult
         }
 
         #   Get Full Validation Results
@@ -959,7 +1036,7 @@ class ProxyPresetsEditor(QDialog):
 
         #   Format Output
         lines = [f"Preset '{name}' Validation Report:\n"]
-        all_passed = True
+        # all_passed = True
 
         for label, passed, msg in results:
             if passed:
@@ -969,13 +1046,12 @@ class ProxyPresetsEditor(QDialog):
                 lines.append(f"❌ {label} — Failed: {msg}")
                 lines.append("")
 
-                all_passed = False
+                # all_passed = False
 
         #   Show Popup
-        self.core.popup(
-            title="Preset Validation Results",
-            text="\n".join(lines)
-        )
+        title="Preset Validation Results"
+        text="\n".join(lines)
+        DisplayPopup.display(text, title, xScale=4, yScale=3)
 
 
     #   Runs Several Sanity Checks on Presets
@@ -985,7 +1061,7 @@ class ProxyPresetsEditor(QDialog):
         results = []
 
         # 1. Extension check
-        ext = data["Output_Extension"]
+        ext = data["Extension"]
         if not re.match(r'^\.\w+$', ext):
             results.append(("Output Extension", False, "Must begin with a period (e.g., .mp4)"))
         else:
@@ -1055,8 +1131,20 @@ class ProxyPresetsEditor(QDialog):
                 results.append(("FFmpeg Dry Run", False, msg))
             else:
                 results.append(("FFmpeg Dry Run", True, ""))
+
         except Exception as e:
             results.append(("FFmpeg Dry Run", False, str(e)))
+
+        # 5. Multiplier validation
+        try:
+            raw_mult = data.get("Multiplier", "")
+            mult = float(raw_mult)
+            if 0.001 <= mult <= 5:
+                results.append(("Multiplier", True, ""))
+            else:
+                results.append(("Multiplier", False, f"Multiplier {mult} must be between 0.001 and 5."))
+        except (ValueError, TypeError):
+            results.append(("Multiplier", False, f"Multiplier '{raw_mult}' must be a number between 0.001 and 5."))
 
         return results
 
@@ -1074,7 +1162,7 @@ class ProxyPresetsEditor(QDialog):
 
         if result == "Reset":
             #   Get Default Presets
-            fData = self.origin.getFFmpegPresets()
+            fData = self.origin.sourceFuncts.sourceBrowser.plugin.getDefaultSettings(key="ffmpegPresets")
             #   Re-assign presetData
             self.presetData = fData
             #   Populate Table with Default Data

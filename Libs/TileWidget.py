@@ -54,6 +54,7 @@ import hashlib
 import subprocess
 import platform
 import shlex
+from weakref import proxy
 
 
 
@@ -400,8 +401,8 @@ class BaseTileItem(QWidget):
 
     #   Returns the Tile Data
     @err_catcher(name=__name__)
-    def getSettings(self):
-        return self.browser.getSettings()
+    def getSettings(self, key=None):
+        return self.browser.getSettings(key=key)
     
 
     #   Returns the Tile Data
@@ -462,10 +463,22 @@ class BaseTileItem(QWidget):
 
     #   Returns the Size of the File(s) to Transfer
     @err_catcher(name=__name__)
-    def getTransferSize(self, includeProxy=False):
+    def getTransferSize(self, proxyEnabled, proxyMode):
         total_size = self.getFileSize(self.getSource_mainfilePath())
-        if includeProxy and self.getSource_proxyfilePath():
-            total_size += self.getFileSize(self.getSource_proxyfilePath())
+
+        if proxyEnabled:
+            if proxyMode == "copy":
+                if self.getSource_proxyfilePath():
+                    total_size += self.getFileSize(self.getSource_proxyfilePath())
+
+            elif proxyMode == "missing":
+                if self.getSource_proxyfilePath():
+                    total_size += self.getFileSize(self.getSource_proxyfilePath())
+                else:
+                    total_size += self.getMultipliedProxySize(total=True)
+
+            elif proxyMode == "generate":
+                total_size += self.getMultipliedProxySize(total=True)
 
         return total_size
 
@@ -1045,6 +1058,9 @@ class DestFileItem(BaseTileItem):
         self.worker_proxy = None
         self.transferState = None
 
+        self.main_copiedSize = 0.0
+        self.proxy_copiedSize = 0.0
+
         self.setupUi()
         self.refreshUi()
 
@@ -1263,7 +1279,7 @@ class DestFileItem(BaseTileItem):
                    f"Size: {self.data['source_proxyFile_size']}")
             self.l_pxyIcon.setToolTip(tip)
 
-            self.data["dest_proxyFile_path"] = self.getDestProxyPath()
+            self.data["dest_proxyFile_path"] = self.getResolvedDestProxyPath()
 
 
     #   Returns Destination Directory
@@ -1295,7 +1311,7 @@ class DestFileItem(BaseTileItem):
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
     @err_catcher(name=__name__)
-    def getDestProxyPath(self):
+    def getResolvedDestProxyPath(self, dirOnly=False):
         source_mainFilePath = os.path.normpath(self.getSource_mainfilePath())
         source_proxyFilePath = os.path.normpath(self.data["source_proxyFile_path"])
         dest_MainFilePath = os.path.normpath(self.getDestMainPath())
@@ -1318,11 +1334,73 @@ class DestFileItem(BaseTileItem):
         dest_mainDir = os.path.dirname(dest_MainFilePath)
         dest_proxyDir = os.path.join(dest_mainDir, rel_proxyDir)
 
+        #   Return Directory
+        if dirOnly:
+            return dest_proxyDir
+
         # Final proxy path
         dest_proxyFilePath = os.path.join(dest_proxyDir, proxy_fileName)
 
         return dest_proxyFilePath
     
+
+    #   Returns an Estimated Proxy Size Based on a Fractional Multiplier
+    @err_catcher(name=__name__)
+    def getMultipliedProxySize(self, frame=None, total=False):
+
+        #   Get Main File Size
+        mainSize = self.getFileSize(self.getSource_mainfilePath())
+
+        if not mainSize:
+            return 0
+
+        #   Get Multiplier from Preset
+        presetName = self.browser.proxySettings.get("proxyPreset", "")
+        presets = self.getSettings(key="ffmpegPresets")
+        preset = presets.get(presetName, {})
+        mult = float(preset.get("Multiplier", 0.0))
+
+        #   Get and Apply Proxy Scaling
+        scale_str = self.browser.proxySettings.get("proxyScale", "100%")
+        scale = int(scale_str.strip('%'))
+        scaled_mult = mult * (scale / 100) ** 2
+
+        #   Get Estimated Proxy Size based on Multiplier
+        proxySize = mainSize * scaled_mult
+
+        if total:
+            #   Just Return Full Proxy Size
+            return proxySize
+        
+        else:
+            #   Get Number of Frames
+            total_frames = self.data["source_mainFile_duration"]
+
+            #   Abort if Incorrect Data
+            if total_frames <= 0 or frame is None:
+                return 0            
+            
+            #   Clamp Frame
+            frame = max(0, min(frame, total_frames))
+            #   Calculate Proxy Size per Frame
+            per_frame = proxySize / total_frames
+
+            return per_frame * frame
+        
+    
+    #   Calculates Generated Proxy Size and Updates Presets Multiplier
+    @err_catcher(name=__name__)
+    def updateProxyPresetMultiplier(self):
+
+        print(f"*** NEED TO ADD UPDATE PRESET MULTIPLIER")                                              #    TESTING
+        
+
+        # mainSize = self.data[""]
+        # proxySize = 
+
+
+
+
     
     @err_catcher(name=__name__)
     def getTimeElapsed(self):
@@ -1477,6 +1555,101 @@ class DestFileItem(BaseTileItem):
         self.browser.refreshDestItems()
 
 
+    #   Return Proxy Path Based on Mode, Overrides, and Filename Mods
+    @err_catcher(name=__name__)
+    def getDestProxyFilepath(self, sourcePath, proxyMode, proxySettings):
+        #   Get Source Basenmae and Modifiy if Enabled
+        source_baseFile  = os.path.basename(sourcePath)
+        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+            source_baseFile = self.getModifiedName(source_baseFile)
+
+        source_baseName  = os.path.splitext(source_baseFile)[0]
+        proxy_baseFile = source_baseName + proxySettings["Extension"]
+        dest_dir = self.getDestPath()
+
+        proxyPath = None
+
+        #   Handle Copy Proxys
+        if proxyMode == "copy" and self.data["hasProxy"]:
+            self.transferData["copyProxy"] = True
+            self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+
+            #   If Proxy Dir Override is Enabled
+            if proxySettings["use_ovrProxyDir"]:
+                ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
+                proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
+
+            #   Use Resolved Proxy Dir
+            else:
+                proxyPath = self.getResolvedDestProxyPath()
+
+            self.transferData["destProxy"] = proxyPath
+
+        #   Handle Generate Proxys
+        elif proxyMode == "generate":
+            self.transferData["generateProxy"] = True
+            self.transferData["proxySettings"] = proxySettings
+
+            #   If Proxy Dir Override is Enabled
+            if proxySettings["use_ovrProxyDir"]:
+                ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
+                proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
+
+            #   Try Resolved Proxy Dir or use Fallback
+            else:
+                if proxySettings["resolved_proxyDir"]:                      #   TODO - DO WE WANT TO USE RESOLVED FOR GENERATE??
+                    proxy_dir = proxySettings["resolved_proxyDir"]
+
+                else:
+                    fallback_dir = proxySettings["fallback_proxyDir"].lstrip("\\/")
+                    proxy_dir = os.path.join(dest_dir, fallback_dir)
+
+                proxyPath = os.path.join(proxy_dir, proxy_baseFile)
+
+                self.data["dest_proxyFile_path"] = proxyPath
+
+
+        #   Handle Generate Missing Proxys
+        elif proxyMode == "missing":
+            if self.data["hasProxy"]:
+                self.transferData["copyProxy"] = True
+                self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+
+                #   If Proxy Dir Override is Enabled
+                if proxySettings["use_ovrProxyDir"]:
+                    ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
+                    proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
+
+                #   Use Resolved Proxy Dir
+                else:
+                    proxyPath = self.getResolvedDestProxyPath()
+
+                self.transferData["destProxy"] = proxyPath
+
+            else:
+                self.transferData["generateProxy"] = True
+                self.transferData["proxySettings"] = proxySettings
+
+                #   If Proxy Dir Override is Enabled
+                if proxySettings["use_ovrProxyDir"]:
+                    ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
+                    proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
+
+                #   Try Resolved Proxy Dir or use Fallback
+                else:
+                    if proxySettings["resolved_proxyDir"]:
+                        proxy_dir = proxySettings["resolved_proxyDir"]
+
+                    else:
+                        fallback_dir = proxySettings["fallback_proxyDir"].lstrip("\\/")
+                        proxy_dir = os.path.join(dest_dir, fallback_dir)
+
+                    proxyPath = os.path.join(proxy_dir, proxy_baseFile)
+                    self.data["dest_proxyFile_path"] = proxyPath
+
+        return proxyPath
+
+
     @err_catcher(name=__name__)
     def start_transfer(self, origin, options, proxyEnabled, proxyMode):
         #   Set and Lock Modes
@@ -1490,34 +1663,17 @@ class DestFileItem(BaseTileItem):
             "generateProxy": False
         }
 
-        if proxyEnabled and self.isVideo():
-            self.transferData["proxyMode"] = proxyMode
-
-            #   Handle Copy Proxys
-            if proxyMode == "copy" and self.data["hasProxy"]:
-                self.transferData["copyProxy"] = True
-                self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
-                self.transferData["destProxy"] = self.getDestProxyPath()
-
-            #   Handle Generate Proxys
-            elif proxyMode == "generate":
-                self.transferData["generateProxy"] = True
-                self.transferData["proxySettings"] = options["proxySettings"]
-
-            #   Handle Generate Missing Proxys
-            elif proxyMode == "missing":
-                if self.data["hasProxy"]:
-                    self.transferData["copyProxy"] = True
-                    self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
-                    self.transferData["destProxy"] = self.getDestProxyPath()
-
-                else:
-                    self.transferData["generateProxy"] = True
-                    self.transferData["proxySettings"] = options["proxySettings"]
-
         #   Get Main Paths
         sourcePath = self.getSource_mainfilePath()
         destPath = self.getDestMainPath()
+
+        ##  IF PROXY IS ENABLED ##
+        if proxyEnabled and self.isVideo():                                     #   TODO - HANDLE NON-VIDEO
+            proxySettings = options["proxySettings"]
+            self.transferData["proxyMode"] = proxyMode
+
+            #   Add Proxy Destination Path
+            self.transferData["destProxy"] = self.getDestProxyFilepath(sourcePath, proxyMode, proxySettings)
 
         #   Start Timers
         self.transferTimer = QTimer(self)
@@ -1532,7 +1688,6 @@ class DestFileItem(BaseTileItem):
     def transferMainFile(self, sourcePath, destPath):
         self.setTransferStatus(progBar="transfer", status="Queued")
         self.setQuanityUI("copyMain")
-
 
         #   Call the Transfer Worker Thread for Main File
         self.main_transfer_worker = FileCopyWorker(self, "transfer", sourcePath, destPath)
@@ -1590,7 +1745,7 @@ class DestFileItem(BaseTileItem):
 
         self.transferProgBar.setValue(value)
         self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
-        self.copied_size = copied_size
+        self.main_copiedSize = copied_size
 
 
     #   Updates the UI During the Transfer
@@ -1600,6 +1755,7 @@ class DestFileItem(BaseTileItem):
 
         self.proxyProgBar.setValue(value)
         self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
+        self.proxy_copiedSize = copied_size
 
 
     #   Updates the UI During the Transfer
@@ -1609,6 +1765,8 @@ class DestFileItem(BaseTileItem):
 
         self.proxyProgBar.setValue(value)
         self.l_amountCopied.setText(str(frame))
+
+        self.proxy_copiedSize = self.getMultipliedProxySize(frame=frame)
 
 
     #   Gets Called from the Finished Signal
@@ -1693,7 +1851,7 @@ class DestFileItem(BaseTileItem):
         self.proxy_transfer_worker = FileCopyWorker(self, "proxy", sourcePath, destPath)
         #   Connect the Progress Signals
         self.proxy_transfer_worker.progress.connect(self.update_proxyCopyProgress)
-        self.proxy_transfer_worker.finished.connect(self.proxy_complete)
+        self.proxy_transfer_worker.finished.connect(self.proxyCopy_complete)
         #   Execute Transfer
         self.proxy_transfer_worker.start()
 
@@ -1705,26 +1863,25 @@ class DestFileItem(BaseTileItem):
 
         #   Get File Paths
         input_path = self.getDestMainPath()
-        input_dirName = os.path.dirname(input_path)
-        proxy_Path = os.path.join(input_dirName, "proxy")
+        output_path = self.data["dest_proxyFile_path"]
 
         #   Add Duration to settings Data
         settings["frames"] = self.data["source_mainFile_duration"]
 
         #   Call the Transfer Worker Thread
-        self.worker_proxy = ProxyGenerationWorker(self, self.core, input_path, proxy_Path, settings)
+        self.worker_proxy = ProxyGenerationWorker(self, self.core, input_path, output_path, settings)
         #   Connect the Progress Signals
         self.worker_proxy.progress.connect(self.update_proxyGenerateProgress)
-        self.worker_proxy.finished.connect(self.proxy_complete)
+        self.worker_proxy.finished.connect(self.proxyGenerate_complete)
         self.worker_proxy.start()
 
 
     #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
-    def proxy_complete(self, success):
+    def proxyCopy_complete(self, success):
         if success:
             self.proxyProgBar.setValue(100)
-            self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Generated")
+            self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Transferred")
             self.setQuanityUI("complete")
 
             return
@@ -1738,6 +1895,35 @@ class DestFileItem(BaseTileItem):
 
         # Final fallback (error case only)
         # self.setTransferStatus(progBar="transfer", status="Error", tooltip=hashMsg)
+
+
+    #   Gets Called from the Finished Signal
+    @err_catcher(name=__name__)
+    def proxyGenerate_complete(self, success):
+        if success:
+            self.proxyProgBar.setValue(100)
+            self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Generated")
+            self.setQuanityUI("complete")
+
+            self.updateProxyPresetMultiplier()
+
+            return
+            
+            # else:
+            #     hashMsg = "ERROR:  Transfer File Does Not Exist"                      #   TODO - ADD ERROR CHECKING
+            #     logger.warning(f"Transfer failed: {destMainPath}")
+        # else:
+        #     hashMsg = "ERROR:  Transfer failed"
+        #     logger.warning(f"Transfer failed: {destMainPath}")
+
+        # Final fallback (error case only)
+        # self.setTransferStatus(progBar="transfer", status="Error", tooltip=hashMsg)
+
+
+    #   Returns Total Transferred Size
+    @err_catcher(name=__name__)
+    def getCopiedSize(self):
+        return self.main_copiedSize + self.proxy_copiedSize
 
 
 
@@ -2090,13 +2276,13 @@ class ProxyGenerationWorker(QThread):
     progress = Signal(int, int)
     finished = Signal(bool)
 
-    def __init__(self, origin, core, inputPath, outputDir, settings=None):
+    def __init__(self, origin, core, inputPath, outputPath, settings=None):
         super().__init__()
 
         self.origin = origin
         self.core = core
         self.inputPath  = inputPath
-        self.outputDir  = outputDir
+        self.outputPath  = outputPath
         self.settings   = settings or {}
 
         self.running = True
@@ -2128,19 +2314,13 @@ class ProxyGenerationWorker(QThread):
             return
 
         #   Get Settings
-        output_ext   = self.settings.get("Output_Extension", "")
+        # output_ext   = self.settings.get("Extension", "")
         vid_params   = self.settings.get("Video_Parameters", "")
         aud_params   = self.settings.get("Audio_Parameters", "")
         scale_str    = self.settings.get("scale", None)
 
-        #   Make File Names/Paths
-        input_baseFile  = os.path.basename(self.inputPath)
-        input_baseName  = os.path.splitext(input_baseFile)[0]
-        output_baseFile = input_baseName + output_ext
-        outputPath      = os.path.join(self.outputDir, output_baseFile)
-
         #   Create Proxy Dir
-        os.makedirs(os.path.dirname(outputPath), exist_ok=True)
+        os.makedirs(os.path.dirname(self.outputPath), exist_ok=True)
 
         #   Check if Video or Image Sequence
         inputExt = os.path.splitext(os.path.basename(self.inputPath))[1].lower()
@@ -2188,7 +2368,7 @@ class ProxyGenerationWorker(QThread):
             argList += shlex.split(aud_params)
 
         #   Add Output Path
-        argList += [outputPath, "-y"]
+        argList += [self.outputPath, "-y"]
 
         #   Set Shell True if Windows
         shell = (platform.system() == "Windows")

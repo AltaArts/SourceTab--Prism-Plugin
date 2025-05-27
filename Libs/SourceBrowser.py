@@ -57,6 +57,7 @@ import hashlib
 from datetime import datetime
 from time import time
 from functools import partial
+from weakref import proxy
 
 
 
@@ -137,12 +138,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Initialize Variables
         self.selectedTiles = set()
         self.lastClickedTile = None
+
+        self.resolvedProxyPaths = None
         self.proxyEnabled = False
         self.proxyMode = None
         self.proxySettings = None
         self.nameMods = []
         self.transferList = []
-        self.total_transferSize = 0.0
         self.initialized = False
         self.closeParm = "closeafterload"
 
@@ -496,13 +498,17 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     
 
     @err_catcher(name=__name__)
-    def getAllDestTiles(self):
+    def getAllDestTiles(self, onlyChecked=False):
         tiles = []
 
         for row in range(self.tw_destination.rowCount()):
             itemWidget = self.tw_destination.cellWidget(row, 0)
             if isinstance(itemWidget, TileWidget.DestFileItem):
-                tiles.append(itemWidget)
+                if onlyChecked and itemWidget.isChecked():
+                    tiles.append(itemWidget)
+                else:
+                    tiles.append(itemWidget)
+
 
         return tiles
 
@@ -566,8 +572,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.sourceFuncts.updateUI()
 
         #   Proxy Options
-        if "proxyPresets" in sData:
-            self.proxySettings = sData["proxyPresets"]
+        if "proxySettings" in sData:
+            self.proxySettings = sData["proxySettings"]
 
         #   Name Mods
         if "activeNameMods" in sData:
@@ -786,11 +792,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.sourceFuncts.progBar_total.setValue(0)
 
 
-    #   Reset Total Progess Bar
+    #   Get Transfer size from Each TileTile and Calculate Total
     @err_catcher(name=__name__)
     def getTotalTransferSize(self):
-        # copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
-        copyProxy = self.proxyMode in ["Copy Proxys", "Generate Missing Proxys"]
         rowCount = self.tw_destination.rowCount()
 
         total_transferSize = 0.0
@@ -799,7 +803,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             fileItem = self.tw_destination.cellWidget(row, 0)
             
             if fileItem is not None and fileItem.isChecked():
-                total_transferSize += fileItem.getTransferSize(includeProxy=copyProxy)
+                total_transferSize += fileItem.getTransferSize(self.proxyEnabled, self.proxyMode)
 
         return total_transferSize
 
@@ -1344,6 +1348,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def toggleProxy(self, checked):
         self.proxyEnabled = checked
         self.sourceFuncts.updateUI()
+        self.refreshTotalTransSize()
 
         for item in self.getAllDestTiles():
             item.toggleProxyProgbar()
@@ -1530,6 +1535,22 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.refreshDestItems()
 
 
+    #   Get Destination Proxy Dir from Existing Proxies
+    @err_catcher(name=__name__)
+    def getResolvedProxyPaths(self):
+        self.resolvedProxyPaths = set()
+        #   Get All Cehcked Tiles
+        tiles = self.getAllDestTiles(onlyChecked=True)
+
+        for tile in tiles:
+            #   If it Has a Proxy Already
+            if tile.data["hasProxy"]:
+                #   Get the Destination Proxy Dir
+                proxyDir = tile.getResolvedDestProxyPath(dirOnly=True)
+                if proxyDir:                
+                    self.resolvedProxyPaths.add(proxyDir)
+
+
     #   Get Storage Space Stats
     @err_catcher(name=__name__)                                         #   TODO  Move
     def getDriveSpace(self, path):
@@ -1609,7 +1630,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         header = {
             "Destination Path": self.le_destPath.text(),
             "Number of Files": len(self.copyList),
-            "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),
+            "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
             "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
             "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
             # "Copy Proxy Files": copyProxy,
@@ -1704,14 +1725,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.progressTimer.setInterval(self.progUpdateInterval * 1000)
         self.progressTimer.timeout.connect(self.updateTransfer)
 
+        #   Capture Time for Elapsed Calc
         self.transferStartTime = time()
 
         #   Initialize Time Remaining Calc
         self.speedSamples = deque(maxlen=10)
-
-        # copyProxy = self.proxyMode in ["Copy Proxys", "Generate  Missing Proxys"]
-        # copyProxy = self.sourceFuncts.chb_copyProxy.isChecked()
-        # generateProxy = self.sourceFuncts.chb_generateProxy.isChecked()
 
         self.refreshTotalTransSize()
 
@@ -1724,6 +1742,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         if not os.path.isdir(self.le_destPath.text()):
             self.core.popup("YOU FORGOT TO SELECT DEST DIR")
             return False
+        
+
+        #   Handled Proxy Directory 
+        ovr_proxyDir = None
+        resolved_proxyDir = None
+        fallback_proxyDir = self.proxySettings["fallback_proxyDir"]
+
+
+        #   If Override is NOT Selected
+        #   Attempt to Get Resolved Path
+        self.getResolvedProxyPaths()
+
+        if self.resolvedProxyPaths:
+            resolved_proxyDir = next(iter(self.resolvedProxyPaths))
+            
 
         #   Get Formatted Transfer Details
         popupData, hasErrors = self.generateTransferPopup()
@@ -1760,12 +1793,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     except KeyError:
                         raise RuntimeError(f"Proxy preset {self.proxySettings['proxyPreset']} not found in settings")                #   TODO HANDLE ERROR
 
-                    proxySettings = {
-                        "scale": self.proxySettings["proxyScale"],
-                        "Video_Parameters": preset["Video_Parameters"],
-                        "Audio_Parameters": preset["Audio_Parameters"],
-                        "Output_Extension": preset["Output_Extension"],
-                    }
+                    proxySettings = self.proxySettings.copy()
+
+                    proxySettings.update({
+                        "resolved_proxyDir": resolved_proxyDir,
+                        "scale"            : self.proxySettings["proxyScale"],
+                        "Video_Parameters" : preset["Video_Parameters"],
+                        "Audio_Parameters" : preset["Audio_Parameters"],
+                        "Extension"        : preset["Extension"],
+                        "Multiplier"        : preset["Multiplier"]
+                    })
 
                     options["proxySettings"] = proxySettings
                 
@@ -1819,7 +1856,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def updateTransfer(self):
         # Get Transferred Amount from Every FileTile
-        total_copied = sum(item.copied_size for item in self.copyList if hasattr(item, "copied_size"))
+        total_copied = sum(item.getCopiedSize() for item in self.copyList)
         #   Update Copied Size in the UI
         totalSize_str = self.getFileSizeStr(total_copied)
         self.sourceFuncts.l_size_copied.setText(totalSize_str)

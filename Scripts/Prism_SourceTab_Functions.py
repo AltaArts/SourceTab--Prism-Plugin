@@ -327,9 +327,9 @@ class Prism_SourceTab_Functions(object):
 
             self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
 
-        elif key == "proxyPresets":
+        elif key == "proxySettings":
             pData = self.sourceBrowser.proxySettings
-            self.core.setConfig(cat="sourceTab", param="proxyPresets", val=pData, config="project")
+            self.core.setConfig(cat="sourceTab", param="proxySettings", val=pData, config="project")
 
         elif key == "ffmpegPresets":
             self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
@@ -359,30 +359,6 @@ class Prism_SourceTab_Functions(object):
     @err_catcher(name=__name__)
     def getDefaultSettings(self, key=None):
         sData = {
-                "proxySearch": [
-                    "@MAINFILEDIR@\\proxy\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\pxy\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\proxies\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\proxys\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\proxy\\@MAINFILENAME@_proxy",
-                    "@MAINFILEDIR@\\pxy\\@MAINFILENAME@_proxy",
-                    "@MAINFILEDIR@\\proxies\\@MAINFILENAME@_proxy",
-                    "@MAINFILEDIR@\\proxys\\@MAINFILENAME@_proxy",
-                    "@MAINFILEDIR@\\@MAINFILENAME@_proxy",
-                    "@MAINFILEDIR@\\..\\proxy\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\..\\pxys\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\..\\proxies\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\..\\proxys\\@MAINFILENAME@"
-                    ],
-                "tabSettings": {
-                    "playerEnabled": True,
-                    "preferProxies": True,
-                    "enable_proxy": False,
-                    "proxyMode": "None",
-                    "enable_fileNaming": False,
-                    "enable_metadata": False,
-                    "enable_overwrite": False
-                },
                 "globals": {
                     "max_thumbThreads": 6,
                     "max_copyThreads": 6,
@@ -398,10 +374,39 @@ class Prism_SourceTab_Functions(object):
                     "useCustomThumbPath": False,
                     "customThumbPath": ""
                 },
-                "proxyPresets":
-                {},
+                "tabSettings": {
+                    "playerEnabled": True,
+                    "preferProxies": True,
+                    "enable_proxy": False,
+                    "proxyMode": "None",
+                    "enable_fileNaming": False,
+                    "enable_metadata": False,
+                    "enable_overwrite": False
+                },
+                "proxySettings": {
+                    "fallback_proxyDir": "\\proxy",
+                    "fallback_proxyDir_relative": True,
+                    "use_ovrProxyDir": False,
+                    "ovr_proxyDir": "",
+                    "ovr_proxyDir_relative": False,
+                },
                 "activeNameMods":
                 [],
+                "proxySearch": [
+                    "@MAINFILEDIR@\\proxy\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\pxy\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\proxies\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\proxys\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\proxy\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\pxy\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\proxies\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\proxys\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\@MAINFILENAME@_proxy",
+                    "@MAINFILEDIR@\\..\\proxy\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\..\\pxys\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\..\\proxies\\@MAINFILENAME@",
+                    "@MAINFILEDIR@\\..\\proxys\\@MAINFILENAME@"
+                    ],
                 "viewLutPresets": [
                     {
                     "name": "Linear to Rec70924",
@@ -421,31 +426,36 @@ class Prism_SourceTab_Functions(object):
                         "Description": "Quick and small proxy, good for review or offline editing",
                         "Video_Parameters": "-c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 128k",
-                        "Output_Extension": ".mp4"
+                        "Extension": ".mp4",
+                        "Multiplier": 0.1
                     },
                     "ProRes Proxy": {
                         "Description": "Edit-friendly proxy for high-performance workflows (large size)",
                         "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
                         "Audio_Parameters": "-c:a copy",
-                        "Output_Extension": ".mov"
+                        "Extension": ".mov",
+                        "Multiplier": 0.3
                     },
                     "DNxHD 36M Proxy": {
                         "Description": "Avid-style proxy with intra-frame compression (36 Mbps)",
                         "Video_Parameters": "-c:v dnxhd -b:v 36M -pix_fmt yuv422p",
                         "Audio_Parameters": "-c:a pcm_s16le",
-                        "Output_Extension": ".mov"
+                        "Extension": ".mov",
+                        "Multiplier": 0.3
                     },
                     "Ultra-Light Preview": {
                         "Description": "Low-res H.264 preview for web or quick review",
                         "Video_Parameters": "-c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 96k",
-                        "Output_Extension": ".mp4"
+                        "Extension": ".mp4",
+                        "Multiplier": 0.05
                     },
                     "Full-Res H.264": {
                         "Description": "Full-resolution H.264 transcode, good quality balance",
                         "Video_Parameters": "-c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 192k",
-                        "Output_Extension": ".mp4"
+                        "Extension": ".mp4",
+                        "Multiplier": 0.15
                     }
                 }
             }

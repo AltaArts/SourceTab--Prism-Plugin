@@ -218,8 +218,9 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
             self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
             self.updateUI()
+            self.sourceBrowser.refreshTotalTransSize()
 
-            self.sourceBrowser.plugin.saveSettings(key="proxyPresets")
+            self.sourceBrowser.plugin.saveSettings(key="proxySettings")
 
 
 
