@@ -331,6 +331,9 @@ class Prism_SourceTab_Functions(object):
             pData = self.sourceBrowser.proxySettings
             self.core.setConfig(cat="sourceTab", param="proxySettings", val=pData, config="project")
 
+        elif key == "proxySearch":
+            self.core.setConfig(cat="sourceTab", param="proxySearch", val=data, config="project")
+
         elif key == "ffmpegPresets":
             self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
             
@@ -405,7 +408,8 @@ class Prism_SourceTab_Functions(object):
                     "@MAINFILEDIR@\\..\\proxy\\@MAINFILENAME@",
                     "@MAINFILEDIR@\\..\\pxys\\@MAINFILENAME@",
                     "@MAINFILEDIR@\\..\\proxies\\@MAINFILENAME@",
-                    "@MAINFILEDIR@\\..\\proxys\\@MAINFILENAME@"
+                    "@MAINFILEDIR@\\..\\proxys\\@MAINFILENAME@",
+                    "@MAINFILEDIR@_proxy\\@MAINFILENAME@"
                     ],
                 "viewLutPresets": [
                     {

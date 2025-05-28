@@ -629,9 +629,6 @@ class ProxyPopup(QDialog):
         lo_globalSettings.addLayout(lo_ovrProxyDir)
 
 
-
-
-
         #   Add Global Layout to Main Layout
         self.gb_globalSettings.setLayout(lo_globalSettings)
         lo_main.addWidget(self.gb_globalSettings)
@@ -639,6 +636,27 @@ class ProxyPopup(QDialog):
 
         spacer_2 = QSpacerItem(10, 20)
         lo_main.addItem(spacer_2)
+
+
+        ##  Proxy Copy Settings GroupBox
+        self.gb_proxyCopySettings = QGroupBox("Proxy Copy Settings")
+        lo_proxyCopySettings = QHBoxLayout()
+        lo_proxyCopySettings.setContentsMargins(20,10,20,10)
+
+        #   UI ELEMENTS
+        l_numberTemplatesTitle = QLabel("Proxy Search Templates:    ")
+        self.l_numberTemplates = QLabel()
+        self.b_editSearchList = QPushButton("Edit Proxy Search Templates")
+
+        #   Add Widgets to Layout
+        lo_proxyCopySettings.addWidget(l_numberTemplatesTitle)
+        lo_proxyCopySettings.addWidget(self.l_numberTemplates)
+        lo_proxyCopySettings.addStretch()
+        lo_proxyCopySettings.addWidget(self.b_editSearchList)
+
+        #   Add Proxy Copy Layout to Main Layout
+        self.gb_proxyCopySettings.setLayout(lo_proxyCopySettings)
+        lo_main.addWidget(self.gb_proxyCopySettings)
 
 
         ##  FFMPEG Settings GroupBox
@@ -695,6 +713,11 @@ class ProxyPopup(QDialog):
         lo_main.addLayout(lo_buttons)
 
 
+    def connections(self):
+        self.b_editPresets.clicked.connect(self._onEditPresetsClicked)
+        self.b_editSearchList.clicked.connect(self._onEditSearchTemplatesClicked)
+
+
     #   Populate UI from Passed Settings
     def loadUI(self):
         #   Proxy Mode
@@ -737,15 +760,25 @@ class ProxyPopup(QDialog):
             if idx != -1:
                 self.cb_proxyScale.setCurrentIndex(idx)
 
-        #   Connections
-        self.b_editPresets.clicked.connect(self._onEditPresetsClicked)
-
+        self.connections()
         self._onProxyModeChanged()
+        self.updateTemplateNumber()
 
+
+    #   Returns Proxy Search List
+    def getProxySearchList(self):
+        return self.sourceFuncts.sourceBrowser.getSettings(key="proxySearch")
+    
 
     #   Returns FFmpeg Preset Dict
     def getFFmpegPresets(self):
         return self.sourceFuncts.sourceBrowser.getSettings(key="ffmpegPresets")
+
+
+    #   Populate Preset Combo with Presets
+    def updateTemplateNumber(self):
+        number = len(self.getProxySearchList())
+        self.l_numberTemplates.setText(f"{number} templates")
 
 
     #   Populate Preset Combo with Presets
@@ -784,8 +817,31 @@ class ProxyPopup(QDialog):
 
     def _onProxyModeChanged(self):
         mode = self.getProxyMode()
-        #   Only Show ffmpeg Settings for "generate" or "missing"
+
+        #   Set Visabilty of Options Based on Mode
+        self.gb_proxyCopySettings.setVisible(mode in ["copy", "missing"])
         self.gb_ffmpegSettings.setVisible(mode in ("generate", "missing"))
+
+
+    #   Open Window to Edit Presets
+    def _onEditSearchTemplatesClicked(self):
+        #   Get Existing Presets
+        searchList = self.getProxySearchList()
+
+        editWindow = ProxySearchStrEditor(self.core, self, searchList)
+        editWindow.exec_()
+
+        if editWindow.result() == "Save":
+            #   Get Updated Data
+            sData = editWindow.getData()           
+            #   Save to Settings
+            self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="proxySearch", data=sData)
+            #   Refresh Source Items
+            self.sourceFuncts.sourceBrowser.refreshSourceItems()
+            #   Clear Destination Items
+            self.sourceFuncts.sourceBrowser.clearTransferList()
+            #   Update UI
+            self.updateTemplateNumber()
 
 
     #   Open Window to Edit Presets
@@ -837,6 +893,7 @@ class ProxyPopup(QDialog):
         
         return pData
     
+
 
 class ProxyPresetsEditor(QDialog):
     def __init__(self, core, origin, presets):
@@ -962,7 +1019,6 @@ class ProxyPresetsEditor(QDialog):
                 value = fields.get(key, "")
                 self.tw_presets.setItem(row, col, QTableWidgetItem(str(value)))
 
-
         #   Re-Apply Widths
         QTimer.singleShot(0, self.adjustColumnWidths)
 
@@ -998,7 +1054,7 @@ class ProxyPresetsEditor(QDialog):
 
         #   Create Question
         title = "Remove Preset"
-        text = f"Would you like to Remove preset:\n\n{preset_name}"
+        text = f"Would you like to Remove:\n\n{preset_name}"
         buttons = ["Remove", "Cancel"]
         result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
         #   Remove if Affirmed
@@ -1011,7 +1067,7 @@ class ProxyPresetsEditor(QDialog):
     def _onValidate(self):
         row = self.tw_presets.currentRow()
         if row == -1:
-            self.core.popup(title="No Selection", text="Please select a preset to validate.")
+            self.core.popup(title="No Selection", text="Please Select a Preset to Validate.")
             return
 
         #   Get data from the table
@@ -1215,3 +1271,323 @@ class ProxyPresetsEditor(QDialog):
 
     def getData(self):
         return self.presetData
+    
+
+
+
+
+class ProxySearchStrEditor(QDialog):
+    def __init__(self, core, origin, searchList):
+        super().__init__(origin)
+        self.core = core
+        self.origin = origin
+
+        self.searchList = searchList.copy()
+        self._action = None
+
+        self.setWindowTitle("Proxy Search List")
+
+        self.setupUI()
+        self.connections()
+        self.populateTable(self.searchList)
+
+
+    def setupUI(self):
+        #   Set up Sizing and Position
+        screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        width = screen_geometry.width() // 3
+        height = screen_geometry.height() // 2
+        x_pos = (screen_geometry.width() - width) // 3
+        y_pos = (screen_geometry.height() - height) // 2
+        self.setGeometry(x_pos, y_pos, width, height)
+
+        #   Create Main Layout
+        lo_main = QVBoxLayout(self)
+
+        #   Create table
+        self.headers = ["Proxy Search Templates"]
+        self.tw_searchList = QTableWidget(len(self.searchList), len(self.headers), self)
+        self.tw_searchList.setHorizontalHeaderLabels(self.headers)
+        self.tw_searchList.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tw_searchList.setEditTriggers(QTableWidget.NoEditTriggers)
+
+        #   Footer Buttons
+        lo_buttonBox    = QVBoxLayout()
+
+        lo_buttonsTop   = QHBoxLayout()
+        self.b_edit     = QPushButton("Edit")
+        self.b_add      = QPushButton("Add")
+        self.b_remove   = QPushButton("Remove")
+        self.b_moveup   = QPushButton("Move Up")
+        self.b_moveDn   = QPushButton("Move Down")
+
+        lo_buttonsBottom = QHBoxLayout()
+        self.b_test      = QPushButton("Validate Template")
+        self.b_reset     = QPushButton("Reset to Defaults")
+        self.b_save      = QPushButton("Save")
+        self.b_cancel    = QPushButton("Cancel")
+        
+        lo_buttonsTop.addWidget(self.b_edit)
+        lo_buttonsTop.addWidget(self.b_add)
+        lo_buttonsTop.addWidget(self.b_remove)
+        lo_buttonsTop.addStretch()
+        lo_buttonsTop.addWidget(self.b_moveup)
+        lo_buttonsTop.addWidget(self.b_moveDn)
+
+        lo_buttonsBottom.addWidget(self.b_test)
+        lo_buttonsBottom.addWidget(self.b_reset)
+        lo_buttonsBottom.addStretch()
+        lo_buttonsBottom.addWidget(self.b_save)
+        lo_buttonsBottom.addWidget(self.b_cancel)
+
+        lo_buttonBox.addLayout(lo_buttonsTop)
+        lo_buttonBox.addLayout(lo_buttonsBottom)
+
+        #   Add to Main Layout
+        lo_main.addWidget(self.tw_searchList)
+        lo_main.addLayout(lo_buttonBox)
+
+        #   Stretch Columns over Entire Width
+        # self.tw_searchList.horizontalHeader().setStretchLastSection(False)
+        # self.tw_searchList.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+        self.tw_searchList.horizontalHeader().setStretchLastSection(True)
+        self.tw_searchList.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+
+    def connections(self):
+        self.b_edit.clicked.connect(self._onEdit)
+        self.b_add.clicked.connect(self._onAdd)
+        self.b_remove.clicked.connect(self._onRemove)
+        self.b_test.clicked.connect(self._onValidate)
+        self.b_reset.clicked.connect(self._onReset)
+        self.b_moveup.clicked.connect(self._onMoveUp)
+        self.b_moveDn.clicked.connect(self._onMoveDown)
+        self.b_save.clicked.connect(lambda: self._onFinish("Save"))
+        self.b_cancel.clicked.connect(lambda: self._onFinish("Cancel"))
+
+
+    def populateTable(self, templateList):
+        #   Clear the Table
+        self.tw_searchList.setRowCount(0)
+
+        #   Set Column Count
+        self.tw_searchList.setColumnCount(len(self.headers))
+        self.tw_searchList.setHorizontalHeaderLabels(self.headers)
+
+        #   Add Each Template String to New Row
+        for template in templateList:
+            row = self.tw_searchList.rowCount()
+            self.tw_searchList.insertRow(row)
+            self.tw_searchList.setItem(row, 0, QTableWidgetItem(template))
+
+
+    #   Sets Row Editable
+    def _onEdit(self):
+        row = self.tw_searchList.currentRow()
+        if row < 0: 
+            return
+        
+        self.tw_searchList.setEditTriggers(QTableWidget.DoubleClicked | QTableWidget.SelectedClicked)
+        self.tw_searchList.editItem(self.tw_searchList.item(row, 0))
+
+
+    #   Adds Empty Row
+    def _onAdd(self):
+        #   Insert Blank Row after Current
+        row = max(0, self.tw_searchList.currentRow() + 1)
+        self.tw_searchList.insertRow(row)
+
+        for col in range(self.tw_searchList.columnCount()):
+            self.tw_searchList.setItem(row, col, QTableWidgetItem(""))
+
+        self.tw_searchList.selectRow(row)
+
+
+    #   Remove Selected Row
+    def _onRemove(self):
+        row = self.tw_searchList.currentRow()
+        #   Gets Item Info
+        preset_item = self.tw_searchList.item(row, 0)
+        preset_name = preset_item.text() if preset_item else "Unknown"
+
+        #   Create Question
+        title = "Remove Template"
+        text = f"Would you like to Remove template:\n\n{preset_name}"
+        buttons = ["Remove", "Cancel"]
+        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+        #   Remove if Affirmed
+        if result == "Remove":
+            if row >= 0:
+                self.tw_searchList.removeRow(row)
+
+
+    #   Handle Tests for Preset
+    def _onValidate(self):
+        row = self.tw_searchList.currentRow()
+        if row == -1:
+            self.core.popup(title="No Selection", text="Please Select a Template to Validate.")
+            return
+
+        #   Get data from the table
+        template = self.tw_searchList.item(row, 0).text()
+
+        #   Get Full Validation Results
+        results = self._validateTemplate(template)
+
+        #   Format Output
+        lines = [f"Template Validation Report:\n   {template}:\n\n"]
+        # all_passed = True
+
+        for label, passed, msg in results:
+            if passed:
+                lines.append(f"✅ {label} — Passed")
+                lines.append("")
+            else:
+                lines.append(f"❌ {label} — Failed: {msg}")
+                lines.append("")
+
+                # all_passed = False
+
+        #   Show Popup
+        title="Preset Validation Results"
+        text="\n".join(lines)
+        DisplayPopup.display(text, title, xScale=4, yScale=3)
+
+
+    #   Runs Several Sanity Checks on Templates
+    def _validateTemplate(self, template):
+        results = []
+
+        #   1. Check Placeholders
+        has_dir = "@MAINFILEDIR@" in template
+        has_name = "@MAINFILENAME@" in template
+        results.append((
+            "Contains @MAINFILEDIR@ token",
+            has_dir,
+            "Missing @MAINFILEDIR@"
+        ))
+        results.append((
+            "Contains @MAINFILENAME@ token",
+            has_name,
+            "Missing @MAINFILENAME@"
+        ))
+
+        #   2. Check Illegal Charactors (except the backslashes, dot, underscore, hyphen, colon for drive letter)
+        illegal = set('<>:"|?*')
+        bad = sorted(set(template) & illegal)
+        results.append((
+            "No illegal characters",
+            not bad,
+            f"Found illegal chars: {', '.join(bad)}"
+        ))
+
+        #   3. Check Replacement Tokens by Simulating a File Path
+        dummy_dir  = os.path.join("C:", "MyProject", "Some", "Path")
+        dummy_name = "MyFile"
+        try:
+            replaced = (template
+                        .replace("@MAINFILEDIR@", dummy_dir)
+                        .replace("@MAINFILENAME@", dummy_name))
+            
+            nor_dir = os.path.normpath(replaced)
+
+            tokens_left = any(tok in nor_dir for tok in ("@MAINFILEDIR@", "@MAINFILENAME@"))
+
+            results.append((
+                "Tokens Resolve Correctly",
+                not tokens_left,
+                "Some Tokens Failed to Resolve"
+            ))
+        except Exception as e:
+            results.append((
+                "Tokens resolve cleanly",
+                False,
+                f"Exception During Resolving: {e}"
+            ))
+
+        #   4. Check for Empty Path Segments (i.e. no “foo\\\bar”)
+        segs = nor_dir.split(os.sep)
+        empty = any(s == "" for s in segs)
+        results.append((
+            "No Empty Path Segments",
+            not empty,
+            "Found Empty Segment(s) after Splitting Path Separator"
+        ))
+
+        #   5. Check to Make Sure it Resolves Inside the Dir Tree
+        if ".." in template:
+            inside = nor_dir.startswith(dummy_dir)
+            results.append((
+                "‘..’ stays inside project",
+                inside,
+                f"Resolved Path jumps outside Dir Structure"
+            ))
+
+        return results
+    
+
+    #   Resets the Templates to Default Data from Prism_SourceTab_Functions.py
+    def _onReset(self):
+        #   Create Question
+        title = "Reset Templates to Default"
+        text = ("Would you like to Reset the Proxy Search\n"
+                "Templates to the Factory Defaults?\n\n"
+                "All Custom Templates will be lost.\n\n"
+                "This effects all Users in this Prism Project.")
+        buttons = ["Reset", "Cancel"]
+        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+
+        if result == "Reset":
+            #   Get Default Templates
+            sData = self.origin.sourceFuncts.sourceBrowser.plugin.getDefaultSettings(key="proxySearch")
+            #   Re-assign searchList
+            self.searchList = sData
+            #   Populate Table with Default Data
+            self.populateTable(sData)
+
+
+    def _onMoveUp(self):
+        row = self.tw_searchList.currentRow()
+        if row > 0:
+            self._swapRows(row, row-1)
+            self.tw_searchList.selectRow(row-1)
+
+
+    def _onMoveDown(self):
+        row = self.tw_searchList.currentRow()
+        if row < self.tw_searchList.rowCount() - 1:
+            self._swapRows(row, row+1)
+            self.tw_searchList.selectRow(row+1)
+
+
+    def _swapRows(self, r1, r2):
+        for c in range(self.tw_searchList.columnCount()):
+            t1 = self.tw_searchList.takeItem(r1, c)
+            t2 = self.tw_searchList.takeItem(r2, c)
+            self.tw_searchList.setItem(r1, c, t2)
+            self.tw_searchList.setItem(r2, c, t1)
+
+
+    def _onFinish(self, action):
+        self._action = action
+        if action == "Save":
+            newTemplates = []
+
+            #   Re-assign searchList from UI data
+            for row in range(self.tw_searchList.rowCount()):
+                template = self.tw_searchList.item(row, 0).text()
+                newTemplates.append(template)
+
+            self.searchList = newTemplates
+
+        self.accept()
+
+
+    def result(self):
+        return self._action
+
+
+    def getData(self):
+        return self.searchList

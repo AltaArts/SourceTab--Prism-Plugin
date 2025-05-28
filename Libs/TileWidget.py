@@ -959,31 +959,38 @@ class SourceFileItem(BaseTileItem):
         sData = self.getSettings()
         proxySearchList = sData.get("proxySearch", [])
 
-        #   Make the Various Names
+        #   Get Orig Names
         fullPath = self.getSource_mainfilePath()
         baseDir = os.path.dirname(fullPath)
         baseName = os.path.basename(fullPath)
         fileBase, _ = os.path.splitext(baseName)
 
         for pathTemplate in proxySearchList:
-            #   Replace Template Placeholders with Actual Names
-            proxyPath = pathTemplate.replace("@MAINFILEDIR@", baseDir).replace("@MAINFILENAME@", fileBase)
+            #   Replace @MAINFILENAME@ with the base name (without extension)
+            pathWithFilename = pathTemplate.replace("@MAINFILENAME@", fileBase)
+
+            #   Replace @MAINFILEDIR@ name with any Prefix/Suffix
+            def replace_dirToken(match):
+                pre = match.group(1) or ""
+                post = match.group(2) or ""
+                return os.path.join(os.path.dirname(baseDir), pre + os.path.basename(baseDir) + post)
+
+            #   Find any prefix/suffix on @MAINFILEDIR@
+            dir_pattern = re.compile(r"(.*?)@MAINFILEDIR@(.*?)")
+            proxyPath = dir_pattern.sub(replace_dirToken, pathWithFilename)
+
+            #   Convert Relative Path to Absolute
             proxyPath = os.path.normpath(proxyPath)
 
-            #   Extract Names
+            #   Extract Info for Lookup
             proxyDir = os.path.dirname(proxyPath)
             targetFile = os.path.basename(proxyPath).lower()
-
-            #   Remove Extension
             targetFileBase, _ = os.path.splitext(targetFile)
 
-            #   Look for the Proxy
+            #   Find Match in the Dir
             if os.path.isdir(proxyDir):
                 for f in os.listdir(proxyDir):
-                    # Remove Extension from the File in the Dir
                     fileBaseName, _ = os.path.splitext(f.lower())
-
-                    # Compare the base names (case-insensitive)
                     if fileBaseName == targetFileBase:
                         logger.debug(f"Proxy found for {targetFileBase}.")
                         return os.path.join(proxyDir, f)
@@ -1569,34 +1576,48 @@ class DestFileItem(BaseTileItem):
 
         proxyPath = None
 
+        ##   If Proxy Dir Override is Enabled
+        if proxySettings["use_ovrProxyDir"]:
+            ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
+            proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
+
+            #   Assign New Proxy Path
+            self.data["dest_proxyFile_path"] = proxyPath
+
+            if self.data["hasProxy"]:
+                self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+
+            return proxyPath
+
+
+        ##  Proxy Dir Override Not Enabled
         #   Handle Copy Proxys
         if proxyMode == "copy" and self.data["hasProxy"]:
-            self.transferData["copyProxy"] = True
             self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
-
-            #   If Proxy Dir Override is Enabled
-            if proxySettings["use_ovrProxyDir"]:
-                ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
-                proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
-
             #   Use Resolved Proxy Dir
-            else:
-                proxyPath = self.getResolvedDestProxyPath()
-
-            self.transferData["destProxy"] = proxyPath
+            proxyPath = self.getResolvedDestProxyPath()
 
         #   Handle Generate Proxys
         elif proxyMode == "generate":
-            self.transferData["generateProxy"] = True
-            self.transferData["proxySettings"] = proxySettings
-
-            #   If Proxy Dir Override is Enabled
-            if proxySettings["use_ovrProxyDir"]:
-                ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
-                proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
-
             #   Try Resolved Proxy Dir or use Fallback
+            if proxySettings["resolved_proxyDir"]:                      #   TODO - DO WE WANT TO USE RESOLVED FOR GENERATE??
+                proxy_dir = proxySettings["resolved_proxyDir"]
+
             else:
+                fallback_dir = proxySettings["fallback_proxyDir"].lstrip("\\/")
+                proxy_dir = os.path.join(dest_dir, fallback_dir)
+
+            proxyPath = os.path.join(proxy_dir, proxy_baseFile)
+
+        #   Handle Generate Missing Proxys
+        elif proxyMode == "missing":
+            if self.data["hasProxy"]:
+                self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+                #   Use Resolved Proxy Dir
+                proxyPath = self.getResolvedDestProxyPath()
+
+            else:
+                #   Try Resolved Proxy Dir or use Fallback
                 if proxySettings["resolved_proxyDir"]:                      #   TODO - DO WE WANT TO USE RESOLVED FOR GENERATE??
                     proxy_dir = proxySettings["resolved_proxyDir"]
 
@@ -1606,46 +1627,8 @@ class DestFileItem(BaseTileItem):
 
                 proxyPath = os.path.join(proxy_dir, proxy_baseFile)
 
-                self.data["dest_proxyFile_path"] = proxyPath
-
-
-        #   Handle Generate Missing Proxys
-        elif proxyMode == "missing":
-            if self.data["hasProxy"]:
-                self.transferData["copyProxy"] = True
-                self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
-
-                #   If Proxy Dir Override is Enabled
-                if proxySettings["use_ovrProxyDir"]:
-                    ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
-                    proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
-
-                #   Use Resolved Proxy Dir
-                else:
-                    proxyPath = self.getResolvedDestProxyPath()
-
-                self.transferData["destProxy"] = proxyPath
-
-            else:
-                self.transferData["generateProxy"] = True
-                self.transferData["proxySettings"] = proxySettings
-
-                #   If Proxy Dir Override is Enabled
-                if proxySettings["use_ovrProxyDir"]:
-                    ovr_dir = proxySettings["ovr_proxyDir"].lstrip("\\/")
-                    proxyPath = os.path.join(dest_dir, ovr_dir, proxy_baseFile)
-
-                #   Try Resolved Proxy Dir or use Fallback
-                else:
-                    if proxySettings["resolved_proxyDir"]:
-                        proxy_dir = proxySettings["resolved_proxyDir"]
-
-                    else:
-                        fallback_dir = proxySettings["fallback_proxyDir"].lstrip("\\/")
-                        proxy_dir = os.path.join(dest_dir, fallback_dir)
-
-                    proxyPath = os.path.join(proxy_dir, proxy_baseFile)
-                    self.data["dest_proxyFile_path"] = proxyPath
+        #   Assign New Proxy Path
+        self.data["dest_proxyFile_path"] = proxyPath
 
         return proxyPath
 
@@ -1671,8 +1654,18 @@ class DestFileItem(BaseTileItem):
         if proxyEnabled and self.isVideo():                                     #   TODO - HANDLE NON-VIDEO
             proxySettings = options["proxySettings"]
             self.transferData["proxyMode"] = proxyMode
+            self.transferData["proxySettings"] = proxySettings
 
-            #   Add Proxy Destination Path
+            #   Temp Vars for Logic
+            hasProxy = self.data["hasProxy"]
+            isCopyMode = proxyMode == "copy"
+            isGenerateMode = proxyMode == "generate"
+            isMissingMode = proxyMode == "missing"
+            #   Set Copy and Generate Logic
+            self.transferData["copyProxy"] = hasProxy and (isCopyMode or isMissingMode)
+            self.transferData["generateProxy"] = isGenerateMode or (isMissingMode and not hasProxy)
+
+            #   Get Proxy Destination Path
             self.transferData["destProxy"] = self.getDestProxyFilepath(sourcePath, proxyMode, proxySettings)
 
         #   Start Timers

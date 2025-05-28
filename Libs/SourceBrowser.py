@@ -57,7 +57,6 @@ import hashlib
 from datetime import datetime
 from time import time
 from functools import partial
-from weakref import proxy
 
 
 
@@ -822,7 +821,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         # Adaptive maxlen: increase as transfer progresses
         progress_ratio = copiedSize / totalSize if totalSize > 0 else 0
-        adaptive_maxlen = int(10 + progress_ratio * 30)  # Between 5 and 20 samples
+        adaptive_maxlen = int(5 + progress_ratio * 20)
         self.speedSamples = deque(self.speedSamples, maxlen=adaptive_maxlen)
 
         # Calculate rolling average speed
