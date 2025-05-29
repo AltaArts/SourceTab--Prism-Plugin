@@ -71,8 +71,67 @@ from qtpy.QtWidgets import *
 
 
 
+#   Simple Waiting Popup
+class WaitPopup(QDialog):
+    _instance = None
+
+    def __init__(self, message="Loading Data...", parent=None):
+        super(WaitPopup, self).__init__(parent)
+        self.setWindowFlags(
+            Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        )
+        self.setModal(True)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setAlignment(Qt.AlignCenter)
+
+        label = QLabel(message)
+        label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet("font-size: 25pt; font-weight: bold;")
+
+        layout.addWidget(label)
+
+        self.setLayout(layout)
+        self.adjustSize()
+
+        #   Center on Parent if Provided
+        if parent and isinstance(parent, QWidget):
+            parent_rect = parent.frameGeometry()
+            center = parent_rect.center()
+            self.move(center - self.rect().center())
+        else:
+            #   Fallback to Center on Primary Screen
+            screen = QApplication.primaryScreen()
+            screen_geometry = screen.availableGeometry()
+            center = screen_geometry.center()
+            self.move(center - self.rect().center())
+
+
+    @classmethod
+    def showPopup(cls, message="Loading Data...", parent=None):
+        if cls._instance is None:
+            cls._instance = WaitPopup(message=message, parent=parent)
+            cls._instance.show()
+            QApplication.processEvents()
+
+
+    @classmethod
+    def closePopup(cls):
+        if cls._instance is not None:
+            cls._instance.close()
+            cls._instance = None
+
+
+    @classmethod
+    def isShowing(cls):
+        return cls._instance is not None
+    
+
+
 class DisplayPopup(QDialog):
-    def __init__(self, data, title="Display Data", buttons=None, xScale=2, yScale=2):
+    def __init__(self, data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None):
         super().__init__()
 
         self.result = None
@@ -81,10 +140,13 @@ class DisplayPopup(QDialog):
         #   Set up Sizing and Position
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
-        width   = screen_geometry.width() // xScale
-        height  = screen_geometry.height() // yScale
+
+        width  = xSize if xSize else screen_geometry.width() // xScale
+        height = ySize if ySize else screen_geometry.height() // yScale
+
         x_pos   = (screen_geometry.width() - width) // 2
         y_pos   = (screen_geometry.height() - height) // 2
+
         self.setGeometry(x_pos, y_pos, width, height)
 
         lo_main = QVBoxLayout(self)
@@ -147,8 +209,8 @@ class DisplayPopup(QDialog):
 
 
     @staticmethod
-    def display(data, title="Display Data", buttons=None, xScale=2, yScale=2):
-        dialog = DisplayPopup(data, title=title, buttons=buttons, xScale=xScale, yScale=yScale)
+    def display(data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None):
+        dialog = DisplayPopup(data, title=title, buttons=buttons, xScale=xScale, yScale=yScale, xSize=xSize, ySize=ySize)
         dialog.exec_()
         return dialog.result
 

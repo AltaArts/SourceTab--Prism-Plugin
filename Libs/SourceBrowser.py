@@ -97,7 +97,7 @@ from PrismUtils.Decorators import err_catcher
 
 import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
-from PopupWindows import DisplayPopup
+from PopupWindows import DisplayPopup, WaitPopup
 
 import SourceBrowser_ui                                                 #   TODO
 
@@ -1218,7 +1218,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)
-    def refreshSourceItems(self, restoreSelection=False):      
+    def refreshSourceItems(self, restoreSelection=False):
+        #   Show Wait Popup
+        WaitPopup.showPopup(parent=self.projectBrowser)
+
         sourceDir = getattr(self, "sourceDir", "")
 
         metrics = QFontMetrics(self.le_sourcePath.font())
@@ -1285,9 +1288,15 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         #   Add extra empty row to bottom
         self.tw_source.insertRow(row)
 
+        #   Hide Wait Popup
+        WaitPopup.closePopup()
+
 
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
+        #   Show Wait Popup
+        WaitPopup.showPopup(parent=self.projectBrowser)
+
         destDir = getattr(self, "destDir", "")
 
         if restoreSelection:
@@ -1340,6 +1349,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.modifyFileNames()
 
         self.refreshTotalTransSize()
+
+        #   Hide Wait Popup
+        WaitPopup.closePopup()
 
 
     #   Sets Each Tile Widget Proxy UI
