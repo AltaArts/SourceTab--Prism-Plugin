@@ -88,13 +88,13 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         self.setupUi(self)
 
         self.configureUI()
-        self.connections()
+        self.connectEvents()
 
         self.updateUI()
 
 
     @err_catcher(name=__name__)
-    def connections(self):
+    def connectEvents(self):
         self.b_openDestDir.clicked.connect(lambda: self.openInExplorer(self.sourceBrowser.le_destPath.text()))
         self.b_ovr_config_proxy.clicked.connect(self.configProxy)
         self.b_ovr_config_fileNaming.clicked.connect(self.configFileNaming)
@@ -133,7 +133,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
                 pData = self.sourceBrowser.proxySettings
                 #   If Exists, Add Settings to UI
                 if pData:
-                    presetStr = f"({pData['proxyPreset']} - {pData['proxyScale']})"
+                    presetStr = f"( {pData['proxyPreset']} - {pData['proxyScale']} )"
                     proxyDisplayStr = f"{proxyModeStr}   {presetStr}"
 
         #   Add Disabled to UI
@@ -219,6 +219,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
             self.updateUI()
             self.sourceBrowser.refreshTotalTransSize()
+            self.sourceBrowser.toggleProxy(self.sourceBrowser.proxyEnabled)
 
             self.sourceBrowser.plugin.saveSettings(key="proxySettings")
 

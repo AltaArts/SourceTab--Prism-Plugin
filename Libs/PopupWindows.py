@@ -50,6 +50,7 @@ import sys
 import subprocess
 import shlex
 import re
+from pathlib import Path
 
 
 #   Get Name Mod Methods
@@ -82,8 +83,8 @@ class DisplayPopup(QDialog):
         screen_geometry = screen.availableGeometry()
         width   = screen_geometry.width() // xScale
         height  = screen_geometry.height() // yScale
-        x_pos   = (screen_geometry.width() - width) // xScale
-        y_pos   = (screen_geometry.height() - height) // yScale
+        x_pos   = (screen_geometry.width() - width) // 2
+        y_pos   = (screen_geometry.height() - height) // 2
         self.setGeometry(x_pos, y_pos, width, height)
 
         lo_main = QVBoxLayout(self)
@@ -165,7 +166,7 @@ class OcioConfigPopup(QDialog):
         self.setWindowTitle("OCIO Preset Configuration")
 
         self.loadUI()
-        self.connections()
+        self.connectEvents()
 
         self.loadPresets(data)
 
@@ -235,7 +236,7 @@ class OcioConfigPopup(QDialog):
 
 
 
-    def connections(self):
+    def connectEvents(self):
         self.b_addPreset.clicked.connect(self.onOcioPresetClicked)
         self.b_close.clicked.connect(self.onCloseClicked)
 
@@ -590,53 +591,41 @@ class ProxyPopup(QDialog):
         spacer_1 = QSpacerItem(10, 20)
         lo_main.addItem(spacer_1)
 
-
         ##  Global Settings GroupBox
         self.gb_globalSettings = QGroupBox("Global Proxy Settings")
         lo_globalSettings = QVBoxLayout()
         lo_globalSettings.setContentsMargins(20,10,20,10)
 
-        #   Fallback Layout
-        lo_fallBackDir = QHBoxLayout()
-        #   Create Widgets
-        l_fallbackDir = QLabel("Fallback Proxy Directory:  ")
-        self.chb_fallbackDir_relative = QCheckBox()
-        l_fallbackDir_relative = QLabel("relative")
-        self.le_fallbackDir = QLineEdit()
-        #   Add Widgets to Layout
-        lo_fallBackDir.addWidget(l_fallbackDir)
-        lo_fallBackDir.addWidget(self.chb_fallbackDir_relative)
-        lo_fallBackDir.addWidget(l_fallbackDir_relative)
-        lo_fallBackDir.addWidget(self.le_fallbackDir)
-        #   Add Fallback Layout to Global Layout
-        lo_globalSettings.addLayout(lo_fallBackDir)
-
         #   Override Layout
         lo_ovrProxyDir = QHBoxLayout()
         #   Create Widgets
-        self.chb_useOvrProxyDir = QCheckBox()
-        l_ovrProxyDir = QLabel("Override Proxy Directory:  ")
-        self.chb_ovrProxyDir_relative = QCheckBox()
-        l_chb_ovrProxyDir_relative = QLabel("relative")
+        self.l_ovrProxyDir = QLabel("Override Proxy Dir:")
+        self.l_ovrProxyDir.setFixedWidth(125)
         self.le_ovrProxyDir = QLineEdit()
         #   Add Widgets to Layout
-        lo_ovrProxyDir.addWidget(self.chb_useOvrProxyDir)
-        lo_ovrProxyDir.addWidget(l_ovrProxyDir)
-        lo_ovrProxyDir.addWidget(self.chb_ovrProxyDir_relative)
-        lo_ovrProxyDir.addWidget(l_chb_ovrProxyDir_relative)
+        lo_ovrProxyDir.addWidget(self.l_ovrProxyDir)
         lo_ovrProxyDir.addWidget(self.le_ovrProxyDir)
         #   Add Override Layout to Global Layout
         lo_globalSettings.addLayout(lo_ovrProxyDir)
 
+        #   Fallback Layout
+        lo_fallBackDir = QHBoxLayout()
+        #   Create Widgets
+        self.l_fallbackDir = QLabel("Fallback Proxy Dir:")
+        self.l_fallbackDir.setFixedWidth(125)
+        self.le_fallbackDir = QLineEdit()
+        #   Add Widgets to Layout
+        lo_fallBackDir.addWidget(self.l_fallbackDir)
+        lo_fallBackDir.addWidget(self.le_fallbackDir)
+        #   Add Fallback Layout to Global Layout
+        lo_globalSettings.addLayout(lo_fallBackDir)
 
         #   Add Global Layout to Main Layout
         self.gb_globalSettings.setLayout(lo_globalSettings)
         lo_main.addWidget(self.gb_globalSettings)
 
-
         spacer_2 = QSpacerItem(10, 20)
         lo_main.addItem(spacer_2)
-
 
         ##  Proxy Copy Settings GroupBox
         self.gb_proxyCopySettings = QGroupBox("Proxy Copy Settings")
@@ -712,8 +701,33 @@ class ProxyPopup(QDialog):
         #   Add Buttons Layout to Main Layout
         lo_main.addLayout(lo_buttons)
 
+        self.setToolTips()
 
-    def connections(self):
+    
+    def setToolTips(self):
+        tip = ("If not Empty, all Proxy files will be transferred to this directory.\n"
+               "This can be an Absolute Dir Path (C:\some_path\Proxy) or\n"
+               "a Relative Dir Path (.\Proxy)")
+        self.l_ovrProxyDir.setToolTip(tip)
+
+        tip = ("Directory to be Used if there are no Source Proxys to Resolve\n"
+               "a Proxy Path from."
+               "This can be an Absolute Dir Path (C:\some_path\Proxy) or\n"
+               "a Relative Dir Path (.\Proxy)")
+        self.l_fallbackDir.setToolTip(tip)
+
+
+    #   Adds Red Border to the LineEdit if Not Valid
+    def setLineEditColor(self, lineEdit, valid=True):
+        if valid:
+            lineEdit.setStyleSheet("")
+        else:
+            lineEdit.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+
+
+    def connectEvents(self):
+        self.le_ovrProxyDir.textChanged.connect(lambda: self.validatePathInput(self.le_ovrProxyDir, allowEmpty=True))
+        self.le_fallbackDir.textChanged.connect(lambda: self.validatePathInput(self.le_fallbackDir))
         self.b_editPresets.clicked.connect(self._onEditPresetsClicked)
         self.b_editSearchList.clicked.connect(self._onEditSearchTemplatesClicked)
 
@@ -736,15 +750,6 @@ class ProxyPopup(QDialog):
         if "fallback_proxyDir" in proxySettings:
             self.le_fallbackDir.setText(proxySettings["fallback_proxyDir"])
 
-        if "fallback_proxyDir_relative" in proxySettings:
-            self.chb_fallbackDir_relative.setChecked(proxySettings["fallback_proxyDir_relative"])
-
-        if "use_ovrProxyDir" in proxySettings:
-            self.chb_useOvrProxyDir.setChecked(proxySettings["use_ovrProxyDir"])
-
-        if "ovr_proxyDir_relative" in proxySettings:
-            self.chb_ovrProxyDir_relative.setChecked(proxySettings["ovr_proxyDir_relative"])
-
         if "ovr_proxyDir" in proxySettings:
             self.le_ovrProxyDir.setText(proxySettings["ovr_proxyDir"])
 
@@ -760,7 +765,7 @@ class ProxyPopup(QDialog):
             if idx != -1:
                 self.cb_proxyScale.setCurrentIndex(idx)
 
-        self.connections()
+        self.connectEvents()
         self._onProxyModeChanged()
         self.updateTemplateNumber()
 
@@ -883,16 +888,69 @@ class ProxyPopup(QDialog):
     def getProxySettings(self):
         pData = {
             "fallback_proxyDir":            self.le_fallbackDir.text(),
-            "fallback_proxyDir_relative":   self.chb_fallbackDir_relative.isChecked(),
-            "use_ovrProxyDir":              self.chb_useOvrProxyDir.isChecked(),
             "ovr_proxyDir":                 self.le_ovrProxyDir.text(),
-            "ovr_proxyDir_relative":        self.chb_ovrProxyDir_relative.isChecked(),
             "proxyPreset":                  self.cb_proxyPresets.currentText(),
             "proxyScale":                   self.cb_proxyScale.currentText()
             }
         
         return pData
+        
     
+    #   Checks User Input for Errors
+    def validatePathInput(self, lineEdit, allowEmpty=False):
+        text = lineEdit.text().strip()
+
+        #   1. Check for Empty 
+        if not text:
+            if allowEmpty:
+                self.setLineEditColor(lineEdit, valid=True)
+                lineEdit.setToolTip("")
+                return True
+            
+            else:
+                self.setLineEditColor(lineEdit, valid=False)
+                lineEdit.setToolTip("Path cannot be empty.")
+                return False
+
+        errors = []
+
+        # 2. No illegal characters (on Windows): <>:"|?*
+        for idx, ch in enumerate(text):
+            if ch in '<>:"|?*':
+                if not (ch == ':' and idx == 1):
+                    errors.append(f"Illegal Character: '{ch}'")
+
+        # 3. Leading slash without drive or “./”/“../”
+        if text.startswith(("\\", "/")) and not re.match(r"^[A-Za-z]:[\\/]", text):
+            errors.append("Missing Relative Path or Drive Letter")
+
+        # 4. Empty segments (e.g. "foo\\\\bar" or "foo//bar")
+        segs = re.split(r"[\\/]", text)
+        if any(seg == "" for seg in segs):
+            errors.append("Empty Path Segment Detected")
+
+        # 5. No trailing spaces
+        if text.endswith(" "):
+            errors.append("Trailing Space in Path")
+
+        # 6. No spaces around separators
+        if re.search(r"[ \\]/|/[ \\]", text):
+            errors.append("Space Adjacent to Path Separator")
+
+        valid = not errors
+
+        # Update UI
+        self.setLineEditColor(lineEdit, valid)
+
+        if valid:
+            lineEdit.setToolTip("")
+        else:
+            lineEdit.setToolTip("\n".join(errors))
+
+        return valid
+
+
+
 
 
 class ProxyPresetsEditor(QDialog):
@@ -907,7 +965,7 @@ class ProxyPresetsEditor(QDialog):
         self.setWindowTitle("FFMPEG Proxy Presets")
 
         self.setupUI()
-        self.connections()
+        self.connectEvents()
         self.populateTable(self.presetData)
 
 
@@ -965,7 +1023,7 @@ class ProxyPresetsEditor(QDialog):
         self.tw_presets.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
 
 
-    def connections(self):
+    def connectEvents(self):
         self.b_edit.clicked.connect(self._onEdit)
         self.b_add.clicked.connect(self._onAdd)
         self.b_remove.clicked.connect(self._onRemove)
@@ -1288,7 +1346,7 @@ class ProxySearchStrEditor(QDialog):
         self.setWindowTitle("Proxy Search List")
 
         self.setupUI()
-        self.connections()
+        self.connectEvents()
         self.populateTable(self.searchList)
 
 
@@ -1298,7 +1356,7 @@ class ProxySearchStrEditor(QDialog):
         screen_geometry = screen.availableGeometry()
         width = screen_geometry.width() // 3
         height = screen_geometry.height() // 2
-        x_pos = (screen_geometry.width() - width) // 3
+        x_pos = (screen_geometry.width() - width) // 2
         y_pos = (screen_geometry.height() - height) // 2
         self.setGeometry(x_pos, y_pos, width, height)
 
@@ -1356,7 +1414,7 @@ class ProxySearchStrEditor(QDialog):
         self.tw_searchList.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
 
-    def connections(self):
+    def connectEvents(self):
         self.b_edit.clicked.connect(self._onEdit)
         self.b_add.clicked.connect(self._onAdd)
         self.b_remove.clicked.connect(self._onRemove)

@@ -388,10 +388,7 @@ class Prism_SourceTab_Functions(object):
                 },
                 "proxySettings": {
                     "fallback_proxyDir": "\\proxy",
-                    "fallback_proxyDir_relative": True,
-                    "use_ovrProxyDir": False,
                     "ovr_proxyDir": "",
-                    "ovr_proxyDir_relative": False,
                 },
                 "activeNameMods":
                 [],
