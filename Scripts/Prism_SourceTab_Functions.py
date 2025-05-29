@@ -435,7 +435,7 @@ class Prism_SourceTab_Functions(object):
                         "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
                         "Audio_Parameters": "-c:a copy",
                         "Extension": ".mov",
-                        "Multiplier": 0.3
+                        "Multiplier": 0.2
                     },
                     "DNxHD 36M Proxy": {
                         "Description": "Avid-style proxy with intra-frame compression (36 Mbps)",
@@ -456,7 +456,7 @@ class Prism_SourceTab_Functions(object):
                         "Video_Parameters": "-c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 192k",
                         "Extension": ".mp4",
-                        "Multiplier": 0.15
+                        "Multiplier": 0.01
                     }
                 }
             }

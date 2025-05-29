@@ -405,6 +405,12 @@ class BaseTileItem(QWidget):
         return self.browser.getSettings(key=key)
     
 
+    #   Saves Data to Settings
+    @err_catcher(name=__name__)
+    def saveSettings(self, key=None, data=None):
+        self.browser.plugin.saveSettings(key=key, data=data)
+    
+
     #   Returns the Tile Data
     @err_catcher(name=__name__)
     def getData(self):
@@ -1395,18 +1401,38 @@ class DestFileItem(BaseTileItem):
             return per_frame * frame
         
     
-    #   Calculates Generated Proxy Size and Updates Presets Multiplier
+    #   Gets Generated Proxy Size and Updates Presets Multiplier
     @err_catcher(name=__name__)
     def updateProxyPresetMultiplier(self):
-
-        print(f"*** NEED TO ADD UPDATE PRESET MULTIPLIER")                                              #    TESTING
+        #   Get Preset Info
+        presetName = self.browser.proxySettings.get("proxyPreset", "")
+        allPresets = self.getSettings(key="ffmpegPresets")
+        preset = allPresets.get(presetName)
         
+        #   Get File Sizes
+        mainSize = self.getFileSize(self.data["dest_mainFile_path"])
+        proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
 
-        # mainSize = self.data[""]
-        # proxySize = 
+        if mainSize <= 0 or proxySize <= 0:
+            logger.warning("Cannot update multiplier: one of the sizes is zero")
+            return
+        
+        #   Get Scale
+        scale_str = self.browser.proxySettings.get("proxyScale", "100%")
+        scale_pct = int(scale_str.strip("%")) / 100.0
 
+        #   Reverse the Multiplir Calc
+        new_base_mult = proxySize / (mainSize * (scale_pct ** 2))
+        #   Clamp Result
+        new_base_mult = max(0.001, min(new_base_mult, 5.0))
+        #   Get Saved Multiplier
+        old_mult = float(preset["Multiplier"])
+        #   Average Old and New
+        averaged_mult = round((old_mult + new_base_mult) / 2.0, 2)
 
-
+        #   Save New Multiplier to Settings
+        preset["Multiplier"] = averaged_mult
+        self.saveSettings(key="ffmpegPresets", data=allPresets)
 
     
     @err_catcher(name=__name__)
