@@ -1918,8 +1918,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def completeTranfer(self, result):
         self.progressTimer.stop()
         self.setTransferStatus(result)
+        self.sourceFuncts.progBar_total.setValue(100)
         self.configTransUI("complete")
-        # if result == "complete":
 
         if self.useTransferReport:
             self.createTransferReport()

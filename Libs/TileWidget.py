@@ -52,6 +52,8 @@ import time
 import re
 import hashlib
 import subprocess
+import psutil
+import signal
 import platform
 import shlex
 from pathlib import Path
@@ -1688,6 +1690,7 @@ class DestFileItem(BaseTileItem):
         #   Get Main Paths
         sourcePath = self.getSource_mainfilePath()
         destPath = self.getDestMainPath()
+        self.data["dest_mainFile_path"] = destPath
 
         ##  IF PROXY IS ENABLED ##
         if proxyEnabled and self.isVideo():                                     #   TODO - HANDLE NON-VIDEO
@@ -1747,6 +1750,7 @@ class DestFileItem(BaseTileItem):
         if self.main_transfer_worker and self.transferState != "Complete":
             self.transferTimer.stop()
             self.main_transfer_worker.pause()
+
             if self.transferState != "Queued":
                 self.setTransferStatus(progBar="transfer", status="Paused")
 
@@ -1755,6 +1759,7 @@ class DestFileItem(BaseTileItem):
     def resume_transfer(self, origin):
         if self.main_transfer_worker and self.transferState == "Paused":
             self.setTransferStatus(progBar="transfer", status="Transferring")
+
             self.transferTimer.start()
             self.main_transfer_worker.resume()
 
@@ -1766,39 +1771,44 @@ class DestFileItem(BaseTileItem):
             self.transferTimer.stop()
             self.main_transfer_worker.cancel()
 
-        if self.worker_proxy:                                            #   TODO - FINISH IMPLEMENTATION
+        if self.worker_proxy and self.transferState != "Complete":
+            self.setTransferStatus(progBar="proxy", status="Cancelled")
+            self.transferTimer.stop()
             self.worker_proxy.cancel()
 
 
     #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
     def update_main_transferProgress(self, value, copied_size):
-        self.setTransferStatus(progBar="transfer", status="Transferring")
+        if self.transferState != "Cancelled":
+            self.setTransferStatus(progBar="transfer", status="Transferring")
 
-        self.transferProgBar.setValue(value)
-        self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
-        self.main_copiedSize = copied_size
+            self.transferProgBar.setValue(value)
+            self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
+            self.main_copiedSize = copied_size
 
 
     #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
     def update_proxyCopyProgress(self, value, copied_size):
-        self.setTransferStatus(progBar="proxy", status="Transferring Proxy")
+        if self.transferState != "Cancelled":
+            self.setTransferStatus(progBar="proxy", status="Transferring Proxy")
 
-        self.proxyProgBar.setValue(value)
-        self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
-        self.proxy_copiedSize = copied_size
+            self.proxyProgBar.setValue(value)
+            self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
+            self.proxy_copiedSize = copied_size
 
 
     #   Updates the UI During the Transfer
     @err_catcher(name=__name__)
     def update_proxyGenerateProgress(self, value, frame):
-        self.setTransferStatus(progBar="proxy", status="Generating Proxy")
+        if self.transferState != "Cancelled":
+            self.setTransferStatus(progBar="proxy", status="Generating Proxy")
 
-        self.proxyProgBar.setValue(value)
-        self.l_amountCopied.setText(str(frame))
+            self.proxyProgBar.setValue(value)
+            self.l_amountCopied.setText(str(frame))
 
-        self.proxy_copiedSize = self.getMultipliedProxySize(frame=frame)
+            self.proxy_copiedSize = self.getMultipliedProxySize(frame=frame)
 
 
     #   Gets Called from the Finished Signal
@@ -2322,17 +2332,51 @@ class ProxyGenerationWorker(QThread):
         self.cancel_flag = False
         self.last_emit_time = 0
 
-    def pause(self):
-        self.pause_flag = True
 
-    def resume(self):
-        self.pause_flag = False
+    # def pause(self):                                      #   Not Implemented
+    #     self.pause_flag = True
+
+
+    # def resume(self):                                      #   Not Implemented
+    #     self.pause_flag = False
+
 
     def cancel(self):
+        print("[ProxyWorker] Cancel called!")                       #   TODO - Add Logging
         self.cancel_flag = True
 
+
+    #   Kills the FFmpeg Process
+    def _kill_ffmpeg_tree(self):
+        try:
+            proc = psutil.Process(self.nProc.pid)
+        except (psutil.NoSuchProcess, AttributeError):
+            return
+
+        #   Terminate Child Processes
+        for child in proc.children(recursive=True):
+            try:
+                child.kill()
+            except psutil.NoSuchProcess:
+                pass
+
+        #   Kill Parent Process
+        try:
+            if platform.system() == "Windows":
+                #   Send CTRL_BREAK_EVENT Signal to the Group
+                self.nProc.send_signal(signal.CTRL_BREAK_EVENT)
+                self.nProc.kill()
+            else:
+                #   Kill the Process Group  (Linux, Mac)
+                os.killpg(os.getpgid(self.nProc.pid), signal.SIGTERM)
+
+        except Exception:
+            #   Fallback Attempt
+            proc.kill()
+
+
     def run(self):
-        ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))                           #   TODO - Handle Errors
+        ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
         if not ffmpegPath:
             self.finished.emit(False)
             return
@@ -2346,7 +2390,6 @@ class ProxyGenerationWorker(QThread):
             return
 
         #   Get Settings
-        # output_ext   = self.settings.get("Extension", "")
         vid_params   = self.settings.get("Video_Parameters", "")
         aud_params   = self.settings.get("Audio_Parameters", "")
         scale_str    = self.settings.get("scale", None)
@@ -2402,75 +2445,77 @@ class ProxyGenerationWorker(QThread):
         #   Add Output Path
         argList += [self.outputPath, "-y"]
 
+        # Regex to Catch FFmpeg output (e.g. "frame=  1234")
+        frame_re = re.compile(r"frame=\s*(\d+)")
+
+
         #   Set Shell True if Windows
         shell = (platform.system() == "Windows")
 
-        # Regex to Catch FFmpeg output (e.g. "frame=  1234")
-        frame_re = re.compile(r"frame=\s*(\d+)")
+        # On Windows, make FFmpeg its own process group so we can signal it.
+        creationflags = 0
+        if shell and platform.system() == "Windows":
+            creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
 
         #   Get Thread Slot
         self.origin.proxy_semaphore.acquire()
 
         self.origin._onProxyGenStart()
 
-        #   Execute FFmpeg Command
-        nProc = subprocess.Popen(
+        self.nProc = subprocess.Popen(
             argList,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=shell,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
+            creationflags=creationflags,
+            preexec_fn=(os.setsid if platform.system() != "Windows" else None)
         )
 
-        # try:
-        while True:
-            # cancel?                                           #   TODO
-            if self.cancel_flag:
-                print("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")
-                nProc.terminate()
-                try:
-                    nProc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    print("[ProxyWorker] Killing FFmpeg.")
-                    nProc.kill()
-                self.finished.emit(False)
-                return
+        try:
+            while True:
+                #   Cancel Generation
+                if self.cancel_flag:
+                    print("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")
+                    self._kill_ffmpeg_tree()
+                    self.finished.emit(False)
+                    return
 
-            # pause?
-            if self.pause_flag:
-                time.sleep(0.1)
-                continue
+                # # pause?
+                # if self.pause_flag:
+                #     time.sleep(0.1)
+                #     continue
 
-            #   Read Outputted Console Lines
-            line = nProc.stderr.readline()
-            if not line:
-                break
-            
-            #   Get Frame from Regex
-            match = frame_re.search(line)
-            if match:
-                current = int(match.group(1))
-                #   Calculate Percentage from Current Frame and Total Frames
-                pct = int((current / total_frames) * 100)
+                #   Read Outputted Console Lines
+                line = self.nProc.stderr.readline()
+                if not line:
+                    break
+                
+                #   Get Frame from Regex
+                match = frame_re.search(line)
+                if match:
+                    current = int(match.group(1))
+                    #   Calculate Percentage from Current Frame and Total Frames
+                    pct = int((current / total_frames) * 100)
 
-                #   Update Prog Bar at Specified Interval
-                now = time.time()
-                if (now - self.last_emit_time >= self.origin.progUpdateInterval) or (pct == 100):
-                    #   Emit Percentage and Current Frame
-                    self.progress.emit(pct, current)
-                    self.last_emit_time = now
+                    #   Update Prog Bar at Specified Interval
+                    now = time.time()
+                    if (now - self.last_emit_time >= self.origin.progUpdateInterval) or (pct == 100):
+                        #   Emit Percentage and Current Frame
+                        self.progress.emit(pct, current)
+                        self.last_emit_time = now
 
-        nProc.wait()
-        self.finished.emit(nProc.returncode == 0)
+            self.nProc.wait()
+            self.finished.emit(self.nProc.returncode == 0)
 
-        # except Exception as e:
-        #     print(f"[ProxyWorker] Exception: {e}")
-        #     if nProc.poll() is None:
-        #         nProc.kill()
-        #     self.finished.emit(False)
+        except Exception as e:
+            print(f"[ProxyWorker] Exception: {e}")
+            if self.nProc.poll() is None:
+                self._kill_ffmpeg_tree()
+            self.finished.emit(False)
 
-        # finally:
-        self.origin.proxy_semaphore.release()
-        self.running = False
+        finally:
+            self.origin.proxy_semaphore.release()
+            self.running = False
 
