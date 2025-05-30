@@ -30,6 +30,23 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
+####################################################
+#
+#                SOURCE TAB PLUGIN
+#
+#                 Joshua Breckeen
+#                    Alta Arts
+#                josh@alta-arts.com
+#
+#   This PlugIn adds an additional Main Tab to the
+#   Prism Standalone Project Browser.
+#
+#   This adds functionality to Ingest Media such as Camera clips,
+#   as well as handling Proxy's and Metadata.
+#
+#
+####################################################
+
 
 import os
 import sys

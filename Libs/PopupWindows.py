@@ -32,16 +32,19 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 ####################################################
 #
-#           ########### PLUGIN
-#           by Joshua Breckeen
-#                Alta Arts
+#                SOURCE TAB PLUGIN
 #
-#   This PlugIn adds an additional tab to the Prism Settings menu to ##########################
-#   allow a user to choose a directory that contains scene presets.###############################
+#                 Joshua Breckeen
+#                    Alta Arts
+#                josh@alta-arts.com
 #
-        #       TODO
-
-
+#   This PlugIn adds an additional Main Tab to the
+#   Prism Standalone Project Browser.
+#
+#   This adds functionality to Ingest Media such as Camera clips,
+#   as well as handling Proxy's and Metadata.
+#
+#
 ####################################################
 
 

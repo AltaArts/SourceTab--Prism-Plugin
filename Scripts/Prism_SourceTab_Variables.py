@@ -32,16 +32,19 @@
 # along with Prism.  If not, see <https://www.gnu.org/licenses/>.
 ####################################################
 #
-#           SOURCE Tab PLUGIN
-#           by Joshua Breckeen
-#                Alta Arts
+#                SOURCE TAB PLUGIN
 #
-#   This PlugIn adds an additional tab to the Prism Settings menu to 
-#   allow a user to choose a directory that contains scene presets.
+#                 Joshua Breckeen
+#                    Alta Arts
+#                josh@alta-arts.com
 #
-        #       TODO
-
-
+#   This PlugIn adds an additional Main Tab to the
+#   Prism Standalone Project Browser.
+#
+#   This adds functionality to Ingest Media such as Camera clips,
+#   as well as handling Proxy's and Metadata.
+#
+#
 ####################################################
 
 import os
@@ -49,7 +52,7 @@ import os
 
 class Prism_SourceTab_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v2.0.2-0.2"
+        self.version = "v0.5"
         self.pluginName = "SourceTab"
         self.pluginType = "Custom"
         self.platforms = ["Windows", "Linux", "Darwin"]
