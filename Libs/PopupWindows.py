@@ -358,8 +358,28 @@ class NamingPopup(QDialog):
         self.refreshUI()
 
 
+
+class NamingPopup(QDialog):
+    def __init__(self, core, origName, mods=None):
+        super().__init__()
+
+        self.core = core
+        self.origName = origName
+        self.activeMods = []
+        self.modDefs = [{"name": cls.mod_name, "class": cls} for cls in GetMods()]
+        self.result = None
+
+        self.setupUI()
+        self.setWindowTitle("File Naming Configuration")
+
+        if mods:
+            self.loadMods(mods)
+
+        self.refreshUI()
+
+
     def setupUI(self):
-        #   Set up Sizing and Position
+        #   Calculate Window Geometry
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
         width   = screen_geometry.width() // 2.5
@@ -368,76 +388,95 @@ class NamingPopup(QDialog):
         y_pos   = (screen_geometry.height() - height) // 2
         self.setGeometry(x_pos, y_pos, width, height)
 
-        #   Main Window Layout
-        lo_main         = QVBoxLayout(self)
-        scroll_area     = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_widget   = QWidget()
-        scroll_layout   = QVBoxLayout(scroll_widget)
+        #   Main layout
+        lo_main = QVBoxLayout(self)
 
-        ##  Display content
+        #   TOP NAMES SECTION
+        lo_top = QVBoxLayout()
 
         #   Original Name
         lo_origName = QHBoxLayout()
         l_origName = QLabel("Original:")
         l_origName.setFixedWidth(70)
         self.le_origName = QLineEdit()
+
         lo_origName.addWidget(l_origName)
         lo_origName.addWidget(self.le_origName)
-        scroll_layout.addLayout(lo_origName)
 
-        #   New Name
+        #   Modified Name
         lo_newName = QHBoxLayout()
         l_newName = QLabel("Modified:")
         l_newName.setFixedWidth(70)
         self.le_newName = QLineEdit()
         lo_newName.addWidget(l_newName)
         lo_newName.addWidget(self.le_newName)
-        scroll_layout.addLayout(lo_newName)
 
-        #   Groupbox for Added Modifiers
+        #   Add Top Layouts
+        lo_top.addLayout(lo_origName)
+        lo_top.addLayout(lo_newName)
+        lo_main.addLayout(lo_top)
+
+        #   MIDDLE MODIFIERS SECTION
+        mod_container = QWidget()
+        mod_container_layout = QVBoxLayout(mod_container)
+        mod_container_layout.setContentsMargins(0, 0, 0, 0)
+        mod_container_layout.setSpacing(4)
+
         self.gb_activeMods = QGroupBox("Active Modifiers")
         self.lo_activeMods = QVBoxLayout()
+        self.lo_activeMods.setContentsMargins(4, 4, 4, 4)
+        self.lo_activeMods.setSpacing(6)
         self.gb_activeMods.setLayout(self.lo_activeMods)
-        self.gb_activeMods.setMinimumHeight(100)
 
-        #   Add Modifiers Groupbox
-        scroll_layout.addWidget(self.gb_activeMods)
+        mod_container_layout.addWidget(self.gb_activeMods)
+        mod_container_layout.addStretch(1)
 
-        scroll_layout.addStretch(1)
+        mod_scroll = QScrollArea()
+        mod_scroll.setWidgetResizable(True)
+        mod_scroll.setWidget(mod_container)
+        mod_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        lo_main.addWidget(mod_scroll, 1)
 
-        #   Bottom Add Mods Layout
-        lo_addMods = QHBoxLayout()
-
+        #   BOTTOM BUTTONS SECTION
+        lo_buttons = QHBoxLayout()
         l_availMods = QLabel("Modifier")
         self.cb_availMods = QComboBox()
         b_addMod = QPushButton(text="Add Modifier")
+        b_apply = QPushButton("Apply")
+        b_close = QPushButton("Close")
 
-        #   Add Bottom Layout
-        lo_addMods.addWidget(l_availMods)
-        lo_addMods.addWidget(self.cb_availMods)
-        lo_addMods.addWidget(b_addMod)
-        scroll_layout.addLayout(lo_addMods)
-
-        #   Connect Add Mod Button
-        b_addMod.clicked.connect(self.onAddModifierClicked)
-
-        #    Add Layout to Main
-        scroll_area.setWidget(scroll_widget)
-        lo_main.addWidget(scroll_area)
-
-        # Buttons
-        lo_buttons = QHBoxLayout()
+        lo_buttons.addWidget(l_availMods)
+        lo_buttons.addWidget(self.cb_availMods)
+        lo_buttons.addWidget(b_addMod)
         lo_buttons.addStretch(1)
-
-        buttons = ["Apply", "Close"]
-
-        for button_text in buttons:
-            button = QPushButton(button_text)
-            button.clicked.connect(lambda _, t=button_text: self._onButtonClicked(t))
-            lo_buttons.addWidget(button)
+        lo_buttons.addWidget(b_apply)
+        lo_buttons.addWidget(b_close)
 
         lo_main.addLayout(lo_buttons)
+
+        #   Connections
+        b_addMod.clicked.connect(self.onAddModifierClicked)
+        b_apply.clicked.connect(lambda: self._onButtonClicked("Apply"))
+        b_close.clicked.connect(lambda: self._onButtonClicked("Close"))
+
+        #   ToolTips
+        tip = ("Original Un-Altered Name\n\n"
+               "Uses first file in the Destination List\n"
+               "as an example, or example placeholder name")
+        self.le_origName.setToolTip(tip)
+
+        tip = ("Altered Name after all Enabled Modifiers\n\n"
+               "This will affect all selected files in the\nDestination list")
+        self.le_newName.setToolTip(tip)
+
+        tip = ("Active Modifier Stack.\n\nSelect desired Modifiers and click Add Modifier\n"
+               "to add Mods to Stack")
+        self.gb_activeMods.setToolTip(tip)
+
+        self.cb_availMods.setToolTip("Select Modifier Type to add")
+        b_addMod.setToolTip("Add selected Modifier to Stack")
+        b_apply.setToolTip("Apply Changes and Close Window")
+        b_close.setToolTip("Discard Changes and Close Window")
 
         self.populateModsCombo()
 
@@ -1597,7 +1636,7 @@ class ProxySearchStrEditor(QDialog):
             "Missing @MAINFILENAME@"
         ))
 
-        #   2. Check Illegal Charactors (except the backslashes, dot, underscore, hyphen, colon for drive letter)
+        #   2. Check Illegal Characters (except the backslashes, dot, underscore, hyphen, colon for drive letter)
         illegal = set('<>:"|?*')
         bad = sorted(set(template) & illegal)
         results.append((

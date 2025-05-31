@@ -277,19 +277,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.sourceFuncts = SourceFunctions(self.core, self)
         # self.sourceFuncts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
-
-        # #   Quick Simple Line Separator
-        # def create_separator(color="#444", thickness=3, margin=50):
-        #     line = QFrame()
-        #     line.setFixedHeight(thickness)
-        #     line.setStyleSheet(f"""
-        #         background-color: {color};
-        #         margin-top: {margin}px;
-        #         margin-bottom: {margin}px;
-        #     """)
-        #     return line
-
-
         #   Add Panels to the Right Panel
         self.lo_rightPanel.addLayout(self.lo_playerToolbar)
         # self.lo_rightPanel.addWidget(create_separator())
@@ -308,8 +295,59 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
 
-        self.splitter.setSizes([1, 1, 1])                       #   TODO - FINISH SIZEING
+        self.splitter.setSizes([1, 1, 1])                       #   TODO - FINISH SIZING
 
+        self.setToolTips()
+
+
+    @err_catcher(name=__name__)                                                     #   TODO - FINISH
+    def setToolTips(self):
+        tip = "Go to Parent Directory"
+        self.b_sourcePathUp.setToolTip(tip)
+        self.b_destPathUp.setToolTip(tip)
+
+        tip = ("Source Media Directory (required)\n\n"
+               "Please add Source by:\n"
+               "   - Clicking the Browser button\n"
+               "   - Typing the Direcory Path\n"
+               "   - Paste Path\n"
+               "   - Drag/drop Media Folder into List Window")
+        self.le_sourcePath.setToolTip(tip)
+
+        tip = ("Destination Directory (required)\n\n"
+               "Please add Destination by:\n"
+               "   - Clicking the Browser button\n"
+               "   - Typing the Direcory Path\n"
+               "   - Paste Path\n"
+               "   - Drag/drop Destination Folder into List Window")
+        self.le_destPath.setToolTip(tip)
+
+        tip = "Open File Explorer to Choose Directory"
+        self.b_browseSource.setToolTip(tip)
+        self.b_browseDest.setToolTip(tip)
+
+        self.b_refreshSource.setToolTip("Reload Source List")
+        self.b_refreshDest.setToolTip("Reload Destination List")
+
+        tip = "Select (check) all Items in the List"
+        self.b_source_checkAll.setToolTip(tip)
+        self.b_dest_checkAll.setToolTip(tip)
+
+        tip = "Un-Select all Items in the List"
+        self.b_source_uncheckAll.setToolTip(tip)
+        self.b_dest_uncheckAll.setToolTip(tip)
+
+        self.b_source_addSel.setToolTip("Add Selected (checked) items to the Destination List.")
+        self.b_dest_clearSel.setToolTip("Remove Selected Items")
+        self.b_dest_clearAll.setToolTip("Remove All Items")
+
+        tip = "Enable/Disable Media Player"
+        self.chb_enablePlayer.setToolTip(tip)
+
+        tip = ("Use Proxy file in the Media Player\n"
+               "(if the Proxy exists)\n\n"
+               "This does not affect the Transfer")
+        self.chb_preferProxies.setToolTip(tip)
 
 
     @err_catcher(name=__name__)                                                     #   TODO - FINISH
@@ -359,25 +397,25 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.tw_destination.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_destination))
 
         #   Source Buttons
-        self.b_source_addSel.clicked.connect(self.addSelected)
-        self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
+        self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
+        self.b_source_addSel.clicked.connect(self.addSelected)
 
         #   Destination Buttons
-        self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
-        self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
+        self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
+        self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
-        self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
-        self.b_dest_clearAll.clicked.connect(lambda: self.clearTransferList())
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
+        self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
+        self.b_dest_clearAll.clicked.connect(lambda: self.clearTransferList())
 
         #   Media Player
         self.chb_enablePlayer.toggled.connect(self.toggleMediaPlayer)
@@ -1231,12 +1269,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
         self.le_sourcePath.setText(elided_text)
 
-        self.le_sourcePath.setToolTip(sourceDir)
-
         #   Colors the Addressbar if the Path is invalid
         if not os.path.exists(sourceDir):
             self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
         else:
+            self.le_sourcePath.setToolTip(sourceDir)
             self.le_sourcePath.setStyleSheet("")
 
         self.tw_source.setRowCount(0)  # Clear existing rows
@@ -1316,12 +1353,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
         self.le_destPath.setText(elided_text)
 
-        self.le_destPath.setToolTip(destDir)
 
         #   Colors the Addressbar if the Path is invalid
         if not os.path.exists(destDir):
             self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
         else:
+            self.le_destPath.setToolTip(destDir)
             self.le_destPath.setStyleSheet("")
 
         self.tw_destination.setRowCount(0)

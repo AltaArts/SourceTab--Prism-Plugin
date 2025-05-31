@@ -81,10 +81,13 @@ def createModifier(mod_class):
 ##   Base Modifier that Each Child Modifier Inhierits   ##
 class Mods_BaseFilename(QObject):
     mod_name = "Base Modifier"
+    mod_description = "Base Modifier"
     modChanged = Signal()
 
     def __init__(self):
         super().__init__()
+
+        self._rowWidgets = []
 
         #   Enabled State
         self.isEnabled = True
@@ -95,8 +98,14 @@ class Mods_BaseFilename(QObject):
 
         #   Remove Button
         self.b_remove = QPushButton()
-        self.b_remove.setIcon(QIcon(os.path.join(iconDir, "delete.png")))
+        deleteIconPath = os.path.join(iconDir, "delete.png")
+        deleteIcon = self.getIconFromPath(deleteIconPath)
+        self.b_remove.setIcon(deleteIcon)
         self.b_remove.setFixedWidth(24)
+
+        #   ToolTips
+        self.chb_enableCheckbox.setToolTip("Enable/Disable Modifier")
+        self.b_remove.setToolTip("Remove Modifier from Stack")
 
         self.baseConnections()
 
@@ -106,10 +115,54 @@ class Mods_BaseFilename(QObject):
         self.chb_enableCheckbox.stateChanged.connect(self.onEnableChanged)
 
 
+    #   Returns QIcon with Both Normal and Disabled Versions
+    def getIconFromPath(self, imagePath, normalLevel=0.9, dimLevel=0.4):
+        normal_pixmap = QPixmap(imagePath)
+        normal_image = normal_pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
+
+        #   Darken Normal Version Slightly
+        darkened_normal_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+
+        for y in range(normal_image.height()):
+            for x in range(normal_image.width()):
+                color = normal_image.pixelColor(x, y)
+
+                #   Reduce brightness to normalLevel
+                dark = int(color.red() * normalLevel)
+                color = QColor(dark, dark, dark, color.alpha())
+                darkened_normal_image.setPixelColor(x, y, color)
+
+        darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
+
+        #   Darken Disbled Version More (dimLevel)
+        disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+
+        for y in range(normal_image.height()):
+            for x in range(normal_image.width()):
+                color = normal_image.pixelColor(x, y)
+
+                # Reduce brightness to 40%
+                dark = int(color.red() * dimLevel)
+                color = QColor(dark, dark, dark, color.alpha())
+                disabled_image.setPixelColor(x, y, color)
+
+        disabled_pixmap = QPixmap.fromImage(disabled_image)
+
+        #   Convert to QIcon
+        icon = QIcon()
+        icon.addPixmap(darkened_normal_pixmap, QIcon.Normal)
+        icon.addPixmap(disabled_pixmap, QIcon.Disabled)
+
+        return icon
+
+
     #   Toggles Enabled State
     def onEnableChanged(self, state):
         self.isEnabled = bool(state)
-        self.onWidgetChanged()
+        if hasattr(self, "_rowWidgets"):
+            for w in self._rowWidgets:
+                w.setEnabled(self.isEnabled)
+        self.modChanged.emit()
 
 
     #   Toggles Checkbox
@@ -126,16 +179,20 @@ class Mods_BaseFilename(QObject):
     #   Returns Base UI Items
     def getModUI(self):
         layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        #   Enabled Checkbox
         layout.addWidget(self.chb_enableCheckbox)
-        #   Modifier Name
-        layout.addWidget(QLabel(self.mod_name))
+        nameLabel = QLabel(self.mod_name)
+        nameLabel.setToolTip(self.mod_description)
+        layout.addWidget(nameLabel)
 
-        container = QWidget()
-        container.setLayout(layout)
+        group = QFrame()
+        group.setLayout(layout)
+        group.setFrameStyle(QFrame.NoFrame)
 
-        return [container]
+        self._rowWidgets += [nameLabel, self.b_remove]
+
+        return [group]
 
 
     #   Returns Un-Altered Name
@@ -145,49 +202,64 @@ class Mods_BaseFilename(QObject):
         return base_name
 
 
-
+####    USE THIS AS A TEMPLATE FOR NEW MODIFIERS    ####
+##   Prefix Modifier    ##
 class Mods_AddPrefix(Mods_BaseFilename):
     mod_name = "Add Prefix"
+    mod_description = "Adds Text to the Beginning of Filename"
 
     def __init__(self):
         super().__init__()
+
+        ##  vvvv    Define Mod UI Widgets  (required)   vvvv    ##
         self.le_prefix_input = QLineEdit()
         self.le_prefix_input.setPlaceholderText("Enter prefix")
+
+        self._rowWidgets.append(self.le_prefix_input)
+        self._rowWidgets.append(self.b_remove)
+
+        #   ToolTips (optional)
+        self.le_prefix_input.setToolTip("Prefix Text")
+        ##  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    ##
 
         self.connections()
 
 
+    #   Add All UI Elements to Trigger Updates (required)
     def connections(self):
         self.le_prefix_input.textChanged.connect(self.onWidgetChanged)
 
 
+    #   Add UI Elements
     def getModUI(self):
         base_widgets = super().getModUI()
+        group = base_widgets[0]
+        rowLayout = group.layout()
 
-        lo_mod = QHBoxLayout()
+        ##  vvvv    Add Widgets to Layout (required)   vvvv    ##
+        rowLayout.addWidget(self.le_prefix_input)
+        ##  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    ##
 
-        lo_mod.addWidget(self.le_prefix_input)
-        lo_mod.addWidget(self.b_remove)
-
-        container = QWidget()
-        container.setLayout(lo_mod)
-    
-        base_widgets.append(container)
+        #   Add Remove Button to End
+        rowLayout.addWidget(self.b_remove)
 
         return base_widgets
 
 
+    #   Define Settings to Save (required)
     def getSettings(self):
         return {
             "prefix": self.le_prefix_input.text(),
             }
     
 
+    #   Define Settings to Load into UI (required)
     def setSettings(self, data):
         self.setCheckbox(data.get("enabled", False))
         self.le_prefix_input.setText(data.get("prefix", ""))
 
 
+    #   Logic for Modifier (required)
     def applyMod(self, base_name, settings=None):
         if settings:
             prefix = settings["prefix"]
@@ -198,15 +270,13 @@ class Mods_AddPrefix(Mods_BaseFilename):
  
 
 
-##   Suffix Modifier    ##                  (each Modifier should use this as a Template)
+##   Suffix Modifier    ##
 class Mods_AddSuffix(Mods_BaseFilename):
     mod_name = "Add Suffix"
+    mod_description = "Adds Text to the End of Filename"
 
     def __init__(self):
         super().__init__()
-
-        ##  UI Elements Definied Here   ##
-        ## vvvvvvvvvvvvvvvvvvvvvvvvvv   ##
 
         #   Suffix Text Box
         self.le_suffix_input = QLineEdit()
@@ -215,7 +285,16 @@ class Mods_AddSuffix(Mods_BaseFilename):
         self.l_effectExt = QLabel("Extension")
         self.cb_effectExt = QCheckBox()
 
-        ##  ^^^^^^^^^^^^^^^^^^^^^^^^^   ##
+        self._rowWidgets.append(self.le_suffix_input)
+        self._rowWidgets.append(self.l_effectExt)
+        self._rowWidgets.append(self.cb_effectExt)
+
+        #   ToolTips
+        self.le_suffix_input.setToolTip("Suffix Text")
+
+        tip = "Apply to Extension"
+        self.l_effectExt.setToolTip(tip)
+        self.cb_effectExt.setToolTip(tip)
 
         self.connections()
 
@@ -228,24 +307,17 @@ class Mods_AddSuffix(Mods_BaseFilename):
 
     ##  Creates Mod UI Layout and Returns the Layout    ##
     def getModUI(self):
-        #   Get Base UI Elements
         base_widgets = super().getModUI()
-
-        lo_mod = QHBoxLayout()
+        group = base_widgets[0]
+        rowLayout = group.layout()
 
         #   Add Suffix Textbox
-        lo_mod.addWidget(self.le_suffix_input)
-        lo_mod.addWidget(self.l_effectExt)
-        lo_mod.addWidget(self.cb_effectExt)
+        rowLayout.addWidget(self.le_suffix_input)
+        rowLayout.addWidget(self.l_effectExt)
+        rowLayout.addWidget(self.cb_effectExt)
 
         #   Add Remove Button
-        lo_mod.addWidget(self.b_remove)
-
-        container = QWidget()
-        container.setLayout(lo_mod)
-        
-        #   Add Mod Widgets to Base Widgets
-        base_widgets.append(container)
+        rowLayout.addWidget(self.b_remove)
 
         return base_widgets
 
@@ -287,40 +359,53 @@ class Mods_AddSuffix(Mods_BaseFilename):
 
 class Mods_RemoveStartEnd(Mods_BaseFilename):
     mod_name = "Remove Start/End"
+    mod_description = "Removes Characters from the Beginning or End of Filename"
 
     def __init__(self):
         super().__init__()
+
         self.cb_orientation   = QComboBox()
         self.cb_orientation.addItems(["Beginning", "End"])
-        self.sb_numCharactors = QSpinBox()
+        self.sb_numcharacters = QSpinBox()
         self.l_effectExt      = QLabel("Extension")
         self.cb_effectExt     = QCheckBox()
 
+        self._rowWidgets.append(self.cb_orientation)
+        self._rowWidgets.append(self.sb_numcharacters)
+        self._rowWidgets.append(self.l_effectExt)
+        self._rowWidgets.append(self.cb_effectExt)
+
+        self._rowWidgets.append(self.b_remove)
+
+        #   ToolTips
+        self.cb_orientation.setToolTip("Set Orientation")
+        self.sb_numcharacters.setToolTip("Number of Characters to Remove")
+
+        tip = "Apply to Extension"
+        self.l_effectExt.setToolTip(tip)
+        self.cb_effectExt.setToolTip(tip)
+
         self.connections()
 
-    
+
     def connections(self):
         self.cb_orientation.currentIndexChanged.connect(self.onWidgetChanged)
-        self.sb_numCharactors.valueChanged.connect(self.onWidgetChanged)
+        self.sb_numcharacters.valueChanged.connect(self.onWidgetChanged)
         self.cb_effectExt.toggled.connect(self.onWidgetChanged)
         
 
     def getModUI(self):
         base_widgets = super().getModUI()
-
-        lo_mod = QHBoxLayout()
+        group = base_widgets[0]
+        rowLayout = group.layout()
         
-        lo_mod.addWidget(self.cb_orientation)
-        lo_mod.addWidget(self.sb_numCharactors)
-        lo_mod.addStretch()
-        lo_mod.addWidget(self.l_effectExt)
-        lo_mod.addWidget(self.cb_effectExt)
-        lo_mod.addWidget(self.b_remove)
+        rowLayout.addWidget(self.cb_orientation)
+        rowLayout.addWidget(self.sb_numcharacters)
+        rowLayout.addStretch()
+        rowLayout.addWidget(self.l_effectExt)
+        rowLayout.addWidget(self.cb_effectExt)
 
-        container = QWidget()
-        container.setLayout(lo_mod)
-    
-        base_widgets.append(container)
+        rowLayout.addWidget(self.b_remove)
 
         return base_widgets
 
@@ -328,7 +413,7 @@ class Mods_RemoveStartEnd(Mods_BaseFilename):
     def getSettings(self):
         return {
             "orientation": self.cb_orientation.currentText(),
-            "numChar":     self.sb_numCharactors.value(),
+            "numChar":     self.sb_numcharacters.value(),
             "useExt":      self.cb_effectExt.isChecked()
             }
     
@@ -340,7 +425,7 @@ class Mods_RemoveStartEnd(Mods_BaseFilename):
         if idx != -1:
             self.cb_orientation.setCurrentIndex(idx)
         
-        self.sb_numCharactors.setValue(data.get("numChar", 0))
+        self.sb_numcharacters.setValue(data.get("numChar", 0))
         self.cb_effectExt.setChecked(data.get("useExt", False))
 
 
@@ -351,21 +436,21 @@ class Mods_RemoveStartEnd(Mods_BaseFilename):
             affect_ext  = settings["useExt"]
         
         else:
-            num_chars   = self.sb_numCharactors.value()
+            num_chars   = self.sb_numcharacters.value()
             orientation = self.cb_orientation.currentText()
             affect_ext  = self.cb_effectExt.isChecked()
 
         if num_chars < 1:
             return base_name
 
-        # Separate extension if not affecting it
+        #   Separate Extension if not Affecting It
         if not affect_ext:
             name, ext = os.path.splitext(base_name)
         else:
             name, ext = base_name, ""
 
         if num_chars >= len(name):
-            # Prevent crashing if too many characters are removed
+            #   Clamp to Max Length
             name = ""
         else:
             if orientation == "Beginning":
@@ -377,41 +462,55 @@ class Mods_RemoveStartEnd(Mods_BaseFilename):
 
 
 
-class Mods_RemoveCharactors(Mods_BaseFilename):
-    mod_name = "Remove Charactors"
+class Mods_RemoveCharacters(Mods_BaseFilename):
+    mod_name = "Remove Characters"
+    mod_description = "Remove Characters from a Position in the Filename"
+
 
     def __init__(self):
         super().__init__()
 
         self.l_position       = QLabel("Position")
         self.sb_position      = QSpinBox()
-        self.l_numCharactors  = QLabel("Charactors")
-        self.sb_numCharactors = QSpinBox()
+        self.l_numcharacters  = QLabel("Characters")
+        self.sb_numcharacters = QSpinBox()
+
+        self._rowWidgets.append(self.l_position)
+        self._rowWidgets.append(self.sb_position)
+        self._rowWidgets.append(self.l_numcharacters)
+        self._rowWidgets.append(self.sb_numcharacters)
+
+        self._rowWidgets.append(self.b_remove)
+
+        #   ToolTips
+        tip = "Character Position to Apply"
+        self.l_position.setToolTip(tip)
+        self.sb_position.setToolTip(tip)
+
+        tip = "Number of Characters to Remove"
+        self.l_numcharacters.setToolTip(tip)
+        self.sb_numcharacters.setToolTip(tip)
 
         self.connections()
 
     
     def connections(self):
         self.sb_position.valueChanged.connect(self.onWidgetChanged)
-        self.sb_numCharactors.valueChanged.connect(self.onWidgetChanged)
+        self.sb_numcharacters.valueChanged.connect(self.onWidgetChanged)
         
 
     def getModUI(self):
         base_widgets = super().getModUI()
+        group = base_widgets[0]
+        rowLayout = group.layout()
 
-        lo_mod = QHBoxLayout()
+        rowLayout.addWidget(self.l_numcharacters)
+        rowLayout.addWidget(self.sb_numcharacters)
+        rowLayout.addWidget(self.l_position)
+        rowLayout.addWidget(self.sb_position)
 
-        lo_mod.addWidget(self.l_numCharactors)
-        lo_mod.addWidget(self.sb_numCharactors)
-        lo_mod.addWidget(self.l_position)
-        lo_mod.addWidget(self.sb_position)
-        lo_mod.addStretch()
-        lo_mod.addWidget(self.b_remove)
-
-        container = QWidget()
-        container.setLayout(lo_mod)
-    
-        base_widgets.append(container)
+        rowLayout.addStretch()
+        rowLayout.addWidget(self.b_remove)
 
         return base_widgets
 
@@ -419,7 +518,7 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
     def getSettings(self):
         return {
             "position": self.sb_position.value(),
-            "numChar":  self.sb_numCharactors.value(),
+            "numChar":  self.sb_numcharacters.value(),
             }
     
 
@@ -427,7 +526,7 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
         self.setCheckbox(data.get("enabled", False))
         
         self.sb_position.setValue(data.get("position", 0))
-        self.sb_numCharactors.setValue(data.get("numChar", 0))
+        self.sb_numcharacters.setValue(data.get("numChar", 0))
 
 
     def applyMod(self, base_name, settings=None):
@@ -437,7 +536,7 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
         
         else:
             position = self.sb_position.value()
-            numChar  = self.sb_numCharactors.value()
+            numChar  = self.sb_numcharacters.value()
 
         #   Clamp Position to Valid Range
         position = max(0, min(position, len(base_name)))
@@ -452,8 +551,10 @@ class Mods_RemoveCharactors(Mods_BaseFilename):
 
 
 
-class Mods_InsertCharactors(Mods_BaseFilename):
-    mod_name = "Insert Charactors"
+class Mods_InsertCharacters(Mods_BaseFilename):
+    mod_name = "Insert Characters"
+    mod_description = "Inserts Text into Filename"
+
 
     def __init__(self):
         super().__init__()
@@ -462,6 +563,20 @@ class Mods_InsertCharactors(Mods_BaseFilename):
         self.sp_position    = QSpinBox()
         self.le_insertText  = QLineEdit()
         self.le_insertText.setPlaceholderText("Enter text")
+
+        self._rowWidgets.append(self.l_position)
+        self._rowWidgets.append(self.sp_position)
+        self._rowWidgets.append(self.le_insertText)
+
+        self._rowWidgets.append(self.b_remove)
+
+        #   ToolTips
+        tip = "Character Position to Apply"
+        self.l_position.setToolTip(tip)
+        self.sp_position.setToolTip(tip)
+
+        tip = "Text to Insert"
+        self.le_insertText.setToolTip(tip)
 
         self.connections()
 
@@ -473,18 +588,13 @@ class Mods_InsertCharactors(Mods_BaseFilename):
 
     def getModUI(self):
         base_widgets = super().getModUI()
-
-        lo_mod = QHBoxLayout()
+        group = base_widgets[0]
+        rowLayout = group.layout()
         
-        lo_mod.addWidget(self.sp_position)
-        lo_mod.addWidget(self.le_insertText)
+        rowLayout.addWidget(self.sp_position)
+        rowLayout.addWidget(self.le_insertText)
 
-        lo_mod.addWidget(self.b_remove)
-
-        container = QWidget()
-        container.setLayout(lo_mod)
-    
-        base_widgets.append(container)
+        rowLayout.addWidget(self.b_remove)
 
         return base_widgets
 
@@ -522,19 +632,45 @@ class Mods_InsertCharactors(Mods_BaseFilename):
 
 
 
-class Mods_ShiftCharactors(Mods_BaseFilename):
-    mod_name = "Shift Charactors"
+class Mods_ShiftCharacters(Mods_BaseFilename):
+    mod_name = "Shift Characters"
+    mod_description = "Shift Block of Characters in the Filename"
+
 
     def __init__(self):
         super().__init__()
 
         self.l_position    = QLabel("Position")
         self.sb_position   = QSpinBox()
-        self.l_numChar     = QLabel("Charactors")
+        self.l_numChar     = QLabel("Characters")
         self.sb_numChar    = QSpinBox()
         self.l_shift       = QLabel("Shift")
         self.sb_shift      = QSpinBox()
         self.sb_shift.setRange(-999, 999)
+
+        self._rowWidgets.append(self.l_position)
+        self._rowWidgets.append(self.sb_position)
+        self._rowWidgets.append(self.l_numChar)
+        self._rowWidgets.append(self.sb_numChar)
+        self._rowWidgets.append(self.l_shift)
+        self._rowWidgets.append(self.sb_shift)
+
+        self._rowWidgets.append(self.b_remove)
+
+        #   ToolTips
+        tip = "Character Position to Apply"
+        self.l_position.setToolTip(tip)
+        self.sb_position.setToolTip(tip)
+
+        tip = "Number of Characters to Shift"
+        self.l_numChar.setToolTip(tip)
+        self.sb_numChar.setToolTip(tip)
+
+        tip = ("Number of Positions to Shift\n\n"
+               "   - Positive Numbers to the Right"
+               "   - Negative Numbers to the Left")
+        self.l_shift.setToolTip(tip)
+        self.sb_shift.setToolTip(tip)
 
         self.connections()
 
@@ -547,22 +683,18 @@ class Mods_ShiftCharactors(Mods_BaseFilename):
 
     def getModUI(self):
         base_widgets = super().getModUI()
+        group = base_widgets[0]
+        rowLayout = group.layout()
 
-        lo_mod = QHBoxLayout()
+        rowLayout.addWidget(self.l_numChar)
+        rowLayout.addWidget(self.sb_numChar)
+        rowLayout.addWidget(self.l_position)
+        rowLayout.addWidget(self.sb_position)
+        rowLayout.addWidget(self.l_shift)
+        rowLayout.addWidget(self.sb_shift)
 
-        lo_mod.addWidget(self.l_numChar)
-        lo_mod.addWidget(self.sb_numChar)
-        lo_mod.addWidget(self.l_position)
-        lo_mod.addWidget(self.sb_position)
-        lo_mod.addWidget(self.l_shift)
-        lo_mod.addWidget(self.sb_shift)
-        lo_mod.addStretch()
-        lo_mod.addWidget(self.b_remove)
-
-        container = QWidget()
-        container.setLayout(lo_mod)
-
-        base_widgets.append(container)
+        rowLayout.addStretch()
+        rowLayout.addWidget(self.b_remove)
 
         return base_widgets
     

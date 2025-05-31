@@ -89,11 +89,56 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         #   Setup UI from Ui_w_sourceFunctions
         self.setupUi(self)
-
+        self.setToolTips()
         self.configureUI()
         self.connectEvents()
 
         self.updateUI()
+
+
+    @err_catcher(name=__name__)
+    def setToolTips(self):
+        tip = ("Enable/Disable Proxy Handling\n"
+               "(Proxy transfer / generation)")
+        self.chb_ovr_proxy.setToolTip(tip)
+
+        tip = ("Enable/Disable Filename Modifiers\n"
+               "(this affects the Transferred File Naming)")
+        self.chb_ovr_fileNaming.setToolTip(tip)
+
+        tip = ("Enable/Disable Metadata Genertion\n"
+               "(this affects the Transferred File(s) Metatdata)")
+        self.chb_ovr_metadata.setToolTip(tip)
+
+        tip = ("Enable/Disable Detination File Overwriting\n"
+               "(files with the same name in the Destination will be overwritten)")
+        self.chb_overwrite.setToolTip(tip)
+
+        tip = "Open Destination Directory in the os File Explorer"
+        self.b_openDestDir.setToolTip(tip)
+
+        tip = ("Start the File Transfer\n"
+               "(this will lock the interface)")
+        self.b_transfer_start.setToolTip(tip)
+
+        tip = ("Pause the File Transfer\n\n"
+               "This will pause the copying of files,\n"
+               "but does not affect Proxy Generation.\n\n"
+               "This will not survive after closing/reopening the Project Browser")
+        self.b_transfer_pause.setToolTip(tip)
+
+        tip = ("Resume the File Transfer")
+        self.b_transfer_resume.setToolTip(tip)
+
+        tip = ("Stop and Cancel the File Transfer\n\n"
+               "Any unfinished partial transfers or Proxy\n"
+               "generation will be removed")
+        self.b_transfer_cancel.setToolTip(tip)
+
+        tip = ("Resets the Transfer Functions.\n"
+               "(resets all Progress)")
+        self.b_transfer_reset.setToolTip(tip)
+        
 
 
     @err_catcher(name=__name__)
