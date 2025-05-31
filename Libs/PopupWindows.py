@@ -344,7 +344,7 @@ class NamingPopup(QDialog):
         self.activeMods = []
 
         #   Make Modifier References List
-        self.modDefs = [{"name": cls.mod_name, "class": cls} for cls in GetMods()]
+        self.modDefs = [{"name": cls.mod_name, "description": cls.mod_description, "class": cls} for cls in GetMods()]
 
         self.result = None
 
@@ -352,26 +352,6 @@ class NamingPopup(QDialog):
         self.setWindowTitle("File Naming Configuration")
 
         #   If passed Mods, Load Mods into the UI
-        if mods:
-            self.loadMods(mods)
-
-        self.refreshUI()
-
-
-
-class NamingPopup(QDialog):
-    def __init__(self, core, origName, mods=None):
-        super().__init__()
-
-        self.core = core
-        self.origName = origName
-        self.activeMods = []
-        self.modDefs = [{"name": cls.mod_name, "class": cls} for cls in GetMods()]
-        self.result = None
-
-        self.setupUI()
-        self.setWindowTitle("File Naming Configuration")
-
         if mods:
             self.loadMods(mods)
 
@@ -461,20 +441,22 @@ class NamingPopup(QDialog):
 
         #   ToolTips
         tip = ("Original Un-Altered Name\n\n"
-               "Uses first file in the Destination List\n"
-               "as an example, or example placeholder name")
+               "To use as an Example:\n"
+               "First file is used, or EXAMPLEFILENAME")
         self.le_origName.setToolTip(tip)
 
         tip = ("Altered Name after all Enabled Modifiers\n\n"
-               "This will affect all selected files in the\nDestination list")
+               "This will affect all selected files in the\n"
+               "Destination list")
         self.le_newName.setToolTip(tip)
 
-        tip = ("Active Modifier Stack.\n\nSelect desired Modifiers and click Add Modifier\n"
+        tip = ("Active Modifier Stack.\n\n"
+               "Select desired Modifiers and click Add Modifier\n"
                "to add Mods to Stack")
         self.gb_activeMods.setToolTip(tip)
 
         self.cb_availMods.setToolTip("Select Modifier Type to add")
-        b_addMod.setToolTip("Add selected Modifier to Stack")
+        b_addMod.setToolTip("Add Selected Modifier to Stack")
         b_apply.setToolTip("Apply Changes and Close Window")
         b_close.setToolTip("Discard Changes and Close Window")
 
@@ -485,9 +467,26 @@ class NamingPopup(QDialog):
     def populateModsCombo(self):
         self.cb_availMods.clear()
 
+        tipRows = []
+
+        #   Get All Available Mod Details
         for mod in self.modDefs:
             name = mod["name"]
+            descrip = mod["description"]
+            #   Add to Combobox
             self.cb_availMods.addItem(name)
+            #   Add to Tooltip
+            tipRows.append(f"<tr><td><b>{name}</b></td><td>{descrip}</td></tr>")
+
+        #   Create Tooltip
+        tipHtml = (
+            "<html><head/><body>"
+            "<table style='min-width: 800px;' cellspacing='6' cellpadding='4'>"
+            + "\n".join(tipRows) +
+            "</table></body></html>"
+        )
+        #   Set Tooltip
+        self.cb_availMods.setToolTip(tipHtml)
 
 
     #    Removes all Mod Widgets from Layout
