@@ -54,13 +54,12 @@ import subprocess
 import shlex
 import re
 import textwrap
+import logging
 
 
-
-#   Get Name Mod Methods
-from FileNameMods import getModifiers as GetMods
-from FileNameMods import getModClassByName as GetModByName
-from FileNameMods import createModifier as CreateMod
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 
 PRISMROOT = r"C:\Prism2"                                            ###   TODO
@@ -68,11 +67,12 @@ prismRoot = os.getenv("PRISM_ROOT")
 if not prismRoot:
     prismRoot = PRISMROOT
 
+#   Get Name Mod Methods
+from FileNameMods import getModifiers as GetMods
+from FileNameMods import getModClassByName as GetModByName
+from FileNameMods import createModifier as CreateMod
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
-
+logger = logging.getLogger(__name__)
 
 
 #   Simple Waiting Popup
@@ -115,6 +115,7 @@ class WaitPopup(QDialog):
 
     @classmethod
     def showPopup(cls, message="Loading Data...", parent=None):
+        logger.debug("Showing Wait Popup")
         if cls._instance is None:
             cls._instance = WaitPopup(message=message, parent=parent)
             cls._instance.show()
@@ -123,6 +124,7 @@ class WaitPopup(QDialog):
 
     @classmethod
     def closePopup(cls):
+        logger.debug("Closing Wait Popup")
         if cls._instance is not None:
             cls._instance.close()
             cls._instance = None
@@ -214,9 +216,14 @@ class DisplayPopup(QDialog):
 
     @staticmethod
     def display(data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None):
-        dialog = DisplayPopup(data, title=title, buttons=buttons, xScale=xScale, yScale=yScale, xSize=xSize, ySize=ySize)
-        dialog.exec_()
-        return dialog.result
+        try:
+            dialog = DisplayPopup(data, title=title, buttons=buttons, xScale=xScale, yScale=yScale, xSize=xSize, ySize=ySize)
+            logger.debug(f"Showing DisplayPopup: {title}")
+            dialog.exec_()
+            return dialog.result
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Show DisplayPopup:\n{e}")
 
 
 
@@ -358,6 +365,8 @@ class NamingPopup(QDialog):
 
         self.refreshUI()
 
+        logger.debug("Loaded NamingPopup")
+
 
     def setupUI(self):
         #   Calculate Window Geometry
@@ -466,28 +475,34 @@ class NamingPopup(QDialog):
 
     #    Add Modifier Names to Combo
     def populateModsCombo(self):
-        self.cb_availMods.clear()
+        try:
+            self.cb_availMods.clear()
 
-        tipRows = []
+            tipRows = []
 
-        #   Get All Available Mod Details
-        for mod in self.modDefs:
-            name = mod["name"]
-            descrip = mod["description"]
-            #   Add to Combobox
-            self.cb_availMods.addItem(name)
-            #   Add to Tooltip
-            tipRows.append(f"<tr><td><b>{name}</b></td><td>{descrip}</td></tr>")
+            #   Get All Available Mod Details
+            for mod in self.modDefs:
+                name = mod["name"]
+                descrip = mod["description"]
+                #   Add to Combobox
+                self.cb_availMods.addItem(name)
+                #   Add to Tooltip
+                tipRows.append(f"<tr><td><b>{name}</b></td><td>{descrip}</td></tr>")
 
-        #   Create Tooltip
-        tipHtml = (
-            "<html><head/><body>"
-            "<table style='min-width: 800px;' cellspacing='6' cellpadding='4'>"
-            + "\n".join(tipRows) +
-            "</table></body></html>"
-        )
-        #   Set Tooltip
-        self.cb_availMods.setToolTip(tipHtml)
+            #   Create Tooltip
+            tipHtml = (
+                "<html><head/><body>"
+                "<table style='min-width: 800px;' cellspacing='6' cellpadding='4'>"
+                + "\n".join(tipRows) +
+                "</table></body></html>"
+            )
+            #   Set Tooltip
+            self.cb_availMods.setToolTip(tipHtml)
+
+            logger.debug("Populated Mods Combo")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Populate Mods Combo:\n{e}")
 
 
     #    Removes all Mod Widgets from Layout
@@ -526,11 +541,12 @@ class NamingPopup(QDialog):
             try:
                 modifierClass = GetModByName(mod_data["mod_type"])
                 modifier = CreateMod(modifierClass)
-
                 self.addModToUi(modifier, mod_data)
 
+                logger.debug(f"Loaded Modifier: {modifierClass}")
+
             except Exception as e:
-                print(f"ERROR:  Unable to add Filename Mod: {modifierClass}:\n{e}")         #   TODO - Add Logging
+                logger.debug(f"ERROR:  Unable to add Filename Mod: {modifierClass}:\n{e}")
 
 
     #   Creates New Modifier from Selected Combo
@@ -591,7 +607,7 @@ class NamingPopup(QDialog):
                     newName = mod_instance.applyMod(newName)
                 
             except Exception as e:
-                print(f"ERROR:  Unable to Add Filename Modifier:\n{e}")
+                logger.warning(f"ERROR:  Unable to Add Filename Modifier:\n{e}")
 
         return newName
             
@@ -634,6 +650,8 @@ class ProxyPopup(QDialog):
         self.setWindowTitle("Proxy Configuration")
        
         self.loadUI()
+
+        logger.debug("Loaded Proxy Window")
 
 
     def setupUI(self):
@@ -861,40 +879,44 @@ class ProxyPopup(QDialog):
 
     #   Populate UI from Passed Settings
     def loadUI(self):
-        #   Proxy Mode
-        proxyMode = self.settings.get("proxyMode", "none")
-        #   Match Mode to Radio Button Label
-        label = self.sourceFuncts.proxyNameMap.get(proxyMode)
-        if label and label in self.radio_buttons:
-            self.radio_buttons[label].setChecked(True)
+        try:
+            #   Proxy Mode
+            proxyMode = self.settings.get("proxyMode", "none")
+            #   Match Mode to Radio Button Label
+            label = self.sourceFuncts.proxyNameMap.get(proxyMode)
+            if label and label in self.radio_buttons:
+                self.radio_buttons[label].setChecked(True)
 
-        #   Populate Preset Combo
-        self.populatePresetCombo()
+            #   Populate Preset Combo
+            self.populatePresetCombo()
 
-        #   Preset Settings
-        proxySettings = self.settings.get("proxySettings", {})
+            #   Preset Settings
+            proxySettings = self.settings.get("proxySettings", {})
 
-        if "fallback_proxyDir" in proxySettings:
-            self.le_fallbackDir.setText(proxySettings["fallback_proxyDir"])
+            if "fallback_proxyDir" in proxySettings:
+                self.le_fallbackDir.setText(proxySettings["fallback_proxyDir"])
 
-        if "ovr_proxyDir" in proxySettings:
-            self.le_ovrProxyDir.setText(proxySettings["ovr_proxyDir"])
+            if "ovr_proxyDir" in proxySettings:
+                self.le_ovrProxyDir.setText(proxySettings["ovr_proxyDir"])
 
-        if "proxyPreset" in proxySettings:
-            curPreset = proxySettings["proxyPreset"]
-            idx = self.cb_proxyPresets.findText(curPreset)
-            if idx != -1:
-                self.cb_proxyPresets.setCurrentIndex(idx)
+            if "proxyPreset" in proxySettings:
+                curPreset = proxySettings["proxyPreset"]
+                idx = self.cb_proxyPresets.findText(curPreset)
+                if idx != -1:
+                    self.cb_proxyPresets.setCurrentIndex(idx)
 
-        if "proxyScale" in proxySettings:
-            curScale = proxySettings["proxyScale"]
-            idx = self.cb_proxyScale.findText(curScale)
-            if idx != -1:
-                self.cb_proxyScale.setCurrentIndex(idx)
+            if "proxyScale" in proxySettings:
+                curScale = proxySettings["proxyScale"]
+                idx = self.cb_proxyScale.findText(curScale)
+                if idx != -1:
+                    self.cb_proxyScale.setCurrentIndex(idx)
 
-        self.connectEvents()
-        self._onProxyModeChanged()
-        self.updateTemplateNumber()
+            self.connectEvents()
+            self._onProxyModeChanged()
+            self.updateTemplateNumber()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Load Proxy Window UI:\n{e}")
 
 
     #   Returns Proxy Search List
@@ -915,41 +937,48 @@ class ProxyPopup(QDialog):
 
     #   Populate Preset Combo with Presets
     def populatePresetCombo(self):
-        self.cb_proxyPresets.clear()
+        try:
+            self.cb_proxyPresets.clear()
 
-        for preset in self.getFFmpegPresets():
-            self.cb_proxyPresets.addItem(preset)
+            for preset in self.getFFmpegPresets():
+                self.cb_proxyPresets.addItem(preset)
 
-        self.createPresetsTooltip()
+            self.createPresetsTooltip()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Populate Presets Combo:\n{e}")
 
 
     #   Creates and Adds Tooltip to Preset Combo
     def createPresetsTooltip(self):
-        presets = self.getFFmpegPresets()
+        try:
+            presets = self.getFFmpegPresets()
 
-        #   Start HTML with div wrapper
-        tooltip_html = "<div style='min-width: 400px;'>"
-        tooltip_html += "<table>"
+            #   Start HTML with div wrapper
+            tooltip_html = "<div style='min-width: 400px;'>"
+            tooltip_html += "<table>"
 
-        #   Make Separate Rows for each Preset
-        for name, data in presets.items():
-            desc = data.get("Description", "")
-            tooltip_html += f"""
-                <tr>
-                    <td><b>{name}</b></td>
-                    <td style='padding-left: 10px;'>{desc}</td>
-                </tr>
-                <tr><td colspan='2' style='height: 10px;'>&nbsp;</td></tr>  <!-- spacer row -->
-            """
+            #   Make Separate Rows for each Preset
+            for name, data in presets.items():
+                desc = data.get("Description", "")
+                tooltip_html += f"""
+                    <tr>
+                        <td><b>{name}</b></td>
+                        <td style='padding-left: 10px;'>{desc}</td>
+                    </tr>
+                    <tr><td colspan='2' style='height: 10px;'>&nbsp;</td></tr>  <!-- spacer row -->
+                """
 
-        tooltip_html += "</table></div>"
+            tooltip_html += "</table></div>"
 
-        self.cb_proxyPresets.setToolTip(tooltip_html)
+            self.cb_proxyPresets.setToolTip(tooltip_html)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Presets Tooltip:\n{e}")
 
 
     def _onProxyModeChanged(self):
         mode = self.getProxyMode()
-
         #   Set Visabilty of Options Based on Mode
         self.gb_proxyCopySettings.setVisible(mode in ["copy", "missing"])
         self.gb_ffmpegSettings.setVisible(mode in ("generate", "missing"))
@@ -961,19 +990,26 @@ class ProxyPopup(QDialog):
         searchList = self.getProxySearchList()
 
         editWindow = ProxySearchStrEditor(self.core, self, searchList)
+        logger.debug("Opening Proxy Search Tempplate Editor")
         editWindow.exec_()
 
         if editWindow.result() == "Save":
-            #   Get Updated Data
-            sData = editWindow.getData()           
-            #   Save to Settings
-            self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="proxySearch", data=sData)
-            #   Refresh Source Items
-            self.sourceFuncts.sourceBrowser.refreshSourceItems()
-            #   Clear Destination Items
-            self.sourceFuncts.sourceBrowser.clearTransferList()
-            #   Update UI
-            self.updateTemplateNumber()
+            try:
+                #   Get Updated Data
+                sData = editWindow.getData()           
+                #   Save to Settings
+                self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="proxySearch", data=sData)
+                #   Refresh Source Items
+                self.sourceFuncts.sourceBrowser.refreshSourceItems()
+                #   Clear Destination Items
+                self.sourceFuncts.sourceBrowser.clearTransferList()
+                #   Update UI
+                self.updateTemplateNumber()
+
+                logger.debug("Saved Proxy Search Templates")
+
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Save Proxy Search Templates:\n{e}")
 
 
     #   Open Window to Edit Presets
@@ -983,15 +1019,22 @@ class ProxyPopup(QDialog):
 
         #   Instanciate and Execute Window
         editWindow = ProxyPresetsEditor(self.core, self, pData)
+        logger.debug("Opening Proxy Presets Editor")
         editWindow.exec_()
 
         if editWindow.result() == "Save":
-            #   Get Updated Data
-            fData = editWindow.getData()
-            #   Save to Settings
-            self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="ffmpegPresets", data=fData)
-            #   Reload Combo
-            self.populatePresetCombo()
+            try:
+                #   Get Updated Data
+                fData = editWindow.getData()
+                #   Save to Settings
+                self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="ffmpegPresets", data=fData)
+                #   Reload Combo
+                self.populatePresetCombo()
+
+                logger.debug("Saved Proxy Presets")
+
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Save Proxy Presets:\n{e}")
 
 
     def _onButtonClicked(self, text):
@@ -1092,6 +1135,8 @@ class ProxySearchStrEditor(QDialog):
         self.setupUI()
         self.connectEvents()
         self.populateTable(self.searchList)
+
+        logger.debug("Loaded Proxy Seaarch Editor")
 
 
     def setupUI(self):
@@ -1199,18 +1244,22 @@ class ProxySearchStrEditor(QDialog):
 
 
     def populateTable(self, templateList):
-        #   Clear the Table
-        self.tw_searchList.setRowCount(0)
+        try:
+            #   Clear the Table
+            self.tw_searchList.setRowCount(0)
 
-        #   Set Column Count
-        self.tw_searchList.setColumnCount(len(self.headers))
-        self.tw_searchList.setHorizontalHeaderLabels(self.headers)
+            #   Set Column Count
+            self.tw_searchList.setColumnCount(len(self.headers))
+            self.tw_searchList.setHorizontalHeaderLabels(self.headers)
 
-        #   Add Each Template String to New Row
-        for template in templateList:
-            row = self.tw_searchList.rowCount()
-            self.tw_searchList.insertRow(row)
-            self.tw_searchList.setItem(row, 0, QTableWidgetItem(template))
+            #   Add Each Template String to New Row
+            for template in templateList:
+                row = self.tw_searchList.rowCount()
+                self.tw_searchList.insertRow(row)
+                self.tw_searchList.setItem(row, 0, QTableWidgetItem(template))
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Populate Proxy Search Templates Table:\n{e}")
 
 
     #   Sets Row Editable
@@ -1370,12 +1419,18 @@ class ProxySearchStrEditor(QDialog):
         result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
 
         if result == "Reset":
-            #   Get Default Templates
-            sData = self.origin.sourceFuncts.sourceBrowser.plugin.getDefaultSettings(key="proxySearch")
-            #   Re-assign searchList
-            self.searchList = sData
-            #   Populate Table with Default Data
-            self.populateTable(sData)
+            try:
+                #   Get Default Templates
+                sData = self.origin.sourceFuncts.sourceBrowser.plugin.getDefaultSettings(key="proxySearch")
+                #   Re-assign searchList
+                self.searchList = sData
+                #   Populate Table with Default Data
+                self.populateTable(sData)
+
+                logger.debug("Reset Proxy Search Templates to Defaults")
+
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Reset Proxy Search Templates to Defaults:\n{e}")
 
 
     def _onMoveUp(self):
@@ -1438,6 +1493,8 @@ class ProxyPresetsEditor(QDialog):
         self.setupUI()
         self.connectEvents()
         self.populateTable(self.presetData)
+
+        logger.debug("Loaded Proxy Presets Editor")
 
 
     def setupUI(self):
@@ -1610,21 +1667,25 @@ class ProxyPresetsEditor(QDialog):
 
 
     def populateTable(self, pData):
-        #   Clear Table
-        self.tw_presets.setRowCount(0)
+        try:
+            #   Clear Table
+            self.tw_presets.setRowCount(0)
 
-        #   Create Row per Preset form Data
-        for name, fields in pData.items():
-            row = self.tw_presets.rowCount()
-            self.tw_presets.insertRow(row)
-            self.tw_presets.setItem(row, 0, QTableWidgetItem(name))
-            for col, key in enumerate(self.headers[1:], start=1):
-                # self.tw_presets.setItem(row, col, QTableWidgetItem(fields.get(key, "")))
-                value = fields.get(key, "")
-                self.tw_presets.setItem(row, col, QTableWidgetItem(str(value)))
+            #   Create Row per Preset form Data
+            for name, fields in pData.items():
+                row = self.tw_presets.rowCount()
+                self.tw_presets.insertRow(row)
+                self.tw_presets.setItem(row, 0, QTableWidgetItem(name))
+                for col, key in enumerate(self.headers[1:], start=1):
+                    # self.tw_presets.setItem(row, col, QTableWidgetItem(fields.get(key, "")))
+                    value = fields.get(key, "")
+                    self.tw_presets.setItem(row, col, QTableWidgetItem(str(value)))
 
-        #   Re-Apply Widths
-        QTimer.singleShot(0, self.adjustColumnWidths)
+            #   Re-Apply Widths
+            QTimer.singleShot(0, self.adjustColumnWidths)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Populate Proxy Presets Table:\n{e}")
 
 
     #   Sets Row Editable
@@ -1854,17 +1915,23 @@ class ProxyPresetsEditor(QDialog):
     def _onFinish(self, action):
         self._action = action
         if action == "Save":
-            newData = {}
+            try:
+                newData = {}
 
-            #   Re-assign self.presetData from UI data
-            for row in range(self.tw_presets.rowCount()):
-                name = self.tw_presets.item(row, 0).text().strip()
-                fields = {
-                    self.headers[c]: self.tw_presets.item(row, c).text().strip()
-                    for c in range(1, len(self.headers))
-                }
-                newData[name] = fields
-            self.presetData = newData
+                #   Re-assign self.presetData from UI data
+                for row in range(self.tw_presets.rowCount()):
+                    name = self.tw_presets.item(row, 0).text().strip()
+                    fields = {
+                        self.headers[c]: self.tw_presets.item(row, c).text().strip()
+                        for c in range(1, len(self.headers))
+                    }
+                    newData[name] = fields
+                self.presetData = newData
+
+                logger.debug("Saved Proxy Presets")
+
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Save Proxy Presets:\n{e}")
 
         self.accept()
 

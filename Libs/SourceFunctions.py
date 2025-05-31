@@ -95,6 +95,8 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         self.updateUI()
 
+        logger.debug("Loaded Functions Panel")
+
 
     @err_catcher(name=__name__)
     def setToolTips(self):
@@ -173,65 +175,68 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def updateUI(self):
-        #   Configure Proxy UI
-        proxyEnabled = self.sourceBrowser.proxyEnabled
+        try:
+            #   Configure Proxy UI
+            proxyEnabled = self.sourceBrowser.proxyEnabled
 
-        #   If Proxy Enabled, Add Mode and Settings to UI
-        if proxyEnabled:
-            proxyMode = self.sourceBrowser.proxyMode
-            #   Get UI Mode String
-            proxyModeStr = self.proxyNameMap.get(proxyMode, "")
-            #   Add Mode String
-            proxyDisplayStr = proxyModeStr
+            #   If Proxy Enabled, Add Mode and Settings to UI
+            if proxyEnabled:
+                proxyMode = self.sourceBrowser.proxyMode
+                #   Get UI Mode String
+                proxyModeStr = self.proxyNameMap.get(proxyMode, "")
+                #   Add Mode String
+                proxyDisplayStr = proxyModeStr
 
-            #   If Proxy Generation
-            if proxyMode in ["generate", "missing"]:
-                #   Get Proxy Settings
-                pData = self.sourceBrowser.proxySettings
+                #   If Proxy Generation
+                if proxyMode in ["generate", "missing"]:
+                    #   Get Proxy Settings
+                    pData = self.sourceBrowser.proxySettings
 
-                #   If Exists, Add Settings to UI
-                if pData:
-                    presetStr = f"( {pData['proxyPreset']} - {pData['proxyScale']} )"
-                    proxyDisplayStr = f"{proxyModeStr}   {presetStr}"
+                    #   If Exists, Add Settings to UI
+                    if pData:
+                        presetStr = f"( {pData['proxyPreset']} - {pData['proxyScale']} )"
+                        proxyDisplayStr = f"{proxyModeStr}   {presetStr}"
 
-        #   Add Disabled to UI
-        else:
-            proxyDisplayStr = proxyTipStr = "DISABLED"
+            #   Add Disabled to UI
+            else:
+                proxyDisplayStr = proxyTipStr = "DISABLED"
 
-        self.l_proxyMode.setText(proxyDisplayStr)
-        self.l_proxyMode.setEnabled(proxyEnabled)
+            self.l_proxyMode.setText(proxyDisplayStr)
+            self.l_proxyMode.setEnabled(proxyEnabled)
 
-        #   Configure File Name Mods UI
-        fileNamingEnabled = self.chb_ovr_fileNaming.isChecked()
+            #   Configure File Name Mods UI
+            fileNamingEnabled = self.chb_ovr_fileNaming.isChecked()
 
-        #   If Enabled, Add to UI
-        if fileNamingEnabled:
-            #   Get Modifiers
-            mods = self.sourceBrowser.nameMods
-            #   Get Number of Mods
-            numMods = f"{str(len(mods))} Modifiers"
-            #   Create ToolTip
-            nameTipStr = (
-                "<table>"
-                + "".join(
-                    f"<tr>"
-                    f"<td style='padding-right: 20px;'>{mod['mod_type']}</td>"
-                    f"<td>{'Enabled' if mod['enabled'] else 'Disabled'}</td>"
-                    f"</tr>"
-                    for mod in mods
-                )
-                + "</table>"
-                )
+            #   If Enabled, Add to UI
+            if fileNamingEnabled:
+                #   Get Modifiers
+                mods = self.sourceBrowser.nameMods
+                #   Get Number of Mods
+                numMods = f"{str(len(mods))} Modifiers"
+                #   Create ToolTip
+                nameTipStr = (
+                    "<table>"
+                    + "".join(
+                        f"<tr>"
+                        f"<td style='padding-right: 20px;'>{mod['mod_type']}</td>"
+                        f"<td>{'Enabled' if mod['enabled'] else 'Disabled'}</td>"
+                        f"</tr>"
+                        for mod in mods
+                    )
+                    + "</table>"
+                    )
 
-        #   Add Disabled to UI
-        else:
-            numMods = nameTipStr = "DISABLED"
+            #   Add Disabled to UI
+            else:
+                numMods = nameTipStr = "DISABLED"
 
-        #   Update UI Label and ToolTip
-        self.l_enabledNameMods.setText(numMods)
-        self.l_enabledNameMods.setEnabled(fileNamingEnabled)
-        self.l_enabledNameMods.setToolTip(nameTipStr)
+            #   Update UI Label and ToolTip
+            self.l_enabledNameMods.setText(numMods)
+            self.l_enabledNameMods.setEnabled(fileNamingEnabled)
+            self.l_enabledNameMods.setToolTip(nameTipStr)
 
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Update Functions Panel UI:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -257,25 +262,30 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         #   Call Popup and pass Basename and Existing Modifiers
         namePopup = NamingPopup(self.core, fileName, mods=self.sourceBrowser.nameMods)
+        logger.debug("Opening File Naming Settings Window")
         namePopup.exec_()
 
         #   If User Clicked Apply
         if namePopup.result == "Apply":
-            #   Clear Mods List
-            self.sourceBrowser.nameMods = []
-            #   Populate Mod List with Mods from Popup
-            for mod_instance, _ in namePopup.activeMods:
-                mod_data = {
-                    "mod_type": mod_instance.mod_name,
-                    "enabled": mod_instance.isEnabled,
-                    "settings": mod_instance.getSettings()
-                }
-                self.sourceBrowser.nameMods.append(mod_data)
-            
-            #   Refresh List
-            self.sourceBrowser.refreshDestItems(restoreSelection=True)
-            #   Save Mods to Project Settings
-            self.sourceBrowser.plugin.saveSettings(key="nameMods")
+            try:
+                #   Clear Mods List
+                self.sourceBrowser.nameMods = []
+                #   Populate Mod List with Mods from Popup
+                for mod_instance, _ in namePopup.activeMods:
+                    mod_data = {
+                        "mod_type": mod_instance.mod_name,
+                        "enabled": mod_instance.isEnabled,
+                        "settings": mod_instance.getSettings()
+                    }
+                    self.sourceBrowser.nameMods.append(mod_data)
+                
+                #   Refresh List
+                self.sourceBrowser.refreshDestItems(restoreSelection=True)
+                #   Save Mods to Project Settings
+                self.sourceBrowser.plugin.saveSettings(key="nameMods")
+
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Update File Naming Settings:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -288,16 +298,21 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         #   Call Popup
         proxyPopup = ProxyPopup(self.core, self, pData)
+        logger.debug("Opening Proxy Settings Window")
         proxyPopup.exec_()
 
         if proxyPopup.result == "Apply":
-            self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
-            self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
-            self.updateUI()
-            self.sourceBrowser.refreshTotalTransSize()
-            self.sourceBrowser.toggleProxy(self.sourceBrowser.proxyEnabled)
+            try:
+                self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
+                self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
+                self.updateUI()
+                self.sourceBrowser.refreshTotalTransSize()
+                self.sourceBrowser.toggleProxy(self.sourceBrowser.proxyEnabled)
 
-            self.sourceBrowser.plugin.saveSettings(key="proxySettings")
+                self.sourceBrowser.plugin.saveSettings(key="proxySettings")
+
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Update Proxy Settings:\n{e}")
 
 
 

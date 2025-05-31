@@ -299,6 +299,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.setToolTips()
 
+        logger.debug("Loaded SourceTab UI")
+
 
     @err_catcher(name=__name__)                                                     #   TODO - FINISH
     def setToolTips(self):
@@ -529,28 +531,37 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def getAllSourceTiles(self):
         tiles = []
 
-        for row in range(self.tw_source.rowCount()):
-            itemWidget = self.tw_source.cellWidget(row, 0)
-            if isinstance(itemWidget, TileWidget.SourceFileItem):
-                tiles.append(itemWidget)
+        try:
+            for row in range(self.tw_source.rowCount()):
+                itemWidget = self.tw_source.cellWidget(row, 0)
+                if isinstance(itemWidget, TileWidget.SourceFileItem):
+                    tiles.append(itemWidget)
 
-        return tiles
+            logger.debug("Fetched All Source Tiles")
+            return tiles
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Fetch All Source Tiles:\n{e}")
     
 
     @err_catcher(name=__name__)
     def getAllDestTiles(self, onlyChecked=False):
         tiles = []
 
-        for row in range(self.tw_destination.rowCount()):
-            itemWidget = self.tw_destination.cellWidget(row, 0)
-            if isinstance(itemWidget, TileWidget.DestFileItem):
-                if onlyChecked and itemWidget.isChecked():
-                    tiles.append(itemWidget)
-                else:
-                    tiles.append(itemWidget)
+        try:
+            for row in range(self.tw_destination.rowCount()):
+                itemWidget = self.tw_destination.cellWidget(row, 0)
+                if isinstance(itemWidget, TileWidget.DestFileItem):
+                    if onlyChecked and itemWidget.isChecked():
+                        tiles.append(itemWidget)
+                    else:
+                        tiles.append(itemWidget)
 
-
-        return tiles
+            logger.debug("Fetched All Destination Tiles")
+            return tiles
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Fetch All Destination Tiles:\n{e}")
 
 
     #   Configures UI from Saved Settings
@@ -559,7 +570,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         sData = self.plugin.loadSettings()
         if key and key in sData:
             return sData[key]
-
         else:
             return sData
 
@@ -567,71 +577,81 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
-        #   Get Saved Settings
-        sData = self.getSettings()
+        try:
+            #   Get Saved Settings
+            sData = self.getSettings()
 
-        #   Get Main Settings
-        settingData = sData["globals"]
-        self.max_thumbThreads = settingData["max_thumbThreads"]
-        self.max_copyThreads = settingData["max_copyThreads"]
-        self.size_copyChunk = settingData["size_copyChunk"]
-        self.max_proxyThreads = settingData["max_proxyThreads"]
-        self.progUpdateInterval = settingData["updateInterval"]
-        self.useCompletePopup = settingData["useCompletePopup"]
-        self.useCompleteSound = settingData["useCompleteSound"]
-        self.useTransferReport = settingData["useTransferReport"]
-        self.useCustomIcon = settingData["useCustomIcon"]
-        self.customIconPath = os.path.normpath(settingData["customIconPath"].strip().strip('\'"'))
-        self.useViewLuts = settingData["useViewLut"]
-        self.useCustomThumbPath = settingData["useCustomThumbPath"]
-        self.customThumbPath = settingData ["customThumbPath"]
+            #   Get Main Settings
+            settingData = sData["globals"]
+            self.max_thumbThreads = settingData["max_thumbThreads"]
+            self.max_copyThreads = settingData["max_copyThreads"]
+            self.size_copyChunk = settingData["size_copyChunk"]
+            self.max_proxyThreads = settingData["max_proxyThreads"]
+            self.progUpdateInterval = settingData["updateInterval"]
+            self.useCompletePopup = settingData["useCompletePopup"]
+            self.useCompleteSound = settingData["useCompleteSound"]
+            self.useTransferReport = settingData["useTransferReport"]
+            self.useCustomIcon = settingData["useCustomIcon"]
+            self.customIconPath = os.path.normpath(settingData["customIconPath"].strip().strip('\'"'))
+            self.useViewLuts = settingData["useViewLut"]
+            self.useCustomThumbPath = settingData["useCustomThumbPath"]
+            self.customThumbPath = settingData ["customThumbPath"]
 
-        #   Get OCIO View Presets
-        lutPresetData = sData["viewLutPresets"]
-        self.configureViewLut(lutPresetData)                 #   TODO - MOVE
+            #   Get OCIO View Presets
+            lutPresetData = sData["viewLutPresets"]
+            self.configureViewLut(lutPresetData)                 #   TODO - MOVE
 
-        #   Get Tab (UI) Settings
-        tabData = sData["tabSettings"]
+            #   Get Tab (UI) Settings
+            tabData = sData["tabSettings"]
 
-        #   Media Player Enabled Checkbox
-        playerEnabled = tabData["playerEnabled"]
-        self.chb_enablePlayer.setChecked(playerEnabled)
-        self.toggleMediaPlayer(playerEnabled)
-        #   Prefer Proxies Checkbox
-        preferProxies = tabData["preferProxies"]
-        self.chb_preferProxies.setChecked(preferProxies)
-        self.togglePreferProxies(preferProxies)
+            #   Media Player Enabled Checkbox
+            playerEnabled = tabData["playerEnabled"]
+            self.chb_enablePlayer.setChecked(playerEnabled)
+            self.toggleMediaPlayer(playerEnabled)
+            #   Prefer Proxies Checkbox
+            preferProxies = tabData["preferProxies"]
+            self.chb_preferProxies.setChecked(preferProxies)
+            self.togglePreferProxies(preferProxies)
 
-        #   Options
-        self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_proxy"])
-        self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
-        self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
-        self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
-        self.proxyEnabled = tabData["enable_proxy"]
-        self.proxyMode = tabData["proxyMode"]
-        self.sourceFuncts.updateUI()
+            #   Options
+            self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_proxy"])
+            self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
+            self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
+            self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
+            self.proxyEnabled = tabData["enable_proxy"]
+            self.proxyMode = tabData["proxyMode"]
+            self.sourceFuncts.updateUI()
 
-        #   Proxy Options
-        if "proxySettings" in sData:
-            self.proxySettings = sData["proxySettings"]
+            #   Proxy Options
+            if "proxySettings" in sData:
+                self.proxySettings = sData["proxySettings"]
 
-        #   Name Mods
-        if "activeNameMods" in sData:
-            self.nameMods = sData["activeNameMods"]
+            #   Name Mods
+            if "activeNameMods" in sData:
+                self.nameMods = sData["activeNameMods"]
+
+            logger.debug("Loaded SourceTab Settings")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Load SourceTab Settings:\n{e}")
 
 
     #   Initializes Worker Threadpools and Semephore Slots
     @err_catcher(name=__name__)
     def setupThreadpools(self):
-        self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
-        self.copy_semaphore = QSemaphore(self.max_copyThreads)
-        self.proxy_semaphore = QSemaphore(self.max_proxyThreads)
+        try:
+            self.thumb_semaphore = QSemaphore(self.max_thumbThreads)
+            self.copy_semaphore = QSemaphore(self.max_copyThreads)
+            self.proxy_semaphore = QSemaphore(self.max_proxyThreads)
 
-        self.thumb_threadpool = QThreadPool()
-        self.thumb_threadpool.setMaxThreadCount(self.max_thumbThreads)
+            self.thumb_threadpool = QThreadPool()
+            self.thumb_threadpool.setMaxThreadCount(self.max_thumbThreads)
 
-        self.dataOps_threadpool = QThreadPool()
-        self.dataOps_threadpool.setMaxThreadCount(12)
+            self.dataOps_threadpool = QThreadPool()
+            self.dataOps_threadpool.setMaxThreadCount(12)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Threadpools:\n{e}")
 
 
 
@@ -655,43 +675,48 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Returns QIcon with Both Normal and Disabled Versions
     @err_catcher(name=__name__)
     def getIconFromPath(self, imagePath, normalLevel=0.9, dimLevel=0.4):
-        normal_pixmap = QPixmap(imagePath)
-        normal_image = normal_pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
+        try:
+            normal_pixmap = QPixmap(imagePath)
+            normal_image = normal_pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
 
-        #   Darken Normal Version Slightly (normalLevel)
-        darkened_normal_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+            #   Darken Normal Version Slightly (normalLevel)
+            darkened_normal_image = QImage(normal_image.size(), QImage.Format_ARGB32)
 
-        for y in range(normal_image.height()):
-            for x in range(normal_image.width()):
-                color = normal_image.pixelColor(x, y)
+            for y in range(normal_image.height()):
+                for x in range(normal_image.width()):
+                    color = normal_image.pixelColor(x, y)
 
-                #   Reduce brightness to normalLevel
-                dark = int(color.red() * normalLevel)
-                color = QColor(dark, dark, dark, color.alpha())
-                darkened_normal_image.setPixelColor(x, y, color)
+                    #   Reduce brightness to normalLevel
+                    dark = int(color.red() * normalLevel)
+                    color = QColor(dark, dark, dark, color.alpha())
+                    darkened_normal_image.setPixelColor(x, y, color)
 
-        darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
+            darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
 
-        #   Darken Disbled Version More (dimLevel)
-        disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+            #   Darken Disbled Version More (dimLevel)
+            disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
 
-        for y in range(normal_image.height()):
-            for x in range(normal_image.width()):
-                color = normal_image.pixelColor(x, y)
+            for y in range(normal_image.height()):
+                for x in range(normal_image.width()):
+                    color = normal_image.pixelColor(x, y)
 
-                # Reduce brightness to 40%
-                dark = int(color.red() * dimLevel)
-                color = QColor(dark, dark, dark, color.alpha())
-                disabled_image.setPixelColor(x, y, color)
+                    # Reduce brightness to 40%
+                    dark = int(color.red() * dimLevel)
+                    color = QColor(dark, dark, dark, color.alpha())
+                    disabled_image.setPixelColor(x, y, color)
 
-        disabled_pixmap = QPixmap.fromImage(disabled_image)
+            disabled_pixmap = QPixmap.fromImage(disabled_image)
 
-        #   Convert to QIcon
-        icon = QIcon()
-        icon.addPixmap(darkened_normal_pixmap, QIcon.Normal)
-        icon.addPixmap(disabled_pixmap, QIcon.Disabled)
+            #   Convert to QIcon
+            icon = QIcon()
+            icon.addPixmap(darkened_normal_pixmap, QIcon.Normal)
+            icon.addPixmap(disabled_pixmap, QIcon.Disabled)
 
-        return icon
+            logger.debug(f"Created Icon for {imagePath}")
+            return icon
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Icon:\n{e}")
     
 
     #   Returns File Size Formatted String
@@ -731,99 +756,101 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return "Estimating..."
         
         minutes, sec = divmod(int(seconds), 60)
-        # hours, minutes = divmod(minutes, 60)
 
-        # return f"{hours:02}:{minutes:02}:{sec:02}"
         return f"{minutes:02}:{sec:02}"
 
 
     #   Configures the UI Buttons based on Transfer Status
     @err_catcher(name=__name__)
     def configTransUI(self, mode):
-        displayMap = {
-            "idle": {
-                "b_transfer_start": True,
-                "b_transfer_pause": False,
-                "b_transfer_resume": False,
-                "b_transfer_cancel": False,
-                "b_transfer_reset": False,
-                "l_time_elapsed": False,
-                "l_time_elapsedText": False,
-                "l_time_remain": False,
-                "l_time_remainText": False,
-                "l_size_copied": False,
-                "l_size_dash": False,
-            },
-            "transfer": {
-                "b_transfer_start": False,
-                "b_transfer_pause": True,
-                "b_transfer_resume": False,
-                "b_transfer_cancel": True,
-                "l_time_elapsed": True,
-                "l_time_elapsedText": True,
-                "l_time_remain": True,
-                "l_time_remainText": True,
-                "l_size_copied": True,
-                "l_size_dash": True,
-            },
-            "pause": {
-                "b_transfer_start": False,
-                "b_transfer_pause": False,
-                "b_transfer_resume": True,
-                "b_transfer_cancel": True,
-            },
-            "resume": {
-                "b_transfer_start": False,
-                "b_transfer_pause": True,
-                "b_transfer_resume": False,
-                "b_transfer_cancel": True,
-            },
-            "cancel": {
-                "b_transfer_start": False,
-                "b_transfer_pause": False,
-                "b_transfer_resume": False,
-                "b_transfer_cancel": False,
-                "b_transfer_reset": True,
-            },
-            "complete": {
-                "b_transfer_start": False,
-                "b_transfer_pause": False,
-                "b_transfer_resume": False,
-                "b_transfer_cancel": False,
-                "b_transfer_reset": True,
-                "l_time_elapsed": True,
-                "l_time_elapsedText": True,
-                "l_time_remain": False,
-                "l_time_remainText": False,
-                "l_size_copied": True,
-                "l_size_dash": True,
+        try:
+            displayMap = {
+                "idle": {
+                    "b_transfer_start": True,
+                    "b_transfer_pause": False,
+                    "b_transfer_resume": False,
+                    "b_transfer_cancel": False,
+                    "b_transfer_reset": False,
+                    "l_time_elapsed": False,
+                    "l_time_elapsedText": False,
+                    "l_time_remain": False,
+                    "l_time_remainText": False,
+                    "l_size_copied": False,
+                    "l_size_dash": False,
+                },
+                "transfer": {
+                    "b_transfer_start": False,
+                    "b_transfer_pause": True,
+                    "b_transfer_resume": False,
+                    "b_transfer_cancel": True,
+                    "l_time_elapsed": True,
+                    "l_time_elapsedText": True,
+                    "l_time_remain": True,
+                    "l_time_remainText": True,
+                    "l_size_copied": True,
+                    "l_size_dash": True,
+                },
+                "pause": {
+                    "b_transfer_start": False,
+                    "b_transfer_pause": False,
+                    "b_transfer_resume": True,
+                    "b_transfer_cancel": True,
+                },
+                "resume": {
+                    "b_transfer_start": False,
+                    "b_transfer_pause": True,
+                    "b_transfer_resume": False,
+                    "b_transfer_cancel": True,
+                },
+                "cancel": {
+                    "b_transfer_start": False,
+                    "b_transfer_pause": False,
+                    "b_transfer_resume": False,
+                    "b_transfer_cancel": False,
+                    "b_transfer_reset": True,
+                },
+                "complete": {
+                    "b_transfer_start": False,
+                    "b_transfer_pause": False,
+                    "b_transfer_resume": False,
+                    "b_transfer_cancel": False,
+                    "b_transfer_reset": True,
+                    "l_time_elapsed": True,
+                    "l_time_elapsedText": True,
+                    "l_time_remain": False,
+                    "l_time_remainText": False,
+                    "l_size_copied": True,
+                    "l_size_dash": True,
+                }
             }
-        }
 
-        config = displayMap.get(mode.lower())
-        if not config:
-            return
+            config = displayMap.get(mode.lower())
+            if not config:
+                return
 
-        for name, visible in config.items():
-            widget = getattr(self.sourceFuncts, name, None)
-            if widget:
-                widget.setVisible(visible)
+            for name, visible in config.items():
+                widget = getattr(self.sourceFuncts, name, None)
+                if widget:
+                    widget.setVisible(visible)
 
 
-        #   Enable/Disable During Transfer
-        if mode in ["idle", "complete"]:
-            enabled = True
-        elif mode in ["transfer", "pause", "resume", "cancel"]:
-            enabled = False
+            #   Enable/Disable During Transfer
+            if mode in ["idle", "complete"]:
+                enabled = True
+            elif mode in ["transfer", "pause", "resume", "cancel"]:
+                enabled = False
 
-        lockItems = [self.sourceFuncts.gb_functions,
-                     self.gb_sourcePath,
-                     self.gb_sourceFooter,
-                     self.gb_destPath,
-                     self.gb_destFooter]
+            lockItems = [self.sourceFuncts.gb_functions,
+                        self.gb_sourcePath,
+                        self.gb_sourceFooter,
+                        self.gb_destPath,
+                        self.gb_destFooter]
 
-        for item in lockItems:
-            item.setEnabled(enabled)
+            for item in lockItems:
+                item.setEnabled(enabled)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Configure Transfer UI:\n{e}")
 
 
     #   Reset Total Progess Bar
@@ -835,17 +862,22 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Get Transfer size from Each TileTile and Calculate Total
     @err_catcher(name=__name__)
     def getTotalTransferSize(self):
-        rowCount = self.tw_destination.rowCount()
+        try:
+            rowCount = self.tw_destination.rowCount()
 
-        total_transferSize = 0.0
+            total_transferSize = 0.0
 
-        for row in range(rowCount):
-            fileItem = self.tw_destination.cellWidget(row, 0)
-            
-            if fileItem is not None and fileItem.isChecked():
-                total_transferSize += fileItem.getTransferSize(self.proxyEnabled, self.proxyMode)
+            for row in range(rowCount):
+                fileItem = self.tw_destination.cellWidget(row, 0)
+                
+                if fileItem is not None and fileItem.isChecked():
+                    total_transferSize += fileItem.getTransferSize(self.proxyEnabled, self.proxyMode)
 
-        return total_transferSize
+            logger.debug("Fetched Total Transfer Size")
+            return total_transferSize
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Fetch Total Transfer Size:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -855,36 +887,40 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def getTimeRemaining(self, copiedSize, totalSize):
-        speed_bps = 0
-        current_time = time()
+        try:
+            speed_bps = 0
+            current_time = time()
 
-        self.speedSamples.append((current_time, copiedSize))
+            self.speedSamples.append((current_time, copiedSize))
 
-        # Adaptive maxlen: increase as transfer progresses
-        progress_ratio = copiedSize / totalSize if totalSize > 0 else 0
-        adaptive_maxlen = int(5 + progress_ratio * 20)
-        self.speedSamples = deque(self.speedSamples, maxlen=adaptive_maxlen)
+            # Adaptive maxlen: increase as transfer progresses
+            progress_ratio = copiedSize / totalSize if totalSize > 0 else 0
+            adaptive_maxlen = int(5 + progress_ratio * 20)
+            self.speedSamples = deque(self.speedSamples, maxlen=adaptive_maxlen)
 
-        # Calculate rolling average speed
-        if len(self.speedSamples) >= 2:
-            t0, b0 = self.speedSamples[0]
-            t1, b1 = self.speedSamples[-1]
-            time_span = t1 - t0
-            bytes_span = b1 - b0
+            # Calculate rolling average speed
+            if len(self.speedSamples) >= 2:
+                t0, b0 = self.speedSamples[0]
+                t1, b1 = self.speedSamples[-1]
+                time_span = t1 - t0
+                bytes_span = b1 - b0
 
-            if time_span > 0 and bytes_span > 0:
-                speed_bps = bytes_span / time_span
+                if time_span > 0 and bytes_span > 0:
+                    speed_bps = bytes_span / time_span
+                else:
+                    speed_bps = 0
+
+            # Estimate remaining time
+            if speed_bps > 0:
+                remaining_bytes = totalSize - copiedSize
+                time_remaining = remaining_bytes / speed_bps
             else:
-                speed_bps = 0
+                time_remaining = None
 
-        # Estimate remaining time
-        if speed_bps > 0:
-            remaining_bytes = totalSize - copiedSize
-            time_remaining = remaining_bytes / speed_bps
-        else:
-            time_remaining = None
+            return time_remaining
 
-        return time_remaining
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to get Time Remaining:\n{e}")
 
 
     #   Creates Transfer Report PDF
@@ -1129,35 +1165,39 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Handles Addressbar Logic
     @err_catcher(name=__name__)
     def onPasteAddress(self, mode):
-        if mode == "source":
-            attribute = "sourceDir"
-            addrBar = self.le_sourcePath
-            refreshFunc = self.refreshSourceItems
+        try:
+            if mode == "source":
+                attribute = "sourceDir"
+                addrBar = self.le_sourcePath
+                refreshFunc = self.refreshSourceItems
 
-        elif mode == "dest":
-            attribute = "destDir"
-            addrBar = self.le_destPath
-            refreshFunc = lambda: self.refreshDestItems(restoreSelection=True)
-        else:
-            return
+            elif mode == "dest":
+                attribute = "destDir"
+                addrBar = self.le_destPath
+                refreshFunc = lambda: self.refreshDestItems(restoreSelection=True)
+            else:
+                return
 
-        origDir = getattr(self, attribute, "")
-        pastedAddr = addrBar.text().strip().strip('\'"')
+            origDir = getattr(self, attribute, "")
+            pastedAddr = addrBar.text().strip().strip('\'"')
 
-        if not os.path.exists(pastedAddr):
-            addrBar.setText(origDir)
-            return
+            if not os.path.exists(pastedAddr):
+                addrBar.setText(origDir)
+                return
 
-        if os.path.isdir(pastedAddr):
-            newAddr = os.path.normpath(pastedAddr)
-        elif os.path.isfile(pastedAddr):
-            newAddr = os.path.normpath(os.path.dirname(pastedAddr))
-        else:
-            addrBar.setText(origDir)
-            return
+            if os.path.isdir(pastedAddr):
+                newAddr = os.path.normpath(pastedAddr)
+            elif os.path.isfile(pastedAddr):
+                newAddr = os.path.normpath(os.path.dirname(pastedAddr))
+            else:
+                addrBar.setText(origDir)
+                return
 
-        setattr(self, attribute, newAddr)
-        refreshFunc()
+            setattr(self, attribute, newAddr)
+            refreshFunc()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Paste Address Failed:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -1196,28 +1236,36 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Returns Bool if File in Prism Supported Formats
     @err_catcher(name=__name__)
     def isSupportedFormat(self, path=None, ext=None):
-        if path:
-            _, extension = os.path.splitext(os.path.basename(path))
-        elif ext:
-            extension = ext
-        else:
-            extension = self.getFileExtension()
+        try:
+            if path:
+                _, extension = os.path.splitext(os.path.basename(path))
+            elif ext:
+                extension = ext
+            else:
+                extension = self.getFileExtension()
+            
+            return  extension.lower() in self.core.media.supportedFormats
         
-        return  extension.lower() in self.core.media.supportedFormats
+        except Exception as e:
+            logger.warning(f"ERROR:  isSupportedFormat() Failed:\n{e}")
 
 
 
     #   Returns Bool if File in Prism Video Formats
     @err_catcher(name=__name__)
     def isVideo(self, path=None, ext=None):
-        if path:
-            _, extension = os.path.splitext(os.path.basename(path))
-        elif ext:
-            extension = ext
-        else:
-            extension = self.getFileExtension()
+        try:
+            if path:
+                _, extension = os.path.splitext(os.path.basename(path))
+            elif ext:
+                extension = ext
+            else:
+                extension = self.getFileExtension()
+            
+            return  extension.lower() in self.core.media.videoFormats
         
-        return  extension.lower() in self.core.media.videoFormats
+        except Exception as e:
+            logger.warning(f"ERROR:  isVideo() Failed:\n{e}")
     
 
     #   Returns Bool if File in Prism Video Formats
@@ -1253,138 +1301,153 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
-        #   Show Wait Popup
-        WaitPopup.showPopup(parent=self.projectBrowser)
+        try:
+            #   Show Wait Popup
+            WaitPopup.showPopup(parent=self.projectBrowser)
 
-        sourceDir = getattr(self, "sourceDir", "")
+            sourceDir = getattr(self, "sourceDir", "")
 
-        metrics = QFontMetrics(self.le_sourcePath.font())
-        elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
-        self.le_sourcePath.setText(elided_text)
+            metrics = QFontMetrics(self.le_sourcePath.font())
+            elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
+            self.le_sourcePath.setText(elided_text)
 
-        #   Colors the Addressbar if the Path is invalid
-        if not os.path.exists(sourceDir):
-            self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
-        else:
-            self.le_sourcePath.setToolTip(sourceDir)
-            self.le_sourcePath.setStyleSheet("")
-
-        self.tw_source.setRowCount(0)  # Clear existing rows
-
-        if not hasattr(self, "sourceDir"):
-            return
-
-        # Dictionary to hold the items by type
-        fileItems = {
-            "folder": [],
-            "video": [],
-            "image": [],
-            "audio": [],
-            "other": []
-        }
-
-        # Loop through files and categorize them
-        for file in os.listdir(self.sourceDir):
-            fullPath = os.path.join(self.sourceDir, file)
-            fileType = self.getFileType(fullPath)
-
-            if fileType == "folder":
-                folderItem = self.createFolderTile(fullPath)
-                fileItems[fileType].append(folderItem)
-
+            #   Colors the Addressbar if the Path is invalid
+            if not os.path.exists(sourceDir):
+                self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
             else:
-                fileItem = self.createSourceFileTile(fullPath)
-                fileItems[fileType].append(fileItem)
+                self.le_sourcePath.setToolTip(sourceDir)
+                self.le_sourcePath.setStyleSheet("")
 
-        row = 0
-        # Iterate over the categories and add them to the table
-        for fileType, items in fileItems.items():
-            for item in items:
-                self.tw_source.insertRow(row)  # Insert a new row
+            self.tw_source.setRowCount(0)  # Clear existing rows
+
+            if not hasattr(self, "sourceDir"):
+                return
+
+            # Dictionary to hold the items by type
+            fileItems = {
+                "folder": [],
+                "video": [],
+                "image": [],
+                "audio": [],
+                "other": []
+            }
+
+            # Loop through files and categorize them
+            for file in os.listdir(self.sourceDir):
+                fullPath = os.path.join(self.sourceDir, file)
+                fileType = self.getFileType(fullPath)
 
                 if fileType == "folder":
-                    self.tw_source.setRowHeight(row, SOURCE_DIR_HEIGHT)
-                    self.tw_source.setCellWidget(row, 0, item)
+                    folderItem = self.createFolderTile(fullPath)
+                    fileItems[fileType].append(folderItem)
 
                 else:
-                    self.tw_source.setRowHeight(row, SOURCE_ITEM_HEIGHT)
+                    fileItem = self.createSourceFileTile(fullPath)
+                    fileItems[fileType].append(fileItem)
 
-                    # Create an invisible item for selection
-                    table_item = QTableWidgetItem()
-                    table_item.setData(Qt.UserRole, item)
-                    self.tw_source.setItem(row, 0, table_item)
-                    #   Add Tile Widget
-                    self.tw_source.setCellWidget(row, 0, item)
+            row = 0
+            # Iterate over the categories and add them to the table
+            for fileType, items in fileItems.items():
+                for item in items:
+                    self.tw_source.insertRow(row)  # Insert a new row
 
-                row += 1
+                    if fileType == "folder":
+                        self.tw_source.setRowHeight(row, SOURCE_DIR_HEIGHT)
+                        self.tw_source.setCellWidget(row, 0, item)
 
-        #   Add extra empty row to bottom
-        self.tw_source.insertRow(row)
+                    else:
+                        self.tw_source.setRowHeight(row, SOURCE_ITEM_HEIGHT)
 
-        #   Hide Wait Popup
-        WaitPopup.closePopup()
+                        # Create an invisible item for selection
+                        table_item = QTableWidgetItem()
+                        table_item.setData(Qt.UserRole, item)
+                        self.tw_source.setItem(row, 0, table_item)
+                        #   Add Tile Widget
+                        self.tw_source.setCellWidget(row, 0, item)
+
+                    row += 1
+
+            #   Add extra empty row to bottom
+            self.tw_source.insertRow(row)
+
+            logger.debug("Refreshed Source Items")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")
+        
+        finally:
+            #   Hide Wait Popup
+            WaitPopup.closePopup()
+
 
 
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
-        #   Show Wait Popup
-        WaitPopup.showPopup(parent=self.projectBrowser)
+        try:
+            #   Show Wait Popup
+            WaitPopup.showPopup(parent=self.projectBrowser)
 
-        destDir = getattr(self, "destDir", "")
-
-        if restoreSelection:
-            self.fileItemSelectionState = {}
-
-            for row in range(self.tw_destination.rowCount()):
-                fileTile = self.tw_destination.cellWidget(row, 0)
-                if fileTile:
-                    key = fileTile.data["uuid"]
-                    self.fileItemSelectionState[key] = fileTile.isChecked()
-
-
-        metrics = QFontMetrics(self.le_destPath.font())
-        elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
-        self.le_destPath.setText(elided_text)
-
-
-        #   Colors the Addressbar if the Path is invalid
-        if not os.path.exists(destDir):
-            self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
-        else:
-            self.le_destPath.setToolTip(destDir)
-            self.le_destPath.setStyleSheet("")
-
-        self.tw_destination.setRowCount(0)
-
-        row = 0
-        # Iterate over the categories and add them to the table
-        for iData in self.transferList:
-            self.tw_destination.insertRow(row)
-            self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
-
-            fileItem = self.createDestFileTile(iData)
-            fileItem.applyStyle("None")
-
-            #   Add Tile Widget
-            self.tw_destination.setCellWidget(row, 0, fileItem)
+            destDir = getattr(self, "destDir", "")
 
             if restoreSelection:
-                key = iData["uuid"]
-                if key in self.fileItemSelectionState:
-                    fileItem.setChecked(self.fileItemSelectionState[key])
+                self.fileItemSelectionState = {}
 
-            row += 1
+                for row in range(self.tw_destination.rowCount()):
+                    fileTile = self.tw_destination.cellWidget(row, 0)
+                    if fileTile:
+                        key = fileTile.data["uuid"]
+                        self.fileItemSelectionState[key] = fileTile.isChecked()
 
-        #   Add extra empty row to bottom
-        self.tw_destination.insertRow(row)
 
-        #   Modify File Names if Applicable
-        self.modifyFileNames()
+            metrics = QFontMetrics(self.le_destPath.font())
+            elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
+            self.le_destPath.setText(elided_text)
 
-        self.refreshTotalTransSize()
 
-        #   Hide Wait Popup
-        WaitPopup.closePopup()
+            #   Colors the Addressbar if the Path is invalid
+            if not os.path.exists(destDir):
+                self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+            else:
+                self.le_destPath.setToolTip(destDir)
+                self.le_destPath.setStyleSheet("")
+
+            self.tw_destination.setRowCount(0)
+
+            row = 0
+            # Iterate over the categories and add them to the table
+            for iData in self.transferList:
+                self.tw_destination.insertRow(row)
+                self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
+
+                fileItem = self.createDestFileTile(iData)
+                fileItem.applyStyle("None")
+
+                #   Add Tile Widget
+                self.tw_destination.setCellWidget(row, 0, fileItem)
+
+                if restoreSelection:
+                    key = iData["uuid"]
+                    if key in self.fileItemSelectionState:
+                        fileItem.setChecked(self.fileItemSelectionState[key])
+
+                row += 1
+
+            #   Add extra empty row to bottom
+            self.tw_destination.insertRow(row)
+
+            #   Modify File Names if Applicable
+            self.modifyFileNames()
+
+            self.refreshTotalTransSize()
+
+            logger.debug("Refreshed Destination Items")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Destination Items:\n{e}")
+        
+        finally:
+            #   Hide Wait Popup
+            WaitPopup.closePopup()
 
 
     #   Sets Each Tile Widget Proxy UI
@@ -1401,17 +1464,23 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Calls Each Tile Widget to Modify Name if Enabled
     @err_catcher(name=__name__)
     def modifyFileNames(self):
-        #   Get Override Checked
-        nameOverride = self.sourceFuncts.chb_ovr_fileNaming.isChecked()
+        try:
+            #   Get Override Checked
+            nameOverride = self.sourceFuncts.chb_ovr_fileNaming.isChecked()
 
-        #   Iterate Through all Items and Call Name Override Method in Widget
-        rows = self.tw_destination.rowCount()
-        for row in range(rows):
-            widget = self.tw_destination.cellWidget(row, 0)
-            if widget and hasattr(widget, "nameOverride"):
-                widget.nameOverride(nameOverride)
+            #   Iterate Through all Items and Call Name Override Method in Widget
+            rows = self.tw_destination.rowCount()
+            for row in range(rows):
+                widget = self.tw_destination.cellWidget(row, 0)
+                if widget and hasattr(widget, "nameOverride"):
+                    widget.nameOverride(nameOverride)
 
-        self.sourceFuncts.updateUI()
+            self.sourceFuncts.updateUI()
+
+            logger.debug("Modified Filenames")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Modify Filenames:\n{e}")
 
 
     #   Called from Tile Widget to Modify Original Name based on Active Mods
@@ -1419,73 +1488,92 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def applyMods(self, origName):
         #   Start with Orig Name
         newName = origName
+        try:
+            from FileNameMods import getModClassByName as GetModClass
+            from FileNameMods import createModifier as CreateMod
 
-        from FileNameMods import getModClassByName as GetModClass
-        from FileNameMods import createModifier as CreateMod
+            #    Loop Through All Modifiers
+            for mod in self.nameMods:
+                if mod["enabled"]:
+                    modClass = GetModClass(mod["mod_type"])
+                    modifier = CreateMod(modClass)
+                    newName = modifier.applyMod(newName, mod["settings"])
 
-        #    Loop Through All Modifiers
-        for mod in self.nameMods:
-            if mod["enabled"]:
-                modClass = GetModClass(mod["mod_type"])
-                modifier = CreateMod(modClass)
-                newName = modifier.applyMod(newName, mod["settings"])
-
-        return newName
+            return newName
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Filenam Mods:\n{e}")
 
 
     @err_catcher(name=__name__)
     def refreshTotalTransSize(self):
-        #   Get Size Info
-        self.total_transferSize = self.getTotalTransferSize()
-        copySize_str = self.getFileSizeStr(self.total_transferSize)
-        #   Default Tip
-        totalSizeTip = "Total Transfer Size"
-        #   If there will be Proxy Generation add the Asterisk and Note
-        if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
-            copySize_str = copySize_str + "*"
-            totalSizeTip = ("Estimated Total Transfer Size\n"
-                            "(may be inaccurate due to Proxy generation estimation)")
-        #   Set Label and ToolTip
-        self.sourceFuncts.l_size_total.setText(copySize_str)
-        self.sourceFuncts.l_size_total.setToolTip(totalSizeTip)
+        try:
+            #   Get Size Info
+            self.total_transferSize = self.getTotalTransferSize()
+            copySize_str = self.getFileSizeStr(self.total_transferSize)
+            #   Default Tip
+            totalSizeTip = "Total Transfer Size"
+            #   If there will be Proxy Generation add the Asterisk and Note
+            if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
+                copySize_str = copySize_str + "*"
+                totalSizeTip = ("Estimated Total Transfer Size\n"
+                                "(may be inaccurate due to Proxy generation estimation)")
+            #   Set Label and ToolTip
+            self.sourceFuncts.l_size_total.setText(copySize_str)
+            self.sourceFuncts.l_size_total.setToolTip(totalSizeTip)
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Total Transfer Size:\n{e}")
 
 
     @err_catcher(name=__name__)
     def createSourceFileTile(self, filePath):
-        #   Create Data
-        data = {}
-        data["tileType"] = "file"
-        data["source_mainFile_path"] = os.path.normpath(filePath)
-        data["uuid"] = self.createUUID()
+        try:
+            #   Create Data
+            data = {}
+            data["tileType"] = "file"
+            data["source_mainFile_path"] = os.path.normpath(filePath)
+            data["uuid"] = self.createUUID()
 
-        # Create the custom widget
-        fileItem = TileWidget.SourceFileItem(self, data)
+            # Create the custom widget
+            fileItem = TileWidget.SourceFileItem(self, data)
 
-        return fileItem
+            logger.debug(f"Created Source FileTile for: {filePath}")
+            return fileItem
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Source FileTile for:\n{filePath}\n\n{e}")
 
 
     @err_catcher(name=__name__)
     def createDestFileTile(self, data):
-        # Create the custom widget
-        fileItem = TileWidget.DestFileItem(self, data)
+        try:
+            # Create the custom widget
+            fileItem = TileWidget.DestFileItem(self, data)
 
-        # fileItem.setAttribute(Qt.WA_TransparentForMouseEvents)
-
-
-        return fileItem
+            logger.debug("Created Destination FileTile")
+            return fileItem
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Destination FileTile:\n{e}")
     
 
     @err_catcher(name=__name__)
     def createFolderTile(self, dirPath):
-        data = {}
-        data["tileType"] = "folder"
-        data["dirPath"] = dirPath
-        data["uuid"] = self.createUUID()
+        try:
+            data = {}
+            data["tileType"] = "folder"
+            data["dirPath"] = dirPath
+            data["uuid"] = self.createUUID()
 
-        # Create the custom widget
-        folderItem = TileWidget.FolderItem(self, data)
+            # Create the custom widget
+            folderItem = TileWidget.FolderItem(self, data)
 
-        return folderItem
+            logger.debug("Created FolderTile")
+            return folderItem
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create FolderTile:\n{e}")
 
 
     #   Opens clicked Folder and refreshes
@@ -1494,7 +1582,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         if mode == "source":
             self.sourceDir = filepath
             self.refreshSourceItems()
-            # self.refreshUI()
 
 
     #   Plays Media in External Player
@@ -1551,65 +1638,85 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def addSelected(self):
-        row_count = self.tw_source.rowCount()
+        try:
+            row_count = self.tw_source.rowCount()
 
-        for row in range(row_count):
-            fileItem = self.tw_source.cellWidget(row, 0)
-            if fileItem is not None and fileItem.objectName() == "FileTile":
-                if fileItem.isChecked():
-                    self.addToDestList(fileItem.getData())
+            for row in range(row_count):
+                fileItem = self.tw_source.cellWidget(row, 0)
+                if fileItem is not None and fileItem.objectName() == "FileTile":
+                    if fileItem.isChecked():
+                        self.addToDestList(fileItem.getData())
 
-        self.refreshDestItems(restoreSelection=True)
+            self.refreshDestItems(restoreSelection=True)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Add Selected Item to Destination List:\n{e}")
 
 
     @err_catcher(name=__name__)
     def removeFromDestList(self, data):
-        delUid = data["uuid"]
+        try:
+            delUid = data["uuid"]
 
-        for item in self.transferList:
-            if delUid == item["uuid"]:
-                self.transferList.remove(item)
-                break
+            for item in self.transferList:
+                if delUid == item["uuid"]:
+                    self.transferList.remove(item)
+                    break
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Remove Item from Destination List:\n{e}")
 
 
     @err_catcher(name=__name__)
     def clearTransferList(self, checked=False):
-        if not checked:
-            self.transferList = []
+        try:
+            if not checked:
+                self.transferList = []
 
-        else:
-            row_count = self.tw_destination.rowCount()
+            else:
+                row_count = self.tw_destination.rowCount()
 
-            for row in range(row_count):
-                fileItem = self.tw_destination.cellWidget(row, 0)
-                if fileItem is not None:
-                    if fileItem.isChecked():
-                        self.transferList.remove(fileItem.getData())
+                for row in range(row_count):
+                    fileItem = self.tw_destination.cellWidget(row, 0)
+                    if fileItem is not None:
+                        if fileItem.isChecked():
+                            self.transferList.remove(fileItem.getData())
 
-        self.refreshDestItems()
+            self.refreshDestItems()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Clear Transfer List:\n{e}")
 
 
     #   Get Destination Proxy Dir from Existing Proxies
     @err_catcher(name=__name__)
     def getResolvedProxyPaths(self):
-        self.resolvedProxyPaths = set()
-        #   Get All Cehcked Tiles
-        tiles = self.getAllDestTiles(onlyChecked=True)
+        try:
+            self.resolvedProxyPaths = set()
+            #   Get All Cehcked Tiles
+            tiles = self.getAllDestTiles(onlyChecked=True)
 
-        for tile in tiles:
-            #   If it Has a Proxy Already
-            if tile.data["hasProxy"]:
-                #   Get the Destination Proxy Dir
-                proxyDir = tile.getResolvedDestProxyPath(dirOnly=True)
-                if proxyDir:                
-                    self.resolvedProxyPaths.add(proxyDir)
+            for tile in tiles:
+                #   If it Has a Proxy Already
+                if tile.data["hasProxy"]:
+                    #   Get the Destination Proxy Dir
+                    proxyDir = tile.getResolvedDestProxyPath(dirOnly=True)
+                    if proxyDir:                
+                        self.resolvedProxyPaths.add(proxyDir)
+            logger.debug("Resolved Proxy Path(s)")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Resolving Proxy Path Failed:\n{e}")
 
 
     #   Get Storage Space Stats
     @err_catcher(name=__name__)                                         #   TODO  Move
     def getDriveSpace(self, path):
-        total, used, free = shutil.disk_usage(path)   
-        return free 
+        try:
+            total, used, free = shutil.disk_usage(path)   
+            return free 
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to get Drive Space Stats:\n{e}")
     
 
     #   Return List of Checked Dest File Tiles
@@ -1680,95 +1787,106 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def generateTransferPopup(self):
-        ##  HEADER SECTION
-        header = {
-            "Destination Path": self.le_destPath.text(),
-            "Number of Files": len(self.copyList),
-            "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
-            "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
-            "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
-            # "Copy Proxy Files": copyProxy,
-            # "Generate Proxy": self.sourceFuncts.chb_generateProxy.isChecked(),
-            "": ""
-        }
+        try:
+            ##  HEADER SECTION
+            header = {
+                "Destination Path": self.le_destPath.text(),
+                "Number of Files": len(self.copyList),
+                "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
+                "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
+                "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
+                # "Copy Proxy Files": copyProxy,
+                # "Generate Proxy": self.sourceFuncts.chb_generateProxy.isChecked(),
+                "": ""
+            }
 
-        ##   WARNINGS SECTION
-        errors, warnings, hasErrors = self.getTransferErrors()
+            ##   WARNINGS SECTION
+            errors, warnings, hasErrors = self.getTransferErrors()
 
-        ##   FILES SECTION
-        file_list = []
+            ##   FILES SECTION
+            file_list = []
 
-        for item in self.copyList:
-            filename = os.path.basename(item.getDestMainPath())
-            
-            # Create a separate group for each file
-            group_box = QGroupBox(filename)
-            form_layout = QFormLayout()
+            for item in self.copyList:
+                filename = os.path.basename(item.getDestMainPath())
+                
+                # Create a separate group for each file
+                group_box = QGroupBox(filename)
+                form_layout = QFormLayout()
 
-            # Add individual data items in separate lines
-            form_layout.addRow("Date:", QLabel(item.data.get('source_mainFile_date', 'Unknown')))
-            form_layout.addRow("Path:", QLabel(item.getSource_mainfilePath()))
-            form_layout.addRow("Size:", QLabel(item.data.get('source_mainFile_size', 'Unknown')))
+                # Add individual data items in separate lines
+                form_layout.addRow("Date:", QLabel(item.data.get('source_mainFile_date', 'Unknown')))
+                form_layout.addRow("Path:", QLabel(item.getSource_mainfilePath()))
+                form_layout.addRow("Size:", QLabel(item.data.get('source_mainFile_size', 'Unknown')))
 
-            if item.data.get('hasProxy'):
-                proxyPath = item.getSource_proxyfilePath()
-            else:
-                proxyPath = "None"
+                if item.data.get('hasProxy'):
+                    proxyPath = item.getSource_proxyfilePath()
+                else:
+                    proxyPath = "None"
 
-            form_layout.addRow("Proxy:", QLabel(proxyPath))
+                form_layout.addRow("Proxy:", QLabel(proxyPath))
 
-            group_box.setLayout(form_layout)
-            file_list.append(group_box)  # Add group box to the list
+                group_box.setLayout(form_layout)
+                file_list.append(group_box)  # Add group box to the list
 
-        # Combine header and file groups into a final data dict
-        data = {
-            "Transfer:": header,
-            "Errors:": errors,
-            "Warnings": warnings,
-            "Files": file_list
-        }
+            # Combine header and file groups into a final data dict
+            data = {
+                "Transfer:": header,
+                "Errors:": errors,
+                "Warnings": warnings,
+                "Files": file_list
+            }
 
-        return data, hasErrors
-    
+            logger.debug("Created Transfer Popup")
+            return data, hasErrors
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Transfer Popup:\n{e}")
+        
 
     #   Sets Transfer Status and Prog Bar Color and Tooltip
     @err_catcher(name=__name__)
     def setTransferStatus(self, status, tooltip=None):
-        self.transferState = status
+        try:
+            self.transferState = status
 
-        match status:
-            case "Idle":
-                statusColor = COLOR_BLUE
-            case "Transferring":
-                statusColor = COLOR_BLUE
-            case "Generating Proxy":
-                statusColor = COLOR_BLUE
-            case "Paused":
-                statusColor = COLOR_GREY
-            case "Cancelled":
-                statusColor = COLOR_RED
-            case "Warning":
-                statusColor = COLOR_ORANGE
-            case "Complete":
-                statusColor = COLOR_GREEN
-            case "Error":
-                statusColor = COLOR_RED
+            match status:
+                case "Idle":
+                    statusColor = COLOR_BLUE
+                case "Transferring":
+                    statusColor = COLOR_BLUE
+                case "Generating Proxy":
+                    statusColor = COLOR_BLUE
+                case "Paused":
+                    statusColor = COLOR_GREY
+                case "Cancelled":
+                    statusColor = COLOR_RED
+                case "Warning":
+                    statusColor = COLOR_ORANGE
+                case "Complete":
+                    statusColor = COLOR_GREEN
+                case "Error":
+                    statusColor = COLOR_RED
 
-        #   Set the Prog Bar Tooltip
-        if tooltip:
-            self.sourceFuncts.progBar_total.setToolTip(tooltip)
-        else:
-            self.sourceFuncts.progBar_total.setToolTip(status)
+            #   Set the Prog Bar Tooltip
+            if tooltip:
+                self.sourceFuncts.progBar_total.setToolTip(tooltip)
+            else:
+                self.sourceFuncts.progBar_total.setToolTip(status)
 
-        #   Convert Color to rgb format string
-        color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
-        
-        #   Set Prog Bar StyleSheet
-        self.sourceFuncts.progBar_total.setStyleSheet(f"""
-            QProgressBar::chunk {{
-                background-color: {color_str};  /* Set the chunk color */
-            }}
-        """)
+            #   Convert Color to rgb format string
+            color_str = f"rgb({statusColor.red()}, {statusColor.green()}, {statusColor.blue()})"
+            
+            #   Set Prog Bar StyleSheet
+            self.sourceFuncts.progBar_total.setStyleSheet(f"""
+                QProgressBar::chunk {{
+                    background-color: {color_str};  /* Set the chunk color */
+                }}
+            """)
+
+            logger.debug(f"Set Transfer Status: {status}")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Transfer Status:\n{e}")
 
 
 
@@ -1836,6 +1954,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.progressTimer.start()
             self.setTransferStatus("Transferring")
             self.configTransUI("transfer")
+            logger.debug("Transfer Started")
 
             for item in self.copyList:
                 options = {}
@@ -1909,52 +2028,57 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Update Total Progess Bar based on self.progressTimer
     @err_catcher(name=__name__)
     def updateTransfer(self):
-        # Get Transferred Amount from Every FileTile
-        total_copied = sum(item.getCopiedSize() for item in self.copyList)
-        #   Update Copied Size in the UI
-        totalSize_str = self.getFileSizeStr(total_copied)
-        self.sourceFuncts.l_size_copied.setText(totalSize_str)
+        try:
+            # Get Transferred Amount from Every FileTile
+            total_copied = sum(item.getCopiedSize() for item in self.copyList)
+            #   Update Copied Size in the UI
+            totalSize_str = self.getFileSizeStr(total_copied)
+            self.sourceFuncts.l_size_copied.setText(totalSize_str)
 
-        #   Calculate the Time Elapsed
-        timeElapsed = self.getTimeElapsed()
-        self.timeElapsed = timeElapsed
-        self.sourceFuncts.l_time_elapsed.setText(self.getFormattedTimeStr(timeElapsed))
+            #   Calculate the Time Elapsed
+            timeElapsed = self.getTimeElapsed()
+            self.timeElapsed = timeElapsed
+            self.sourceFuncts.l_time_elapsed.setText(self.getFormattedTimeStr(timeElapsed))
 
-        #   Calculate the Estimated Time Remaining
-        timeRemaining = self.getTimeRemaining(total_copied, self.total_transferSize)
-        #   Update Time Remaining in the UI
-        self.sourceFuncts.l_time_remain.setText(self.getFormattedTimeStr(timeRemaining))
+            #   Calculate the Estimated Time Remaining
+            timeRemaining = self.getTimeRemaining(total_copied, self.total_transferSize)
+            #   Update Time Remaining in the UI
+            self.sourceFuncts.l_time_remain.setText(self.getFormattedTimeStr(timeRemaining))
 
-        #   Get Tranfer Status for Every FileTile
-        overall_statusList = [transfer.transferState for transfer in self.copyList]
+            #   Get Tranfer Status for Every FileTile
+            overall_statusList = [transfer.transferState for transfer in self.copyList]
 
-        #   Determine Overall Status based on Priority
-        if "Cancelled" in overall_statusList:
-            overall_status = "Cancelled"
-        elif "Error" in overall_statusList:
-            overall_status = "Error"
-        elif "Warning" in overall_statusList:
-            overall_status = "Warning"
-        elif all(status == "Complete" for status in overall_statusList):
-            overall_status = "Complete"
-        elif any(status == "Paused" for status in overall_statusList):
-            overall_status = "Paused"
-        elif any(status == "Transferring" for status in overall_statusList):
-            overall_status = "Transferring"
-        elif any(status == "Generating Proxy" for status in overall_statusList):
-            overall_status = "Generating Proxy"
-        else:
-            overall_status = "Idle"
+            #   Determine Overall Status based on Priority
+            if "Cancelled" in overall_statusList:
+                overall_status = "Cancelled"
+            elif "Error" in overall_statusList:
+                overall_status = "Error"
+            elif "Warning" in overall_statusList:
+                overall_status = "Warning"
+            elif all(status == "Complete" for status in overall_statusList):
+                overall_status = "Complete"
+            elif any(status == "Paused" for status in overall_statusList):
+                overall_status = "Paused"
+            elif any(status == "Transferring" for status in overall_statusList):
+                overall_status = "Transferring"
+            elif any(status == "Generating Proxy" for status in overall_statusList):
+                overall_status = "Generating Proxy"
+            else:
+                overall_status = "Idle"
 
-        self.setTransferStatus(overall_status)
+            self.setTransferStatus(overall_status)
 
-        # Update progress bar
-        progress = (total_copied / self.total_transferSize) * 100 if self.total_transferSize > 0 else 0
-        self.sourceFuncts.progBar_total.setValue(progress)
+            # Update progress bar
+            progress = (total_copied / self.total_transferSize) * 100 if self.total_transferSize > 0 else 0
+            self.sourceFuncts.progBar_total.setValue(progress)
 
-        if overall_status in ["Cancelled", "Complete"]:
-            self.completeTranfer(overall_status)
+            if overall_status in ["Cancelled", "Complete"]:
+                self.completeTranfer(overall_status)
 
+            logger.debug(f"Updated Overall Status: {overall_status}")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Update Transfer Progress:\n{e}")
 
 
     @err_catcher(name=__name__)                                                 #   TODO
@@ -1962,15 +2086,19 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.progressTimer.stop()
         self.setTransferStatus(result)
         self.sourceFuncts.progBar_total.setValue(100)
-        self.configTransUI("complete")
+        logger.debug(f"Transfer Result: {result}")
+
+        self.configTransUI("complete")                      #   TODO
 
         if self.useTransferReport:
             self.createTransferReport()
 
         if self.useCompleteSound:
             try:
-                playsound(SOUND_SUCCESS)
-                # playsound(SOUND_ERROR)
+                if result == "Complete":
+                    playsound(SOUND_SUCCESS)
+                else:
+                    playsound(SOUND_ERROR)
             except:
                 QApplication.beep()
 
@@ -1992,157 +2120,157 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.core.openFile(self.transferReportPath)
 
 
-
-
     #   Creates Transfer Report PDF
     @err_catcher(name=__name__)
     def createTransferReport(self):
-        #   Gets Destination Directory for Save Path
-        saveDir = self.le_destPath.text()
-        #   Uses CopyList for Report
-        reportData = self.copyList
+        try:
+            #   Gets Destination Directory for Save Path
+            saveDir = self.le_destPath.text()
+            #   Uses CopyList for Report
+            reportData = self.copyList
 
-        #   Header Data Items
-        report_uuid = self.createUUID()
-        timestamp_file = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        projectName = self.core.projectName
-        user = self.core.username
-        transferSize = self.getFileSizeStr(self.total_transferSize)
-        transferTime = self.getFormattedTimeStr(self.timeElapsed)
+            #   Header Data Items
+            report_uuid = self.createUUID()
+            timestamp_file = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            timestamp_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            projectName = self.core.projectName
+            user = self.core.username
+            transferSize = self.getFileSizeStr(self.total_transferSize)
+            transferTime = self.getFormattedTimeStr(self.timeElapsed)
 
-        #   Creates Report Filename
-        reportFilename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
-        self.transferReportPath = os.path.join(saveDir, reportFilename)
+            #   Creates Report Filename
+            reportFilename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
+            self.transferReportPath = os.path.join(saveDir, reportFilename)
 
-        #   Creates New PDF Canvas
-        c = canvas.Canvas(self.transferReportPath, pagesize=A4)
-        width, height = A4
+            #   Creates New PDF Canvas
+            c = canvas.Canvas(self.transferReportPath, pagesize=A4)
+            width, height = A4
 
-        #   Icon
-        icon = self.getCustomIcon()
-        icon_size = 18
-        icon_x = 50
-        icon_y = height - 48
+            #   Icon
+            icon = self.getCustomIcon()
+            icon_size = 18
+            icon_x = 50
+            icon_y = height - 48
 
-        #   Margin and Spacing
-        left_margin = 50
-        col_spacing = 75
+            #   Margin and Spacing
+            left_margin = 50
+            col_spacing = 75
 
-        #   Page number helper
-        def draw_page_number():
-            page_num = c.getPageNumber()
-            c.setFont("Helvetica", 9)
-            c.drawRightString(width - 50, 30, f"Page {page_num}")
+            #   Page number helper
+            def draw_page_number():
+                page_num = c.getPageNumber()
+                c.setFont("Helvetica", 9)
+                c.drawRightString(width - 50, 30, f"Page {page_num}")
 
-        def next_page():
-            draw_page_number()
-            c.showPage()
-            c.setFont("Helvetica", 11)
+            def next_page():
+                draw_page_number()
+                c.showPage()
+                c.setFont("Helvetica", 11)
 
-        ## --- Page 1: Header info ---  ##
+            ## --- Page 1: Header info ---  ##
 
-        #   Add Prims Icon to Left of Title Line
-        if os.path.exists(icon):
-            try:
-                c.drawImage(icon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
-            except Exception as e:
-                logger.warning(f"ERROR: Failed to load icon: {e}")
+            #   Add Prims Icon to Left of Title Line
+            if os.path.exists(icon):
+                try:
+                    c.drawImage(icon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
+                except Exception as e:
+                    logger.warning(f"ERROR: Failed to load icon: {e}")
 
-        #   Add Title Line
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(icon_x + icon_size + 5, height - 45, "File Transfer Completion Report")
+            #   Add Title Line
+            c.setFont("Helvetica-Bold", 16)
+            c.drawString(icon_x + icon_size + 5, height - 45, "File Transfer Completion Report")
 
-        #   Header Data Spacing
-        header_y = height - 70
-        header_line_height = 14
-        c.setFont("Helvetica", 10)
-
-        #   Add Header Data Items
-        header_data = [
-            ("Transfer Date:", timestamp_text),
-            ("Report ID:", report_uuid),
-            ("Project:", projectName),
-            ("User:", user),
-            ("Number of Files:", str(len(reportData))),
-            ("Transfer Size:", transferSize),
-            ("Transfer Time:", transferTime)
-        ]
-
-        #   Add Each Data Item
-        for label, value in header_data:
-            c.drawString(left_margin, header_y, label)
-            c.drawString(left_margin + col_spacing, header_y, value)
-            header_y -= header_line_height
-
-        ## --- Page 2 (and on): File info ---    ##
-
-        next_page()
-
-        #   Files Section Spacing
-        y = height - 50
-        line_height = 11
-        block_spacing = 10
-
-        #   If No Transferd Files
-        if not reportData:
+            #   Header Data Spacing
+            header_y = height - 70
+            header_line_height = 14
             c.setFont("Helvetica", 10)
-            c.drawString(left_margin, y, "No files were transferred.")
 
-        #   Add Files Section Title Line
-        else:
-            c.setFont("Helvetica-Bold", 12)
-            c.drawString(left_margin, y, f"Transferred {len(reportData)} file(s):")
-            y -= line_height + 4
+            #   Add Header Data Items
+            header_data = [
+                ("Transfer Date:", timestamp_text),
+                ("Report ID:", report_uuid),
+                ("Project:", projectName),
+                ("User:", user),
+                ("Number of Files:", str(len(reportData))),
+                ("Transfer Size:", transferSize),
+                ("Transfer Time:", transferTime)
+            ]
 
-            #   Font for Files Section
-            c.setFont("Helvetica", 9)
+            #   Add Each Data Item
+            for label, value in header_data:
+                c.drawString(left_margin, header_y, label)
+                c.drawString(left_margin + col_spacing, header_y, value)
+                header_y -= header_line_height
 
-            #   File Data Items
-            for item in reportData:
-                baseName = os.path.basename(item.getDestMainPath())
-                date_str = item.data['source_mainFile_date']
-                sourcePath = item.getSource_mainfilePath()
-                destPath = item.getDestMainPath()
-                size_str = item.data['source_mainFile_size']
-                time_str = item.data["transferTime"]
-                hash_source = item.data['source_mainFile_hash']
-                hash_dest = item.data['dest_mainFile_hash']
-                hasProxy = item.data['hasProxy']
+            ## --- Page 2 (and on): File info ---    ##
 
-                file_lines = [
-                    ("Filename:", baseName),
-                    ("Date:", date_str),
-                    ("Source:", sourcePath),
-                    ("Destination:", destPath),
-                    ("Size:", size_str),
-                    ("Transfer Time:", time_str),
-                    ("Hash (source):", hash_source),
-                    ("Hash (dest):", hash_dest),
-                    ("Proxy present:", str(hasProxy))
-                ]
+            next_page()
 
-                #   Check if the Current File Block Can Fit on Page
-                block_height = len(file_lines) * line_height + block_spacing
-                if y - block_height < 50:
-                    next_page()
-                    c.setFont("Helvetica", 9)
-                    y = height - 50
+            #   Files Section Spacing
+            y = height - 50
+            line_height = 11
+            block_spacing = 10
 
-                #   Create File Block
-                for label, value in file_lines:
-                    c.drawString(left_margin, y, label)
-                    c.drawString(left_margin + col_spacing, y, value)
-                    y -= line_height
+            #   If No Transferd Files
+            if not reportData:
+                c.setFont("Helvetica", 10)
+                c.drawString(left_margin, y, "No files were transferred.")
 
-                y -= block_spacing
+            #   Add Files Section Title Line
+            else:
+                c.setFont("Helvetica-Bold", 12)
+                c.drawString(left_margin, y, f"Transferred {len(reportData)} file(s):")
+                y -= line_height + 4
 
-        draw_page_number()
-        c.save()
+                #   Font for Files Section
+                c.setFont("Helvetica", 9)
 
+                #   File Data Items
+                for item in reportData:
+                    baseName = os.path.basename(item.getDestMainPath())
+                    date_str = item.data['source_mainFile_date']
+                    sourcePath = item.getSource_mainfilePath()
+                    destPath = item.getDestMainPath()
+                    size_str = item.data['source_mainFile_size']
+                    time_str = item.data["transferTime"]
+                    hash_source = item.data['source_mainFile_hash']
+                    hash_dest = item.data['dest_mainFile_hash']
+                    hasProxy = item.data['hasProxy']
 
+                    file_lines = [
+                        ("Filename:", baseName),
+                        ("Date:", date_str),
+                        ("Source:", sourcePath),
+                        ("Destination:", destPath),
+                        ("Size:", size_str),
+                        ("Transfer Time:", time_str),
+                        ("Hash (source):", hash_source),
+                        ("Hash (dest):", hash_dest),
+                        ("Proxy present:", str(hasProxy))
+                    ]
 
+                    #   Check if the Current File Block Can Fit on Page
+                    block_height = len(file_lines) * line_height + block_spacing
+                    if y - block_height < 50:
+                        next_page()
+                        c.setFont("Helvetica", 9)
+                        y = height - 50
 
+                    #   Create File Block
+                    for label, value in file_lines:
+                        c.drawString(left_margin, y, label)
+                        c.drawString(left_margin + col_spacing, y, value)
+                        y -= line_height
+
+                    y -= block_spacing
+
+            draw_page_number()
+            c.save()
+
+            logger.debug("Created Transfer Report")
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Transfer Report:\n{e}")
 
 
     @err_catcher(name=__name__)

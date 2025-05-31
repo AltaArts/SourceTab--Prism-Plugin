@@ -49,6 +49,7 @@
 
 
 import os
+import logging
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -58,15 +59,18 @@ pluginPath = os.path.dirname(os.path.dirname(__file__))
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
 
+logger = logging.getLogger(__name__)
 
 
 #   Returns List of Modifiers (subclasses)
 def getModifiers():
+    logger.debug("Getting all Filename Modifiers")
     return Mods_BaseFilename.__subclasses__()
 
 
 #   Returns Matching Modifier from Name
 def getModClassByName(name):
+    logger.debug(f"Getting Filename Modifier: {name}")
     for mod in getModifiers():
         if mod.mod_name == name:
             return mod
@@ -74,6 +78,7 @@ def getModClassByName(name):
 
 #   Adds the Specified Modifier
 def createModifier(mod_class):
+    logger.debug(f"Creating Filename Modifier: {mod_class}")
     return mod_class()
 
 
@@ -108,6 +113,9 @@ class Mods_BaseFilename(QObject):
         self.b_remove.setToolTip("Remove Modifier from Stack")
 
         self.baseConnections()
+
+        logger.debug("Created Base Mod")
+        logger.debug(f"Created Mod: {self.mod_name}")
 
 
     #   Connect Checkbox to Enabled Method
@@ -197,9 +205,14 @@ class Mods_BaseFilename(QObject):
 
     #   Returns Un-Altered Name
     def applyMod(self, base_name):
-        if not self.isEnabled:
+        try:
+            if not self.isEnabled:
+                return base_name
             return base_name
-        return base_name
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Mod:\n{e}")
+            return base_name
 
 
 ####    USE THIS AS A TEMPLATE FOR NEW MODIFIERS    ####
@@ -261,12 +274,17 @@ class Mods_AddPrefix(Mods_BaseFilename):
 
     #   Logic for Modifier (required)
     def applyMod(self, base_name, settings=None):
-        if settings:
-            prefix = settings["prefix"]
-        else:
-            prefix = self.le_prefix_input.text()
+        try:
+            if settings:
+                prefix = settings["prefix"]
+            else:
+                prefix = self.le_prefix_input.text()
 
-        return f"{prefix}{base_name}"
+            return f"{prefix}{base_name}"
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Mod {self.mod_name}:\n{e}")
+            return base_name
  
 
 
@@ -339,21 +357,26 @@ class Mods_AddSuffix(Mods_BaseFilename):
 
     ##  Modifier Logic to Edit the Name ##
     def applyMod(self, base_name, settings=None):
-        #   If Passed Settings
-        if settings:
-            suffix = settings["suffix"]
-            effectExt = settings["useExt"]
-        #   Else Use UI Input
-        else:
-            suffix = self.le_suffix_input.text()
-            effectExt = self.cb_effectExt.isChecked()
+        try:
+            #   If Passed Settings
+            if settings:
+                suffix = settings["suffix"]
+                effectExt = settings["useExt"]
+            #   Else Use UI Input
+            else:
+                suffix = self.le_suffix_input.text()
+                effectExt = self.cb_effectExt.isChecked()
 
-        #   Execute Modification
-        if effectExt:
-            return f"{base_name}{suffix}"
-        else:
-            name, ext = os.path.splitext(base_name)
-            return f"{name}{suffix}{ext}"
+            #   Execute Modification
+            if effectExt:
+                return f"{base_name}{suffix}"
+            else:
+                name, ext = os.path.splitext(base_name)
+                return f"{name}{suffix}{ext}"
+            
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Mod {self.mod_name}:\n{e}")
+            return base_name
    
 
 
@@ -430,35 +453,40 @@ class Mods_RemoveStartEnd(Mods_BaseFilename):
 
 
     def applyMod(self, base_name, settings=None):
-        if settings:
-            num_chars   = settings["numChar"]
-            orientation = settings["orientation"]
-            affect_ext  = settings["useExt"]
-        
-        else:
-            num_chars   = self.sb_numcharacters.value()
-            orientation = self.cb_orientation.currentText()
-            affect_ext  = self.cb_effectExt.isChecked()
+        try:
+            if settings:
+                num_chars   = settings["numChar"]
+                orientation = settings["orientation"]
+                affect_ext  = settings["useExt"]
+            
+            else:
+                num_chars   = self.sb_numcharacters.value()
+                orientation = self.cb_orientation.currentText()
+                affect_ext  = self.cb_effectExt.isChecked()
 
-        if num_chars < 1:
+            if num_chars < 1:
+                return base_name
+
+            #   Separate Extension if not Affecting It
+            if not affect_ext:
+                name, ext = os.path.splitext(base_name)
+            else:
+                name, ext = base_name, ""
+
+            if num_chars >= len(name):
+                #   Clamp to Max Length
+                name = ""
+            else:
+                if orientation == "Beginning":
+                    name = name[num_chars:]
+                elif orientation == "End":
+                    name = name[:-num_chars]
+
+            return f"{name}{ext}"
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Mod {self.mod_name}:\n{e}")
             return base_name
-
-        #   Separate Extension if not Affecting It
-        if not affect_ext:
-            name, ext = os.path.splitext(base_name)
-        else:
-            name, ext = base_name, ""
-
-        if num_chars >= len(name):
-            #   Clamp to Max Length
-            name = ""
-        else:
-            if orientation == "Beginning":
-                name = name[num_chars:]
-            elif orientation == "End":
-                name = name[:-num_chars]
-
-        return f"{name}{ext}"
 
 
 
@@ -530,24 +558,29 @@ class Mods_RemoveCharacters(Mods_BaseFilename):
 
 
     def applyMod(self, base_name, settings=None):
-        if settings:
-            position = settings["position"]
-            numChar  = settings["numChar"]
+        try:
+            if settings:
+                position = settings["position"]
+                numChar  = settings["numChar"]
+            
+            else:
+                position = self.sb_position.value()
+                numChar  = self.sb_numcharacters.value()
+
+            #   Clamp Position to Valid Range
+            position = max(0, min(position, len(base_name)))
+
+            #   Adjust numChar to keep Inbounds
+            numChar = min(numChar, len(base_name) - position)
+
+            #   Remove Characters
+            name = base_name[:position] + base_name[position + numChar:]
+
+            return name
         
-        else:
-            position = self.sb_position.value()
-            numChar  = self.sb_numcharacters.value()
-
-        #   Clamp Position to Valid Range
-        position = max(0, min(position, len(base_name)))
-
-        #   Adjust numChar to keep Inbounds
-        numChar = min(numChar, len(base_name) - position)
-
-        #   Remove Characters
-        name = base_name[:position] + base_name[position + numChar:]
-
-        return name
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Mod {self.mod_name}:\n{e}")
+            return base_name
 
 
 
@@ -613,22 +646,27 @@ class Mods_InsertCharacters(Mods_BaseFilename):
 
 
     def applyMod(self, base_name, settings=None):
-        if settings:
-            insert_text = settings["insertText"]
-            insert_pos  = settings["position"]
-        else:
-            insert_text = self.le_insertText.text()
-            insert_pos  = self.sp_position.value()
+        try:
+            if settings:
+                insert_text = settings["insertText"]
+                insert_pos  = settings["position"]
+            else:
+                insert_text = self.le_insertText.text()
+                insert_pos  = self.sp_position.value()
 
-        name, ext = os.path.splitext(base_name)
+            name, ext = os.path.splitext(base_name)
 
-        # Clamp position to valid range
-        insert_pos = max(0, min(insert_pos, len(name)))
+            # Clamp position to valid range
+            insert_pos = max(0, min(insert_pos, len(name)))
 
-        # Insert text into name
-        new_name = name[:insert_pos] + insert_text + name[insert_pos:]
+            # Insert text into name
+            new_name = name[:insert_pos] + insert_text + name[insert_pos:]
 
-        return new_name + ext
+            return new_name + ext
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Mod {self.mod_name}:\n{e}")
+            return base_name
 
 
 
@@ -715,36 +753,41 @@ class Mods_ShiftCharacters(Mods_BaseFilename):
 
 
     def applyMod(self, base_name, settings=None):
-        if settings:
-            position = settings["position"]
-            numChar  = settings["numChar"]
-            shift    = settings["shift"]
-        else:
-            position = self.sb_position.value()
-            numChar  = self.sb_numChar.value()
-            shift    = self.sb_shift.value()
+        try:
+            if settings:
+                position = settings["position"]
+                numChar  = settings["numChar"]
+                shift    = settings["shift"]
+            else:
+                position = self.sb_position.value()
+                numChar  = self.sb_numChar.value()
+                shift    = self.sb_shift.value()
 
-        name, ext = os.path.splitext(base_name)
+            name, ext = os.path.splitext(base_name)
 
-        #   Clamp position to valid range
-        position = max(0, min(position, len(name)))
+            #   Clamp position to valid range
+            position = max(0, min(position, len(name)))
 
-        #   Adjust numChar to keep Inbounds
-        numChar = min(numChar, len(name) - position)
+            #   Adjust numChar to keep Inbounds
+            numChar = min(numChar, len(name) - position)
 
-        #   Return Original if Nothing
-        if numChar < 1 or shift == 0:
+            #   Return Original if Nothing
+            if numChar < 1 or shift == 0:
+                return base_name
+
+            #   Extract the Substring and Remove
+            segment   = name[position:position + numChar]
+            remainder = name[:position] + name[position + numChar:]
+
+            #   Find New Position
+            new_pos = position + shift
+            new_pos = max(0, min(new_pos, len(remainder)))
+
+            #   Insert at Position
+            new_name = remainder[:new_pos] + segment + remainder[new_pos:]
+
+            return new_name + ext
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Apply Mod {self.mod_name}:\n{e}")
             return base_name
-
-        #   Extract the Substring and Remove
-        segment   = name[position:position + numChar]
-        remainder = name[:position] + name[position + numChar:]
-
-        #   Find New Position
-        new_pos = position + shift
-        new_pos = max(0, min(new_pos, len(remainder)))
-
-        #   Insert at Position
-        new_name = remainder[:new_pos] + segment + remainder[new_pos:]
-
-        return new_name + ext
