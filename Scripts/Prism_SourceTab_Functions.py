@@ -106,11 +106,17 @@ class Prism_SourceTab_Functions(object):
     #   Called from Callback when ProjectBrowser is Created
     @err_catcher(name=__name__)
     def projectBrowser_loadUI(self, pb):
-        #   Creates Source Browser
-        self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=pb, refresh=False)
+        try:
+            #   Creates Source Browser
+            self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=pb, refresh=False)
 
-        #   Adds Source Tab to Project Browser
-        pb.addTab("Source", self.sourceBrowser, position=0)
+            #   Adds Source Tab to Project Browser
+            pb.addTab("Source", self.sourceBrowser, position=0)
+
+            logger.debug("Added SourceTab to Project Browser")
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Unable to add SourceTab to Project Browser:\n{e}")
 
 
     #   From Callback to Load Settings UI
@@ -334,54 +340,65 @@ class Prism_SourceTab_Functions(object):
         #   CONNECTIONS
         # projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
 
+        logger.debug("Added Settings UI to Prism Project Settings")
+
 
     #   Gets SourceTab Settings when Prism Project Settings Loads
     @err_catcher(name=__name__)
     def preProjectSettingsLoad(self, origin, settings):
         if not settings:
+            logger.warning("ERROR: No Project Settings Data")
             return
         
-        if "sourceTab" in settings:
-            sData = settings["sourceTab"]["globals"]
+        try:
+            if "sourceTab" in settings:
+                sData = settings["sourceTab"]["globals"]
 
-            if "max_thumbThreads" in sData:
-                origin.sb_thumbThreads.setValue(sData["max_thumbThreads"])
+                if "max_thumbThreads" in sData:
+                    origin.sb_thumbThreads.setValue(sData["max_thumbThreads"])
 
-            if "max_copyThreads" in sData:
-                origin.sb_copyThreads.setValue(sData["max_copyThreads"])
+                if "max_copyThreads" in sData:
+                    origin.sb_copyThreads.setValue(sData["max_copyThreads"])
 
-            if "size_copyChunk" in sData:
-                origin.sb_copyChunks.setValue(sData["size_copyChunk"])	
+                if "size_copyChunk" in sData:
+                    origin.sb_copyChunks.setValue(sData["size_copyChunk"])	
 
-            if "max_proxyThreads" in sData:
-                origin.sb_proxyThreads.setValue(sData["max_proxyThreads"])
+                if "max_proxyThreads" in sData:
+                    origin.sb_proxyThreads.setValue(sData["max_proxyThreads"])
 
-            if "updateInterval" in sData:
-                origin.sp_progUpdateRate.setValue(sData["updateInterval"])
+                if "updateInterval" in sData:
+                    origin.sp_progUpdateRate.setValue(sData["updateInterval"])
 
-            if "useCompletePopup" in sData:
-                origin.chb_showPopup.setChecked(sData["useCompletePopup"])
+                if "useCompletePopup" in sData:
+                    origin.chb_showPopup.setChecked(sData["useCompletePopup"])
 
-            if "useCompleteSound" in sData:
-                origin.chb_playSound.setChecked(sData["useCompleteSound"])
+                if "useCompleteSound" in sData:
+                    origin.chb_playSound.setChecked(sData["useCompleteSound"])
 
-            if "useTransferReport" in sData:
-                origin.chb_useTransferReport.setChecked(sData["useTransferReport"])	
+                if "useTransferReport" in sData:
+                    origin.chb_useTransferReport.setChecked(sData["useTransferReport"])	
 
-            if "useCustomIcon" in sData:
-                origin.chb_useCustomIcon.setChecked(sData["useCustomIcon"])
+                if "useCustomIcon" in sData:
+                    origin.chb_useCustomIcon.setChecked(sData["useCustomIcon"])
 
-            if "customIconPath" in sData:
-                origin.le_customIconPath.setText(sData["customIconPath"])
+                if "customIconPath" in sData:
+                    origin.le_customIconPath.setText(sData["customIconPath"])
 
-            # if "useViewLut" in sData:
-            #     origin.chb_useViewLut.setChecked(sData["useViewLut"])						
+                # if "useViewLut" in sData:
+                #     origin.chb_useViewLut.setChecked(sData["useViewLut"])						
 
-            # if "useCustomThumbPath" in sData:
-            #     origin.chb_useCustomThumbPath.setChecked(sData["useCustomThumbPath"])
+                # if "useCustomThumbPath" in sData:
+                #     origin.chb_useCustomThumbPath.setChecked(sData["useCustomThumbPath"])
 
-            # if "customThumbPath" in sData:
-            #     origin.le_customThumbPath.setText(sData["customThumbPath"])
+                # if "customThumbPath" in sData:
+                #     origin.le_customThumbPath.setText(sData["customThumbPath"])
+                
+                logger.debug("Loaded SourceTab Project Settings")
+            else:
+                logger.warning("ERROR: 'sourceTab' is not in Project Settings")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Unable to Load SourceTab Project Settings:\n{e}")
 
 
     #   Saves SourceTab Settings when Prism Project Settings Saves
@@ -390,72 +407,91 @@ class Prism_SourceTab_Functions(object):
         if "sourceTab" not in settings:
             settings["sourceTab"] = {}
 
-        sData = {
-            "max_thumbThreads": origin.sb_thumbThreads.value(),
-            "max_copyThreads": origin.sb_copyThreads.value(),
-            "size_copyChunk": origin.sb_copyChunks.value(),
-            "max_proxyThreads": origin.sb_proxyThreads.value(),
-            "updateInterval": origin.sp_progUpdateRate.value(),
-            "useCompletePopup": origin.chb_showPopup.isChecked(),
-            "useCompleteSound": origin.chb_playSound.isChecked(),
-            "useTransferReport": origin.chb_useTransferReport.isChecked(),
-            "useCustomIcon": origin.chb_useCustomIcon.isChecked(),
-            "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
-            # "useViewLut": origin.chb_useViewLut.isChecked(),
-            # "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
-            # "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
-            }
+        try:
+            sData = {
+                "max_thumbThreads": origin.sb_thumbThreads.value(),
+                "max_copyThreads": origin.sb_copyThreads.value(),
+                "size_copyChunk": origin.sb_copyChunks.value(),
+                "max_proxyThreads": origin.sb_proxyThreads.value(),
+                "updateInterval": origin.sp_progUpdateRate.value(),
+                "useCompletePopup": origin.chb_showPopup.isChecked(),
+                "useCompleteSound": origin.chb_playSound.isChecked(),
+                "useTransferReport": origin.chb_useTransferReport.isChecked(),
+                "useCustomIcon": origin.chb_useCustomIcon.isChecked(),
+                "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
+                # "useViewLut": origin.chb_useViewLut.isChecked(),
+                # "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
+                # "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
+                }
 
-        settings["sourceTab"]["globals"] = sData
+            settings["sourceTab"]["globals"] = sData
+
+            logger.debug("Saved SourceTab Project Settings")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Save SourceTab Project Settings:\n{e}")
 
 
     @err_catcher(name=__name__)
     def saveSettings(self, key=None, data=None, *args, **kwargs):                       #   TODO - ALSO SAVE TO MAIN PRISM SETTINGS.JSON
-        if key == "tabSettings":
-            tData = {}
+        try:
+            if key == "tabSettings":
+                tData = {}
 
-            tData["playerEnabled"] = self.sourceBrowser.chb_enablePlayer.isChecked()
-            tData["preferProxies"] = self.sourceBrowser.chb_preferProxies.isChecked()
-            tData["proxyMode"] = self.sourceBrowser.proxyMode
+                tData["playerEnabled"] = self.sourceBrowser.chb_enablePlayer.isChecked()
+                tData["preferProxies"] = self.sourceBrowser.chb_preferProxies.isChecked()
+                tData["proxyMode"] = self.sourceBrowser.proxyMode
 
-            functs = self.sourceBrowser.sourceFuncts
-            tData["enable_proxy"] = functs.chb_ovr_proxy.isChecked()
-            tData["enable_fileNaming"] = functs.chb_ovr_fileNaming.isChecked()
-            tData["enable_metadata"] = functs.chb_ovr_metadata.isChecked()
-            tData["enable_overwrite"] = functs.chb_overwrite.isChecked()
+                functs = self.sourceBrowser.sourceFuncts
+                tData["enable_proxy"] = functs.chb_ovr_proxy.isChecked()
+                tData["enable_fileNaming"] = functs.chb_ovr_fileNaming.isChecked()
+                tData["enable_metadata"] = functs.chb_ovr_metadata.isChecked()
+                tData["enable_overwrite"] = functs.chb_overwrite.isChecked()
 
-            self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
+                self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
 
-        elif key == "proxySettings":
-            pData = self.sourceBrowser.proxySettings
-            self.core.setConfig(cat="sourceTab", param="proxySettings", val=pData, config="project")
+            elif key == "proxySettings":
+                pData = self.sourceBrowser.proxySettings
+                self.core.setConfig(cat="sourceTab", param="proxySettings", val=pData, config="project")
 
-        elif key == "proxySearch":
-            self.core.setConfig(cat="sourceTab", param="proxySearch", val=data, config="project")
+            elif key == "proxySearch":
+                self.core.setConfig(cat="sourceTab", param="proxySearch", val=data, config="project")
 
-        elif key == "ffmpegPresets":
-            self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
+            elif key == "ffmpegPresets":
+                self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
+                
+            elif key == "nameMods":
+                nData = self.sourceBrowser.nameMods
+                self.core.setConfig(cat="sourceTab", param="activeNameMods", val=nData, config="project")
             
-        elif key == "nameMods":
-            nData = self.sourceBrowser.nameMods
-            self.core.setConfig(cat="sourceTab", param="activeNameMods", val=nData, config="project")
+            logger.debug(f"Saved Settings for {key}")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to save Settings:\n{e}")
 
 
     #   Loads Saved SourceTab Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
-        sData = self.core.getConfig("sourceTab", config="project") 
+        try:
+            sData = self.core.getConfig("sourceTab", config="project") 
 
-        if sData and "globals" in sData:
-            return sData
+            if sData and "globals" in sData:
+                logger.debug("Loaded Global Settings")
+                return sData
 
-        else:
-            sData = {}
-            defaultData = self.getDefaultSettings()
-            sData["sourceTab"] = defaultData
-            self.core.setConfig("sourceTab", data=sData, config="project")
-            return defaultData
-    
+            else:
+                sData = {}
+                defaultData = self.getDefaultSettings()
+                sData["sourceTab"] = defaultData
+                self.core.setConfig("sourceTab", data=sData, config="project")
+                logger.debug("Loaded Default Global Settings")
+
+                return defaultData
+            
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Load Global Settings:\n{e}")
+            
 
     #   Default Settings File Data
     @err_catcher(name=__name__)
@@ -562,10 +598,12 @@ class Prism_SourceTab_Functions(object):
 
         #   Return Specific Key Default
         if key and key in sData:
+            logger.debug(f"Loaded Default Settings for {key}")
             return sData[key]
         
         #   Return Entire Defaults Dict
         else:
+            logger.debug("Loaded Default Settings")
             return sData
     
 
