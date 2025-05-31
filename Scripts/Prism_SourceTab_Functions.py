@@ -122,20 +122,37 @@ class Prism_SourceTab_Functions(object):
     #   Creates Project Settings Tab UI
     @err_catcher(name=__name__)
     def addUiToProjectSettings(self, projectSettings):
-        # Create the source tab widget
+        #   Simple Line Generator
+        def separatorLine(title=None):
+            box = QWidget()
+            layout = QVBoxLayout(box)
+            layout.setContentsMargins(0, 10, 0, 0)
+            layout.setSpacing(2)
+            
+            if title:
+                layout.addWidget(QLabel(f"{title}"))
+            
+            line = QWidget()
+            line.setFixedHeight(1)
+            line.setStyleSheet("background-color: #465A78;")
+            layout.addWidget(line)
+
+            return box
+
+        #   Create the SourceTab Widget
         projectSettings.w_sourceTab = QWidget()
         lo_sourceTab = QGridLayout()
         projectSettings.w_sourceTab.setLayout(lo_sourceTab)
 
-        # Horizontal Layout for the configuration area (no splitter now)
+        #   Layout for the Settings
         projectSettings.horizontalLayout = QHBoxLayout()
         projectSettings.horizontalLayout.setObjectName("horizontalLayout")
 
-        # Config widget that will contain the form
+        #   Config widget that will contain the form
         projectSettings.w_config = QWidget()
         projectSettings.w_config.setObjectName("w_config")
 
-        # Size Policy and Layout Setup
+        #   Size Policy and Layout Setup
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(8)
         projectSettings.w_config.setSizePolicy(sizePolicy)
@@ -143,9 +160,12 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_sourceTabOptions.setObjectName("lo_sourceTabOptions")
         projectSettings.lo_sourceTabOptions.setContentsMargins(0, 0, 0, 0)
 
-        # Maximum Thumbnail Threads
+        projectSettings.lo_sourceTabOptions.addWidget(separatorLine("Performance / Processes"))
+
+        #   Maximum Thumbnail Threads
         projectSettings.lo_thumbThreads = QHBoxLayout()
-        projectSettings.l_thumbThreads = QLabel("Maximum Thumbnail Threads", projectSettings.w_config)
+        projectSettings.lo_thumbThreads.setContentsMargins(50, 0, 20, 0)
+        projectSettings.l_thumbThreads = QLabel("Maximum Parallel Thumbnail Processes", projectSettings.w_config)
         projectSettings.sb_thumbThreads = QSpinBox(projectSettings.w_config)
         projectSettings.sb_thumbThreads.setMinimum(1)
         projectSettings.lo_thumbThreads.addWidget(projectSettings.l_thumbThreads)
@@ -153,9 +173,10 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_thumbThreads.addWidget(projectSettings.sb_thumbThreads)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_thumbThreads)
 
-        # Maximum Transfer Threads
+        #   Maximum Transfer Threads
         projectSettings.lo_copyThreads = QHBoxLayout()
-        projectSettings.l_copyThreads = QLabel("Maximum Transfer Threads", projectSettings.w_config)
+        projectSettings.lo_copyThreads.setContentsMargins(50, 0, 20, 0)
+        projectSettings.l_copyThreads = QLabel("Maximum Parallel Transfer Processes", projectSettings.w_config)
         projectSettings.sb_copyThreads = QSpinBox(projectSettings.w_config)
         projectSettings.sb_copyThreads.setMinimum(1)
         projectSettings.lo_copyThreads.addWidget(projectSettings.l_copyThreads)
@@ -163,8 +184,9 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_copyThreads.addWidget(projectSettings.sb_copyThreads)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_copyThreads)
 
-        # Transfer Chunk Size (megabytes)
+        #   Transfer Chunk Size
         projectSettings.lo_copyChunks = QHBoxLayout()
+        projectSettings.lo_copyChunks.setContentsMargins(50, 0, 20, 0)
         projectSettings.l_copyChunks = QLabel("Transfer Chunk Size (megabytes)", projectSettings.w_config)
         projectSettings.sb_copyChunks = QSpinBox(projectSettings.w_config)
         projectSettings.sb_copyChunks.setMinimum(1)
@@ -173,9 +195,10 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_copyChunks.addWidget(projectSettings.sb_copyChunks)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_copyChunks)
 
-        # Maximum Proxy Generation Threads
+        #   Maximum Proxy Generation Threads
         projectSettings.lo_proxyThreads = QHBoxLayout()
-        projectSettings.l_proxyThreads = QLabel("Maximum Proxy Generation Threads", projectSettings.w_config)
+        projectSettings.lo_proxyThreads.setContentsMargins(50, 0, 20, 0)
+        projectSettings.l_proxyThreads = QLabel("Maximum Parallel Proxy Generation Processes", projectSettings.w_config)
         projectSettings.sb_proxyThreads = QSpinBox(projectSettings.w_config)
         projectSettings.sb_proxyThreads.setMinimum(1)
         projectSettings.lo_proxyThreads.addWidget(projectSettings.l_proxyThreads)
@@ -183,8 +206,11 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_proxyThreads.addWidget(projectSettings.sb_proxyThreads)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_proxyThreads)
 
-        # Progress Bars Update Rate (seconds)
+        projectSettings.lo_sourceTabOptions.addWidget(separatorLine("Progress Bar"))
+
+        #   Progress Bars Update Rate
         projectSettings.lo_progUpdateRate = QHBoxLayout()
+        projectSettings.lo_progUpdateRate.setContentsMargins(50, 0, 20, 0)
         projectSettings.l_progUpdateRate = QLabel("Progress Bars Update Rate (seconds)", projectSettings.w_config)
         projectSettings.sp_progUpdateRate = QDoubleSpinBox(projectSettings.w_config)
         projectSettings.sp_progUpdateRate.setDecimals(1)
@@ -196,61 +222,117 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_progUpdateRate.addWidget(projectSettings.sp_progUpdateRate)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_progUpdateRate)
 
-        # Completion Popup options
+        projectSettings.lo_sourceTabOptions.addWidget(separatorLine("Completion / Report"))
+
+        #   Completion Popup
         projectSettings.lo_completePopup = QHBoxLayout()
+        projectSettings.lo_completePopup.setContentsMargins(50, 0, 20, 0)
         projectSettings.chb_showPopup = QCheckBox("Show Completion Popup", projectSettings.w_config)
         projectSettings.chb_playSound = QCheckBox("Play Completion Sound", projectSettings.w_config)
         projectSettings.lo_completePopup.addWidget(projectSettings.chb_showPopup)
         projectSettings.lo_completePopup.addWidget(projectSettings.chb_playSound)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_completePopup)
 
-        # Transfer Report Generation option
+        #   Transfer Report
         projectSettings.lo_transferReport = QHBoxLayout()
+        projectSettings.lo_transferReport.setContentsMargins(50, 0, 20, 0)
         projectSettings.chb_useTransferReport = QCheckBox("Generate Transfer Report on Completion", projectSettings.w_config)
         projectSettings.lo_transferReport.addWidget(projectSettings.chb_useTransferReport)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_transferReport)
 
-        # Custom Icon path option
+        projectSettings.lo_sourceTabOptions.addWidget(separatorLine("Misc"))
+
+        #   Custom Icon
         projectSettings.lo_customIcon = QHBoxLayout()
+        projectSettings.lo_customIcon.setContentsMargins(50, 0, 20, 0)
         projectSettings.chb_useCustomIcon = QCheckBox("Custom Icon", projectSettings.w_config)
         projectSettings.le_customIconPath = QLineEdit(projectSettings.w_config)
         projectSettings.lo_customIcon.addWidget(projectSettings.chb_useCustomIcon)
         projectSettings.lo_customIcon.addWidget(projectSettings.le_customIconPath)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customIcon)
 
-        # View Lut option
-        projectSettings.lo_viewLut = QHBoxLayout()
-        projectSettings.chb_useViewLut = QCheckBox("Use View Lut Presets:", projectSettings.w_config)
-        projectSettings.b_configureOcioPreets = QPushButton("Configure OCIO Presets", projectSettings.w_config)
-        projectSettings.lo_viewLut.addWidget(projectSettings.chb_useViewLut)
-        projectSettings.lo_viewLut.addStretch()
-        projectSettings.lo_viewLut.addWidget(projectSettings.b_configureOcioPreets)
-        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_viewLut)
+        # #   View Lut                                                                      #   TODO - IMPLEMENT
+        # projectSettings.lo_viewLut = QHBoxLayout()
+        # projectSettings.chb_useViewLut = QCheckBox("Use View Lut Presets:", projectSettings.w_config)
+        # projectSettings.b_configureOcioPreets = QPushButton("Configure OCIO Presets", projectSettings.w_config)
+        # projectSettings.lo_viewLut.addWidget(projectSettings.chb_useViewLut)
+        # projectSettings.lo_viewLut.addStretch()
+        # projectSettings.lo_viewLut.addWidget(projectSettings.b_configureOcioPreets)
+        # projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_viewLut)
 
-        # Custom Thumbnail Path option
-        projectSettings.lo_customThumbPath = QHBoxLayout()
-        projectSettings.chb_useCustomThumbPath = QCheckBox("Use Custom Thumbnail Path", projectSettings.w_config)
-        projectSettings.le_customThumbPath = QLineEdit(projectSettings.w_config)
-        projectSettings.lo_customThumbPath.addWidget(projectSettings.chb_useCustomThumbPath)
-        projectSettings.lo_customThumbPath.addWidget(projectSettings.le_customThumbPath)
-        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customThumbPath)
+        # #   Custom Thumbnail Path option                                                      #   TODO - DO WE WANT THIS ???
+        # projectSettings.lo_customThumbPath = QHBoxLayout()
+        # projectSettings.chb_useCustomThumbPath = QCheckBox("Use Custom Thumbnail Path", projectSettings.w_config)
+        # projectSettings.le_customThumbPath = QLineEdit(projectSettings.w_config)
+        # projectSettings.lo_customThumbPath.addWidget(projectSettings.chb_useCustomThumbPath)
+        # projectSettings.lo_customThumbPath.addWidget(projectSettings.le_customThumbPath)
+        # projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customThumbPath)
 
         projectSettings.lo_sourceTabOptions.addStretch()
 
-        # Finalize the layout (no splitter)
+        #   Finalize the layout (no splitter)
         projectSettings.horizontalLayout.addWidget(projectSettings.w_config)
 
-        # Add the layout to the source tab
+        #   Add the layout to the source tab
         lo_sourceTab.addLayout(projectSettings.horizontalLayout, 0, 0)
 
-        # Add the tab to the projectSettings
+        #   Add the tab to the projectSettings
         projectSettings.addTab(projectSettings.w_sourceTab, "SourceTab")
 
-        # Connect slots for the UI components
+        #   Connect slots for the UI components
         QMetaObject.connectSlotsByName(projectSettings)
 
+        #   TOOLTIPS
+        tip = ("Maximum Seperate Processes to use for Media Thumbnail generation.\n"
+               "  note:  too many threads tends to hang the ffmpeg process.\n\n"
+               "    (default = 6)")
+        projectSettings.l_thumbThreads.setToolTip(tip)
+        projectSettings.sb_thumbThreads.setToolTip(tip)
+
+        tip = ("Maximum Seperate Processes to use for the File Transfer (copying).\n"
+               "The system's optimum setting will depend on processor/disk/network speeds.\n\n"
+               "    (default = 6)")
+        projectSettings.l_copyThreads.setToolTip(tip)
+        projectSettings.sb_copyThreads.setToolTip(tip)
+
+        tip = ("Size of each Packet used in the Transfer.\n"
+               "The system's optimum setting will depend on processor/ram/disk/network speeds.\n\n"
+               "    (default = 2)")
+        projectSettings.l_copyChunks.setToolTip(tip)
+        projectSettings.sb_copyChunks.setToolTip(tip)
+
+        tip = ("Maximum Seperate Processes for Proxy Generation.\n"
+               "This plugin uses ffmpeg for Proxy Generation and ffmpeg is multi-threaded by default.\n"
+               "This means each process should be using all available processor cores,\n"
+               "thus higher settings do not tend to speed up the generation.\n\n"
+               "    (default = 2)")
+        projectSettings.l_proxyThreads.setToolTip(tip)
+        projectSettings.sb_proxyThreads.setToolTip(tip)
+
+        tip = ("Time in seconds for each UI progress update.\n"
+               "Too low a rate (high frequency) may slow the UI.\n\n"
+               "    (default = 1.0)")
+        projectSettings.l_progUpdateRate.setToolTip(tip)
+        projectSettings.sp_progUpdateRate.setToolTip(tip)
+
+        projectSettings.chb_showPopup.setToolTip("Enable the Completion popup Window")
+        projectSettings.chb_playSound.setToolTip("Enable the Completion Audio Alert")
+
+        tip = ("Enable the Generation of the Completion Report .pdf file.\n\n"
+               "The report will be generated and saved in the transfer destination\n"
+               "directory, and contains the transfer data and stats.")
+        projectSettings.chb_useTransferReport.setToolTip(tip)
+
+        tip = ("Filepath to a custom file to be used as an icon in the Completion Report.\n"
+               "This can be any 'normal' image file (.png, .jpg, .tif, .bmp).\n\n"
+               "   (leave blank to use the default Prism Icon)")
+        projectSettings.chb_useCustomIcon.setToolTip(tip)
+        projectSettings.le_customIconPath.setToolTip(tip)
+
+
+
         #   CONNECTIONS
-        projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
+        # projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
 
 
     #   Gets SourceTab Settings when Prism Project Settings Loads
@@ -292,14 +374,14 @@ class Prism_SourceTab_Functions(object):
             if "customIconPath" in sData:
                 origin.le_customIconPath.setText(sData["customIconPath"])
 
-            if "useViewLut" in sData:
-                origin.chb_useViewLut.setChecked(sData["useViewLut"])						
+            # if "useViewLut" in sData:
+            #     origin.chb_useViewLut.setChecked(sData["useViewLut"])						
 
-            if "useCustomThumbPath" in sData:
-                origin.chb_useCustomThumbPath.setChecked(sData["useCustomThumbPath"])
+            # if "useCustomThumbPath" in sData:
+            #     origin.chb_useCustomThumbPath.setChecked(sData["useCustomThumbPath"])
 
-            if "customThumbPath" in sData:
-                origin.le_customThumbPath.setText(sData["customThumbPath"])
+            # if "customThumbPath" in sData:
+            #     origin.le_customThumbPath.setText(sData["customThumbPath"])
 
 
     #   Saves SourceTab Settings when Prism Project Settings Saves
@@ -319,9 +401,9 @@ class Prism_SourceTab_Functions(object):
             "useTransferReport": origin.chb_useTransferReport.isChecked(),
             "useCustomIcon": origin.chb_useCustomIcon.isChecked(),
             "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
-            "useViewLut": origin.chb_useViewLut.isChecked(),
-            "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
-            "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
+            # "useViewLut": origin.chb_useViewLut.isChecked(),
+            # "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
+            # "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
             }
 
         settings["sourceTab"]["globals"] = sData
@@ -382,7 +464,7 @@ class Prism_SourceTab_Functions(object):
                 "globals": {
                     "max_thumbThreads": 6,
                     "max_copyThreads": 6,
-                    "size_copyChunk": 1,
+                    "size_copyChunk": 2,
                     "max_proxyThreads": 2,
                     "updateInterval": 1,
                     "useCompletePopup": True,
