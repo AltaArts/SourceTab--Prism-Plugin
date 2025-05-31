@@ -102,6 +102,15 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
                "(Proxy transfer / generation)")
         self.chb_ovr_proxy.setToolTip(tip)
 
+        tip = "Open Proxy Settings"
+        self.b_ovr_config_proxy.setToolTip(tip)
+
+        tip = "Open Filename Modifiers Settings"
+        self.b_ovr_config_fileNaming.setToolTip(tip)
+
+        tip = "Open MetaData Settings"
+        self.b_ovr_config_metadata.setToolTip(tip)
+
         tip = ("Enable/Disable Filename Modifiers\n"
                "(this affects the Transferred File Naming)")
         self.chb_ovr_fileNaming.setToolTip(tip)
@@ -179,6 +188,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             if proxyMode in ["generate", "missing"]:
                 #   Get Proxy Settings
                 pData = self.sourceBrowser.proxySettings
+
                 #   If Exists, Add Settings to UI
                 if pData:
                     presetStr = f"( {pData['proxyPreset']} - {pData['proxyScale']} )"
@@ -186,7 +196,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         #   Add Disabled to UI
         else:
-            proxyDisplayStr = "DISABLED"
+            proxyDisplayStr = proxyTipStr = "DISABLED"
 
         self.l_proxyMode.setText(proxyDisplayStr)
         self.l_proxyMode.setEnabled(proxyEnabled)
@@ -196,14 +206,32 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         #   If Enabled, Add to UI
         if fileNamingEnabled:
-            numMods = f"{str(len(self.sourceBrowser.nameMods))} Modifiers"
+            #   Get Modifiers
+            mods = self.sourceBrowser.nameMods
+            #   Get Number of Mods
+            numMods = f"{str(len(mods))} Modifiers"
+            #   Create ToolTip
+            nameTipStr = (
+                "<table>"
+                + "".join(
+                    f"<tr>"
+                    f"<td style='padding-right: 20px;'>{mod['mod_type']}</td>"
+                    f"<td>{'Enabled' if mod['enabled'] else 'Disabled'}</td>"
+                    f"</tr>"
+                    for mod in mods
+                )
+                + "</table>"
+                )
 
         #   Add Disabled to UI
         else:
-            numMods = "DISABLED"
+            numMods = nameTipStr = "DISABLED"
 
+        #   Update UI Label and ToolTip
         self.l_enabledNameMods.setText(numMods)
         self.l_enabledNameMods.setEnabled(fileNamingEnabled)
+        self.l_enabledNameMods.setToolTip(nameTipStr)
+
 
 
     @err_catcher(name=__name__)

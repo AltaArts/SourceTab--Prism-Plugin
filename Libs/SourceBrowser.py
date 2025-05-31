@@ -931,13 +931,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return shortUID
 
 
-    # @err_catcher(name=__name__)
-    # def updateChanged(self, state):
-    #     if state:
-    #         self.refreshSourceItems()
-    #         self.refreshDestItems()
-
-
     @err_catcher(name=__name__)
     def refreshUI(self):
         self.core.media.invalidateOiioCache()                               #   TODO
@@ -1442,9 +1435,19 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def refreshTotalTransSize(self):
+        #   Get Size Info
         self.total_transferSize = self.getTotalTransferSize()
         copySize_str = self.getFileSizeStr(self.total_transferSize)
+        #   Default Tip
+        totalSizeTip = "Total Transfer Size"
+        #   If there will be Proxy Generation add the Asterisk and Note
+        if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
+            copySize_str = copySize_str + "*"
+            totalSizeTip = ("Estimated Total Transfer Size\n"
+                            "(may be inaccurate due to Proxy generation estimation)")
+        #   Set Label and ToolTip
         self.sourceFuncts.l_size_total.setText(copySize_str)
+        self.sourceFuncts.l_size_total.setToolTip(totalSizeTip)
 
 
     @err_catcher(name=__name__)
