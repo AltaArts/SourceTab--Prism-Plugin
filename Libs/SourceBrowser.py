@@ -94,6 +94,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
+import exiftool
+
+
 from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
@@ -145,10 +148,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.proxyEnabled = False
         self.proxyMode = None
         self.proxySettings = None
+        self.ffmpegPresets = None
+        self.calculated_proxyMults = []
         self.nameMods = []
         self.transferList = []
         self.initialized = False
         self.closeParm = "closeafterload"
+
+        self.exifToolEXE = self.getExiftool()
 
         #   Load UI
         self.loadLayout()
@@ -466,6 +473,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         widget.setStyleSheet("")
 
         if e.mimeData().hasUrls():
+            logger.debug("Drop Event Detected")
+
             e.acceptProposedAction()
 
             # Normal file/folder drop
@@ -473,9 +482,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             path = os.path.normpath(url.toLocalFile())
 
             if os.path.isfile(path):
+                logger.debug("Dropped File Detected")
                 path = os.path.dirname(path)
 
             if os.path.isdir(path):
+                logger.debug("Dropped Directory Detected")
+
                 if mode == "source":
                     self.sourceDir = path
                     self.refreshSourceItems()
@@ -567,11 +579,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
     def getSettings(self, key=None):
-        sData = self.plugin.loadSettings()
-        if key and key in sData:
-            return sData[key]
-        else:
-            return sData
+        return self.plugin.loadSettings(key)
 
 
     #   Configures UI from Saved Settings
@@ -626,9 +634,15 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             if "proxySettings" in sData:
                 self.proxySettings = sData["proxySettings"]
 
+            #   Proxy Presets
+            if "ffmpegPresets" in sData:
+                self.ffmpegPresets = sData["ffmpegPresets"]
+
             #   Name Mods
             if "activeNameMods" in sData:
                 self.nameMods = sData["activeNameMods"]
+
+            
 
             logger.debug("Loaded SourceTab Settings")
 
@@ -670,6 +684,24 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def getFFprobePath(self):
         return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
+
+
+    #   Returns ExitTool Path
+    @err_catcher(name=__name__)
+    def getExiftool(self):
+        exifDir = os.path.join(pluginPath, "PythonLibs", "ExifTool")
+
+        possible_names = ["exiftool.exe", "exiftool(-k).exe"]
+
+        for root, dirs, files in os.walk(exifDir):
+            for file in files:
+                if file.lower() in [name.lower() for name in possible_names]:
+                    self.exifToolEXE = os.path.join(root, file)
+                    logger.debug(f"ExifTool found at: {self.exifToolEXE}")
+                    return
+
+        logger.warning(f"ERROR:  Unable to Find ExifTool")
+        return None
     
     
     #   Returns QIcon with Both Normal and Disabled Versions
@@ -998,6 +1030,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def selectAll(self, checked=True, mode=None):
+        logger.debug(f"Selecting All - checked: {checked}")
+
         if mode == "source":
             table = self.tw_source
         elif mode == "dest":
@@ -1008,7 +1042,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         for row in range(row_count):
             fileItem = table.cellWidget(row, 0)
             if fileItem is not None and fileItem.data["tileType"] == "file":
-                fileItem.setChecked(checked)
+                fileItem.setChecked(checked, refresh=False)
+
+        if mode == "dest":
+            self.refreshTotalTransSize()
 
 
     @err_catcher(name=__name__)
@@ -1597,6 +1634,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         fileName = os.path.basename(filePath)
         baseName, extension = os.path.splitext(fileName)
         if extension.lower() in self.core.media.supportedFormats:
+            logger.debug("Opening Media File in Shell Application")
+
             if not progPath:
                 cmd = ["start", "", "%s" % self.core.fixPath(filePath)]
                 subprocess.call(cmd, shell=True)
@@ -1608,6 +1647,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     comd = [progPath, filePath]
 
         if comd:
+            logger.debug("Opening File in Shell Application")
+
             with open(os.devnull, "w") as f:
                 logger.debug("launching: %s" % comd)
                 try:
@@ -1883,7 +1924,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 }}
             """)
 
-            logger.debug(f"Set Transfer Status: {status}")
+            # logger.debug(f"Set Transfer Status: {status}")
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Transfer Status:\n{e}")
@@ -1914,16 +1955,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         if not os.path.isdir(self.le_destPath.text()):
             self.core.popup("YOU FORGOT TO SELECT DEST DIR")
             return False
-        
 
-        #   Handled Proxy Directory 
-        ovr_proxyDir = None
+        #   Reset Calculated Proxy Multipliers
+        self.calculated_proxyMults = [] 
+
+        #   If Override is NOT Selected Attempt to Get Resolved Path                    #   TODO - CHECK OVERRIDE IS STILL WORKING
         resolved_proxyDir = None
-        fallback_proxyDir = self.proxySettings["fallback_proxyDir"]
-
-
-        #   If Override is NOT Selected
-        #   Attempt to Get Resolved Path
         self.getResolvedProxyPaths()
 
         if self.resolvedProxyPaths:
@@ -1948,37 +1985,39 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.core.popup("Unable to Start Transfer.\n\n"
                                 "Errors:\n\n"
                                 f"{errorText}")
-                #   Abort
+                
+                #   Abort if there are Errors
                 return
+
+            options = {}
+            if self.proxyEnabled:
+                #   Get Proxy Preset Data
+                try:
+                    presets = self.ffmpegPresets
+                    preset = presets[self.proxySettings["proxyPreset"]]
+                except KeyError:
+                    raise RuntimeError(f"Proxy preset {self.proxySettings['proxyPreset']} not found in settings")
+
+                proxySettings = self.proxySettings.copy()
+
+                proxySettings.update({
+                    "resolved_proxyDir": resolved_proxyDir,
+                    "scale"            : self.proxySettings["proxyScale"],
+                    "Video_Parameters" : preset["Video_Parameters"],
+                    "Audio_Parameters" : preset["Audio_Parameters"],
+                    "Extension"        : preset["Extension"],
+                    "Multiplier"        : preset["Multiplier"]
+                })
+
+                options["proxySettings"] = proxySettings
 
             self.progressTimer.start()
             self.setTransferStatus("Transferring")
             self.configTransUI("transfer")
-            logger.debug("Transfer Started")
+            logger.status("Transfer Started")
 
+            #   Start Transfer for Every Item
             for item in self.copyList:
-                options = {}
-                if self.proxyEnabled:
-                    # look up the preset
-                    try:
-                        presets = self.getSettings(key="ffmpegPresets")
-                        preset = presets[self.proxySettings["proxyPreset"]]
-                    except KeyError:
-                        raise RuntimeError(f"Proxy preset {self.proxySettings['proxyPreset']} not found in settings")                #   TODO HANDLE ERROR
-
-                    proxySettings = self.proxySettings.copy()
-
-                    proxySettings.update({
-                        "resolved_proxyDir": resolved_proxyDir,
-                        "scale"            : self.proxySettings["proxyScale"],
-                        "Video_Parameters" : preset["Video_Parameters"],
-                        "Audio_Parameters" : preset["Audio_Parameters"],
-                        "Extension"        : preset["Extension"],
-                        "Multiplier"        : preset["Multiplier"]
-                    })
-
-                    options["proxySettings"] = proxySettings
-                
                 item.start_transfer(self, options, self.proxyEnabled, self.proxyMode)
 
 
@@ -1990,6 +2029,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.progressTimer.stop()
         self.setTransferStatus("Paused")
         self.configTransUI("pause")
+
+        logger.status("Pausing Transfer")
 
 
     @err_catcher(name=__name__)
@@ -2004,6 +2045,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.setTransferStatus("Transferring")
         self.configTransUI("resume")
 
+        logger.status("Resuming Transfer")
+
 
     @err_catcher(name=__name__)
     def cancelTransfer(self):
@@ -2014,8 +2057,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.setTransferStatus("Cancelled")
         self.configTransUI("cancel")
 
+        logger.status("Cancelling Transfer")
 
-    @err_catcher(name=__name__)                         #   TODO - RESET TILES
+
+    @err_catcher(name=__name__)
     def resetTransfer(self):
         self.progressTimer.stop()
         self.reset_ProgBar()
@@ -2086,12 +2131,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.progressTimer.stop()
         self.setTransferStatus(result)
         self.sourceFuncts.progBar_total.setValue(100)
-        logger.debug(f"Transfer Result: {result}")
+        logger.status(f"Transfer Result: {result}")
 
         self.configTransUI("complete")                      #   TODO
 
         if self.useTransferReport:
             self.createTransferReport()
+
+        if self.calculated_proxyMults:
+            #   Updates Presets Multiplier
+            self.updateProxyPresetMultipliers()
 
         if self.useCompleteSound:
             try:
@@ -2267,10 +2316,48 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             draw_page_number()
             c.save()
 
-            logger.debug("Created Transfer Report")
+            logger.status("Created Transfer Report")
         
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Create Transfer Report:\n{e}")
+
+
+
+    @err_catcher(name=__name__)
+    def updateProxyPresetMultipliers(self):
+        try:
+            #   Get Preset Info
+            presetName = self.proxySettings.get("proxyPreset", "")
+            allPresets = self.getSettings(key="ffmpegPresets")
+            preset = allPresets.get(presetName)
+
+            if not preset:
+                logger.warning(f"Preset '{presetName}' not found in ffmpegPresets.")
+                return
+
+            #   Get Saved Multiplier
+            old_mult = float(preset["Multiplier"])
+
+            #   Make Copy of New Mults and add the Old Mult
+            new_mults = [float(m) for m in self.calculated_proxyMults]
+            new_mults.append(old_mult)
+
+            #   Average All Multipliers
+            new_averageMulti = round(sum(new_mults) / len(new_mults), 2) if new_mults else 0.0
+
+            #   Clamp and Round New Multiplier
+            new_averageMulti = round(max(0.01, min(new_averageMulti, 5.0)), 2)
+
+            #   Save New Multiplier to Settings
+            preset["Multiplier"] = new_averageMulti
+            self.plugin.saveSettings(key="ffmpegPresets", data=allPresets)
+
+            logger.status(f"Updated Proxy Multiplier for preset '{presetName}': {new_averageMulti}")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Update Proxy Preset Multiplier:\n{e}")
+
+
 
 
     @err_catcher(name=__name__)

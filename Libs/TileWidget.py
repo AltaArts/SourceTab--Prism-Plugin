@@ -63,6 +63,9 @@ from pathlib import Path
 
 
 
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 if sys.version[0] == "3":
     pVersion = 3
@@ -75,9 +78,6 @@ else:
 #     sys.path.append(os.path.join(prismRoot, "Scripts"))
 #     import PrismCore                                                                    #   TODO
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
 
 PRISMROOT = r"C:\Prism2"                                            ###   TODO
 prismRoot = os.getenv("PRISM_ROOT")
@@ -99,7 +99,6 @@ sys.path.append(uiPath)
 
 
 import exiftool
-EXIF_DIR = os.path.join(pyLibsPath, "ExifTool")
 
 from PopupWindows import DisplayPopup
 
@@ -163,12 +162,11 @@ class BaseTileItem(QWidget):
 
         self.setMouseTracking(True)
 
-        #   Get ExifTool EXE
-        self.exifToolEXE = self.findExiftool()
-
         #   Thumbnail Size
         self.itemPreviewWidth = 120
         self.itemPreviewHeight = 69
+
+        logger.debug("Loaded Base Tile Item")
 
 
     #   Launches the Single-click File Action
@@ -226,39 +224,44 @@ class BaseTileItem(QWidget):
     #   Sets the State Selected based on the Checkbox
     @err_catcher(name=__name__)
     def setSelected(self, checked=None):
-        modifiers = QApplication.keyboardModifiers()
+        try:
+            modifiers = QApplication.keyboardModifiers()
 
-        #   SHIFT: Select range from lastClickedTile to this one
-        if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
-            self._selectRange()
-            return
+            #   SHIFT: Select range from lastClickedTile to this one
+            if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
+                self._selectRange()
+                return
 
-        #   CTRL: Toggle this tile's selection
-        elif modifiers & Qt.ControlModifier:
-            if self in self.browser.selectedTiles:
-                self.deselect()
-                self.browser.selectedTiles.discard(self)
-            else:
-                self.state = "selected"
-                self.applyStyle(self.state)
-                self.setFocus()
-                self.browser.selectedTiles.add(self)
+            #   CTRL: Toggle this tile's selection
+            elif modifiers & Qt.ControlModifier:
+                if self in self.browser.selectedTiles:
+                    self.deselect()
+                    self.browser.selectedTiles.discard(self)
+                else:
+                    self.state = "selected"
+                    self.applyStyle(self.state)
+                    self.setFocus()
+                    self.browser.selectedTiles.add(self)
+                self.browser.lastClickedTile = self
+                return
+
+            #   Default (no modifier): exclusive selection
+            for tile in list(self.browser.selectedTiles):
+                tile.deselect()
+            self.browser.selectedTiles.clear()
+
+            self.state = "selected"
+            self.applyStyle(self.state)
+            self.setFocus()
+            self.browser.selectedTiles.add(self)
             self.browser.lastClickedTile = self
-            return
 
-        #   Default (no modifier): exclusive selection
-        for tile in list(self.browser.selectedTiles):
-            tile.deselect()
-        self.browser.selectedTiles.clear()
+            # #   Refresh Transfer Size
+            # if self.tileType == "destTile":
+            #     self.browser.refreshTotalTransSize()
 
-        self.state = "selected"
-        self.applyStyle(self.state)
-        self.setFocus()
-        self.browser.selectedTiles.add(self)
-        self.browser.lastClickedTile = self
-
-        #   Refresh Transfer Size
-        self.browser.refreshTotalTransSize()
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Item(s) Selected:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -296,7 +299,7 @@ class BaseTileItem(QWidget):
 
     #   Sets the Checkbox and sets the State
     @err_catcher(name=__name__)
-    def setChecked(self, checked):
+    def setChecked(self, checked, refresh=True):
         if len(self.browser.selectedTiles) > 1:
             for tile in list(self.browser.selectedTiles):
                 tile.chb_selected.setChecked(checked)
@@ -305,6 +308,10 @@ class BaseTileItem(QWidget):
         else:
             self.chb_selected.setChecked(checked)
             self.setSelected()
+
+        #   Refresh Transfer Size
+        if refresh and self.tileType == "destTile":
+            self.browser.refreshTotalTransSize()
 
 
     #   Toggles the Checkbox
@@ -443,13 +450,20 @@ class BaseTileItem(QWidget):
     #   Returns the Filepath
     @err_catcher(name=__name__)
     def getSource_mainfilePath(self):
-        return self.data.get("source_mainFile_path", None)
+        try:
+            return self.data.get("source_mainFile_path")
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to get Source Main File Path:\n{e}")
+            return None
     
 
     #   Returns the Filepath
     @err_catcher(name=__name__)
     def getSource_proxyfilePath(self):
-        return self.data.get("source_proxyFile_path", None)
+        try:
+            return self.data.get("source_proxyFile_path")
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to get Source Proxy File Path:\n{e}")
     
 
     #   Gets Thumbnail Save Path
@@ -546,35 +560,47 @@ class BaseTileItem(QWidget):
     #   Gets and Sets Thumbnail Using Thread
     @err_catcher(name=__name__)
     def refreshPreview(self):
-        if hasattr(self.data, "thumbnail"):
-            self.setThumbnail(self.data["thumbnail"])
-            return
+        try:
+            if hasattr(self.data, "thumbnail"):
+                self.setThumbnail(self.data["thumbnail"])
+                return
 
-        filePath = self.getSource_mainfilePath()
+            filePath = self.getSource_mainfilePath()
 
-        # Create Worker Thread
-        worker_thumb = ThumbnailWorker(
-            self,
-            filePath=filePath,
-            getPixmapFromPath=self.core.media.getPixmapFromPath,
-            supportedFormats=self.core.media.supportedFormats,
-            width=self.itemPreviewWidth,
-            height=self.itemPreviewHeight,
-            getThumbnailPath=self.getThumbnailPath,
-            scalePixmapFunc=self.core.media.scalePixmap
-        )
+            # Create Worker Thread
+            worker_thumb = ThumbnailWorker(
+                self,
+                filePath=filePath,
+                getPixmapFromPath=self.core.media.getPixmapFromPath,
+                supportedFormats=self.core.media.supportedFormats,
+                width=self.itemPreviewWidth,
+                height=self.itemPreviewHeight,
+                getThumbnailPath=self.getThumbnailPath,
+                scalePixmapFunc=self.core.media.scalePixmap
+            )
 
-        worker_thumb.setAutoDelete(True)
-        worker_thumb.result.connect(self.setThumbnail)
-        self.thumb_threadpool.start(worker_thumb)
+            worker_thumb.setAutoDelete(True)
+            worker_thumb.result.connect(self.setThumbnail)
+            self.thumb_threadpool.start(worker_thumb)
+
+            logger.debug("Refreshing Thumbnail")
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Thumbnail:\n{e}")
         
 
     #   Adds Thumbnail to FileTile Label
     @err_catcher(name=__name__)
     def setThumbnail(self, scaledPixmap):
-        self.l_preview.setAlignment(Qt.AlignCenter)
-        self.l_preview.setPixmap(scaledPixmap)
-        self.data["thumbnail"] = scaledPixmap
+        try:
+            self.l_preview.setAlignment(Qt.AlignCenter)
+            self.l_preview.setPixmap(scaledPixmap)
+            self.data["thumbnail"] = scaledPixmap
+
+            logger.debug("Thumbnail Added to FileTile")
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Add Thumbnail to FileTile:\n{e}")
 
 
     #   Returns File's Extension
@@ -608,19 +634,23 @@ class BaseTileItem(QWidget):
 
     @err_catcher(name=__name__)
     def setIcon(self, icon):
-        self.l_icon.setToolTip(self.getSource_mainfilePath())
-        if isinstance(icon, QIcon):
-            self.l_icon.setPixmap(icon.pixmap(24, 24))
-        else:
-            pmap = QPixmap(20, 20)
-            pmap.fill(Qt.transparent)
-            painter = QPainter(pmap)
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(icon)
-            painter.drawEllipse(0, 0, 10, 10)
-            painter.setRenderHint(QPainter.Antialiasing, True)
-            painter.end()
-            self.l_icon.setPixmap(pmap)
+        try:
+            self.l_icon.setToolTip(self.getSource_mainfilePath())
+            if isinstance(icon, QIcon):
+                self.l_icon.setPixmap(icon.pixmap(24, 24))
+            else:
+                pmap = QPixmap(20, 20)
+                pmap.fill(Qt.transparent)
+                painter = QPainter(pmap)
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(icon)
+                painter.drawEllipse(0, 0, 10, 10)
+                painter.setRenderHint(QPainter.Antialiasing, True)
+                painter.end()
+                self.l_icon.setPixmap(pmap)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Icon:\n{e}")
 
 
     #   Returns the Tile Icon
@@ -628,8 +658,6 @@ class BaseTileItem(QWidget):
     def getIcon(self):
         if self.data.get("icon", ""):
             return self.data["icon"]
-        # else:
-        #     return self.data["color"]
         
 
     @err_catcher(name=__name__)
@@ -637,26 +665,11 @@ class BaseTileItem(QWidget):
         self.core.openFolder(path)
 
 
-    @err_catcher(name=__name__)
-    def findExiftool(self):
-        possible_names = ["exiftool.exe", "exiftool(-k).exe"]
-
-        for root, dirs, files in os.walk(EXIF_DIR):
-            for file in files:
-                if file.lower() in [name.lower() for name in possible_names]:
-                    exifToolEXE = os.path.join(root, file)
-                    logger.debug(f"ExifTool found at: {exifToolEXE}")
-                    return exifToolEXE
-
-        logger.warning(f"ERROR:  Unable to Find ExifTool")
-        return None
-
-
     #   Returns File MetaData
     @err_catcher(name=__name__)
     def getMetadata(self, filePath):
         try:
-            with exiftool.ExifTool(self.exifToolEXE) as et:
+            with exiftool.ExifTool(self.browser.exifToolEXE) as et:
                 metadata_list = et.execute_json("-G", filePath)
 
             if metadata_list:
@@ -699,6 +712,7 @@ class BaseTileItem(QWidget):
 
         if metadata:
             grouped_metadata = self.groupMetadata(metadata)
+            logger.debug("Showing MetaData Popup")
             DisplayPopup.display(grouped_metadata, title="File Metadata")
         else:
             logger.warning("No metadata to display.")
@@ -721,21 +735,26 @@ class BaseTileItem(QWidget):
     def sendToViewer(self, filePath=None):
         if not self.isViewerEnabled():
             return
-        
-        #   Use passed file
-        if filePath:
-            sendFile = filePath
-        else:
-            #   Use Proxy if Proxy Exists and Prefer is Checked
-            if self.isPreferProxies() and self.getSource_proxyfilePath():
-                sendFile = self.getSource_proxyfilePath()
-                isProxy = True
-            #   Use Main File
-            else:
-                sendFile = self.getSource_mainfilePath()
-                isProxy = False
 
-        self.browser.mediaPlayer.updatePreview(sendFile, isProxy)
+        try:
+            #   Use passed file
+            if filePath:
+                sendFile = filePath
+            else:
+                #   Use Proxy if Proxy Exists and Prefer is Checked
+                if self.isPreferProxies() and self.getSource_proxyfilePath():
+                    sendFile = self.getSource_proxyfilePath()
+                    isProxy = True
+                #   Use Main File
+                else:
+                    sendFile = self.getSource_mainfilePath()
+                    isProxy = False
+
+            logger.debug("Sending Image to Media Viewer")
+            self.browser.mediaPlayer.updatePreview(sendFile, isProxy)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Send Image to Media Viewer:\n{e}")
 
 
 
@@ -747,6 +766,8 @@ class SourceFileItem(BaseTileItem):
 
         self.setupUi()
         self.refreshUi()
+
+        logger.debug("Loaded Source FileTile")
 
 
     def mouseReleaseEvent(self, event):
@@ -876,145 +897,168 @@ class SourceFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def refreshUi(self):
-        # Get File Path
-        filePath = self.getSource_mainfilePath()
-        self.l_fileName.setText(self.getBasename(filePath))
-        self.l_fileName.setToolTip(f"FilePath: {filePath}")
+        try:
+            # Get File Path
+            filePath = self.getSource_mainfilePath()
+            self.l_fileName.setText(self.getBasename(filePath))
+            self.l_fileName.setToolTip(f"FilePath: {filePath}")
 
-        #   Set Filetype Icon
-        icon = self.getIconByType(filePath)
-        self.data["icon"] = icon
-        self.setIcon(icon)
+            #   Set Filetype Icon
+            icon = self.getIconByType(filePath)
+            self.data["icon"] = icon
+            self.setIcon(icon)
 
-        #   Set Date
-        date_data = self.getFileDate(filePath)
-        date_str = self.core.getFormattedDate(date_data)
-        self.l_date.setText(date_str)
-        self.data["source_mainFile_date"] = date_str
+            #   Set Date
+            date_data = self.getFileDate(filePath)
+            date_str = self.core.getFormattedDate(date_data)
+            self.l_date.setText(date_str)
+            self.data["source_mainFile_date"] = date_str
 
-        #   Set Filesize
-        mainSize_data = self.getFileSize(filePath)
-        mainSize_str = self.getFileSizeStr(mainSize_data)
-        self.data["source_mainFile_size"] = mainSize_str
-        self.l_fileSize.setText(mainSize_str)
+            #   Set Filesize
+            mainSize_data = self.getFileSize(filePath)
+            mainSize_str = self.getFileSizeStr(mainSize_data)
+            self.data["source_mainFile_size"] = mainSize_str
+            self.l_fileSize.setText(mainSize_str)
 
-        #   Set Number of Frames
-        fileType = self.browser.getFileType(filePath)
-        if fileType in ["image", "video"]:
-            self.setDuration(filePath, self.onMainfileDurationReady)
+            #   Set Number of Frames
+            fileType = self.browser.getFileType(filePath)
+            if fileType in ["image", "video"]:
+                self.setDuration(filePath, self.onMainfileDurationReady)
 
-        #   Set Hash
-        self.l_fileSize.setToolTip("Calculating file hash...")
-        self.setFileHash(filePath, self.onMainfileHashReady)
+            #   Set Hash
+            self.l_fileSize.setToolTip("Calculating file hash...")
+            self.setFileHash(filePath, self.onMainfileHashReady)
 
-        self.refreshPreview()
-        self.setProxyFile()
+            self.refreshPreview()
+            self.setProxyFile()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
 
 
     #   Populates Frames when ready from Thread
     @err_catcher(name=__name__)
     def onMainfileDurationReady(self, duration):
-        self.data["source_mainFile_duration"] = duration
-        self.l_frames.setText(str(duration))
+        try:
+            self.data["source_mainFile_duration"] = duration
+            self.l_frames.setText(str(duration))
+            logger.debug("Duration Set on FileTile")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Main File Duration:\n{e}")
 
 
     #   Populates Hash when ready from Thread
     @err_catcher(name=__name__)
     def onMainfileHashReady(self, result_hash):
-        self.data["source_mainFile_hash"] = result_hash
-        self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+        try:
+            self.data["source_mainFile_hash"] = result_hash
+            self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Main File Hash:\n{e}")
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
     @err_catcher(name=__name__)
     def setProxyFile(self):
-        self.data["hasProxy"] = False
+        try:
+            self.data["hasProxy"] = False
 
-        proxyFilepath = self.searchForProxyFile()
+            proxyFilepath = self.searchForProxyFile()
 
-        if proxyFilepath:
-            #   Set Proxy Flag
-            self.data["hasProxy"] = True
+            if proxyFilepath:
+                #   Set Proxy Flag
+                self.data["hasProxy"] = True
 
-            #   Show Proxy Icon on Thumbnail
-            self.l_pxyIcon.show()
+                #   Show Proxy Icon on Thumbnail
+                self.l_pxyIcon.show()
 
-            #   Set Source Proxy Path
-            self.data["source_proxyFile_path"] = proxyFilepath
+                #   Set Source Proxy Path
+                self.data["source_proxyFile_path"] = proxyFilepath
 
-            #   Set Source Proxy Date
-            date_data = self.getFileDate(proxyFilepath)
-            date_str = self.core.getFormattedDate(date_data)
-            self.data["source_proxyFile_date"] = date_str
+                #   Set Source Proxy Date
+                date_data = self.getFileDate(proxyFilepath)
+                date_str = self.core.getFormattedDate(date_data)
+                self.data["source_proxyFile_date"] = date_str
 
-            #   Set Source Proxy Filesize
-            mainSize_data = self.getFileSize(proxyFilepath)
-            mainSize_str = self.getFileSizeStr(mainSize_data)
-            self.data["source_proxyFile_size"] = mainSize_str
+                #   Set Source Proxy Filesize
+                mainSize_data = self.getFileSize(proxyFilepath)
+                mainSize_str = self.getFileSizeStr(mainSize_data)
+                self.data["source_proxyFile_size"] = mainSize_str
 
-            #   Set Source Proxy Hash
-            self.setFileHash(proxyFilepath, self.onProxyfileHashReady)
+                #   Set Source Proxy Hash
+                self.setFileHash(proxyFilepath, self.onProxyfileHashReady)
 
-            #   Set Proxy Tooltip
-            tip = (f"Proxy File detected:\n\n"
-                   f"File: {proxyFilepath}\n"
-                   f"Date: {date_str}\n"
-                   f"Size: {mainSize_str}")
-            self.l_pxyIcon.setToolTip(tip)
+                #   Set Proxy Tooltip
+                tip = (f"Proxy File detected:\n\n"
+                    f"File: {proxyFilepath}\n"
+                    f"Date: {date_str}\n"
+                    f"Size: {mainSize_str}")
+                self.l_pxyIcon.setToolTip(tip)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
 
 
     #   Uses Setting-defined Template to Search for Proxies
     @err_catcher(name=__name__)
     def searchForProxyFile(self):
-        #   Get the Config Data
-        sData = self.getSettings()
-        proxySearchList = sData.get("proxySearch", [])
+        try:
+            #   Get the Config Data
+            proxySearchList = self.getSettings(key="proxySearch")
 
-        #   Get Orig Names
-        fullPath = self.getSource_mainfilePath()
-        baseDir = os.path.dirname(fullPath)
-        baseName = os.path.basename(fullPath)
-        fileBase, _ = os.path.splitext(baseName)
+            #   Get Orig Names
+            fullPath = self.getSource_mainfilePath()
+            baseDir = os.path.dirname(fullPath)
+            baseName = os.path.basename(fullPath)
+            fileBase, _ = os.path.splitext(baseName)
 
-        for pathTemplate in proxySearchList:
-            #   Replace @MAINFILENAME@ with the base name (without extension)
-            pathWithFilename = pathTemplate.replace("@MAINFILENAME@", fileBase)
+            for pathTemplate in proxySearchList:
+                #   Replace @MAINFILENAME@ with the base name (without extension)
+                pathWithFilename = pathTemplate.replace("@MAINFILENAME@", fileBase)
 
-            #   Replace @MAINFILEDIR@ name with any Prefix/Suffix
-            def replace_dirToken(match):
-                pre = match.group(1) or ""
-                post = match.group(2) or ""
-                return os.path.join(os.path.dirname(baseDir), pre + os.path.basename(baseDir) + post)
+                #   Replace @MAINFILEDIR@ name with any Prefix/Suffix
+                def replace_dirToken(match):
+                    pre = match.group(1) or ""
+                    post = match.group(2) or ""
+                    return os.path.join(os.path.dirname(baseDir), pre + os.path.basename(baseDir) + post)
 
-            #   Find any prefix/suffix on @MAINFILEDIR@
-            dir_pattern = re.compile(r"(.*?)@MAINFILEDIR@(.*?)")
-            proxyPath = dir_pattern.sub(replace_dirToken, pathWithFilename)
+                #   Find any prefix/suffix on @MAINFILEDIR@
+                dir_pattern = re.compile(r"(.*?)@MAINFILEDIR@(.*?)")
+                proxyPath = dir_pattern.sub(replace_dirToken, pathWithFilename)
 
-            #   Convert Relative Path to Absolute
-            proxyPath = os.path.normpath(proxyPath)
+                #   Convert Relative Path to Absolute
+                proxyPath = os.path.normpath(proxyPath)
 
-            #   Extract Info for Lookup
-            proxyDir = os.path.dirname(proxyPath)
-            targetFile = os.path.basename(proxyPath).lower()
-            targetFileBase, _ = os.path.splitext(targetFile)
+                #   Extract Info for Lookup
+                proxyDir = os.path.dirname(proxyPath)
+                targetFile = os.path.basename(proxyPath).lower()
+                targetFileBase, _ = os.path.splitext(targetFile)
 
-            #   Find Match in the Dir
-            if os.path.isdir(proxyDir):
-                for f in os.listdir(proxyDir):
-                    fileBaseName, _ = os.path.splitext(f.lower())
-                    if fileBaseName == targetFileBase:
-                        logger.debug(f"Proxy found for {targetFileBase}.")
-                        return os.path.join(proxyDir, f)
+                #   Find Match in the Dir
+                if os.path.isdir(proxyDir):
+                    for f in os.listdir(proxyDir):
+                        fileBaseName, _ = os.path.splitext(f.lower())
+                        if fileBaseName == targetFileBase:
+                            logger.debug(f"Proxy found for {targetFileBase}.")
+                            return os.path.join(proxyDir, f)
 
-        logger.debug(f"No Proxies found for {fileBase}")
-        return None
+            logger.debug(f"No Proxies found for {fileBase}")
+            return None
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Proxy Search Failed:\n{e}")
+            return None
 
 
     #   Populates Hash when ready from Thread
     @err_catcher(name=__name__)
     def onProxyfileHashReady(self, result_hash):
-        self.data["source_proxyFile_hash"] = result_hash
-        # self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+        try:
+            self.data["source_proxyFile_hash"] = result_hash
+            # self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Proxy File Hash:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -1054,15 +1098,16 @@ class SourceFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def addToDestList(self):
-        if len(self.browser.selectedTiles) > 1:
-            for tile in list(self.browser.selectedTiles):
-                self.browser.addToDestList(tile.data)
-        else:
-            self.browser.addToDestList(self.data)
-        
-        self.browser.refreshDestItems()
-
-
+        try:
+            if len(self.browser.selectedTiles) > 1:
+                for tile in list(self.browser.selectedTiles):
+                    self.browser.addToDestList(tile.data)
+            else:
+                self.browser.addToDestList(self.data)
+            
+            self.browser.refreshDestItems()
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Add to Destination List:\n{e}")
 
 
 
@@ -1081,6 +1126,8 @@ class DestFileItem(BaseTileItem):
 
         self.setupUi()
         self.refreshUi()
+
+        logger.debug("Loaded Destination FileTile")
 
 
     def mouseReleaseEvent(self, event):
@@ -1106,12 +1153,12 @@ class DestFileItem(BaseTileItem):
 
         #   Stacked Layout (For Overlaying Elements)
         self.lo_preview = QStackedLayout(self.thumbContainer)
-        self.lo_preview.setStackingMode(QStackedLayout.StackAll)  # Ensures stacking order
+        self.lo_preview.setStackingMode(QStackedLayout.StackAll)
 
         #   Thumbnail Label (Main Image)
         self.l_preview = QLabel(self.thumbContainer)
         self.l_preview.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
-        self.lo_preview.addWidget(self.l_preview)  # Add thumbnail first
+        self.lo_preview.addWidget(self.l_preview)
 
         #   Proxy Icon Label
         pxyIconPath = os.path.join(iconDir, "pxy_icon.png")
@@ -1217,31 +1264,35 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def refreshUi(self):
-        source_MainFilePath = self.getSource_mainfilePath()
-        source_MainFileName = self.getBasename(source_MainFilePath)
+        try:
+            source_MainFilePath = self.getSource_mainfilePath()
+            source_MainFileName = self.getBasename(source_MainFilePath)
 
-        self.data["dest_mainFile_path"] = self.getDestMainPath()
-        self.setProxyFile()
+            self.data["dest_mainFile_path"] = self.getDestMainPath()
+            self.setProxyFile()
 
-        self.l_fileName.setText(source_MainFileName)
+            self.l_fileName.setText(source_MainFileName)
 
-        tip = (f"Source File:  {source_MainFilePath}\n"
-               f"Destination File:  {self.getDestPath()}")
-        self.l_fileName.setToolTip(tip)
+            tip = (f"Source File:  {source_MainFilePath}\n"
+                f"Destination File:  {self.getDestPath()}")
+            self.l_fileName.setToolTip(tip)
 
-        #   Set Filetype Icon
-        self.setIcon(self.data["icon"])
+            #   Set Filetype Icon
+            self.setIcon(self.data["icon"])
 
-        #   Set Quanity Details
-        self.setQuanityUI("idle")
+            #   Set Quanity Details
+            self.setQuanityUI("idle")
 
-        # Get File Path
-        filePath = self.getSource_mainfilePath()
-        self.l_fileName.setText(self.getBasename(filePath))
-        self.l_fileName.setToolTip(f"FilePath:  {filePath}")
+            # Get File Path
+            filePath = self.getSource_mainfilePath()
+            self.l_fileName.setText(self.getBasename(filePath))
+            self.l_fileName.setToolTip(f"FilePath:  {filePath}")
 
-        self.toggleProxyProgbar()
-        self.refreshPreview()
+            self.toggleProxyProgbar()
+            self.refreshPreview()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
 
 
     #   Sets the FileName based on Name Modifiers
@@ -1262,14 +1313,18 @@ class DestFileItem(BaseTileItem):
     #   Sets the FileName based on Name Modifiers
     @err_catcher(name=__name__)
     def nameOverride(self, override):
-        source_MainFilePath = self.getSource_mainfilePath()
-        source_MainFileName = self.getBasename(source_MainFilePath)
+        try:
+            source_MainFilePath = self.getSource_mainfilePath()
+            source_MainFileName = self.getBasename(source_MainFilePath)
 
-        if override:
-            modName = self.getModifiedName(source_MainFileName)
-            self.l_fileName.setText(modName)
-        else:
-            self.l_fileName.setText(source_MainFileName)
+            if override:
+                modName = self.getModifiedName(source_MainFileName)
+                self.l_fileName.setText(modName)
+            else:
+                self.l_fileName.setText(source_MainFileName)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Get Name Override:\n{e}")
 
         
     @err_catcher(name=__name__)
@@ -1286,18 +1341,22 @@ class DestFileItem(BaseTileItem):
     #   Sets Destination Proxy Filepath and Icon
     @err_catcher(name=__name__)
     def setProxyFile(self):
-        if self.getProxy():
-            #   Show Proxy Icon
-            self.l_pxyIcon.show()
+        try:
+            if self.getProxy():
+                #   Show Proxy Icon
+                self.l_pxyIcon.show()
 
-            #   Set Proxy Tooltip
-            tip = (f"Proxy File detected:\n\n"
-                   f"File: {self.data['source_proxyFile_path']}\n"
-                   f"Date: {self.data['source_proxyFile_date']}\n"
-                   f"Size: {self.data['source_proxyFile_size']}")
-            self.l_pxyIcon.setToolTip(tip)
+                #   Set Proxy Tooltip
+                tip = (f"Proxy File detected:\n\n"
+                    f"File: {self.data['source_proxyFile_path']}\n"
+                    f"Date: {self.data['source_proxyFile_date']}\n"
+                    f"Size: {self.data['source_proxyFile_size']}")
+                self.l_pxyIcon.setToolTip(tip)
 
-            self.data["dest_proxyFile_path"] = self.getResolvedDestProxyPath()
+                self.data["dest_proxyFile_path"] = self.getResolvedDestProxyPath()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
 
 
     #   Returns Destination Directory
@@ -1309,16 +1368,20 @@ class DestFileItem(BaseTileItem):
     #   Returns the Destination Mainfile Path
     @err_catcher(name=__name__)
     def getDestMainPath(self):
-        sourceMainPath = self.getSource_mainfilePath()
-        baseName = self.getBasename(sourceMainPath)
+        try:
+            sourceMainPath = self.getSource_mainfilePath()
+            baseName = self.getBasename(sourceMainPath)
 
-        #   Modifiy Name is Enabled
-        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-            baseName = self.getModifiedName(baseName)
+            #   Modifiy Name is Enabled
+            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+                baseName = self.getModifiedName(baseName)
 
-        destPath = self.getDestPath()
+            destPath = self.getDestPath()
 
-        return os.path.join(destPath, baseName)
+            return os.path.join(destPath, baseName)
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Get Destination MainFile Path:\n{e}")
     
 
      #   Checks if File Exists at Destination
@@ -1330,114 +1393,122 @@ class DestFileItem(BaseTileItem):
     #   Sets Proxy Icon and FilePath if Proxy Exists
     @err_catcher(name=__name__)
     def getResolvedDestProxyPath(self, dirOnly=False):
-        source_mainFilePath = os.path.normpath(self.getSource_mainfilePath())
-        source_proxyFilePath = os.path.normpath(self.data["source_proxyFile_path"])
-        dest_MainFilePath = os.path.normpath(self.getDestMainPath())
+        try:
+            source_mainFilePath = os.path.normpath(self.getSource_mainfilePath())
+            source_proxyFilePath = os.path.normpath(self.data["source_proxyFile_path"])
+            dest_MainFilePath = os.path.normpath(self.getDestMainPath())
 
-        # Get the directory parts
-        source_mainDir = os.path.dirname(source_mainFilePath)
-        source_proxyDir = os.path.dirname(source_proxyFilePath)
+            # Get the directory parts
+            source_mainDir = os.path.dirname(source_mainFilePath)
+            source_proxyDir = os.path.dirname(source_proxyFilePath)
 
-        # Compute the relative path difference
-        rel_proxyDir = os.path.relpath(source_proxyDir, source_mainDir)
+            # Compute the relative path difference
+            rel_proxyDir = os.path.relpath(source_proxyDir, source_mainDir)
 
-        # Get just the proxy filename
-        proxy_fileName = os.path.basename(source_proxyFilePath)
+            # Get just the proxy filename
+            proxy_fileName = os.path.basename(source_proxyFilePath)
 
-        #   Modifiy Name is Enabled
-        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-            proxy_fileName = self.getModifiedName(proxy_fileName)
+            #   Modifiy Name is Enabled
+            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+                proxy_fileName = self.getModifiedName(proxy_fileName)
 
-        # Apply the relative subdir to the dest main directory
-        dest_mainDir = os.path.dirname(dest_MainFilePath)
-        dest_proxyDir = os.path.join(dest_mainDir, rel_proxyDir)
+            # Apply the relative subdir to the dest main directory
+            dest_mainDir = os.path.dirname(dest_MainFilePath)
+            dest_proxyDir = os.path.join(dest_mainDir, rel_proxyDir)
 
-        #   Return Directory
-        if dirOnly:
-            return dest_proxyDir
+            #   Return Directory
+            if dirOnly:
+                return dest_proxyDir
 
-        # Final proxy path
-        dest_proxyFilePath = os.path.join(dest_proxyDir, proxy_fileName)
+            # Final proxy path
+            dest_proxyFilePath = os.path.join(dest_proxyDir, proxy_fileName)
 
-        return dest_proxyFilePath
+            return dest_proxyFilePath
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Get Resolved Proxy Path:\n{e}")
+            return None
     
 
     #   Returns an Estimated Proxy Size Based on a Fractional Multiplier
     @err_catcher(name=__name__)
     def getMultipliedProxySize(self, frame=None, total=False):
+        try:
+            #   Get Main File Size
+            mainSize = self.getFileSize(self.getSource_mainfilePath())
 
-        #   Get Main File Size
-        mainSize = self.getFileSize(self.getSource_mainfilePath())
+            if not mainSize:
+                return 0
 
-        if not mainSize:
-            return 0
-
-        #   Get Multiplier from Preset
-        presetName = self.browser.proxySettings.get("proxyPreset", "")
-        presets = self.getSettings(key="ffmpegPresets")
-        preset = presets.get(presetName, {})
-        mult = float(preset.get("Multiplier", 0.0))
-
-        #   Get and Apply Proxy Scaling
-        scale_str = self.browser.proxySettings.get("proxyScale", "100%")
-        scale = int(scale_str.strip('%'))
-        scaled_mult = mult * (scale / 100) ** 2
-
-        #   Get Estimated Proxy Size based on Multiplier
-        proxySize = mainSize * scaled_mult
-
-        if total:
-            #   Just Return Full Proxy Size
-            return proxySize
-        
-        else:
-            #   Get Number of Frames
-            total_frames = self.data["source_mainFile_duration"]
-
-            #   Abort if Incorrect Data
-            if total_frames <= 0 or frame is None:
-                return 0            
+            #   Get Multiplier from Preset
+            presetName = self.browser.proxySettings.get("proxyPreset", "")
             
-            #   Clamp Frame
-            frame = max(0, min(frame, total_frames))
-            #   Calculate Proxy Size per Frame
-            per_frame = proxySize / total_frames
+            # presets = self.getSettings(key="ffmpegPresets")                   #   TODO - Make Sure Saving Updates the Browser Var
 
-            return per_frame * frame
+            presets = self.browser.ffmpegPresets
+
+
+            preset = presets.get(presetName, {})
+            mult = float(preset.get("Multiplier", 0.0))
+
+            #   Get and Apply Proxy Scaling
+            scale_str = self.browser.proxySettings.get("proxyScale", "100%")
+            scale = int(scale_str.strip('%'))
+            scaled_mult = mult * (scale / 100) ** 2
+
+            #   Get Estimated Proxy Size based on Multiplier
+            proxySize = mainSize * scaled_mult
+
+            if total:
+                #   Just Return Full Proxy Size
+                return proxySize
+            
+            else:
+                #   Get Number of Frames
+                total_frames = self.data["source_mainFile_duration"]
+
+                #   Abort if Incorrect Data
+                if total_frames <= 0 or frame is None:
+                    return 0            
+                
+                #   Clamp Frame
+                frame = max(0, min(frame, total_frames))
+                #   Calculate Proxy Size per Frame
+                per_frame = proxySize / total_frames
+
+                return per_frame * frame
+            
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Get Multiplied Proxy Size:\n{e}")
+            return 0
         
     
     #   Gets Generated Proxy Size and Updates Presets Multiplier
     @err_catcher(name=__name__)
     def updateProxyPresetMultiplier(self):
-        #   Get Preset Info
-        presetName = self.browser.proxySettings.get("proxyPreset", "")
-        allPresets = self.getSettings(key="ffmpegPresets")
-        preset = allPresets.get(presetName)
-        
-        #   Get File Sizes
-        mainSize = self.getFileSize(self.data["dest_mainFile_path"])
-        proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
+        try:
+            #   Get File Sizes
+            mainSize = self.getFileSize(self.data["dest_mainFile_path"])
+            proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
 
-        if mainSize <= 0 or proxySize <= 0:
-            logger.warning("Cannot update multiplier: one of the sizes is zero")
-            return
-        
-        #   Get Scale
-        scale_str = self.browser.proxySettings.get("proxyScale", "100%")
-        scale_pct = int(scale_str.strip("%")) / 100.0
+            if mainSize <= 0 or proxySize <= 0:
+                logger.warning("Cannot update multiplier: one of the sizes is zero")
+                return
+            
+            #   Get Scale
+            scale_str = self.browser.proxySettings.get("proxyScale", "100%")
+            scale_pct = int(scale_str.strip("%")) / 100.0
 
-        #   Reverse the Multiplir Calc
-        new_base_mult = proxySize / (mainSize * (scale_pct ** 2))
-        #   Clamp Result
-        new_base_mult = max(0.001, min(new_base_mult, 5.0))
-        #   Get Saved Multiplier
-        old_mult = float(preset["Multiplier"])
-        #   Average Old and New
-        averaged_mult = round((old_mult + new_base_mult) / 2.0, 2)
+            #   Reverse the Multiplir Calc
+            new_base_mult = proxySize / (mainSize * (scale_pct ** 2))
+            #   Clamp Result
+            new_base_mult = max(0.001, min(new_base_mult, 5.0))
 
-        #   Save New Multiplier to Settings
-        preset["Multiplier"] = averaged_mult
-        self.saveSettings(key="ffmpegPresets", data=allPresets)
+            #   Add Calculated Multiplier to Mult List
+            self.browser.calculated_proxyMults.append(new_base_mult)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Update Proxy Multiplier:\n{e}")
 
     
     @err_catcher(name=__name__)
@@ -1447,56 +1518,60 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def setTransferStatus(self, progBar, status, tooltip=None):
-        self.transferState = status
-        if progBar == "transfer":
-            progWdget = self.transferProgBar
-        elif progBar == "proxy":
-            progWdget = self.proxyProgBar
+        try:
+            self.transferState = status
+            if progBar == "transfer":
+                progWdget = self.transferProgBar
+            elif progBar == "proxy":
+                progWdget = self.proxyProgBar
 
-        match status:
-            case "Idle":
-                statusColor = COLOR_BLUE
-            case "Transferring":
-                statusColor = COLOR_BLUE
-            case "Transferring Proxy":
-                statusColor = COLOR_BLUE
-            case "Generating Proxy":
-                statusColor = COLOR_BLUE
-            case "Generating Hash":
-                statusColor = COLOR_BLUE
-            case "Queued":
-                statusColor = COLOR_BLUE
-            case "Paused":
-                statusColor = COLOR_GREY
-            case "Cancelled":
-                statusColor = COLOR_RED
-            case "Complete":
-                statusColor = COLOR_GREEN
-            case "Warning":
-                statusColor = COLOR_ORANGE
-            case "Error":
-                statusColor = COLOR_RED
-            case _:
-                statusColor = COLOR_ORANGE
+            match status:
+                case "Idle":
+                    statusColor = COLOR_BLUE
+                case "Transferring":
+                    statusColor = COLOR_BLUE
+                case "Transferring Proxy":
+                    statusColor = COLOR_BLUE
+                case "Generating Proxy":
+                    statusColor = COLOR_BLUE
+                case "Generating Hash":
+                    statusColor = COLOR_BLUE
+                case "Queued":
+                    statusColor = COLOR_BLUE
+                case "Paused":
+                    statusColor = COLOR_GREY
+                case "Cancelled":
+                    statusColor = COLOR_RED
+                case "Complete":
+                    statusColor = COLOR_GREEN
+                case "Warning":
+                    statusColor = COLOR_ORANGE
+                case "Error":
+                    statusColor = COLOR_RED
+                case _:
+                    statusColor = COLOR_ORANGE
 
-        #   Add Status to Widget UI
-        self.l_transStatus.setText(status)
+            #   Add Status to Widget UI
+            self.l_transStatus.setText(status)
 
-        #   Set the Prog Bar Tooltip
-        if tooltip:
-            progWdget.setToolTip(tooltip)
-        else:
-            progWdget.setToolTip(status)
+            #   Set the Prog Bar Tooltip
+            if tooltip:
+                progWdget.setToolTip(tooltip)
+            else:
+                progWdget.setToolTip(status)
 
-        #   Convert Color to rgb format string
-        color_str = f"rgb({statusColor})"
-        
-        #   Set Prog Bar StyleSheet
-        progWdget.setStyleSheet(f"""
-            QProgressBar::chunk {{
-                background-color: {color_str};  /* Set the chunk color */
-            }}
-        """)
+            #   Convert Color to rgb format string
+            color_str = f"rgb({statusColor})"
+            
+            #   Set Prog Bar StyleSheet
+            progWdget.setStyleSheet(f"""
+                QProgressBar::chunk {{
+                    background-color: {color_str};  /* Set the chunk color */
+                }}
+            """)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Update Tile Transfer Status:\n{e}")
 
 
     #   Sets the Quality UI for Each Mode
@@ -1584,86 +1659,81 @@ class DestFileItem(BaseTileItem):
 
     @err_catcher(name=__name__)
     def removeFromDestList(self):
-        if len(self.browser.selectedTiles) > 1:
-            for tile in list(self.browser.selectedTiles):
-                self.browser.removeFromDestList(tile.data)
-        else:
-            self.browser.removeFromDestList(self.data)
+        try:
+            if len(self.browser.selectedTiles) > 1:
+                for tile in list(self.browser.selectedTiles):
+                    self.browser.removeFromDestList(tile.data)
+            else:
+                self.browser.removeFromDestList(self.data)
 
-        self.browser.refreshDestItems()
+            self.browser.refreshDestItems()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Remove FileTile from Destination List:\n{e}")
 
 
     #   Return Proxy Path Based on Mode, Overrides, and Filename Mods
     @err_catcher(name=__name__)
     def getDestProxyFilepath(self, sourcePath, proxyMode, proxySettings):
-
+        
         #   Helper to Resolve Absolute or Relative Path
         def _resolvePath(user_dir, dest_dir):
-            #   Convert to Path
-            user_path = Path(os.path.normpath(user_dir))
+            try:
+                #   Convert to Path
+                user_path = Path(os.path.normpath(user_dir))
 
-            # Determine if it's relative or absolute
-            if user_path.is_absolute():
-                ovrPath = user_path
-            else:
-                ovrPath = os.path.join(dest_dir, user_path)
+                # Determine if it's relative or absolute
+                if user_path.is_absolute():
+                    resolvedPath = user_path
+                else:
+                    resolvedPath = os.path.join(dest_dir, user_path)
 
-            return ovrPath
+                return resolvedPath
+            
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Resolve Path:\n{e}")
+                return None
 
+        try:
+            #   Get Source Base Name and Modify if Enabled
+            source_baseFile = os.path.basename(sourcePath)
+            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+                source_baseFile = self.getModifiedName(source_baseFile)
 
-        #   Get Source Base Name and Modify if Enabled
-        source_baseFile = os.path.basename(sourcePath)
-        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-            source_baseFile = self.getModifiedName(source_baseFile)
+            #   Make Proxy Name
+            source_baseName = os.path.splitext(source_baseFile)[0]
+            proxy_baseFile = source_baseName + proxySettings["Extension"]
 
-        #   Make Proxy Name
-        source_baseName = os.path.splitext(source_baseFile)[0]
-        proxy_baseFile = source_baseName + proxySettings["Extension"]
+            #   Convert dest_dir to Path
+            dest_dir = Path(self.getDestPath())
 
-        #   Convert dest_dir to Path
-        dest_dir = Path(self.getDestPath())
+            proxyPath = None
 
-        proxyPath = None
+            ##  OVERIDE PROXY PATH  ##
+            #   Get Override Dir if it Exists
+            override_dir_raw = proxySettings.get("ovr_proxyDir", "").strip()
+            if override_dir_raw:
+                #   Resolve Absolute or Relative Path
+                ovrPath = _resolvePath(override_dir_raw, dest_dir)
+                #   Make Override Proxy Path
+                proxyPath = os.path.join(ovrPath, proxy_baseFile)
+                self.data["dest_proxyFile_path"] = str(proxyPath)
 
-        ##  OVERIDE PROXY PATH  ##
-        #   Get Override Dir if it Exists
-        override_dir_raw = proxySettings.get("ovr_proxyDir", "").strip()
-        if override_dir_raw:
-            #   Resolve Absolute or Relative Path
-            ovrPath = _resolvePath(override_dir_raw, dest_dir)
-            #   Make Override Proxy Path
-            proxyPath = os.path.join(ovrPath, proxy_baseFile)
-            self.data["dest_proxyFile_path"] = str(proxyPath)
+                #   Add Proxy to Tile Data
+                if self.data["hasProxy"]:
+                    self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
 
-            #   Add Proxy to Tile Data
-            if self.data["hasProxy"]:
-                self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+                #   Return Override Proxy Path
+                return str(proxyPath)
 
-            #   Return Override Proxy Path
-            return str(proxyPath)
-
-        ##  NO OVERRIDE  ##
-        #   COPY MODE
-        if proxyMode == "copy" and self.data["hasProxy"]:
-            self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
-            proxyPath = Path(self.getResolvedDestProxyPath())
-
-        #   GENERATE MODE
-        elif proxyMode == "generate":
-            if proxySettings["resolved_proxyDir"]:
-                proxy_dir = Path(proxySettings["resolved_proxyDir"])
-            else:
-                fallback_dir_raw = proxySettings["fallback_proxyDir"].strip()
-                proxy_dir = _resolvePath(fallback_dir_raw, dest_dir)
-
-            proxyPath = os.path.join(proxy_dir, proxy_baseFile)
-
-        #   GENERATE MISSING MODE
-        elif proxyMode == "missing":
-            if self.data["hasProxy"]:
+            ##  NO OVERRIDE  ##
+            #   COPY MODE
+            if proxyMode == "copy" and self.data["hasProxy"]:
                 self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
                 proxyPath = Path(self.getResolvedDestProxyPath())
-            else:
+
+            #   GENERATE MODE
+            elif proxyMode == "generate":
                 if proxySettings["resolved_proxyDir"]:
                     proxy_dir = Path(proxySettings["resolved_proxyDir"])
                 else:
@@ -1672,9 +1742,26 @@ class DestFileItem(BaseTileItem):
 
                 proxyPath = os.path.join(proxy_dir, proxy_baseFile)
 
-        self.data["dest_proxyFile_path"] = str(proxyPath)
+            #   GENERATE MISSING MODE
+            elif proxyMode == "missing":
+                if self.data["hasProxy"]:
+                    self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
+                    proxyPath = Path(self.getResolvedDestProxyPath())
+                else:
+                    if proxySettings["resolved_proxyDir"]:
+                        proxy_dir = Path(proxySettings["resolved_proxyDir"])
+                    else:
+                        fallback_dir_raw = proxySettings["fallback_proxyDir"].strip()
+                        proxy_dir = _resolvePath(fallback_dir_raw, dest_dir)
 
-        return str(proxyPath)
+                    proxyPath = os.path.join(proxy_dir, proxy_baseFile)
+
+            self.data["dest_proxyFile_path"] = str(proxyPath)
+
+            return str(proxyPath)
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Get Destination Proxy File Path:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -1727,6 +1814,8 @@ class DestFileItem(BaseTileItem):
         self.setTransferStatus(progBar="transfer", status="Queued")
         self.setQuanityUI("copyMain")
 
+        logger.debug(f"Starting MainFile Transfer: {destPath}")
+
         #   Call the Transfer Worker Thread for Main File
         self.main_transfer_worker = FileCopyWorker(self, "transfer", sourcePath, destPath)
         #   Connect the Progress Signals
@@ -1740,12 +1829,18 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def _onTransferStart(self, transType):
         self.setTransferStatus(progBar=transType, status="Transferring")
+        if transType == "transfer":
+            logger.status(f"Transfer Started: {self.data['source_mainFile_path']}")
+        elif transType == "proxy":
+            logger.status(f"Transfer Started: {self.data['source_proxyFile_path']}")
+
 
 
     #   Gets called when Proxy Thread Starts in Queue
     @err_catcher(name=__name__)
     def _onProxyGenStart(self):
         self.setTransferStatus(progBar="proxy", status="Generating Proxy")
+        logger.status(f"Proxy Generation Started: {self.data['dest_proxyFile_path']}")
 
 
     @err_catcher(name=__name__)
@@ -1753,6 +1848,7 @@ class DestFileItem(BaseTileItem):
         if self.main_transfer_worker and self.transferState != "Complete":
             self.transferTimer.stop()
             self.main_transfer_worker.pause()
+            logger.debug("Sending Pause to Worker")
 
             if self.transferState != "Queued":
                 self.setTransferStatus(progBar="transfer", status="Paused")
@@ -1765,6 +1861,7 @@ class DestFileItem(BaseTileItem):
 
             self.transferTimer.start()
             self.main_transfer_worker.resume()
+            logger.debug("Sending Resume to Worker")
 
 
     @err_catcher(name=__name__)
@@ -1773,11 +1870,14 @@ class DestFileItem(BaseTileItem):
             self.setTransferStatus(progBar="transfer", status="Cancelled")
             self.transferTimer.stop()
             self.main_transfer_worker.cancel()
+            logger.debug("Sending Cancel Transfer to Worker")
 
         if self.worker_proxy and self.transferState != "Complete":
             self.setTransferStatus(progBar="proxy", status="Cancelled")
             self.transferTimer.stop()
             self.worker_proxy.cancel()
+            logger.debug("Sending Cancel Generation to Worker")
+
 
 
     #   Updates the UI During the Transfer
@@ -1825,6 +1925,8 @@ class DestFileItem(BaseTileItem):
         #   Sets Destination FilePath ToolTip
         self.l_fileName.setToolTip(os.path.normpath(destMainPath))
 
+        logger.debug(f"Main Transfer Finised: {success}")
+
         if success:
             self.transferProgBar.setValue(100)
 
@@ -1871,13 +1973,13 @@ class DestFileItem(BaseTileItem):
                     self.setQuanityUI("generate")
                     self.generateProxy()
 
-            logger.debug(f"Transfer complete: {self.getSource_mainfilePath()}")
+            logger.status(f"Main Transfer complete: {self.data['dest_mainFile_path']}")
             
         #   Transfer Hash is Not Correct
         else:
             statusMsg = "ERROR:  Transfered Hash Incorrect"
             status = "Warning"
-            logger.debug(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
+            logger.warning(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
 
             hashMsg = (f"Status: {statusMsg}\n\n"
                     f"Source Hash:   {orig_hash}\n"
@@ -1929,6 +2031,8 @@ class DestFileItem(BaseTileItem):
             self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Transferred")
             self.setQuanityUI("complete")
 
+            logger.status(f"Transfer Proxy Complete: {self.data['dest_proxyFile_path']}")
+
             return
             
             # else:
@@ -1951,6 +2055,8 @@ class DestFileItem(BaseTileItem):
             self.setQuanityUI("complete")
 
             self.updateProxyPresetMultiplier()
+
+            logger.status(f"Transfer Generation Complete: {self.data['dest_proxyFile_path']}")
 
             return
             

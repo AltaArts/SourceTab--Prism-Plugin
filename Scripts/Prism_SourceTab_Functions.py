@@ -68,7 +68,19 @@ import SourceBrowser as SourceBrowser
 from PopupWindows import OcioConfigPopup
 
 
+#   Custom Logging Level to Display when Prism Debug Mode is Off
+STATUS_LEVEL_NUM = 35
+logging.addLevelName(STATUS_LEVEL_NUM, "STATUS")
+
+def status(logger, message, *args, **kwargs):
+    if logger.isEnabledFor(STATUS_LEVEL_NUM):
+        logger._log(STATUS_LEVEL_NUM, message, args, **kwargs)
+
+logging.Logger.status = status
+
+
 logger = logging.getLogger(__name__)
+
 
 
 class Prism_SourceTab_Functions(object):
@@ -76,6 +88,7 @@ class Prism_SourceTab_Functions(object):
         self.core = core
         self.plugin = plugin
         self.sourceBrowser = None
+
 
         #	Register callbacks
         try:
@@ -97,6 +110,7 @@ class Prism_SourceTab_Functions(object):
             logger.warning(f"ERROR: Registering callbacks failed:\n {e}")
 
 
+
     # if returns true, the plugin will be loaded by Prism
     @err_catcher(name=__name__)
     def isActive(self):
@@ -112,8 +126,7 @@ class Prism_SourceTab_Functions(object):
 
             #   Adds Source Tab to Project Browser
             pb.addTab("Source", self.sourceBrowser, position=0)
-
-            logger.debug("Added SourceTab to Project Browser")
+            logger.status("Added SourceTab to Project Browser")
         
         except Exception as e:
             logger.warning(f"ERROR:  Unable to add SourceTab to Project Browser:\n{e}")
@@ -472,25 +485,31 @@ class Prism_SourceTab_Functions(object):
 
     #   Loads Saved SourceTab Settings
     @err_catcher(name=__name__)
-    def loadSettings(self):
+    def loadSettings(self, key=None):
         try:
             sData = self.core.getConfig("sourceTab", config="project") 
 
-            if sData and "globals" in sData:
+            if not sData or "globals" not in sData:
+                logger.status("ERROR:  Settings Not Found - Creating from Default Settings")
+                defaultData = {}
+                sData = self.getDefaultSettings()
+                defaultData["sourceTab"] = sData
+                self.core.setConfig("sourceTab", data=defaultData, config="project")
+
+            if key:
+                if key in sData:
+                    logger.debug(f"Loaded Settings for {key}")
+                    return sData[key]
+                else:
+                    logger.warning(f"ERROR:  Key '{key} does not Exist in the Settings.  Returning Global Settings")
+                    return sData
+            else:
                 logger.debug("Loaded Global Settings")
                 return sData
-
-            else:
-                sData = {}
-                defaultData = self.getDefaultSettings()
-                sData["sourceTab"] = defaultData
-                self.core.setConfig("sourceTab", data=sData, config="project")
-                logger.debug("Loaded Default Global Settings")
-
-                return defaultData
             
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Global Settings:\n{e}")
+            return {}
             
 
     #   Default Settings File Data
@@ -522,7 +541,7 @@ class Prism_SourceTab_Functions(object):
                     "enable_overwrite": False
                 },
                 "proxySettings": {
-                    "fallback_proxyDir": "\\proxy",
+                    "fallback_proxyDir": ".\\proxy",
                     "ovr_proxyDir": "",
                 },
                 "activeNameMods":
