@@ -303,17 +303,18 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         if proxyPopup.result == "Apply":
             try:
+                #   Update Proxy Settings in SourceTab
                 self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
                 self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
+
                 self.updateUI()
                 self.sourceBrowser.refreshTotalTransSize()
                 self.sourceBrowser.toggleProxy(self.sourceBrowser.proxyEnabled)
-
+                #   Save Proxy Settings
                 self.sourceBrowser.plugin.saveSettings(key="proxySettings")
 
             except Exception as e:
                 logger.warning(f"ERROR:  Failed to Update Proxy Settings:\n{e}")
-
 
 
     @err_catcher(name=__name__)

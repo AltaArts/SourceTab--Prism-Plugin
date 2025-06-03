@@ -1024,9 +1024,11 @@ class ProxyPopup(QDialog):
         if editWindow.result() == "Save":
             try:
                 #   Get Updated Data
-                fData = editWindow.getData()
+                presetData = editWindow.getPresets()
+                #   Update FFmpeg List
+                self.sourceFuncts.sourceBrowser.ffmpegPresets = presetData
                 #   Save to Settings
-                self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="ffmpegPresets", data=fData)
+                self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="ffmpegPresets", data=presetData)
                 #   Reload Combo
                 self.populatePresetCombo()
 
@@ -1839,7 +1841,8 @@ class ProxyPresetsEditor(QDialog):
             cmd.extend(shlex.split(data["Audio_Parameters"]))
             cmd.extend(["-f", "null", "-"])
 
-            print(f"ffmpeg Validation Command:\n{cmd}")                          # TODO - Logging
+            print("Test FFmpeg command:")                                    #   TODO - Logging
+            print(" ".join(shlex.quote(arg) for arg in cmd))
 
             kwargs = {
                 "stdout": subprocess.PIPE,
@@ -1945,7 +1948,7 @@ class ProxyPresetsEditor(QDialog):
         return self._action
 
 
-    def getData(self):
+    def getPresets(self):
         return self.presetData
     
 
