@@ -108,8 +108,6 @@ from PrismUtils.Decorators import err_catcher
 
 logger = logging.getLogger(__name__)
 
-#   Proxy Folder Names
-PROXY_NAMES = ["proxy", "pxy", "proxies", "proxys"]                         #   TODO - move to Settings?
 
 #   Colors
 COLOR_GREEN = "0, 150, 0"
@@ -256,10 +254,6 @@ class BaseTileItem(QWidget):
             self.browser.selectedTiles.add(self)
             self.browser.lastClickedTile = self
 
-            # #   Refresh Transfer Size
-            # if self.tileType == "destTile":
-            #     self.browser.refreshTotalTransSize()
-
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Item(s) Selected:\n{e}")
 
@@ -346,19 +340,21 @@ class BaseTileItem(QWidget):
 
     @err_catcher(name=__name__)
     def applyStyle(self, styleType):
-        ###     BORDER      ###
-        borderColor = "70, 90, 120"  # default fallback
+        ###   BORDER  ###
+        DEFAULT_BORDER   = "70, 90, 120"
 
-        #   Green if Checked
-        if self.tileType == "sourceTile":
-            if self.isChecked():
-                borderColor = COLOR_GREEN
+        #   Set Default
+        borderColor = DEFAULT_BORDER
 
-        #   Orange if Exists in Destination
-        elif self.tileType == "destTile":
-            if self.transferState == "Idle" and self.destFileExists():
-                borderColor = COLOR_ORANGE
+        #   If Tile is Checked
+        if self.isChecked():
+            borderColor = COLOR_GREEN
 
+        #   If Dest Tile File Exists
+        elif self.tileType == "destTile" and self.transferState == "Idle" and self.destFileExists():
+            borderColor = COLOR_ORANGE
+
+        #   Create Border Style
         borderStyle = f"""
             QWidget#FileTile {{
                 border: 1px solid rgb({borderColor});
@@ -366,39 +362,39 @@ class BaseTileItem(QWidget):
             }}
         """
 
-        ####    BACKGROUND      ####
-        backgroundStyle = ""
-        if styleType == "selected":
-            backgroundStyle = """
-                QWidget#FileTile {
-                    background-color: rgba(115, 175, 215, 100);
-                }
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
-            """
-        elif styleType == "hoverSelected":
-            backgroundStyle = """
-                QWidget#FileTile {
-                    background-color: rgba(115, 175, 215, 150);
-                }
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
-            """
-        elif styleType == "hover":
-            backgroundStyle = """
-                QWidget#FileTile, QWidget#FolderTile {
-                    background-color: rgba(255, 255, 255, 20);
-                }
-                QWidget {
-                    background-color: rgba(255, 255, 255, 0);
-                }
-            """
+        ###   BACKGROUND   ###
+        #   Default Background Color
+        baseColor = "69, 105, 129"
 
-        #   Combine Styles
+        #   If Tile is Checked
+        if self.isChecked() and self.browser.transferState == "Idle":
+            baseColor = COLOR_GREEN
+
+        #   If Dest Tile File Exists
+        if (self.tileType == "destTile" and self.transferState == "Idle" and self.destFileExists()):
+            baseColor = COLOR_ORANGE
+
+        #   Alpha Values Based on Passed StyleType
+        alpha_map = {
+            "deselected":   20,
+            "hover":        50,
+            "selected":     60,
+            "hoverSelected":75,
+        }
+        alpha = alpha_map.get(styleType, 20)
+
+        #   Create Background Style
+        backgroundStyle = f"""
+            QWidget#FileTile {{
+                background-color: rgba({baseColor}, {alpha});
+            }}
+            QWidget {{
+                background-color: rgba(255, 255, 255, 0);
+            }}
+        """
+
+        #   Combine and Apply Border and Background
         fullStyle = borderStyle + backgroundStyle
-
         try:
             self.setStyleSheet(fullStyle)
         except RuntimeError:
@@ -427,7 +423,21 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def getData(self):
         return self.data
+
+
+
+    ####    TEMP TESTING    ####
+    @err_catcher(name=__name__)                                                             # TESTING
+    def TEST_SHOW_DATA(self):
+        if not hasattr(self, "data") or not isinstance(self.data, dict):
+            self.core.popup("No data to display or 'data' is not a dictionary.")
+            return
+
+        data_str = "\n\n".join(f"{key}: {value}" for key, value in self.data.items())
+        self.core.popup(data_str)
+    ####    ^^^^^^^^^^^^^    ####
     
+
 
     #   Returns the File Create Date from the OS
     @err_catcher(name=__name__)
@@ -1040,8 +1050,9 @@ class SourceFileItem(BaseTileItem):
                     for f in os.listdir(proxyDir):
                         fileBaseName, _ = os.path.splitext(f.lower())
                         if fileBaseName == targetFileBase:
-                            logger.debug(f"Proxy found for {targetFileBase}.")
-                            return os.path.join(proxyDir, f)
+                            proxyPath = os.path.join(proxyDir, f)
+                            logger.debug(f"Proxy found: {proxyPath}")
+                            return proxyPath
 
             logger.debug(f"No Proxies found for {fileBase}")
             return None
@@ -1078,12 +1089,15 @@ class SourceFileItem(BaseTileItem):
         unSelAct.triggered.connect(lambda: self.setChecked(False))
         rcmenu.addAction(unSelAct)
 
-        #   Displayed if Multi-Selection
+        #   Displayed if Single Selection
         if len(self.browser.selectedTiles) == 1:
             mDataAct = QAction("Show All MetaData", self.browser)
             mDataAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataAct)
 
+            showDataAct = QAction("Show Data", self.browser)                         #   TESTING
+            showDataAct.triggered.connect(self.TEST_SHOW_DATA)
+            rcmenu.addAction(showDataAct)
 
             playerAct = QAction("Show in Player", self.browser)
             playerAct.triggered.connect(self.sendToViewer)
@@ -1265,15 +1279,12 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def refreshUi(self):
         try:
-            source_MainFilePath = self.getSource_mainfilePath()
-            source_MainFileName = self.getBasename(source_MainFilePath)
-
-            self.data["dest_mainFile_path"] = self.getDestMainPath()
+            #   Get FilePath (Modified if Enabled)
+            fileName, filePath = self.setModifiedName()
+            #   Get and Set Proxy File
             self.setProxyFile()
 
-            self.l_fileName.setText(source_MainFileName)
-
-            tip = (f"Source File:  {source_MainFilePath}\n"
+            tip = (f"Source File:  {filePath}\n"
                 f"Destination File:  {self.getDestPath()}")
             self.l_fileName.setToolTip(tip)
 
@@ -1282,11 +1293,6 @@ class DestFileItem(BaseTileItem):
 
             #   Set Quanity Details
             self.setQuanityUI("idle")
-
-            # Get File Path
-            filePath = self.getSource_mainfilePath()
-            self.l_fileName.setText(self.getBasename(filePath))
-            self.l_fileName.setToolTip(f"FilePath:  {filePath}")
 
             self.toggleProxyProgbar()
             self.refreshPreview()
@@ -1312,16 +1318,29 @@ class DestFileItem(BaseTileItem):
 
     #   Sets the FileName based on Name Modifiers
     @err_catcher(name=__name__)
-    def nameOverride(self, override):
+    def setModifiedName(self):
         try:
-            source_MainFilePath = self.getSource_mainfilePath()
-            source_MainFileName = self.getBasename(source_MainFilePath)
+            #   Get Override Enabled
+            override = self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked()
 
+            #   Get Main File Path and Make Names/Paths
+            source_mainFile_path = self.getSource_mainfilePath()
+            source_mainFile_name = self.getBasename(source_mainFile_path)
+            dest_mainFile_dir = self.getDestPath()
+            
             if override:
-                modName = self.getModifiedName(source_MainFileName)
-                self.l_fileName.setText(modName)
+                #   Get Modified Name
+                name = self.getModifiedName(source_mainFile_name)
+
             else:
-                self.l_fileName.setText(source_MainFileName)
+                #   Use Un-Modified Name
+                name = source_mainFile_name
+
+            #    Set Name and Path
+            self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
+            self.l_fileName.setText(name)
+
+            return name, source_mainFile_path
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Get Name Override:\n{e}")
@@ -1352,8 +1371,6 @@ class DestFileItem(BaseTileItem):
                     f"Date: {self.data['source_proxyFile_date']}\n"
                     f"Size: {self.data['source_proxyFile_size']}")
                 self.l_pxyIcon.setToolTip(tip)
-
-                self.data["dest_proxyFile_path"] = self.getResolvedDestProxyPath()
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
@@ -1387,7 +1404,7 @@ class DestFileItem(BaseTileItem):
      #   Checks if File Exists at Destination
     @err_catcher(name=__name__)
     def destFileExists(self):   
-        return os.path.exists(self.getDestMainPath())
+        return os.path.exists(self.data["dest_mainFile_path"])
 
 
     #   Sets Proxy Icon and FilePath if Proxy Exists
@@ -1440,14 +1457,9 @@ class DestFileItem(BaseTileItem):
             if not mainSize:
                 return 0
 
-            #   Get Multiplier from Preset
+            #   Get Presets and Multiplier from Preset
             presetName = self.browser.proxySettings.get("proxyPreset", "")
-            
-            # presets = self.getSettings(key="ffmpegPresets")                   #   TODO - Make Sure Saving Updates the Browser Var
-
             presets = self.browser.ffmpegPresets
-
-
             preset = presets.get(presetName, {})
             mult = float(preset.get("Multiplier", 0.0))
 
@@ -1624,7 +1636,7 @@ class DestFileItem(BaseTileItem):
         unSelAct.triggered.connect(lambda: self.setChecked(False))
         rcmenu.addAction(unSelAct)
 
-        #   Displayed if Multi-Selection
+        #   Displayed if Single Selection
         if len(self.browser.selectedTiles) == 1:
             showDataAct = QAction("Show Data", self.browser)                         #   TESTING
             showDataAct.triggered.connect(self.TEST_SHOW_DATA)
@@ -1641,20 +1653,6 @@ class DestFileItem(BaseTileItem):
                 rcmenu.addAction(expAct)
 
         rcmenu.exec_(QCursor.pos())
-
-
-
-    ####    TEMP TESTING    ####
-    @err_catcher(name=__name__)                                                             # TESTING
-    def TEST_SHOW_DATA(self):
-        if not hasattr(self, "data") or not isinstance(self.data, dict):
-            self.core.popup("No data to display or 'data' is not a dictionary.")
-            return
-
-        data_str = "\n\n".join(f"{key}: {value}" for key, value in self.data.items())
-        self.core.popup(data_str)
-    ####    ^^^^^^^^^^^^^    ####
-
 
 
     @err_catcher(name=__name__)
@@ -1813,6 +1811,8 @@ class DestFileItem(BaseTileItem):
     def transferMainFile(self, sourcePath, destPath):
         self.setTransferStatus(progBar="transfer", status="Queued")
         self.setQuanityUI("copyMain")
+        self.applyStyle(self.state)
+
 
         logger.debug(f"Starting MainFile Transfer: {destPath}")
 

@@ -55,6 +55,7 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
+
 pluginPath = os.path.dirname(os.path.dirname(__file__))
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
@@ -64,13 +65,11 @@ logger = logging.getLogger(__name__)
 
 #   Returns List of Modifiers (subclasses)
 def getModifiers():
-    logger.debug("Getting all Filename Modifiers")
     return Mods_BaseFilename.__subclasses__()
 
 
 #   Returns Matching Modifier from Name
 def getModClassByName(name):
-    logger.debug(f"Getting Filename Modifier: {name}")
     for mod in getModifiers():
         if mod.mod_name == name:
             return mod
@@ -78,7 +77,6 @@ def getModClassByName(name):
 
 #   Adds the Specified Modifier
 def createModifier(mod_class):
-    logger.debug(f"Creating Filename Modifier: {mod_class}")
     return mod_class()
 
 
@@ -114,8 +112,7 @@ class Mods_BaseFilename(QObject):
 
         self.baseConnections()
 
-        logger.debug("Created Base Mod")
-        logger.debug(f"Created Mod: {self.mod_name}")
+        logger.debug(f"Created Filename Modifier: {self.mod_name}")
 
 
     #   Connect Checkbox to Enabled Method

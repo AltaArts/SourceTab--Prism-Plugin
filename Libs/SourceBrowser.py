@@ -642,8 +642,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             if "activeNameMods" in sData:
                 self.nameMods = sData["activeNameMods"]
 
-            
-
             logger.debug("Loaded SourceTab Settings")
 
         except Exception as e:
@@ -1037,6 +1035,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         elif mode == "dest":
             table = self.tw_destination
 
+        #   Capture Current Scroll Position
+        scrollPos = table.verticalScrollBar().value()
+
         row_count = table.rowCount()
 
         for row in range(row_count):
@@ -1046,6 +1047,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         if mode == "dest":
             self.refreshTotalTransSize()
+
+        #   Restore Scoll Position
+        QTimer.singleShot(50, lambda: table.verticalScrollBar().setValue(scrollPos))
 
 
     @err_catcher(name=__name__)
@@ -1355,7 +1359,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.le_sourcePath.setToolTip(sourceDir)
                 self.le_sourcePath.setStyleSheet("")
 
-            self.tw_source.setRowCount(0)  # Clear existing rows
+            #   Capture Current Scroll Position
+            scrollPos = self.tw_destination.verticalScrollBar().value()
+
+            self.tw_source.setRowCount(0)
 
             if not hasattr(self, "sourceDir"):
                 return
@@ -1407,6 +1414,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Add extra empty row to bottom
             self.tw_source.insertRow(row)
 
+            #   Restore Scoll Position
+            QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
+
             logger.debug("Refreshed Source Items")
 
         except Exception as e:
@@ -1448,6 +1458,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.le_destPath.setToolTip(destDir)
                 self.le_destPath.setStyleSheet("")
 
+            #   Capture Current Scroll Position
+            scrollPos = self.tw_destination.verticalScrollBar().value()
+
             self.tw_destination.setRowCount(0)
 
             row = 0
@@ -1465,15 +1478,15 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 if restoreSelection:
                     key = iData["uuid"]
                     if key in self.fileItemSelectionState:
-                        fileItem.setChecked(self.fileItemSelectionState[key])
+                        fileItem.setChecked(self.fileItemSelectionState[key], refresh=False)
 
                 row += 1
 
             #   Add extra empty row to bottom
             self.tw_destination.insertRow(row)
 
-            #   Modify File Names if Applicable
-            self.modifyFileNames()
+            #   Restore Scoll Position
+            QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
 
             self.refreshTotalTransSize()
 
@@ -1502,15 +1515,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def modifyFileNames(self):
         try:
-            #   Get Override Checked
-            nameOverride = self.sourceFuncts.chb_ovr_fileNaming.isChecked()
-
             #   Iterate Through all Items and Call Name Override Method in Widget
             rows = self.tw_destination.rowCount()
             for row in range(rows):
                 widget = self.tw_destination.cellWidget(row, 0)
-                if widget and hasattr(widget, "nameOverride"):
-                    widget.nameOverride(nameOverride)
+                if hasattr(widget, "setModifiedName"):
+                    widget.setModifiedName()
 
             self.sourceFuncts.updateUI()
 
@@ -1539,7 +1549,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return newName
         
         except Exception as e:
-            logger.warning(f"ERROR:  Failed to Apply Filenam Mods:\n{e}")
+            logger.warning(f"ERROR:  Failed to Apply Filename Mods:\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -1959,7 +1969,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         #   Reset Calculated Proxy Multipliers
         self.calculated_proxyMults = [] 
 
-        #   If Override is NOT Selected Attempt to Get Resolved Path                    #   TODO - CHECK OVERRIDE IS STILL WORKING
+        #   If Override is NOT Selected Attempt to Get Resolved Path
         resolved_proxyDir = None
         self.getResolvedProxyPaths()
 

@@ -182,7 +182,7 @@ class DisplayPopup(QDialog):
 
                 elif isinstance(items, list):
                     # Handle file list section (Files)
-                    for group_box in items:  # Iterate over each file's group box
+                    for group_box in items:
                         scroll_layout.addWidget(group_box)
 
         else:
@@ -190,7 +190,7 @@ class DisplayPopup(QDialog):
             raw_label.setWordWrap(True)
             scroll_layout.addWidget(raw_label)
 
-        scroll_layout.addStretch(1)  # Push content to top
+        scroll_layout.addStretch(1)
         scroll_area.setWidget(scroll_widget)
         lo_main.addWidget(scroll_area)
 
@@ -646,9 +646,8 @@ class ProxyPopup(QDialog):
 
         self.result = None
 
-        self.setupUI()
         self.setWindowTitle("Proxy Configuration")
-       
+        self.setupUI()
         self.loadUI()
 
         logger.debug("Loaded Proxy Window")
