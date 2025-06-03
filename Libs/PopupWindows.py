@@ -1780,14 +1780,20 @@ class ProxyPresetsEditor(QDialog):
 
         results = []
 
-        # 1. Extension check
+        # 1. FFmpeg Check
+        if not os.path.isfile(ffmpegPath):
+            results.append(("FFmpeg Executable", False, "FFmpeg was not found"))
+        else:
+            results.append(("FFmpeg Executable", True, ""))
+
+        # 2. Extension check
         ext = data["Extension"]
         if not re.match(r'^\.\w+$', ext):
             results.append(("Output Extension", False, "Must begin with a period (e.g., .mp4)"))
         else:
             results.append(("Output Extension", True, ""))
 
-        # 2. Required codec flags
+        # 3. Required codec flags
         if "-c:v" not in data["Video_Parameters"]:
             results.append(("Video Codec (-c:v)", False, "Missing -c:v in video parameters"))
         else:
@@ -1798,7 +1804,7 @@ class ProxyPresetsEditor(QDialog):
         else:
             results.append(("Audio Codec (-c:a)", True, ""))
 
-        # 3. Codec compatibility check
+        # 4. Codec compatibility check
         allowed = {
             '.mp4': {'libx264', 'libx265', 'mpeg4', 'h264_nvenc', 'hevc_nvenc'},
             '.mov': {'prores_ks', 'prores_aw', 'dnxhd', 'dnxhr', 'libx264', 'libx265', 'mpeg4'},
@@ -1820,7 +1826,7 @@ class ProxyPresetsEditor(QDialog):
         except (ValueError, IndexError):
             results.append(("Codec Compatibility", False, "Unable to determine -c:v codec"))
 
-        # 4. FFmpeg Dry Run
+        # 5. FFmpeg Dry Run
         try:
             cmd = [
                 ffmpegPath,
@@ -1855,7 +1861,7 @@ class ProxyPresetsEditor(QDialog):
         except Exception as e:
             results.append(("FFmpeg Dry Run", False, str(e)))
 
-        # 5. Multiplier validation
+        # 6. Multiplier validation
         try:
             raw_mult = data.get("Multiplier", "")
             mult = float(raw_mult)
