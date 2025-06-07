@@ -21,7 +21,6 @@ class Ui_w_sourceBrowser(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceBrowser)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_source = QWidget(self.splitter)
         self.w_source.setObjectName(u"w_source")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -86,10 +85,39 @@ class Ui_w_sourceBrowser(object):
 
         self.verticalLayout_8.addWidget(self.gb_sourcePath)
 
+        self.lo_sourceFilters = QHBoxLayout()
+        self.lo_sourceFilters.setObjectName(u"lo_sourceFilters")
+        self.b_sourceFilter_filtersEnable = QPushButton(self.w_source)
+        self.b_sourceFilter_filtersEnable.setObjectName(u"b_sourceFilter_filtersEnable")
+        sizePolicy1.setHeightForWidth(self.b_sourceFilter_filtersEnable.sizePolicy().hasHeightForWidth())
+        self.b_sourceFilter_filtersEnable.setSizePolicy(sizePolicy1)
+        self.b_sourceFilter_filtersEnable.setMinimumSize(QSize(30, 0))
+        self.b_sourceFilter_filtersEnable.setMaximumSize(QSize(30, 16777215))
+        self.b_sourceFilter_filtersEnable.setCheckable(True)
+
+        self.lo_sourceFilters.addWidget(self.b_sourceFilter_filtersEnable)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.lo_sourceFilters.addItem(self.horizontalSpacer_2)
+
+        self.b_sourceFilter_combineSeqs = QPushButton(self.w_source)
+        self.b_sourceFilter_combineSeqs.setObjectName(u"b_sourceFilter_combineSeqs")
+        sizePolicy1.setHeightForWidth(self.b_sourceFilter_combineSeqs.sizePolicy().hasHeightForWidth())
+        self.b_sourceFilter_combineSeqs.setSizePolicy(sizePolicy1)
+        self.b_sourceFilter_combineSeqs.setMinimumSize(QSize(30, 0))
+        self.b_sourceFilter_combineSeqs.setMaximumSize(QSize(30, 16777215))
+        self.b_sourceFilter_combineSeqs.setCheckable(True)
+
+        self.lo_sourceFilters.addWidget(self.b_sourceFilter_combineSeqs)
+
+
+        self.verticalLayout_8.addLayout(self.lo_sourceFilters)
+
         self.tw_source = QTableWidget(self.w_source)
         self.tw_source.setObjectName(u"tw_source")
-        self.tw_source.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-        self.tw_source.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.tw_source.setContextMenuPolicy(Qt.NoContextMenu)
+        self.tw_source.setSelectionMode(QAbstractItemView.NoSelection)
 
         self.verticalLayout_8.addWidget(self.tw_source)
 
@@ -190,11 +218,40 @@ class Ui_w_sourceBrowser(object):
 
         self.verticalLayout_11.addWidget(self.gb_destPath)
 
+        self.lo_destFilters = QHBoxLayout()
+        self.lo_destFilters.setObjectName(u"lo_destFilters")
+        self.b_destFilter_filtersEnable = QPushButton(self.w_destination)
+        self.b_destFilter_filtersEnable.setObjectName(u"b_destFilter_filtersEnable")
+        sizePolicy1.setHeightForWidth(self.b_destFilter_filtersEnable.sizePolicy().hasHeightForWidth())
+        self.b_destFilter_filtersEnable.setSizePolicy(sizePolicy1)
+        self.b_destFilter_filtersEnable.setMinimumSize(QSize(30, 0))
+        self.b_destFilter_filtersEnable.setMaximumSize(QSize(30, 16777215))
+        self.b_destFilter_filtersEnable.setCheckable(True)
+
+        self.lo_destFilters.addWidget(self.b_destFilter_filtersEnable)
+
+        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.lo_destFilters.addItem(self.horizontalSpacer_4)
+
+        self.b_destFilter_combineSeqs = QPushButton(self.w_destination)
+        self.b_destFilter_combineSeqs.setObjectName(u"b_destFilter_combineSeqs")
+        sizePolicy1.setHeightForWidth(self.b_destFilter_combineSeqs.sizePolicy().hasHeightForWidth())
+        self.b_destFilter_combineSeqs.setSizePolicy(sizePolicy1)
+        self.b_destFilter_combineSeqs.setMinimumSize(QSize(30, 0))
+        self.b_destFilter_combineSeqs.setMaximumSize(QSize(30, 16777215))
+        self.b_destFilter_combineSeqs.setCheckable(True)
+
+        self.lo_destFilters.addWidget(self.b_destFilter_combineSeqs)
+
+
+        self.verticalLayout_11.addLayout(self.lo_destFilters)
+
         self.tw_destination = QTableWidget(self.w_destination)
         self.tw_destination.setObjectName(u"tw_destination")
         self.tw_destination.setMaximumSize(QSize(16777215, 9999))
-        self.tw_destination.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-        self.tw_destination.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.tw_destination.setContextMenuPolicy(Qt.NoContextMenu)
+        self.tw_destination.setSelectionMode(QAbstractItemView.NoSelection)
 
         self.verticalLayout_11.addWidget(self.tw_destination)
 
@@ -207,7 +264,7 @@ class Ui_w_sourceBrowser(object):
         self.b_tips_dest.setObjectName(u"b_tips_dest")
         sizePolicy1.setHeightForWidth(self.b_tips_dest.sizePolicy().hasHeightForWidth())
         self.b_tips_dest.setSizePolicy(sizePolicy1)
-        self.b_tips_dest.setMinimumSize(QSize(30, 0))
+        self.b_tips_dest.setMinimumSize(QSize(20, 0))
         self.b_tips_dest.setMaximumSize(QSize(20, 16777215))
 
         self.lo_destFooter.addWidget(self.b_tips_dest)
@@ -255,6 +312,8 @@ class Ui_w_sourceBrowser(object):
         self.b_sourcePathUp.setText("")
         self.b_browseSource.setText("")
         self.b_refreshSource.setText("")
+        self.b_sourceFilter_filtersEnable.setText("")
+        self.b_sourceFilter_combineSeqs.setText("")
         self.b_tips_source.setText("")
         self.b_source_checkAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Select All", None))
         self.b_source_uncheckAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Unselect All", None))
@@ -263,6 +322,8 @@ class Ui_w_sourceBrowser(object):
         self.b_destPathUp.setText("")
         self.b_browseDest.setText("")
         self.b_refreshDest.setText("")
+        self.b_destFilter_filtersEnable.setText("")
+        self.b_destFilter_combineSeqs.setText("")
         self.b_tips_dest.setText("")
         self.b_dest_checkAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Select All", None))
         self.b_dest_uncheckAll.setText(QCoreApplication.translate("w_sourceBrowser", u"Unselect All", None))

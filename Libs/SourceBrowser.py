@@ -60,6 +60,7 @@ import hashlib
 from datetime import datetime
 from time import time
 from functools import partial
+import re
 
 
 
@@ -140,6 +141,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff", ".flac", ".alac", ".ogg", ".wma"]
 
+        self.filterStates_source = {
+                                    "Videos": True,
+                                    "Images": True,
+                                    "Audio": True,
+                                    "Folders": True,
+                                    "Other": True,
+                                    }
+        self.filterStates_dest = {
+                                  "Videos": True,
+                                  "Images": True,
+                                  "Audio": True,
+                                  "Folders": True,
+                                  "Other": True,
+                                  }
+
         #   Initialize Variables
         self.selectedTiles = set()
         self.lastClickedTile = None
@@ -168,7 +184,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Setup Worker Threadpools and Semephore Slots
         self.setupThreadpools()
 
-        #   Callbacks
+        #   Refreshes and Initializes
+        self.refreshSourceItems()
+        self.refreshDestItems()
+        self.configTransUI("idle")
+        self.setTransferStatus("Idle")
+
+        #   Add Callback for SourceTab
         self.core.callback(name="onSourceBrowserOpen", args=[self])
 
         if refresh:
@@ -191,10 +213,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if not self.initialized:
             self.oiio = self.core.media.getOIIO()
 
-        self.refreshSourceItems()
-        self.refreshDestItems()
-        self.configTransUI("idle")
-        self.setTransferStatus("Idle")
+
 
 
     @err_catcher(name=__name__)
@@ -204,24 +223,37 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         dirIcon = self.getIconFromPath(os.path.join(iconDir, "file_folder.png"))
         refreshIcon = self.getIconFromPath(os.path.join(iconDir, "reset.png"))
         tipIcon = self.getIconFromPath(os.path.join(iconDir, "help.png"))
+        filtersIcon = self.getIconFromPath(os.path.join(iconDir, "filters.png"))
+        sequenceIcon = self.getIconFromPath(os.path.join(iconDir, "sequence.png"))
 
         ##   Source Panel
         #   Set Button Icons
         self.b_sourcePathUp.setIcon(upIcon)
         self.b_browseSource.setIcon(dirIcon)
+
         self.b_refreshSource.setIcon(refreshIcon)
         self.b_refreshDest.setIcon(refreshIcon)
+
         self.b_tips_source.setIcon(tipIcon)
         self.b_tips_dest.setIcon(tipIcon)
 
-        self.b_tips_source.setFixedWidth(30)
-        self.b_tips_dest.setFixedWidth(30)
+        self.b_sourceFilter_filtersEnable.setIcon(filtersIcon)
+        self.b_destFilter_filtersEnable.setIcon(filtersIcon)
+        
+        self.b_sourceFilter_combineSeqs.setIcon(sequenceIcon)
+        self.b_destFilter_combineSeqs.setIcon(sequenceIcon)
 
+
+        #   Setup Cheatsheets
         sourceTip = self.getCheatsheet("source", tip=True)
         self.b_tips_source.setToolTip(sourceTip)
 
         destTip = self.getCheatsheet("dest", tip=True)
         self.b_tips_dest.setToolTip(destTip)
+
+        #   Set Cheatsheet Button Size
+        self.b_tips_source.setFixedWidth(30)
+        self.b_tips_dest.setFixedWidth(30)
 
         #   Source Table setup
         self.tw_source.setColumnCount(1)
@@ -338,6 +370,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_refreshSource.setToolTip("Reload Source List")
         self.b_refreshDest.setToolTip("Reload Destination List")
 
+        tip = "Group Image Sequences"
+        self.b_sourceFilter_combineSeqs.setToolTip(tip)
+        self.b_destFilter_combineSeqs.setToolTip(tip)
+
+        tip = ("Click to Enable View Filters\n\n"
+               "Right-click to Select Filters")
+        self.b_sourceFilter_filtersEnable.setToolTip(tip)
+        self.b_destFilter_filtersEnable.setToolTip(tip)
+
         tip = "Select (check) all Items in the List"
         self.b_source_checkAll.setToolTip(tip)
         self.b_dest_checkAll.setToolTip(tip)
@@ -400,16 +441,25 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         # self.tw_destination.itemDoubleClicked.connect(self.onVersionDoubleClicked)
 
         #   Connect Right Click Menus
+        #   Tables
         self.tw_source.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tw_source.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_source))
         self.tw_destination.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tw_destination.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_destination))
+
+        #   Source Filters
+        self.b_sourceFilter_filtersEnable.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.b_sourceFilter_filtersEnable.customContextMenuRequested.connect(lambda: self.filtersRCL("source"))
+        #   Destination Filters
+        self.b_destFilter_filtersEnable.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.b_destFilter_filtersEnable.customContextMenuRequested.connect(lambda: self.filtersRCL("destination"))
 
         #   Source Buttons
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
         self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
+        self.b_sourceFilter_filtersEnable.toggled.connect(self.updateSourceUI)
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
@@ -420,6 +470,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
+        self.b_destFilter_filtersEnable.toggled.connect(self.updateDestUI)
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
@@ -438,6 +489,116 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
         self.sourceFuncts.b_transfer_cancel.clicked.connect(self.cancelTransfer)
         self.sourceFuncts.b_transfer_reset.clicked.connect(self.resetTransfer)
+
+
+    #   Right Click List for Source / Destination Tables (not on an item)
+    @err_catcher(name=__name__)
+    def rclList(self, pos, lw):
+        cpos = QCursor.pos()
+        item = lw.itemAt(pos)
+
+        rcmenu = QMenu(self)
+
+        if lw == self.tw_source and not item:
+            refreshAct = QAction("Refresh List", self)
+            refreshAct.triggered.connect(self.refreshSourceItems)
+            rcmenu.addAction(refreshAct)
+                # refresh = self.refreshSourceItems
+
+        elif lw == self.tw_destination and not item:
+            clearAct = QAction("Clear Transfer List", self)
+            clearAct.triggered.connect(self.clearTransferList)
+            rcmenu.addAction(clearAct)
+
+
+        # act_refresh = QAction("Refresh", self)
+        # iconPath = os.path.join(
+        #     self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png"
+        # )
+        # icon = self.core.media.getColoredIcon(iconPath)
+        # act_refresh.setIcon(icon)
+        # act_refresh.triggered.connect(lambda: refresh(restoreSelection=True))
+        # rcmenu.addAction(act_refresh)
+        # if os.path.exists(path):
+        #     opAct = QAction("Open in Explorer", self)
+        #     opAct.triggered.connect(lambda: self.core.openFolder(path))
+        #     rcmenu.addAction(opAct)
+        # self.core.callback(
+        #     name="openPBListContextMenu",
+        #     args=[self, rcmenu, lw, item, path],
+        # )
+
+        if rcmenu.isEmpty():
+            return False
+
+        rcmenu.exec_(cpos)
+
+
+
+    #   Right Click List for Filters
+    @err_catcher(name=__name__)
+    def filtersRCL(self, table):
+        cpos = QCursor.pos()
+        rcmenu = QMenu(self)
+
+        #   Helper to Wrap Action in Widget
+        def _wrapWidget( widget):
+            action = QWidgetAction(self)
+            action.setDefaultWidget(widget)
+            return action
+    
+
+        # Temporary state dictionary
+        if table == "source":
+            tempStates = self.filterStates_source.copy()
+        elif table == "destination":
+            tempStates = self.filterStates_dest.copy()
+        checkboxRefs = {}
+
+        # Add checkboxes
+        for label, checked in tempStates.items():
+            cb = QCheckBox(label)
+            cb.setChecked(checked)
+            checkboxRefs[label] = cb
+            rcmenu.addAction(_wrapWidget(cb))
+
+        # Add vertical space before Apply button
+        spacer = QLabel(" ")
+        rcmenu.addAction(_wrapWidget(spacer))
+
+        if table == "source":
+            pass
+
+        elif table == "destination":
+            pass
+
+        #   Add Apply Button to bottom
+        applyBtn = QPushButton("Apply")
+        applyBtn.setFixedWidth(80)
+        applyBtn.setStyleSheet("font-weight: bold;")
+        applyBtn.clicked.connect(lambda: self.applyFilterStates(checkboxRefs, rcmenu, table))
+        rcmenu.addAction(_wrapWidget(applyBtn))
+
+        if rcmenu.isEmpty():
+            return False
+
+        rcmenu.exec_(cpos)
+
+
+    def applyFilterStates(self, checkboxRefs, menu, table):
+        if table == "source":
+            for label, cb in checkboxRefs.items():
+                self.filterStates_source[label] = cb.isChecked()
+
+            self.updateSourceUI()
+
+        elif table == "destination":
+            for label, cb in checkboxRefs.items():
+                self.filterStates_dest[label] = cb.isChecked()
+
+            self.updateDestUI()
+
+        menu.close()
 
 
     #   Checks if Dragged Object has a Path
@@ -612,6 +773,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Get Tab (UI) Settings
             tabData = sData["tabSettings"]
 
+            # #   File Filters                                          #   TODO - Do we want this saved?
+            # self.filterStates_source = tabData["filterStates_source"]
+            # self.filterStates_dest = tabData["filterStates_dest"]
+
+
             #   Media Player Enabled Checkbox
             playerEnabled = tabData["playerEnabled"]
             self.chb_enablePlayer.setChecked(playerEnabled)
@@ -685,7 +851,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     #   Returns ExitTool Path
-    @err_catcher(name=__name__)
+    @err_catcher(name=__name__)                                                     #   TODO - Remove once all is using FFmpeg/FFprobe
     def getExiftool(self):
         exifDir = os.path.join(pluginPath, "PythonLibs", "ExifTool")
 
@@ -1325,19 +1491,66 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def getFileType(self, filePath):
         if os.path.isdir(filePath):
-            return "folder"
+            return "Folders"
         
         else:
             if self.isSupportedFormat(path=filePath) and not self.isVideo(path=filePath):
-                fileType = "image"
+                fileType = "Images"
             elif self.isVideo(path=filePath):
-                fileType = "video"
+                fileType = "Videos"
             elif self.isAudio(path=filePath):
-                fileType = "audio"
+                fileType = "Audio"
             else:
-                fileType = "other"
+                fileType = "Other"
 
             return fileType
+
+
+    ####  TESTING   ####
+
+    def groupSequences(self, pathDir):
+        allFiles = sorted(os.listdir(pathDir))
+        allFiles = [f for f in allFiles if os.path.isfile(os.path.join(pathDir, f))]
+        remaining = set(allFiles)
+        sequences = []
+
+        while remaining:
+            current = remaining.pop()
+            base, frame, ext = self.splitFilename(current)
+
+            if (
+                frame and
+                ext.lower() in self.core.media.supportedFormats and
+                ext.lower() not in self.core.media.videoFormats
+                ):
+                pattern = re.escape(base) + r"\d+" + re.escape(ext)
+                regex = re.compile(pattern)
+                matched = [f for f in remaining if regex.fullmatch(f)]
+                matched.append(current)
+                remaining.difference_update(matched)
+
+                padded = "#" * len(frame)
+                basename = f"{base}{padded}{ext}"
+                sequences.append((basename, sorted(matched)))
+            else:
+                sequences.append((current, [current]))
+
+        return sequences
+
+    def splitFilename(self, filename):
+        """
+        Splits a filename like 'plate_0001.exr' -> ('plate_', '0001', '.exr')
+        If no digits are found, returns (name, '', ext)
+        """
+        name, ext = os.path.splitext(filename)
+        match = re.search(r'(\d+)$', name)
+        if match:
+            frame = match.group(1)
+            base = name[:match.start(1)]
+        else:
+            base = name
+            frame = ''
+        return base, frame, ext
 
 
     @err_catcher(name=__name__)
@@ -1359,52 +1572,70 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.le_sourcePath.setToolTip(sourceDir)
                 self.le_sourcePath.setStyleSheet("")
 
+            if not hasattr(self, "sourceDir"):
+                return
+
             #   Capture Current Scroll Position
             scrollPos = self.tw_destination.verticalScrollBar().value()
 
             self.tw_source.setRowCount(0)
 
-            if not hasattr(self, "sourceDir"):
-                return
-
-            # Dictionary to hold the items by type
+            #   Dict to Hold the Items by Type
             fileItems = {
-                "folder": [],
-                "video": [],
-                "image": [],
-                "audio": [],
-                "other": []
+                "Folders": [],
+                "Videos": [],
+                "Images": [],
+                "Audio": [],
+                "Other": []
             }
+            
+            ####    TESTING ####
 
-            # Loop through files and categorize them
-            for file in os.listdir(self.sourceDir):
+            combineSeqs = self.b_sourceFilter_combineSeqs.isChecked()
+
+
+            if combineSeqs:
+                seq = self.groupSequences(sourceDir)
+
+                # print(f"*** seq:  {seq}")                                              #    TESTING
+
+                files = [seqGroup[1][0] for seqGroup in seq]
+
+
+            else:
+                files = os.listdir(self.sourceDir)
+
+
+
+
+            #   Categorize Items and Create File Tiles
+            for file in files:
                 fullPath = os.path.join(self.sourceDir, file)
                 fileType = self.getFileType(fullPath)
 
-                if fileType == "folder":
+                if fileType == "Folders":
                     folderItem = self.createFolderTile(fullPath)
                     fileItems[fileType].append(folderItem)
-
                 else:
-                    fileItem = self.createSourceFileTile(fullPath)
+                    fileItem = self.createSourceFileTile(fileType, fullPath)
                     fileItems[fileType].append(fileItem)
 
             row = 0
-            # Iterate over the categories and add them to the table
+            #   Iterate Over the File Tiles and add them to the Table
             for fileType, items in fileItems.items():
                 for item in items:
                     self.tw_source.insertRow(row)  # Insert a new row
 
-                    if fileType == "folder":
+                    if fileType == "Folders":
                         self.tw_source.setRowHeight(row, SOURCE_DIR_HEIGHT)
                         self.tw_source.setCellWidget(row, 0, item)
 
                     else:
                         self.tw_source.setRowHeight(row, SOURCE_ITEM_HEIGHT)
 
-                        # Create an invisible item for selection
+                        #   Create an Invisible Item for Selection
                         table_item = QTableWidgetItem()
-                        table_item.setData(Qt.UserRole, item)
+                        table_item.setData(Qt.UserRole, {"fileType": fileType, "widget": item})
                         self.tw_source.setItem(row, 0, table_item)
                         #   Add Tile Widget
                         self.tw_source.setCellWidget(row, 0, item)
@@ -1413,6 +1644,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             #   Add extra empty row to bottom
             self.tw_source.insertRow(row)
+
+            #   Update Table View (Filters etc)
+            self.updateSourceUI()
 
             #   Restore Scoll Position
             QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
@@ -1427,6 +1661,36 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             WaitPopup.closePopup()
 
 
+    #   Update Table using Filters etc
+    @err_catcher(name=__name__)
+    def updateSourceUI(self, checked=None):
+        try:
+            filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
+
+            for row in range(self.tw_source.rowCount()):
+                item = self.tw_source.item(row, 0)
+
+                #   Skip the last empty row
+                if item is None:
+                    self.tw_source.setRowHidden(row, False)
+                    continue
+
+                data = item.data(Qt.UserRole)
+                if not data:
+                    self.tw_source.setRowHidden(row, False)
+                    continue
+
+                fileType = data.get("fileType", "Other").capitalize()
+
+                if filterEnabled and not self.filterStates_source.get(fileType, True):
+                    self.tw_source.setRowHidden(row, True)
+                else:
+                    self.tw_source.setRowHidden(row, False)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Update Source UI: {e}")
+
+
 
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
@@ -1436,20 +1700,19 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             destDir = getattr(self, "destDir", "")
 
+            #   Save Current Selection State if Needed
             if restoreSelection:
                 self.fileItemSelectionState = {}
-
                 for row in range(self.tw_destination.rowCount()):
                     fileTile = self.tw_destination.cellWidget(row, 0)
                     if fileTile:
                         key = fileTile.data["uuid"]
                         self.fileItemSelectionState[key] = fileTile.isChecked()
 
-
+            #   Shorten and Show Path
             metrics = QFontMetrics(self.le_destPath.font())
             elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
             self.le_destPath.setText(elided_text)
-
 
             #   Colors the Addressbar if the Path is invalid
             if not os.path.exists(destDir):
@@ -1463,8 +1726,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             self.tw_destination.setRowCount(0)
 
+            # Sequence grouping (optional)
+            # combineSeqs = self.b_sourceFilter_combineSeqs.isChecked()
+            # if combineSeqs:
+            #     seq = self.groupSequences(destDir)
+            #     files = [seqGroup[1][0] for seqGroup in seq]
+            # else:
+            #     files = os.listdir(self.destDir)
+
             row = 0
-            # Iterate over the categories and add them to the table
+            #   Iterate Over the Transfer List and add them to the Table
             for iData in self.transferList:
                 self.tw_destination.insertRow(row)
                 self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
@@ -1472,9 +1743,17 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 fileItem = self.createDestFileTile(iData)
                 fileItem.applyStyle("None")
 
-                #   Add Tile Widget
+                #   Store fileType in QTableWidgetItem
+                table_item = QTableWidgetItem()
+                table_item.setData(Qt.UserRole, {
+                    "fileType": getattr(fileItem, "fileType", "Other")
+                })
+                self.tw_destination.setItem(row, 0, table_item)
+
+                #   Add the Widget
                 self.tw_destination.setCellWidget(row, 0, fileItem)
 
+                #   Restore Selection if Needed
                 if restoreSelection:
                     key = iData["uuid"]
                     if key in self.fileItemSelectionState:
@@ -1482,22 +1761,52 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
                 row += 1
 
-            #   Add extra empty row to bottom
+            #   Extra empty row
             self.tw_destination.insertRow(row)
+
+            #   Update Table View (Filters etc)
+            self.updateDestUI()
 
             #   Restore Scoll Position
             QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
 
+            #   Update Stats
             self.refreshTotalTransSize()
 
             logger.debug("Refreshed Destination Items")
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Refresh Destination Items:\n{e}")
-        
+
         finally:
-            #   Hide Wait Popup
             WaitPopup.closePopup()
+
+
+    #   Update Table using Filters etc
+    @err_catcher(name=__name__)
+    def updateDestUI(self, checked=None):
+        try:
+            filterEnabled = self.b_destFilter_filtersEnable.isChecked()
+
+            for row in range(self.tw_destination.rowCount()):
+                item = self.tw_destination.item(row, 0)
+
+                #   Skip the last empty row
+                if item is None:
+                    self.tw_destination.setRowHidden(row, False)
+                    continue
+
+                data = item.data(Qt.UserRole)
+                fileType = (data.get("fileType") if data else "Other").capitalize()
+
+                if filterEnabled and not self.filterStates_dest.get(fileType, True):
+                    self.tw_destination.setRowHidden(row, True)
+                else:
+                    self.tw_destination.setRowHidden(row, False)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Update Destination UI: {e}")
+
 
 
     #   Sets Each Tile Widget Proxy UI
@@ -1574,11 +1883,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)
-    def createSourceFileTile(self, filePath):
+    def createSourceFileTile(self, fileType, filePath):
         try:
             #   Create Data
             data = {}
             data["tileType"] = "file"
+            data["fileType"] = fileType
             data["source_mainFile_path"] = os.path.normpath(filePath)
             data["uuid"] = self.createUUID()
 
@@ -2470,55 +2780,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.core.entities.setEntityPreview(entity, pm)
         self.core.pb.sceneBrowser.refreshEntityInfo()
         self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
-
-
-    @err_catcher(name=__name__)
-    def rclList(self, pos, lw):
-        cpos = QCursor.pos()
-        item = lw.itemAt(pos)
-
-        rcmenu = QMenu(self)
-
-        if lw == self.tw_source and not item:
-            refreshAct = QAction("Refresh List", self)
-            refreshAct.triggered.connect(self.refreshSourceItems)
-            rcmenu.addAction(refreshAct)
-                # refresh = self.refreshSourceItems
-
-        elif lw == self.tw_destination and not item:
-            clearAct = QAction("Clear Transfer List", self)
-            clearAct.triggered.connect(self.clearTransferList)
-            rcmenu.addAction(clearAct)
-
-
-        # act_refresh = QAction("Refresh", self)
-        # iconPath = os.path.join(
-        #     self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png"
-        # )
-        # icon = self.core.media.getColoredIcon(iconPath)
-        # act_refresh.setIcon(icon)
-        # act_refresh.triggered.connect(lambda: refresh(restoreSelection=True))
-        # rcmenu.addAction(act_refresh)
-
-        # if os.path.exists(path):
-        #     opAct = QAction("Open in Explorer", self)
-        #     opAct.triggered.connect(lambda: self.core.openFolder(path))
-        #     rcmenu.addAction(opAct)
-
-
-
-        # self.core.callback(
-        #     name="openPBListContextMenu",
-        #     args=[self, rcmenu, lw, item, path],
-        # )
-
-
-
-        if rcmenu.isEmpty():
-            return False
-
-        rcmenu.exec_(cpos)
-
 
 
 

@@ -538,12 +538,15 @@ class BaseTileItem(QWidget):
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
     def setFileHash(self, filePath, callback=None):
-        #   Create Worker Instance
-        worker_hash = FileHashWorker(filePath)
-        #   Connect to Finished Callback
-        worker_hash.finished.connect(callback)
-        #   Launch Worker in DataOps Treadpool
-        self.dataOps_threadpool.start(worker_hash)
+        ext = self.getFileExtension()
+        
+        if ext.lower() in self.core.media.supportedFormats:
+            #   Create Worker Instance
+            worker_hash = FileHashWorker(filePath)
+            #   Connect to Finished Callback
+            worker_hash.finished.connect(callback)
+            #   Launch Worker in DataOps Treadpool
+            self.dataOps_threadpool.start(worker_hash)
     
 
     @err_catcher(name=__name__)
@@ -551,15 +554,15 @@ class BaseTileItem(QWidget):
         fileType = self.browser.getFileType(filePath)
 
         match fileType:
-            case "image":
+            case "Images":
                 iconPath =  os.path.join(iconDir, "render_still.png")
-            case "video":        
+            case "Videos":        
                 iconPath =  os.path.join(iconDir, "movie.png")
-            case "audio":
+            case "Audio":
                 iconPath =  os.path.join(iconDir, "disk.png")
-            case "folder":
+            case "Folders":
                 iconPath =  os.path.join(iconDir, "file_folder.png")
-            case "other":
+            case "Other":
                 iconPath =  os.path.join(iconDir, "file.png")
             case _:
                 iconPath =  os.path.join(iconDir, "error.png")
@@ -773,6 +776,7 @@ class SourceFileItem(BaseTileItem):
     def __init__(self, browser, data):
         super(SourceFileItem, self).__init__(browser, data)
         self.tileType = "sourceTile"
+        self.fileType = data["fileType"]
 
         self.setupUi()
         self.refreshUi()
@@ -932,7 +936,7 @@ class SourceFileItem(BaseTileItem):
 
             #   Set Number of Frames
             fileType = self.browser.getFileType(filePath)
-            if fileType in ["image", "video"]:
+            if fileType in ["Images", "Videos"]:
                 self.setDuration(filePath, self.onMainfileDurationReady)
 
             #   Set Hash
@@ -1130,6 +1134,7 @@ class DestFileItem(BaseTileItem):
     def __init__(self, browser, data):
         super(DestFileItem, self).__init__(browser, data)
         self.tileType = "destTile"
+        self.fileType = data["fileType"]
 
         self.main_transfer_worker = None
         self.worker_proxy = None
