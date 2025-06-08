@@ -823,7 +823,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
             self.proxyEnabled = tabData["enable_proxy"]
             self.proxyMode = tabData["proxyMode"]
-            self.sourceFuncts.updateUI()
 
             #   Proxy Options
             if "proxySettings" in sData:
@@ -837,6 +836,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             if "activeNameMods" in sData:
                 self.nameMods = sData["activeNameMods"]
 
+            self.sourceFuncts.updateUI()
+            
             logger.debug("Loaded SourceTab Settings")
 
         except Exception as e:

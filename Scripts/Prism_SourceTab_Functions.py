@@ -611,6 +611,13 @@ class Prism_SourceTab_Functions(object):
                         "Audio_Parameters": "-c:a aac -b:a 192k",
                         "Extension": ".mp4",
                         "Multiplier": 0.01
+                    },
+                    "NVIDIA H.265 High Qual": {
+                        "Description": "GPU H.265 encode with good quality settings",
+                        "Video_Parameters": "-c:v hevc_nvenc -preset slow -rc vbr -cq 19 -b:v 0 -pix_fmt yuv420p",
+                        "Audio_Parameters": "-c:a aac -b:a 192k",
+                        "Extension": ".mp4",
+                        "Multiplier": 0.03
                     }
                 }
             }

@@ -539,15 +539,16 @@ class BaseTileItem(QWidget):
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
     def setFileHash(self, filePath, callback=None):
-        ext = self.getFileExtension()
+        # ext = self.getFileExtension()
         
-        if ext.lower() in self.core.media.supportedFormats:
-            #   Create Worker Instance
-            worker_hash = FileHashWorker(filePath)
-            #   Connect to Finished Callback
-            worker_hash.finished.connect(callback)
-            #   Launch Worker in DataOps Treadpool
-            self.dataOps_threadpool.start(worker_hash)
+        # if ext.lower() in self.core.media.supportedFormats:
+
+        #   Create Worker Instance
+        worker_hash = FileHashWorker(filePath)
+        #   Connect to Finished Callback
+        worker_hash.finished.connect(callback)
+        #   Launch Worker in DataOps Treadpool
+        self.dataOps_threadpool.start(worker_hash)
     
 
     @err_catcher(name=__name__)
@@ -979,6 +980,11 @@ class SourceFileItem(BaseTileItem):
         try:
             self.data["hasProxy"] = False
 
+            #   Return if Not a Media File Type
+            ext = self.getFileExtension()
+            if ext.lower() not in self.core.media.supportedFormats:
+                return
+            
             proxyFilepath = self.searchForProxyFile()
 
             if proxyFilepath:
