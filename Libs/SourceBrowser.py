@@ -62,6 +62,10 @@ from time import time
 from functools import partial
 import re
 
+##  FOR TESTING
+from functools import wraps
+
+
 
 
 PRISMROOT = r"C:\Prism2"                                            ###   TODO
@@ -125,6 +129,24 @@ SOURCE_ITEM_HEIGHT = 70                                         #   TODO - Think
 SOURCE_DIR_HEIGHT = 30 
 
 logger = logging.getLogger(__name__)
+
+
+
+#   StopWatch Decorator
+def stopWatch(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        timer = QElapsedTimer()
+        timer.start()
+        
+        result = func(*args, **kwargs)
+        
+        elapsed_sec = round(timer.elapsed() / 1000.0, 2)
+        print(f"[STOPWATCH]: Method '{func.__name__}' took {elapsed_sec:.2f} seconds")
+        
+        return result
+    return wrapper
+
 
 
 class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
@@ -213,6 +235,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if not self.initialized:
             self.oiio = self.core.media.getOIIO()
 
+        #   Resize Splitter Panels
+        QTimer.singleShot(10, lambda: self.setSplitterToThirds())
+
+
+    #   Resizes Splitter Panels to Equal Thirds
+    def setSplitterToThirds(self):
+        totalWidth = self.splitter.size().width()
+        oneThird = totalWidth // 3
+        self.splitter.setSizes([oneThird, oneThird, totalWidth - 2 * oneThird])
 
 
 
@@ -333,8 +364,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.splitter.addWidget(self.w_rightPanelContainer)
 
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
-
-        self.splitter.setSizes([1, 1, 1])                       #   TODO - FINISH SIZING
 
         self.setToolTips()
 
@@ -1191,7 +1220,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def togglePreferProxies(self, checked):
         self.preferProxies = checked
 
-
+    @stopWatch
     @err_catcher(name=__name__)
     def selectAll(self, checked=True, mode=None):
         logger.debug(f"Selecting All - checked: {checked}")

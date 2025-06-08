@@ -301,7 +301,8 @@ class BaseTileItem(QWidget):
         
         else:
             self.chb_selected.setChecked(checked)
-            self.setSelected()
+
+            # self.setSelected()                            #   TODO - IS THIS NEEDED??
 
         #   Refresh Transfer Size
         if refresh and self.tileType == "destTile":

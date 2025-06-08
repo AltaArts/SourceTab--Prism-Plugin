@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>741</width>
-    <height>391</height>
+    <width>901</width>
+    <height>521</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Media Browser</string>
@@ -16,9 +22,12 @@
   <layout class="QHBoxLayout" name="horizontalLayout">
    <item>
     <widget class="QSplitter" name="splitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
      <widget class="QWidget" name="w_source" native="true">
       <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
         <horstretch>8</horstretch>
         <verstretch>0</verstretch>
        </sizepolicy>
@@ -233,13 +242,13 @@
         <widget class="QGroupBox" name="gb_sourceFooter">
          <layout class="QHBoxLayout" name="lo_sourceFooter">
           <property name="leftMargin">
-           <number>0</number>
+           <number>20</number>
           </property>
           <property name="topMargin">
            <number>0</number>
           </property>
           <property name="rightMargin">
-           <number>0</number>
+           <number>20</number>
           </property>
           <property name="bottomMargin">
            <number>0</number>
@@ -287,6 +296,18 @@
           </item>
           <item>
            <widget class="QPushButton" name="b_source_checkAll">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Select All</string>
             </property>
@@ -294,6 +315,18 @@
           </item>
           <item>
            <widget class="QPushButton" name="b_source_uncheckAll">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Unselect All</string>
             </property>
@@ -301,6 +334,18 @@
           </item>
           <item>
            <widget class="QPushButton" name="b_source_addSel">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Add Selected</string>
             </property>
@@ -335,6 +380,12 @@
         <layout class="QHBoxLayout" name="lo_DestHeader">
          <item>
           <widget class="QLabel" name="l_destText">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
            <property name="text">
             <string>Destination</string>
            </property>
@@ -344,6 +395,12 @@
        </item>
        <item>
         <widget class="QGroupBox" name="gb_destPath">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <layout class="QHBoxLayout" name="lo_destPath">
           <property name="leftMargin">
            <number>0</number>
@@ -516,7 +573,7 @@
          <property name="maximumSize">
           <size>
            <width>16777215</width>
-           <height>9999</height>
+           <height>16777215</height>
           </size>
          </property>
          <property name="contextMenuPolicy">
@@ -531,13 +588,13 @@
         <widget class="QGroupBox" name="gb_destFooter">
          <layout class="QHBoxLayout" name="lo_destFooter">
           <property name="leftMargin">
-           <number>0</number>
+           <number>20</number>
           </property>
           <property name="topMargin">
            <number>0</number>
           </property>
           <property name="rightMargin">
-           <number>0</number>
+           <number>20</number>
           </property>
           <property name="bottomMargin">
            <number>0</number>
@@ -585,6 +642,18 @@
           </item>
           <item>
            <widget class="QPushButton" name="b_dest_checkAll">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Select All</string>
             </property>
@@ -592,6 +661,18 @@
           </item>
           <item>
            <widget class="QPushButton" name="b_dest_uncheckAll">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Unselect All</string>
             </property>
@@ -599,6 +680,18 @@
           </item>
           <item>
            <widget class="QPushButton" name="b_dest_clearSel">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Remove Selected</string>
             </property>
@@ -606,6 +699,18 @@
           </item>
           <item>
            <widget class="QPushButton" name="b_dest_clearAll">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>100</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Remove All</string>
             </property>
