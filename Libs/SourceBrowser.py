@@ -178,6 +178,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   "Other": True,
                                   }
 
+
+        self._sourceRowWidgets = []
+        self._destinationRowWidgets = []
+
+
+
         #   Initialize Variables
         self.selectedTiles = set()
         self.lastClickedTile = None
@@ -261,19 +267,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Set Button Icons
         self.b_sourcePathUp.setIcon(upIcon)
         self.b_browseSource.setIcon(dirIcon)
-
         self.b_refreshSource.setIcon(refreshIcon)
         self.b_refreshDest.setIcon(refreshIcon)
-
-        self.b_tips_source.setIcon(tipIcon)
-        self.b_tips_dest.setIcon(tipIcon)
-
         self.b_sourceFilter_filtersEnable.setIcon(filtersIcon)
         self.b_destFilter_filtersEnable.setIcon(filtersIcon)
-        
         self.b_sourceFilter_combineSeqs.setIcon(sequenceIcon)
         self.b_destFilter_combineSeqs.setIcon(sequenceIcon)
-
+        self.b_tips_source.setIcon(tipIcon)
+        self.b_tips_dest.setIcon(tipIcon)
 
         #   Setup Cheatsheets
         sourceTip = self.getCheatsheet("source", tip=True)
@@ -290,7 +291,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_source.setColumnCount(1)
         self.tw_source.horizontalHeader().setVisible(False)
         self.tw_source.verticalHeader().setVisible(False)
-        # self.tw_source.setColumnWidth(0, 50)
         self.tw_source.horizontalHeader().setStretchLastSection(True)
         self.tw_source.setObjectName("sourceTable")
 
@@ -309,7 +309,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.tw_destination.setColumnCount(1)
         self.tw_destination.horizontalHeader().setVisible(False)
         self.tw_destination.verticalHeader().setVisible(False)
-        # self.tw_destination.setColumnWidth(0, 50)
         self.tw_destination.horizontalHeader().setStretchLastSection(True)
         self.tw_destination.setObjectName("destTable")
 
@@ -338,29 +337,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.lo_playerToolbar.addWidget(self.chb_preferProxies)
 
         # Media Player Import
-        # self.w_preview = MediaVersionPlayer(self)
-
         self.mediaPlayer = MediaPlayer(self)
-        # self.mediaPlayer.layout().addStretch()
 
         #   Functions Import
         self.sourceFuncts = SourceFunctions(self.core, self)
-        # self.sourceFuncts.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
         #   Add Panels to the Right Panel
         self.lo_rightPanel.addLayout(self.lo_playerToolbar)
-        # self.lo_rightPanel.addWidget(create_separator())
         self.lo_rightPanel.addWidget(self.mediaPlayer)
-        # self.lo_rightPanel.addWidget(create_separator())
-        # self.spacer2 = QSpacerItem(0, 40, QSizePolicy.Fixed, QSizePolicy.Expanding)
-        # self.lo_rightPanel.addItem(self.spacer2)
         self.lo_rightPanel.addWidget(self.sourceFuncts)
 
-        # Create a container widget to hold the lo_rightPanel layout
+        #   Create Container to hold the Right Panel
         self.w_rightPanelContainer = QWidget()
         self.w_rightPanelContainer.setLayout(self.lo_rightPanel)
 
-        # Add the container widget to the splitter
+        #   Add Right Panel Container to the Splitter
         self.splitter.addWidget(self.w_rightPanelContainer)
 
         self.setStyleSheet("QSplitter::handle{background-color: transparent}")
@@ -488,7 +479,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
-        self.b_sourceFilter_filtersEnable.toggled.connect(self.updateSourceUI)
+        self.b_sourceFilter_filtersEnable.toggled.connect(lambda: self.sortTable("source"))
+        self.b_sourceFilter_combineSeqs.toggled.connect(self.refreshSourceItems)
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
@@ -499,7 +491,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
-        self.b_destFilter_filtersEnable.toggled.connect(self.updateDestUI)
+        self.b_destFilter_filtersEnable.toggled.connect(lambda: self.sortTable("destination"))
+        self.b_destFilter_combineSeqs.toggled.connect(self.refreshDestItems)
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
@@ -619,13 +612,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for label, cb in checkboxRefs.items():
                 self.filterStates_source[label] = cb.isChecked()
 
-            self.updateSourceUI()
+            self.sortTable("source")
 
         elif table == "destination":
             for label, cb in checkboxRefs.items():
                 self.filterStates_dest[label] = cb.isChecked()
 
-            self.updateDestUI()
+            self.sortTable("destination")
 
         menu.close()
 
@@ -837,7 +830,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.nameMods = sData["activeNameMods"]
 
             self.sourceFuncts.updateUI()
-            
+
             logger.debug("Loaded SourceTab Settings")
 
         except Exception as e:
@@ -1536,7 +1529,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return fileType
 
 
-    ####  TESTING   ####
+    ####  TESTING   SEQUENCES   ####
 
     def groupSequences(self, pathDir):
         allFiles = sorted(os.listdir(pathDir))
@@ -1566,6 +1559,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 sequences.append((current, [current]))
 
         return sequences
+    
 
     def splitFilename(self, filename):
         """
@@ -1581,144 +1575,291 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             base = name
             frame = ''
         return base, frame, ext
+    
+    ######################
+
+
+    
+
+    #   Show/Hide FileTiles Based on Table Filters
+    @err_catcher(name=__name__)
+    def applyTableFilters(self, table):
+        #   Set Objects
+        if table == "source":
+            filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
+            tableObject = self.tw_source
+            filterStates = self.filterStates_source
+
+        elif table == "destination":
+            filterEnabled = self.b_destFilter_filtersEnable.isChecked()
+            tableObject = self.tw_destination
+            filterStates = self.filterStates_dest
+
+        try:
+            for row in range(tableObject.rowCount()):
+                #   Get Data
+                item = tableObject.item(row, 0)
+                data = item.data(Qt.UserRole)
+
+                if not data:
+                    tableObject.setRowHidden(row, False)
+                    continue
+
+                #   Get FileType
+                fileType = data.get("fileType", "Other").capitalize()
+                #   Toggle if Enabled and Filters
+                if filterEnabled and not filterStates.get(fileType, True):
+                    tableObject.setRowHidden(row, True)
+                else:
+                    tableObject.setRowHidden(row, False)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Unable to Apply '{table}' Table Filters:\n{e}")
+
+
+    def applySorting(self, table, sortType):
+        if table == "source":
+            tableWidget = self.tw_source
+            self._sourceRowWidgets = []
+            widgetList = self._sourceRowWidgets
+        elif table == "destination":
+            tableWidget = self.tw_destination
+            self._destinationRowWidgets = []
+            widgetList = self._destinationRowWidgets
+        else:
+            return
+
+        rowCount = tableWidget.rowCount()
+
+        type_order = {
+            "Folders": 0,
+            "Videos": 1,
+            "Images": 2,
+            "Audio": 3,
+            "Other": 4
+        }
+
+        sortableData = []
+
+        for row in range(rowCount):
+            item = tableWidget.item(row, 0)
+            widget = tableWidget.cellWidget(row, 0)
+            height = tableWidget.rowHeight(row)
+
+            if widget:
+                tableWidget.removeCellWidget(row, 0)  # Critical: detach widget
+                widget.setParent(None)               # Detach from Qt hierarchy
+
+            data = item.data(Qt.UserRole) if item else {}
+            name = data.get("name", "")
+            fileType = data.get("fileType", "Other")
+
+            if sortType == "type":
+                sortKey = (type_order.get(fileType, 99), name.lower())
+            else:
+                sortKey = (name.lower(),)
+
+            sortableData.append((sortKey, data, widget, height))
+
+        # Sort the data
+        sortedData = sorted(sortableData, key=lambda x: x[0])
+
+        # Remove all rows (no widgets now)
+        for _ in range(rowCount):
+            tableWidget.removeRow(0)
+
+        # Reinsert in new order
+        for rowIndex, (_, data, widget, height) in enumerate(sortedData):
+            tableWidget.insertRow(rowIndex)
+            tableWidget.setRowHeight(rowIndex, height)
+
+            newItem = QTableWidgetItem()
+            newItem.setData(Qt.UserRole, data)
+            tableWidget.setItem(rowIndex, 0, newItem)
+
+            if widget:
+                widget.setParent(tableWidget.viewport())  # Restore parent
+                tableWidget.setCellWidget(rowIndex, 0, widget)
+                widgetList.append(widget)
+
+
+
+
+    def cloneTableItem(self, item):
+        """Creates a safe clone of a QTableWidgetItem (excluding row/col position)."""
+        if item is None:
+            return QTableWidgetItem()
+
+        clone = QTableWidgetItem()
+        clone.setData(Qt.UserRole, item.data(Qt.UserRole))
+        clone.setText(item.text())
+        clone.setFlags(item.flags())
+        clone.setToolTip(item.toolTip())
+        clone.setFont(item.font())
+        clone.setForeground(item.foreground())
+        clone.setBackground(item.background())
+        return clone
+
+
+    # def takeRow(self, tableWidget, row):
+    #     rowItems = []
+    #     rowWidgets = []
+
+    #     for col in range(tableWidget.columnCount()):
+    #         item = tableWidget.takeItem(row, col)
+
+    #         # Grab the widget (but DO NOT remove or it may get deleted without a parent)
+    #         widget = tableWidget.cellWidget(row, col)
+    #         if widget:
+    #             # Detach the widget safely by removing, but we will reparent it later
+    #             tableWidget.removeCellWidget(row, col)
+    #         rowItems.append(item)
+    #         rowWidgets.append(widget)
+
+    #     height = tableWidget.rowHeight(row)
+    #     return (rowItems, rowWidgets, height)
+
+
+
+
+    # def setRow(self, tableWidget, row, rowItems, rowWidgets, height):
+    #     tableWidget.setRowHeight(row, height)
+
+    #     for col in range(tableWidget.columnCount()):
+    #         item = rowItems[col]
+    #         widget = rowWidgets[col]
+
+    #         print(f"***  widget:  {widget}")								#	TESTING
+
+    #         if item:
+    #             tableWidget.setItem(row, col, item)
+
+    #         if widget:
+    #             # Ensure the widget has a parent so it won’t get deleted
+    #             if widget.parent() is None:
+    #                 widget.setParent(tableWidget.viewport())
+
+    #             tableWidget.setCellWidget(row, col, widget)
+
+
+
+    # def moveRow(self, tableWidget, sourceRow, destRow):
+    #     if sourceRow < 0 or destRow < 0 or sourceRow >= tableWidget.rowCount() or destRow >= tableWidget.rowCount():
+    #         return
+
+    #     # Take both rows
+    #     s_items, s_widgets, s_height = self.takeRow(tableWidget, sourceRow)
+    #     d_items, d_widgets, d_height = self.takeRow(tableWidget, destRow)
+
+    #     # Set back in swapped order
+    #     self.setRow(tableWidget, sourceRow, d_items, d_widgets, d_height)
+    #     self.setRow(tableWidget, destRow, s_items, s_widgets, s_height)
+
+
+
+    #   Update Table using Filters and Sorting
+    @err_catcher(name=__name__)
+    def sortTable(self, table):
+
+        sortType = "type"                           #   TEMP TESTING HARDCODED
+
+
+        self.applyTableFilters(table)
+
+        # self.applySorting(table, sortType)
 
 
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
-        try:
-            #   Show Wait Popup
-            WaitPopup.showPopup(parent=self.projectBrowser)
+        # try:                                                      #   TESTING - REPLACE TRY
 
-            sourceDir = getattr(self, "sourceDir", "")
 
-            metrics = QFontMetrics(self.le_sourcePath.font())
-            elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
-            self.le_sourcePath.setText(elided_text)
+        WaitPopup.showPopup(parent=self.projectBrowser)
 
-            #   Colors the Addressbar if the Path is invalid
-            if not os.path.exists(sourceDir):
-                self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+        #   Get Dir and Set Short Name
+        sourceDir = getattr(self, "sourceDir", "")
+        metrics = QFontMetrics(self.le_sourcePath.font())
+        elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
+        self.le_sourcePath.setText(elided_text)
+
+        #   Color Dir LineEdit if Invalid
+        if not os.path.exists(sourceDir):
+            self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+        else:
+            self.le_sourcePath.setToolTip(sourceDir)
+            self.le_sourcePath.setStyleSheet("")
+
+        #   Return if there is no Dir set
+        if not hasattr(self, "sourceDir"):
+            return
+
+        #   Capture Scrollbar Position
+        scrollPos = self.tw_destination.verticalScrollBar().value()
+
+        #   Get all Items from the Source Dir
+        allFileItems = os.listdir(self.sourceDir)
+
+
+        #####   WORKING ON THIS
+        if self.b_sourceFilter_combineSeqs.isChecked():
+            #   Get folders and sequences separately
+            folders = [f for f in allFileItems if self.getFileType(os.path.join(self.sourceDir, f)) == "Folders"]
+            sequences = self.groupSequences(sourceDir)
+            sequenceFiles = [seqGroup[1][0] for seqGroup in sequences]
+            filesToShow = folders + sequenceFiles
+        else:
+            filesToShow = allFileItems
+        ##########
+
+        #   Reset Table
+        self.tw_source.setRowCount(0)
+
+        row = 0
+
+        for fileItem in filesToShow:
+            #   Get Path and Type
+            fullPath = os.path.join(self.sourceDir, fileItem)
+            fileType = self.getFileType(fullPath)
+
+            #   Create Table Item and set Height
+            if fileType == "Folders":
+                itemWidget = self.createFolderTile(fullPath)
+                rowHeight = SOURCE_DIR_HEIGHT
             else:
-                self.le_sourcePath.setToolTip(sourceDir)
-                self.le_sourcePath.setStyleSheet("")
+                itemWidget = self.createSourceFileTile(fileType, fullPath)
+                rowHeight = SOURCE_ITEM_HEIGHT
 
-            if not hasattr(self, "sourceDir"):
-                return
-
-            #   Capture Current Scroll Position
-            scrollPos = self.tw_destination.verticalScrollBar().value()
-
-            self.tw_source.setRowCount(0)
-
-            #   Dict to Hold the Items by Type
-            fileItems = {
-                "Folders": [],
-                "Videos": [],
-                "Images": [],
-                "Audio": [],
-                "Other": []
-            }
-            
-            ####    TESTING ####
-
-            combineSeqs = self.b_sourceFilter_combineSeqs.isChecked()
-
-
-            if combineSeqs:
-                seq = self.groupSequences(sourceDir)
-
-                # print(f"*** seq:  {seq}")                                              #    TESTING
-
-                files = [seqGroup[1][0] for seqGroup in seq]
-
-
-            else:
-                files = os.listdir(self.sourceDir)
-
-
-
-
-            #   Categorize Items and Create File Tiles
-            for file in files:
-                fullPath = os.path.join(self.sourceDir, file)
-                fileType = self.getFileType(fullPath)
-
-                if fileType == "Folders":
-                    folderItem = self.createFolderTile(fullPath)
-                    fileItems[fileType].append(folderItem)
-                else:
-                    fileItem = self.createSourceFileTile(fileType, fullPath)
-                    fileItems[fileType].append(fileItem)
-
-            row = 0
-            #   Iterate Over the File Tiles and add them to the Table
-            for fileType, items in fileItems.items():
-                for item in items:
-                    self.tw_source.insertRow(row)  # Insert a new row
-
-                    if fileType == "Folders":
-                        self.tw_source.setRowHeight(row, SOURCE_DIR_HEIGHT)
-                        self.tw_source.setCellWidget(row, 0, item)
-
-                    else:
-                        self.tw_source.setRowHeight(row, SOURCE_ITEM_HEIGHT)
-
-                        #   Create an Invisible Item for Selection
-                        table_item = QTableWidgetItem()
-                        table_item.setData(Qt.UserRole, {"fileType": fileType, "widget": item})
-                        self.tw_source.setItem(row, 0, table_item)
-                        #   Add Tile Widget
-                        self.tw_source.setCellWidget(row, 0, item)
-
-                    row += 1
-
-            #   Add extra empty row to bottom
+            #   Add to Table
             self.tw_source.insertRow(row)
+            self.tw_source.setRowHeight(row, rowHeight)
 
-            #   Update Table View (Filters etc)
-            self.updateSourceUI()
+            #   Add Data to Row Item
+            table_item = QTableWidgetItem()
+            table_item.setData(Qt.UserRole, {"name": fileItem, "fileType": fileType, "widget": itemWidget})
+            self.tw_source.setItem(row, 0, table_item)
+            self.tw_source.setCellWidget(row, 0, itemWidget)
 
-            #   Restore Scoll Position
-            QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
+            row += 1
 
-            logger.debug("Refreshed Source Items")
+        self.sortTable("source")
 
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")
+        QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
+
+
+
+        logger.debug("Refreshed Source Items")
+
+
+
+
+        # except Exception as e:
+        #     logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")                   #   TESTING
         
-        finally:
-            #   Hide Wait Popup
-            WaitPopup.closePopup()
+        # finally:
+        #     #   Hide Wait Popup
 
+        WaitPopup.closePopup()
 
-    #   Update Table using Filters etc
-    @err_catcher(name=__name__)
-    def updateSourceUI(self, checked=None):
-        try:
-            filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
-
-            for row in range(self.tw_source.rowCount()):
-                item = self.tw_source.item(row, 0)
-
-                #   Skip the last empty row
-                if item is None:
-                    self.tw_source.setRowHidden(row, False)
-                    continue
-
-                data = item.data(Qt.UserRole)
-                if not data:
-                    self.tw_source.setRowHidden(row, False)
-                    continue
-
-                fileType = data.get("fileType", "Other").capitalize()
-
-                if filterEnabled and not self.filterStates_source.get(fileType, True):
-                    self.tw_source.setRowHidden(row, True)
-                else:
-                    self.tw_source.setRowHidden(row, False)
-
-        except Exception as e:
-            logger.warning(f"ERROR: Failed to Update Source UI: {e}")
 
 
 
@@ -1751,6 +1892,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.le_destPath.setToolTip(destDir)
                 self.le_destPath.setStyleSheet("")
 
+            #   Return if there is no Dir set
+            # if not hasattr(self, "destDir"):
+            #     return
+            
             #   Capture Current Scroll Position
             scrollPos = self.tw_destination.verticalScrollBar().value()
 
@@ -1791,11 +1936,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
                 row += 1
 
-            #   Extra empty row
-            self.tw_destination.insertRow(row)
-
             #   Update Table View (Filters etc)
-            self.updateDestUI()
+            self.sortTable("destination")
 
             #   Restore Scoll Position
             QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
@@ -1810,32 +1952,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         finally:
             WaitPopup.closePopup()
-
-
-    #   Update Table using Filters etc
-    @err_catcher(name=__name__)
-    def updateDestUI(self, checked=None):
-        try:
-            filterEnabled = self.b_destFilter_filtersEnable.isChecked()
-
-            for row in range(self.tw_destination.rowCount()):
-                item = self.tw_destination.item(row, 0)
-
-                #   Skip the last empty row
-                if item is None:
-                    self.tw_destination.setRowHidden(row, False)
-                    continue
-
-                data = item.data(Qt.UserRole)
-                fileType = (data.get("fileType") if data else "Other").capitalize()
-
-                if filterEnabled and not self.filterStates_dest.get(fileType, True):
-                    self.tw_destination.setRowHidden(row, True)
-                else:
-                    self.tw_destination.setRowHidden(row, False)
-
-        except Exception as e:
-            logger.warning(f"ERROR: Failed to Update Destination UI: {e}")
 
 
 
@@ -3156,8 +3272,11 @@ class MediaPlayer(QWidget):
             # validFiles = self.core.media.filterValidMediaFiles(mediaFiles)
 
 
-            self.mediaFiles = mediaFiles
-            mediaFiles = [mediaFiles]
+            # self.mediaFiles = mediaFiles
+            # mediaFiles = [mediaFiles]
+
+            self.mediaFiles = mediaFiles = [mediaFiles]
+
 
             # if validFiles:
             validFiles = sorted(mediaFiles, key=lambda x: x if "cryptomatte" not in os.path.basename(x) else "zzz" + x)
@@ -3602,7 +3721,10 @@ class MediaPlayer(QWidget):
                     ".PNG",
                     ".tif",
                     ".tiff",
-                    ".tga"
+                    ".tga",
+                    ".exr",
+                    ".dpx",
+                    ".hdr"
                 ]:
                     pm = self.core.media.getPixmapFromPath(fileName, self.getThumbnailWidth(), self.getThumbnailHeight(), colorAdjust=True)
                     if pm:
@@ -3629,30 +3751,32 @@ class MediaPlayer(QWidget):
                         pmsmall = self.core.media.scalePixmap(
                             pmsmall, self.getThumbnailWidth(), self.getThumbnailHeight()
                         )
-                elif ext in [".exr", ".dpx", ".hdr"]:
-                    channel = (self.getSelectedImage() or [{}])[0].get("channel")
-                    try:
-                        pmsmall = self.core.media.getPixmapFromExrPath(
-                            fileName,
-                            self.getThumbnailWidth(),
-                            self.getThumbnailHeight(),
-                            channel=channel,
-                            allowThumb=self.mediaVersionPlayer.cb_filelayer.currentIndex() == 0,
-                            regenerateThumb=regenerateThumb,
-                        )
-                        if not pmsmall:
-                            raise RuntimeError("no image loader available")
-                    except Exception as e:
-                        logger.debug(e)
-                        pmsmall = self.core.media.getPixmapFromPath(
-                            os.path.join(
-                                self.core.projects.getFallbackFolder(),
-                                "%s.jpg" % ext[1:].lower(),
-                            )
-                        )
-                        pmsmall = self.core.media.scalePixmap(
-                            pmsmall, self.getThumbnailWidth(), self.getThumbnailHeight()
-                        )
+
+                # elif ext in [".exr", ".dpx", ".hdr"]:
+                #     channel = (self.getSelectedImage() or [{}])[0].get("channel")
+                #     try:
+                #         pmsmall = self.core.media.getPixmapFromExrPath(
+                #             fileName,
+                #             self.getThumbnailWidth(),
+                #             self.getThumbnailHeight(),
+                #             channel=channel,
+                #             allowThumb=self.mediaVersionPlayer.cb_filelayer.currentIndex() == 0,
+                #             regenerateThumb=regenerateThumb,
+                #         )
+                #         if not pmsmall:
+                #             raise RuntimeError("no image loader available")
+                #     except Exception as e:
+                #         logger.debug(e)
+                #         pmsmall = self.core.media.getPixmapFromPath(
+                #             os.path.join(
+                #                 self.core.projects.getFallbackFolder(),
+                #                 "%s.jpg" % ext[1:].lower(),
+                #             )
+                #         )
+                #         pmsmall = self.core.media.scalePixmap(
+                #             pmsmall, self.getThumbnailWidth(), self.getThumbnailHeight()
+                #         )
+
                 elif ext in self.core.media.videoFormats:
                     try:
                         if len(self.seq) > 1:
@@ -3812,6 +3936,8 @@ class MediaPlayer(QWidget):
         # if not path:
             # return
 
+        path = self.seq[0]
+
         rcmenu = QMenu(self)
 
         if len(self.seq) > 0:
@@ -3837,47 +3963,6 @@ class MediaPlayer(QWidget):
             playMenu.addAction(pAct)
             rcmenu.addMenu(playMenu)
 
-        if len(self.seq) == 1 or self.prvIsSequence:
-            cvtMenu = QMenu("Convert", self)
-            qtAct = QAction("jpg", self)
-            qtAct.triggered.connect(
-                lambda: self.convertImgs(".jpg")
-            )
-            cvtMenu.addAction(qtAct)
-            qtAct = QAction("png", self)
-            qtAct.triggered.connect(
-                lambda: self.convertImgs(".png")
-            )
-            cvtMenu.addAction(qtAct)
-            qtAct = QAction("mp4", self)
-            qtAct.triggered.connect(
-                lambda: self.convertImgs(".mp4")
-            )
-            cvtMenu.addAction(qtAct)
-
-            settings = OrderedDict()
-            settings["-c"] = "prores"
-            settings["-profile"] = 2
-            settings["-pix_fmt"] = "yuv422p10le"
-
-            movAct = QAction("mov (prores 422)", self)
-            movAct.triggered.connect(
-                lambda x=None, s=settings: self.convertImgs(".mov", settings=s)
-            )
-            cvtMenu.addAction(movAct)
-            rcmenu.addMenu(cvtMenu)
-
-            settings = OrderedDict()
-            settings["-c"] = "prores"
-            settings["-profile"] = 4
-            settings["-pix_fmt"] = "yuva444p10le"
-
-            movAct = QAction("mov (prores 4444)", self)
-            movAct.triggered.connect(
-                lambda x=None, s=settings: self.convertImgs(".mov", settings=s)
-            )
-            cvtMenu.addAction(movAct)
-            rcmenu.addMenu(cvtMenu)
 
         if (
             len(self.seq) == 1
