@@ -16,7 +16,7 @@ class Ui_w_sourceBrowser(object):
     def setupUi(self, w_sourceBrowser):
         if not w_sourceBrowser.objectName():
             w_sourceBrowser.setObjectName(u"w_sourceBrowser")
-        w_sourceBrowser.resize(901, 521)
+        w_sourceBrowser.resize(961, 521)
         sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -120,12 +120,12 @@ class Ui_w_sourceBrowser(object):
 
         self.verticalLayout_8.addLayout(self.lo_sourceFilters)
 
-        self.tw_source = QTableWidget(self.w_source)
-        self.tw_source.setObjectName(u"tw_source")
-        self.tw_source.setContextMenuPolicy(Qt.NoContextMenu)
-        self.tw_source.setSelectionMode(QAbstractItemView.NoSelection)
+        self.lw_source = QListWidget(self.w_source)
+        self.lw_source.setObjectName(u"lw_source")
+        self.lw_source.setContextMenuPolicy(Qt.NoContextMenu)
+        self.lw_source.setSelectionMode(QAbstractItemView.NoSelection)
 
-        self.verticalLayout_8.addWidget(self.tw_source)
+        self.verticalLayout_8.addWidget(self.lw_source)
 
         self.gb_sourceFooter = QGroupBox(self.w_source)
         self.gb_sourceFooter.setObjectName(u"gb_sourceFooter")
@@ -152,7 +152,7 @@ class Ui_w_sourceBrowser(object):
         sizePolicy3.setVerticalStretch(0)
         sizePolicy3.setHeightForWidth(self.b_source_checkAll.sizePolicy().hasHeightForWidth())
         self.b_source_checkAll.setSizePolicy(sizePolicy3)
-        self.b_source_checkAll.setMinimumSize(QSize(100, 0))
+        self.b_source_checkAll.setMinimumSize(QSize(75, 0))
 
         self.lo_sourceFooter.addWidget(self.b_source_checkAll)
 
@@ -160,7 +160,7 @@ class Ui_w_sourceBrowser(object):
         self.b_source_uncheckAll.setObjectName(u"b_source_uncheckAll")
         sizePolicy3.setHeightForWidth(self.b_source_uncheckAll.sizePolicy().hasHeightForWidth())
         self.b_source_uncheckAll.setSizePolicy(sizePolicy3)
-        self.b_source_uncheckAll.setMinimumSize(QSize(100, 0))
+        self.b_source_uncheckAll.setMinimumSize(QSize(75, 0))
 
         self.lo_sourceFooter.addWidget(self.b_source_uncheckAll)
 
@@ -168,7 +168,7 @@ class Ui_w_sourceBrowser(object):
         self.b_source_addSel.setObjectName(u"b_source_addSel")
         sizePolicy3.setHeightForWidth(self.b_source_addSel.sizePolicy().hasHeightForWidth())
         self.b_source_addSel.setSizePolicy(sizePolicy3)
-        self.b_source_addSel.setMinimumSize(QSize(100, 0))
+        self.b_source_addSel.setMinimumSize(QSize(75, 0))
 
         self.lo_sourceFooter.addWidget(self.b_source_addSel)
 
@@ -266,13 +266,13 @@ class Ui_w_sourceBrowser(object):
 
         self.verticalLayout_11.addLayout(self.lo_destFilters)
 
-        self.tw_destination = QTableWidget(self.w_destination)
-        self.tw_destination.setObjectName(u"tw_destination")
-        self.tw_destination.setMaximumSize(QSize(16777215, 16777215))
-        self.tw_destination.setContextMenuPolicy(Qt.NoContextMenu)
-        self.tw_destination.setSelectionMode(QAbstractItemView.NoSelection)
+        self.lw_destination = QListWidget(self.w_destination)
+        self.lw_destination.setObjectName(u"lw_destination")
+        self.lw_destination.setMaximumSize(QSize(16777215, 16777215))
+        self.lw_destination.setContextMenuPolicy(Qt.NoContextMenu)
+        self.lw_destination.setSelectionMode(QAbstractItemView.NoSelection)
 
-        self.verticalLayout_11.addWidget(self.tw_destination)
+        self.verticalLayout_11.addWidget(self.lw_destination)
 
         self.gb_destFooter = QGroupBox(self.w_destination)
         self.gb_destFooter.setObjectName(u"gb_destFooter")
@@ -296,7 +296,7 @@ class Ui_w_sourceBrowser(object):
         self.b_dest_checkAll.setObjectName(u"b_dest_checkAll")
         sizePolicy3.setHeightForWidth(self.b_dest_checkAll.sizePolicy().hasHeightForWidth())
         self.b_dest_checkAll.setSizePolicy(sizePolicy3)
-        self.b_dest_checkAll.setMinimumSize(QSize(100, 0))
+        self.b_dest_checkAll.setMinimumSize(QSize(75, 0))
 
         self.lo_destFooter.addWidget(self.b_dest_checkAll)
 
@@ -304,7 +304,7 @@ class Ui_w_sourceBrowser(object):
         self.b_dest_uncheckAll.setObjectName(u"b_dest_uncheckAll")
         sizePolicy3.setHeightForWidth(self.b_dest_uncheckAll.sizePolicy().hasHeightForWidth())
         self.b_dest_uncheckAll.setSizePolicy(sizePolicy3)
-        self.b_dest_uncheckAll.setMinimumSize(QSize(100, 0))
+        self.b_dest_uncheckAll.setMinimumSize(QSize(75, 0))
 
         self.lo_destFooter.addWidget(self.b_dest_uncheckAll)
 
@@ -312,7 +312,7 @@ class Ui_w_sourceBrowser(object):
         self.b_dest_clearSel.setObjectName(u"b_dest_clearSel")
         sizePolicy3.setHeightForWidth(self.b_dest_clearSel.sizePolicy().hasHeightForWidth())
         self.b_dest_clearSel.setSizePolicy(sizePolicy3)
-        self.b_dest_clearSel.setMinimumSize(QSize(100, 0))
+        self.b_dest_clearSel.setMinimumSize(QSize(75, 0))
 
         self.lo_destFooter.addWidget(self.b_dest_clearSel)
 
@@ -320,7 +320,7 @@ class Ui_w_sourceBrowser(object):
         self.b_dest_clearAll.setObjectName(u"b_dest_clearAll")
         sizePolicy3.setHeightForWidth(self.b_dest_clearAll.sizePolicy().hasHeightForWidth())
         self.b_dest_clearAll.setSizePolicy(sizePolicy3)
-        self.b_dest_clearAll.setMinimumSize(QSize(100, 0))
+        self.b_dest_clearAll.setMinimumSize(QSize(75, 0))
 
         self.lo_destFooter.addWidget(self.b_dest_clearAll)
 
@@ -338,7 +338,7 @@ class Ui_w_sourceBrowser(object):
     # setupUi
 
     def retranslateUi(self, w_sourceBrowser):
-        w_sourceBrowser.setWindowTitle(QCoreApplication.translate("w_sourceBrowser", u"Source Browser", None))
+        w_sourceBrowser.setWindowTitle(QCoreApplication.translate("w_sourceBrowser", u"Media Browser", None))
         self.l_sourceText.setText(QCoreApplication.translate("w_sourceBrowser", u"Source", None))
         self.b_sourcePathUp.setText("")
         self.b_browseSource.setText("")

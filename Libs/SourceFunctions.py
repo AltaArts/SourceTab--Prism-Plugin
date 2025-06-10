@@ -247,16 +247,18 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
     #   Opens File Naming Window to Configure
     @err_catcher(name=__name__)
     def configFileNaming(self):
-        destList = self.sourceBrowser.tw_destination
-        row_count = destList.rowCount()
+        destList = self.sourceBrowser.lw_destination
+        row_count = destList.count()
 
         #   If there is only the Blank Entry Use EXAMPLE
-        if row_count < 2:
+        if row_count < 1:
             fileName = "EXAMPLEFILENAME"
         
         #   Get the First File's Basename
         else:
-            fileItem = self.sourceBrowser.tw_destination.cellWidget(0, 0)
+            listItem = self.sourceBrowser.lw_destination.item(0)
+            fileItem = self.sourceBrowser.lw_destination.itemWidget(listItem)
+            
             filePath = fileItem.getSource_mainfilePath()
             fileName = os.path.basename(filePath)
 

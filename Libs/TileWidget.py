@@ -150,8 +150,8 @@ class BaseTileItem(QWidget):
         return self.browser.dataOps_threadpool
 
 
-    def __init__(self, browser, data):
-        super(BaseTileItem, self).__init__()
+    def __init__(self, browser, data, parent=None):
+        super(BaseTileItem, self).__init__(parent)
         self.core = browser.core
         self.browser = browser
         self.data = data
@@ -297,7 +297,8 @@ class BaseTileItem(QWidget):
         if len(self.browser.selectedTiles) > 1:
             for tile in list(self.browser.selectedTiles):
                 tile.chb_selected.setChecked(checked)
-                tile.setSelected()
+
+                # tile.setSelected()                           #   TODO - IS THIS NEEDED??
         
         else:
             self.chb_selected.setChecked(checked)
@@ -775,8 +776,8 @@ class BaseTileItem(QWidget):
 
 ##   FILE TILES ON THE SOURCE SIDE (Inherits from BaseTileItem)     ##
 class SourceFileItem(BaseTileItem):
-    def __init__(self, browser, data):
-        super(SourceFileItem, self).__init__(browser, data)
+    def __init__(self, browser, data, parent=None):
+        super(SourceFileItem, self).__init__(browser, data, parent)
         self.tileType = "sourceTile"
         self.fileType = data["fileType"]
 
@@ -1138,8 +1139,8 @@ class SourceFileItem(BaseTileItem):
 
 ##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
 class DestFileItem(BaseTileItem):
-    def __init__(self, browser, data):
-        super(DestFileItem, self).__init__(browser, data)
+    def __init__(self, browser, data, parent=None):
+        super(DestFileItem, self).__init__(browser, data, parent)
         self.tileType = "destTile"
         self.fileType = data["fileType"]
 
@@ -2094,8 +2095,8 @@ class DestFileItem(BaseTileItem):
 
 ##   FOLDER TILES (Inherits from BaseTileItem)  ##
 class FolderItem(BaseTileItem):
-    def __init__(self, browser, data):
-        super(FolderItem, self).__init__(browser, data)
+    def __init__(self, browser, data, parent=None):
+        super(FolderItem, self).__init__(browser, data, parent)
         self.tileType = "folderTile"
 
         #   Calls the SetupUI Method of the Child Tile

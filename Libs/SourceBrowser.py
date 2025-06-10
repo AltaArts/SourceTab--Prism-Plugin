@@ -288,17 +288,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_tips_dest.setFixedWidth(30)
 
         #   Source Table setup
-        self.tw_source.setColumnCount(1)
-        self.tw_source.horizontalHeader().setVisible(False)
-        self.tw_source.verticalHeader().setVisible(False)
-        self.tw_source.horizontalHeader().setStretchLastSection(True)
-        self.tw_source.setObjectName("sourceTable")
+        self.lw_source.setObjectName("sourceTable")
 
-        self.tw_source.setAcceptDrops(True)
-        self.tw_source.dragEnterEvent = partial(self.onDragEnterEvent)
-        self.tw_source.dragMoveEvent = partial(self.onDragMoveEvent, self.tw_source, "sourceTable")
-        self.tw_source.dragLeaveEvent = partial(self.onDragLeaveEvent, self.tw_source)
-        self.tw_source.dropEvent = partial(self.onDropEvent, self.tw_source, "source")
+        self.lw_source.setAcceptDrops(True)
+        self.lw_source.dragEnterEvent = partial(self.onDragEnterEvent)
+        self.lw_source.dragMoveEvent = partial(self.onDragMoveEvent, self.lw_source, "sourceTable")
+        self.lw_source.dragLeaveEvent = partial(self.onDragLeaveEvent, self.lw_source)
+        self.lw_source.dropEvent = partial(self.onDropEvent, self.lw_source, "source")
 
         ##  Destination Panel
         #   Set Button Icons
@@ -306,17 +302,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_browseDest.setIcon(dirIcon)
 
         #   Destination Table setup
-        self.tw_destination.setColumnCount(1)
-        self.tw_destination.horizontalHeader().setVisible(False)
-        self.tw_destination.verticalHeader().setVisible(False)
-        self.tw_destination.horizontalHeader().setStretchLastSection(True)
-        self.tw_destination.setObjectName("destTable")
+        self.lw_destination.setObjectName("destTable")
 
-        self.tw_destination.setAcceptDrops(True)
-        self.tw_destination.dragEnterEvent = partial(self.onDragEnterEvent)
-        self.tw_destination.dragMoveEvent = partial(self.onDragMoveEvent, self.tw_destination, "destTable")
-        self.tw_destination.dragLeaveEvent = partial(self.onDragLeaveEvent, self.tw_destination)
-        self.tw_destination.dropEvent = partial(self.onDropEvent, self.tw_destination, "dest")
+        self.lw_destination.setAcceptDrops(True)
+        self.lw_destination.dragEnterEvent = partial(self.onDragEnterEvent)
+        self.lw_destination.dragMoveEvent = partial(self.onDragMoveEvent, self.lw_destination, "destTable")
+        self.lw_destination.dragLeaveEvent = partial(self.onDragLeaveEvent, self.lw_destination)
+        self.lw_destination.dropEvent = partial(self.onDropEvent, self.lw_destination, "dest")
 
         ##  Right Side Panel
         self.lo_rightPanel = QVBoxLayout()
@@ -454,18 +446,18 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         # self.b_refresh.clicked.connect(self.refreshRender)
 
-        # self.tw_source.itemSelectionChanged.connect(self.sourceClicked)
-        # self.tw_destination.itemSelectionChanged.connect(self.sourceClicked)
-        # self.tw_destination.mmEvent = self.tw_destination.mouseMoveEvent
-        # self.tw_destination.mouseMoveEvent = lambda x: self.w_preview.mediaPlayer.mouseDrag(x, self.tw_destination)
-        # self.tw_destination.itemDoubleClicked.connect(self.onVersionDoubleClicked)
+        # self.lw_source.itemSelectionChanged.connect(self.sourceClicked)
+        # self.lw_destination.itemSelectionChanged.connect(self.sourceClicked)
+        # self.lw_destination.mmEvent = self.lw_destination.mouseMoveEvent
+        # self.lw_destination.mouseMoveEvent = lambda x: self.w_preview.mediaPlayer.mouseDrag(x, self.lw_destination)
+        # self.lw_destination.itemDoubleClicked.connect(self.onVersionDoubleClicked)
 
         #   Connect Right Click Menus
         #   Tables
-        self.tw_source.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tw_source.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_source))
-        self.tw_destination.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tw_destination.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_destination))
+        self.lw_source.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lw_source.customContextMenuRequested.connect(lambda x: self.rclList(x, self.lw_source))
+        self.lw_destination.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.lw_destination.customContextMenuRequested.connect(lambda x: self.rclList(x, self.lw_destination))
 
         #   Source Filters
         self.b_sourceFilter_filtersEnable.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -521,13 +513,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         rcmenu = QMenu(self)
 
-        if lw == self.tw_source and not item:
+        if lw == self.lw_source and not item:
             refreshAct = QAction("Refresh List", self)
             refreshAct.triggered.connect(self.refreshSourceItems)
             rcmenu.addAction(refreshAct)
                 # refresh = self.refreshSourceItems
 
-        elif lw == self.tw_destination and not item:
+        elif lw == self.lw_destination and not item:
             clearAct = QAction("Clear Transfer List", self)
             clearAct.triggered.connect(self.clearTransferList)
             rcmenu.addAction(clearAct)
@@ -632,13 +624,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             e.ignore()
 
 
-    #   Adds Dashed Otline to Table During Drag
+    #   Adds Dashed Outline to Table During Drag
     @err_catcher(name=__name__)
     def onDragMoveEvent(self, widget, objName, e):
         if e.mimeData().hasUrls():
             e.accept()
             widget.setStyleSheet(
-                f"QTableWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
+                f"QListWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
             )
         else:
             e.ignore()
@@ -687,16 +679,18 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             dataBytes = e.mimeData().data("application/x-sourcefileitem")
             dataString = bytes(dataBytes).decode('utf-8')
 
-            # You can now parse this if needed
             fileItem = self.createDestFileTile(dataString)
 
-            # Add to destination table widget
-            rowPosition = self.tw_destination.rowCount()
-            self.tw_destination.insertRow(rowPosition)
-            self.tw_destination.setCellWidget(rowPosition, 0, fileItem)
+            # Insert into QListWidget
+            listItem = QListWidgetItem()
+            listItem.setSizeHint(fileItem.sizeHint())  # Optional, if sizing matters
+
+            self.lw_destination.addItem(listItem)
+            self.lw_destination.setItemWidget(listItem, fileItem)
 
         else:
             e.ignore()
+
 
 
 
@@ -727,36 +721,41 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         tiles = []
 
         try:
-            for row in range(self.tw_source.rowCount()):
-                itemWidget = self.tw_source.cellWidget(row, 0)
-                if isinstance(itemWidget, TileWidget.SourceFileItem):
-                    tiles.append(itemWidget)
+            for i in range(self.lw_source.count()):
+                item = self.lw_source.item(i)
+                widget = self.lw_source.itemWidget(item)
+                if isinstance(widget, TileWidget.SourceFileItem):
+                    tiles.append(widget)
 
             logger.debug("Fetched All Source Tiles")
             return tiles
-        
+
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Fetch All Source Tiles:\n{e}")
-    
+
+        
 
     @err_catcher(name=__name__)
     def getAllDestTiles(self, onlyChecked=False):
         tiles = []
 
         try:
-            for row in range(self.tw_destination.rowCount()):
-                itemWidget = self.tw_destination.cellWidget(row, 0)
-                if isinstance(itemWidget, TileWidget.DestFileItem):
-                    if onlyChecked and itemWidget.isChecked():
-                        tiles.append(itemWidget)
+            for i in range(self.lw_destination.count()):
+                item = self.lw_destination.item(i)
+                widget = self.lw_destination.itemWidget(item)
+                if isinstance(widget, TileWidget.DestFileItem):
+                    if onlyChecked:
+                        if widget.isChecked():
+                            tiles.append(widget)
                     else:
-                        tiles.append(itemWidget)
+                        tiles.append(widget)
 
             logger.debug("Fetched All Destination Tiles")
             return tiles
-        
+
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Fetch All Destination Tiles:\n{e}")
+
 
 
     #   Configures UI from Saved Settings
@@ -1082,21 +1081,22 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def getTotalTransferSize(self):
         try:
-            rowCount = self.tw_destination.rowCount()
-
+            listWidget = self.lw_destination
             total_transferSize = 0.0
 
-            for row in range(rowCount):
-                fileItem = self.tw_destination.cellWidget(row, 0)
-                
+            for i in range(listWidget.count()):
+                listItem = listWidget.item(i)
+                fileItem = listWidget.itemWidget(listItem)
+
                 if fileItem is not None and fileItem.isChecked():
                     total_transferSize += fileItem.getTransferSize(self.proxyEnabled, self.proxyMode)
 
             logger.debug("Fetched Total Transfer Size")
             return total_transferSize
-        
+
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Fetch Total Transfer Size:\n{e}")
+
 
 
     @err_catcher(name=__name__)
@@ -1214,31 +1214,41 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def togglePreferProxies(self, checked):
         self.preferProxies = checked
 
+
     @stopWatch
     @err_catcher(name=__name__)
     def selectAll(self, checked=True, mode=None):
         logger.debug(f"Selecting All - checked: {checked}")
 
         if mode == "source":
-            table = self.tw_source
+            listWidget = self.lw_source
         elif mode == "dest":
-            table = self.tw_destination
+            listWidget = self.lw_destination
+        else:
+            return
 
-        #   Capture Current Scroll Position
-        scrollPos = table.verticalScrollBar().value()
+        # Capture Current Scroll Position
+        scrollPos = listWidget.verticalScrollBar().value()
 
-        row_count = table.rowCount()
+        item_count = listWidget.count()
 
-        for row in range(row_count):
-            fileItem = table.cellWidget(row, 0)
-            if fileItem is not None and fileItem.data["tileType"] == "file":
-                fileItem.setChecked(checked, refresh=False)
+        for i in range(item_count):
+            item = listWidget.item(i)
+            fileItem = listWidget.itemWidget(item)
+
+            if (
+                fileItem is not None
+                and not item.isHidden()
+                and getattr(fileItem, "data", {}).get("tileType") == "file"
+                ):
+                    fileItem.setChecked(checked, refresh=False)
 
         if mode == "dest":
             self.refreshTotalTransSize()
 
-        #   Restore Scoll Position
-        QTimer.singleShot(50, lambda: table.verticalScrollBar().setValue(scrollPos))
+        # Restore Scroll Position
+        QTimer.singleShot(50, lambda: listWidget.verticalScrollBar().setValue(scrollPos))
+
 
 
     @err_catcher(name=__name__)
@@ -1276,6 +1286,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             return selected_path
 
+
+#########   TESTING - TO GET LIBRARIES TAB TO OPEN AND SELECT DIRECTORY ##########
+#########   vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv ##########
 
     # #   Launch Libraries window and return selected Import Path(s)
     # @err_catcher(name=__name__)
@@ -1389,6 +1402,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #     except Exception as e:
     #         print(f"{indent}  Error accessing attributes: {e}")
 
+########    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    ###########
+#########   TESTING - TO GET LIBRARIES TAB TO OPEN AND SELECT DIRECTORY ##########
 
 
 
@@ -1529,6 +1544,187 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return fileType
 
 
+
+########    TESTING - TRY TO SORT FILE LISTS WITHOUT LOSING WIDGETS ########
+########    vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv  ########
+    # def moveRow(self, listWidget, fromIndex, toIndex):
+    #     print(f"moveRow called: fromIndex={fromIndex}, toIndex={toIndex}")
+    #     if fromIndex == toIndex:
+    #         print("moveRow: fromIndex == toIndex, nothing to do.")
+    #         return
+
+    #     item = listWidget.item(fromIndex)
+    #     widget = listWidget.itemWidget(item)
+    #     print(f"moveRow: pre-take item widget: {widget}")
+
+    #     if widget is None:
+    #         print(f"moveRow: WARNING - Widget is None at index {fromIndex}, skipping move.")
+    #         return
+
+    #     # Detach widget before taking the item
+    #     listWidget.removeItemWidget(item)
+    #     widget.setParent(None)
+
+    #     # Take and insert item
+    #     item = listWidget.takeItem(fromIndex)
+    #     print(f"moveRow: took item at {fromIndex}: {item}")
+    #     listWidget.insertItem(toIndex, item)
+    #     print(f"moveRow: inserted item at {toIndex}")
+
+    #     # Reattach widget
+    #     widget.setParent(listWidget.viewport())
+    #     listWidget.setItemWidget(item, widget)
+    #     widget.show()
+    #     print(f"moveRow: reattached widget to item at {toIndex}")
+
+    #     # Force visual update
+    #     listWidget.viewport().update()
+    #     listWidget.viewport().repaint()
+
+    #     print(f"moveRow complete: listWidget.count() = {listWidget.count()}")
+
+
+
+    # def applySorting(self, table, sortType):
+    #     print(f"applySorting called: table={table}, sortType={sortType}")
+
+    #     if table == "source":
+    #         listWidget = self.lw_source
+    #         widgetListAttr = "_sourceRowWidgets"
+    #     elif table == "destination":
+    #         listWidget = self.lw_destination
+    #         widgetListAttr = "_destinationRowWidgets"
+    #     else:
+    #         print(f"applySorting: unknown table '{table}', exiting")
+    #         return
+
+    #     setattr(self, widgetListAttr, [])
+
+    #     type_order = {
+    #         "Folders": 0,
+    #         "Videos": 1,
+    #         "Images": 2,
+    #         "Audio": 3,
+    #         "Other": 4,
+    #     }
+
+    #     sortableData = []
+
+    #     print(f"applySorting: Gathering sortable data for {listWidget.count()} items")
+    #     for i in range(listWidget.count()):
+    #         item = listWidget.item(i)
+    #         widget = listWidget.itemWidget(item)
+
+    #         if widget is None:
+    #             print(f"applySorting: WARNING - No widget found for item at index {i}, skipping.")
+    #             continue
+
+    #         data = item.data(Qt.UserRole)
+    #         if not data:
+    #             print(f"applySorting: WARNING - No data found for item at index {i}, skipping.")
+    #             continue
+
+    #         name = data.get("name", "").lower()
+    #         fileType = data.get("fileType", "Other")
+    #         orderIndex = type_order.get(fileType, 99)
+
+    #         if sortType == "type":
+    #             sortKey = (orderIndex, name)
+    #         else:
+    #             sortKey = (name,)
+
+    #         print(f"applySorting: item {i}: name='{name}', fileType='{fileType}', sortKey={sortKey}, widget={widget}")
+    #         sortableData.append((sortKey, i))
+
+    #     print(f"applySorting: sortableData before sort: {sortableData}")
+
+    #     sortedData = sorted(sortableData, key=lambda x: x[0])
+    #     print(f"applySorting: sortedData: {sortedData}")
+
+    #     newOrder = [origIndex for _, origIndex in sortedData]
+    #     print(f"applySorting: newOrder: {newOrder}")
+
+    #     indexMap = {i: i for i in range(listWidget.count())}
+    #     print(f"applySorting: initial indexMap: {indexMap}")
+
+    #     for targetIndex, origIndex in enumerate(newOrder):
+    #         currentIndex = indexMap.get(origIndex)
+    #         if currentIndex is None:
+    #             print(f"applySorting: ERROR - origIndex {origIndex} not found in indexMap, skipping")
+    #             continue
+
+    #         print(f"applySorting: targetIndex={targetIndex}, origIndex={origIndex}, currentIndex={currentIndex}")
+
+    #         if currentIndex != targetIndex:
+    #             print(f"applySorting: moving item from {currentIndex} to {targetIndex}")
+    #             self.moveRow(listWidget, currentIndex, targetIndex)
+
+    #             if currentIndex > targetIndex:
+    #                 for k in indexMap:
+    #                     if indexMap[k] >= targetIndex and indexMap[k] < currentIndex:
+    #                         indexMap[k] += 1
+    #                         print(f"applySorting: indexMap[{k}] incremented to {indexMap[k]}")
+    #             else:
+    #                 for k in indexMap:
+    #                     if indexMap[k] > currentIndex and indexMap[k] <= targetIndex:
+    #                         indexMap[k] -= 1
+    #                         print(f"applySorting: indexMap[{k}] decremented to {indexMap[k]}")
+
+    #             indexMap[origIndex] = targetIndex
+    #             print(f"applySorting: indexMap[{origIndex}] set to {targetIndex}")
+
+    #     updatedList = []
+    #     for i in range(listWidget.count()):
+    #         item = listWidget.item(i)
+    #         widget = listWidget.itemWidget(item)
+    #         if widget:
+    #             updatedList.append(widget)
+    #         print(f"applySorting: final list index {i} has widget {widget}")
+
+    #     setattr(self, widgetListAttr, updatedList)
+    #     print(f"applySorting complete: {widgetListAttr} updated with {len(updatedList)} widgets")
+
+####### ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    ########
+########    TESTING - TRY TO SORT FILE LISTS WITHOUT LOSING WIDGETS ########
+
+
+
+
+    #   Show/Hide FileTiles Based on Table Filters
+    @err_catcher(name=__name__)
+    def applyTableFilters(self, table):
+        #   Set Objects
+        if table == "source":
+            filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
+            tableObject = self.lw_source
+            filterStates = self.filterStates_source
+
+        elif table == "destination":
+            filterEnabled = self.b_destFilter_filtersEnable.isChecked()
+            tableObject = self.lw_destination
+            filterStates = self.filterStates_dest
+
+        try:
+            for i in range(tableObject.count()):
+                #   Get Data
+                item = tableObject.item(i)
+                data = item.data(Qt.UserRole) or {}
+
+                #   Get FileType
+                fileType = data.get("fileType", "Other").capitalize()
+
+                #   Toggle if Enabled and Filters
+                shouldHide = filterEnabled and not filterStates.get(fileType, True)
+                item.setHidden(shouldHide)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Unable to Apply '{table}' Table Filters:\n{e}")
+
+
+
+
+
+
     ####  TESTING   SEQUENCES   ####
 
     def groupSequences(self, pathDir):
@@ -1581,179 +1777,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     
 
-    #   Show/Hide FileTiles Based on Table Filters
-    @err_catcher(name=__name__)
-    def applyTableFilters(self, table):
-        #   Set Objects
-        if table == "source":
-            filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
-            tableObject = self.tw_source
-            filterStates = self.filterStates_source
 
-        elif table == "destination":
-            filterEnabled = self.b_destFilter_filtersEnable.isChecked()
-            tableObject = self.tw_destination
-            filterStates = self.filterStates_dest
-
-        try:
-            for row in range(tableObject.rowCount()):
-                #   Get Data
-                item = tableObject.item(row, 0)
-                data = item.data(Qt.UserRole)
-
-                if not data:
-                    tableObject.setRowHidden(row, False)
-                    continue
-
-                #   Get FileType
-                fileType = data.get("fileType", "Other").capitalize()
-                #   Toggle if Enabled and Filters
-                if filterEnabled and not filterStates.get(fileType, True):
-                    tableObject.setRowHidden(row, True)
-                else:
-                    tableObject.setRowHidden(row, False)
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Unable to Apply '{table}' Table Filters:\n{e}")
-
-
-    def applySorting(self, table, sortType):
-        if table == "source":
-            tableWidget = self.tw_source
-            self._sourceRowWidgets = []
-            widgetList = self._sourceRowWidgets
-        elif table == "destination":
-            tableWidget = self.tw_destination
-            self._destinationRowWidgets = []
-            widgetList = self._destinationRowWidgets
-        else:
-            return
-
-        rowCount = tableWidget.rowCount()
-
-        type_order = {
-            "Folders": 0,
-            "Videos": 1,
-            "Images": 2,
-            "Audio": 3,
-            "Other": 4
-        }
-
-        sortableData = []
-
-        for row in range(rowCount):
-            item = tableWidget.item(row, 0)
-            widget = tableWidget.cellWidget(row, 0)
-            height = tableWidget.rowHeight(row)
-
-            if widget:
-                tableWidget.removeCellWidget(row, 0)  # Critical: detach widget
-                widget.setParent(None)               # Detach from Qt hierarchy
-
-            data = item.data(Qt.UserRole) if item else {}
-            name = data.get("name", "")
-            fileType = data.get("fileType", "Other")
-
-            if sortType == "type":
-                sortKey = (type_order.get(fileType, 99), name.lower())
-            else:
-                sortKey = (name.lower(),)
-
-            sortableData.append((sortKey, data, widget, height))
-
-        # Sort the data
-        sortedData = sorted(sortableData, key=lambda x: x[0])
-
-        # Remove all rows (no widgets now)
-        for _ in range(rowCount):
-            tableWidget.removeRow(0)
-
-        # Reinsert in new order
-        for rowIndex, (_, data, widget, height) in enumerate(sortedData):
-            tableWidget.insertRow(rowIndex)
-            tableWidget.setRowHeight(rowIndex, height)
-
-            newItem = QTableWidgetItem()
-            newItem.setData(Qt.UserRole, data)
-            tableWidget.setItem(rowIndex, 0, newItem)
-
-            if widget:
-                widget.setParent(tableWidget.viewport())  # Restore parent
-                tableWidget.setCellWidget(rowIndex, 0, widget)
-                widgetList.append(widget)
-
-
-
-
-    def cloneTableItem(self, item):
-        """Creates a safe clone of a QTableWidgetItem (excluding row/col position)."""
-        if item is None:
-            return QTableWidgetItem()
-
-        clone = QTableWidgetItem()
-        clone.setData(Qt.UserRole, item.data(Qt.UserRole))
-        clone.setText(item.text())
-        clone.setFlags(item.flags())
-        clone.setToolTip(item.toolTip())
-        clone.setFont(item.font())
-        clone.setForeground(item.foreground())
-        clone.setBackground(item.background())
-        return clone
-
-
-    # def takeRow(self, tableWidget, row):
-    #     rowItems = []
-    #     rowWidgets = []
-
-    #     for col in range(tableWidget.columnCount()):
-    #         item = tableWidget.takeItem(row, col)
-
-    #         # Grab the widget (but DO NOT remove or it may get deleted without a parent)
-    #         widget = tableWidget.cellWidget(row, col)
-    #         if widget:
-    #             # Detach the widget safely by removing, but we will reparent it later
-    #             tableWidget.removeCellWidget(row, col)
-    #         rowItems.append(item)
-    #         rowWidgets.append(widget)
-
-    #     height = tableWidget.rowHeight(row)
-    #     return (rowItems, rowWidgets, height)
-
-
-
-
-    # def setRow(self, tableWidget, row, rowItems, rowWidgets, height):
-    #     tableWidget.setRowHeight(row, height)
-
-    #     for col in range(tableWidget.columnCount()):
-    #         item = rowItems[col]
-    #         widget = rowWidgets[col]
-
-    #         print(f"***  widget:  {widget}")								#	TESTING
-
-    #         if item:
-    #             tableWidget.setItem(row, col, item)
-
-    #         if widget:
-    #             # Ensure the widget has a parent so it won’t get deleted
-    #             if widget.parent() is None:
-    #                 widget.setParent(tableWidget.viewport())
-
-    #             tableWidget.setCellWidget(row, col, widget)
-
-
-
-    # def moveRow(self, tableWidget, sourceRow, destRow):
-    #     if sourceRow < 0 or destRow < 0 or sourceRow >= tableWidget.rowCount() or destRow >= tableWidget.rowCount():
-    #         return
-
-    #     # Take both rows
-    #     s_items, s_widgets, s_height = self.takeRow(tableWidget, sourceRow)
-    #     d_items, d_widgets, d_height = self.takeRow(tableWidget, destRow)
-
-    #     # Set back in swapped order
-    #     self.setRow(tableWidget, sourceRow, d_items, d_widgets, d_height)
-    #     self.setRow(tableWidget, destRow, s_items, s_widgets, s_height)
 
 
 
@@ -1761,197 +1785,191 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def sortTable(self, table):
 
-        sortType = "type"                           #   TEMP TESTING HARDCODED
-
-
         self.applyTableFilters(table)
 
+        # sortType = "type"                           #   TEMP TESTING HARDCODED
         # self.applySorting(table, sortType)
+
 
 
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
-        # try:                                                      #   TESTING - REPLACE TRY
-
-
         WaitPopup.showPopup(parent=self.projectBrowser)
 
-        #   Get Dir and Set Short Name
-        sourceDir = getattr(self, "sourceDir", "")
-        metrics = QFontMetrics(self.le_sourcePath.font())
-        elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
-        self.le_sourcePath.setText(elided_text)
+        try:
+            # Get Dir and Set Short Name
+            sourceDir = getattr(self, "sourceDir", "")
+            metrics = QFontMetrics(self.le_sourcePath.font())
+            elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
+            self.le_sourcePath.setText(elided_text)
 
-        #   Color Dir LineEdit if Invalid
-        if not os.path.exists(sourceDir):
-            self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
-        else:
-            self.le_sourcePath.setToolTip(sourceDir)
-            self.le_sourcePath.setStyleSheet("")
-
-        #   Return if there is no Dir set
-        if not hasattr(self, "sourceDir"):
-            return
-
-        #   Capture Scrollbar Position
-        scrollPos = self.tw_destination.verticalScrollBar().value()
-
-        #   Get all Items from the Source Dir
-        allFileItems = os.listdir(self.sourceDir)
-
-
-        #####   WORKING ON THIS
-        if self.b_sourceFilter_combineSeqs.isChecked():
-            #   Get folders and sequences separately
-            folders = [f for f in allFileItems if self.getFileType(os.path.join(self.sourceDir, f)) == "Folders"]
-            sequences = self.groupSequences(sourceDir)
-            sequenceFiles = [seqGroup[1][0] for seqGroup in sequences]
-            filesToShow = folders + sequenceFiles
-        else:
-            filesToShow = allFileItems
-        ##########
-
-        #   Reset Table
-        self.tw_source.setRowCount(0)
-
-        row = 0
-
-        for fileItem in filesToShow:
-            #   Get Path and Type
-            fullPath = os.path.join(self.sourceDir, fileItem)
-            fileType = self.getFileType(fullPath)
-
-            #   Create Table Item and set Height
-            if fileType == "Folders":
-                itemWidget = self.createFolderTile(fullPath)
-                rowHeight = SOURCE_DIR_HEIGHT
+            # Color Dir LineEdit if Invalid
+            if not os.path.exists(sourceDir):
+                self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
             else:
-                itemWidget = self.createSourceFileTile(fileType, fullPath)
-                rowHeight = SOURCE_ITEM_HEIGHT
+                self.le_sourcePath.setToolTip(sourceDir)
+                self.le_sourcePath.setStyleSheet("")
 
-            #   Add to Table
-            self.tw_source.insertRow(row)
-            self.tw_source.setRowHeight(row, rowHeight)
+            # Return if there is no Dir set
+            if not hasattr(self, "sourceDir"):
+                return
 
-            #   Add Data to Row Item
-            table_item = QTableWidgetItem()
-            table_item.setData(Qt.UserRole, {"name": fileItem, "fileType": fileType, "widget": itemWidget})
-            self.tw_source.setItem(row, 0, table_item)
-            self.tw_source.setCellWidget(row, 0, itemWidget)
+            # Capture Scrollbar Position
+            scrollPos = self.lw_destination.verticalScrollBar().value()
 
-            row += 1
+            # Get all Items from the Source Dir
+            allFileItems = os.listdir(self.sourceDir)
 
-        self.sortTable("source")
+            # Get folders and sequences
+            if self.b_sourceFilter_combineSeqs.isChecked():
+                folders = [f for f in allFileItems if self.getFileType(os.path.join(self.sourceDir, f)) == "Folders"]
+                sequences = self.groupSequences(sourceDir)
+                sequenceFiles = [seqGroup[1][0] for seqGroup in sequences]
+                filesToShow = folders + sequenceFiles
+            else:
+                filesToShow = allFileItems
 
-        QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
+            # Sort before adding
+            type_order = {
+                "Folders": 0,
+                "Videos": 1,
+                "Images": 2,
+                "Audio": 3,
+                "Other": 4,
+            }
 
+            def sort_key(fileItem):
+                fullPath = os.path.join(self.sourceDir, fileItem)
+                fileType = self.getFileType(fullPath)
+                name = fileItem.lower()
+                return (type_order.get(fileType, 99), name)
 
+            filesToShow.sort(key=sort_key)
 
-        logger.debug("Refreshed Source Items")
+            # Reset Table
+            self.lw_source.clear()
 
+            row = 0
+            for fileItem in filesToShow:
+                # Get Path and Type
+                fullPath = os.path.join(self.sourceDir, fileItem)
+                fileType = self.getFileType(fullPath)
 
+                # Create Table Item and set Height
+                if fileType == "Folders":
+                    itemWidget = self.createFolderTile(fullPath)
+                    rowHeight = SOURCE_DIR_HEIGHT
+                else:
+                    itemWidget = self.createSourceFileTile(fileType, fullPath)
+                    rowHeight = SOURCE_ITEM_HEIGHT
 
+                # Add to Table
+                list_item = QListWidgetItem()
+                list_item.setSizeHint(QSize(0, rowHeight))
+                list_item.setData(Qt.UserRole, {"name": fileItem, "fileType": fileType})
 
-        # except Exception as e:
-        #     logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")                   #   TESTING
-        
-        # finally:
-        #     #   Hide Wait Popup
+                self.lw_source.addItem(list_item)
+                self.lw_source.setItemWidget(list_item, itemWidget)
 
-        WaitPopup.closePopup()
+                row += 1
+
+            #   Sort the Table Items
+            self.sortTable("source")
+
+            QTimer.singleShot(50, lambda: self.lw_destination.verticalScrollBar().setValue(scrollPos))
+
+            logger.debug("Refreshed Source Items")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")
+
+        finally:
+            WaitPopup.closePopup()
+
 
 
 
 
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
-        try:
-            #   Show Wait Popup
-            WaitPopup.showPopup(parent=self.projectBrowser)
 
-            destDir = getattr(self, "destDir", "")
+        # try:
 
-            #   Save Current Selection State if Needed
+        # Show Wait Popup
+        WaitPopup.showPopup(parent=self.projectBrowser)
+
+        destDir = getattr(self, "destDir", "")
+
+        # Save selection state if needed
+        if restoreSelection:
+            self.fileItemSelectionState = {}
+            for row in range(self.lw_destination.count()):
+                item = self.lw_destination.item(row)
+                fileTile = self.lw_destination.itemWidget(item)
+                if fileTile:
+                    key = fileTile.data["uuid"]
+                    self.fileItemSelectionState[key] = fileTile.isChecked()
+
+        # Update elided path
+        metrics = QFontMetrics(self.le_destPath.font())
+        elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
+        self.le_destPath.setText(elided_text)
+
+        # Color line edit if path invalid
+        if not os.path.exists(destDir):
+            self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+        else:
+            self.le_destPath.setToolTip(destDir)
+            self.le_destPath.setStyleSheet("")
+
+        # Save scrollbar position
+        scrollPos = self.lw_destination.verticalScrollBar().value()
+
+        # Clear list
+        self.lw_destination.clear()
+
+        # Add new items
+        for iData in self.transferList:
+            fileItem = self.createDestFileTile(iData)
+            fileItem.applyStyle("None")
+
+            # Create QListWidgetItem
+            listItem = QListWidgetItem()
+            listItem.setSizeHint(QSize(0, SOURCE_ITEM_HEIGHT))
+
+            # Store fileType (for sorting/filtering if needed)
+            listItem.setData(Qt.UserRole, {
+                "fileType": getattr(fileItem, "fileType", "Other")
+            })
+
+            # Add to list and assign custom widget
+            self.lw_destination.addItem(listItem)
+            self.lw_destination.setItemWidget(listItem, fileItem)
+
+            # Restore selection if needed
             if restoreSelection:
-                self.fileItemSelectionState = {}
-                for row in range(self.tw_destination.rowCount()):
-                    fileTile = self.tw_destination.cellWidget(row, 0)
-                    if fileTile:
-                        key = fileTile.data["uuid"]
-                        self.fileItemSelectionState[key] = fileTile.isChecked()
+                key = iData["uuid"]
+                if key in self.fileItemSelectionState:
+                    fileItem.setChecked(self.fileItemSelectionState[key], refresh=False)
 
-            #   Shorten and Show Path
-            metrics = QFontMetrics(self.le_destPath.font())
-            elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
-            self.le_destPath.setText(elided_text)
+        # Apply sorting/filtering
+        self.sortTable("destination")
 
-            #   Colors the Addressbar if the Path is invalid
-            if not os.path.exists(destDir):
-                self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
-            else:
-                self.le_destPath.setToolTip(destDir)
-                self.le_destPath.setStyleSheet("")
+        # Restore scroll position
+        QTimer.singleShot(50, lambda: self.lw_destination.verticalScrollBar().setValue(scrollPos))
 
-            #   Return if there is no Dir set
-            # if not hasattr(self, "destDir"):
-            #     return
-            
-            #   Capture Current Scroll Position
-            scrollPos = self.tw_destination.verticalScrollBar().value()
+        # Refresh stats
+        self.refreshTotalTransSize()
 
-            self.tw_destination.setRowCount(0)
+        logger.debug("Refreshed Destination Items")
 
-            # Sequence grouping (optional)
-            # combineSeqs = self.b_sourceFilter_combineSeqs.isChecked()
-            # if combineSeqs:
-            #     seq = self.groupSequences(destDir)
-            #     files = [seqGroup[1][0] for seqGroup in seq]
-            # else:
-            #     files = os.listdir(self.destDir)
+        # except Exception as e:
+        #     logger.warning(f"ERROR:  Failed to Refresh Destination Items:\n{e}")
 
-            row = 0
-            #   Iterate Over the Transfer List and add them to the Table
-            for iData in self.transferList:
-                self.tw_destination.insertRow(row)
-                self.tw_destination.setRowHeight(row, SOURCE_ITEM_HEIGHT)
+        # finally:
 
-                fileItem = self.createDestFileTile(iData)
-                fileItem.applyStyle("None")
+        WaitPopup.closePopup()
 
-                #   Store fileType in QTableWidgetItem
-                table_item = QTableWidgetItem()
-                table_item.setData(Qt.UserRole, {
-                    "fileType": getattr(fileItem, "fileType", "Other")
-                })
-                self.tw_destination.setItem(row, 0, table_item)
-
-                #   Add the Widget
-                self.tw_destination.setCellWidget(row, 0, fileItem)
-
-                #   Restore Selection if Needed
-                if restoreSelection:
-                    key = iData["uuid"]
-                    if key in self.fileItemSelectionState:
-                        fileItem.setChecked(self.fileItemSelectionState[key], refresh=False)
-
-                row += 1
-
-            #   Update Table View (Filters etc)
-            self.sortTable("destination")
-
-            #   Restore Scoll Position
-            QTimer.singleShot(50, lambda: self.tw_destination.verticalScrollBar().setValue(scrollPos))
-
-            #   Update Stats
-            self.refreshTotalTransSize()
-
-            logger.debug("Refreshed Destination Items")
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Refresh Destination Items:\n{e}")
-
-        finally:
-            WaitPopup.closePopup()
 
 
 
@@ -1970,11 +1988,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def modifyFileNames(self):
         try:
-            #   Iterate Through all Items and Call Name Override Method in Widget
-            rows = self.tw_destination.rowCount()
-            for row in range(rows):
-                widget = self.tw_destination.cellWidget(row, 0)
-                if hasattr(widget, "setModifiedName"):
+            # Iterate through all QListWidgetItems and call setModifiedName on each widget
+            count = self.lw_destination.count()
+            for i in range(count):
+                item = self.lw_destination.item(i)
+                widget = self.lw_destination.itemWidget(item)
+
+                if widget and hasattr(widget, "setModifiedName"):
                     widget.setModifiedName()
 
             self.sourceFuncts.updateUI()
@@ -1983,6 +2003,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Modify Filenames:\n{e}")
+
 
 
     #   Called from Tile Widget to Modify Original Name based on Active Mods
@@ -2039,7 +2060,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             data["uuid"] = self.createUUID()
 
             # Create the custom widget
-            fileItem = TileWidget.SourceFileItem(self, data)
+            fileItem = TileWidget.SourceFileItem(self, data, parent=self.lw_source.viewport())
 
             logger.debug(f"Created Source FileTile for: {filePath}")
             return fileItem
@@ -2052,7 +2073,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def createDestFileTile(self, data):
         try:
             # Create the custom widget
-            fileItem = TileWidget.DestFileItem(self, data)
+            fileItem = TileWidget.DestFileItem(self, data, parent=self.lw_source.viewport())
 
             logger.debug("Created Destination FileTile")
             return fileItem
@@ -2070,7 +2091,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             data["uuid"] = self.createUUID()
 
             # Create the custom widget
-            folderItem = TileWidget.FolderItem(self, data)
+            folderItem = TileWidget.FolderItem(self, data, parent=self.lw_source.viewport())
 
             logger.debug("Created FolderTile")
             return folderItem
@@ -2146,10 +2167,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def addSelected(self):
         try:
-            row_count = self.tw_source.rowCount()
+            row_count = self.lw_source.count()
 
             for row in range(row_count):
-                fileItem = self.tw_source.cellWidget(row, 0)
+                listItem = self.lw_source.item(row)
+                fileItem = self.lw_source.itemWidget(listItem)
+                
                 if fileItem is not None and fileItem.objectName() == "FileTile":
                     if fileItem.isChecked():
                         self.addToDestList(fileItem.getData())
@@ -2181,10 +2204,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.transferList = []
 
             else:
-                row_count = self.tw_destination.rowCount()
+                row_count = self.lw_destination.count()
 
                 for row in range(row_count):
-                    fileItem = self.tw_destination.cellWidget(row, 0)
+                    listItem = self.lw_destination.item(row)
+                    fileItem = self.lw_destination.itemWidget(listItem)
+
                     if fileItem is not None:
                         if fileItem.isChecked():
                             self.transferList.remove(fileItem.getData())
@@ -2229,12 +2254,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Return List of Checked Dest File Tiles
     @err_catcher(name=__name__)                                         #   TODO  Move
     def getCopyList(self):
-        row_count = self.tw_destination.rowCount()
+        row_count = self.lw_destination.count()
         self.copyList = []
 
         for row in range(row_count):
-            fileItem = self.tw_destination.cellWidget(row, 0)
-            
+            listItem = self.lw_destination.item(row)
+            fileItem = self.lw_destination.itemWidget(listItem)
+
             if fileItem is not None:
                 if fileItem.isChecked():
                     self.copyList.append(fileItem)
@@ -2829,10 +2855,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def getSelectedContexts(self):
         contexts = []
-        if len(self.tw_source.selectedItems()) > 1:
-            contexts = self.tw_source.selectedItems()
-        elif len(self.tw_destination.selectedItems()) > 1:
-            contexts = self.tw_destination.selectedItems()
+        if len(self.lw_source.selectedItems()) > 1:
+            contexts = self.lw_source.selectedItems()
+        elif len(self.lw_destination.selectedItems()) > 1:
+            contexts = self.lw_destination.selectedItems()
         else:
             data = self.getCurrentFilelayer()
             if not data:
@@ -2840,7 +2866,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 if not data:
                     data = self.getCurrentAOV()
                     if not data:
-                        items = self.tw_destination.selectedItems()
+                        items = self.lw_destination.selectedItems()
                         if items:
                             data = items[0].data(Qt.UserRole)
 
@@ -2864,7 +2890,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     # def onVersionDoubleClicked(self, item):
     #     mods = QApplication.keyboardModifiers()
     #     if mods == Qt.ControlModifier:
-    #         for selItem in self.tw_destination.selectedItems():
+    #         for selItem in self.lw_destination.selectedItems():
     #             self.core.openFolder(selItem.data(Qt.UserRole).get("path"))
     #     else:
     #         self.showVersionInfoForItem(item)
@@ -4446,7 +4472,7 @@ class MediaPlayer(QWidget):
 #     def __init__(self, origin):
 #         super(VersionDelegate, self).__init__()
 #         self.origin = origin
-#         self.widget = self.origin.tw_destination
+#         self.widget = self.origin.lw_destination
 
 #     def paint(self, painterQPainter, optionQStyleOptionViewItem, indexQModelIndex):
 #         item = self.widget.itemFromIndex(indexQModelIndex)

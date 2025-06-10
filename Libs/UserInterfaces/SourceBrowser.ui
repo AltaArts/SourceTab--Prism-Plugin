@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>901</width>
+    <width>961</width>
     <height>521</height>
    </rect>
   </property>
@@ -229,7 +229,7 @@
         </layout>
        </item>
        <item>
-        <widget class="QTableWidget" name="tw_source">
+        <widget class="QListWidget" name="lw_source">
          <property name="contextMenuPolicy">
           <enum>Qt::NoContextMenu</enum>
          </property>
@@ -304,7 +304,7 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>100</width>
+              <width>75</width>
               <height>0</height>
              </size>
             </property>
@@ -323,7 +323,7 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>100</width>
+              <width>75</width>
               <height>0</height>
              </size>
             </property>
@@ -342,7 +342,7 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>100</width>
+              <width>75</width>
               <height>0</height>
              </size>
             </property>
@@ -569,7 +569,7 @@
         </layout>
        </item>
        <item>
-        <widget class="QTableWidget" name="tw_destination">
+        <widget class="QListWidget" name="lw_destination">
          <property name="maximumSize">
           <size>
            <width>16777215</width>
@@ -650,7 +650,7 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>100</width>
+              <width>75</width>
               <height>0</height>
              </size>
             </property>
@@ -669,7 +669,7 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>100</width>
+              <width>75</width>
               <height>0</height>
              </size>
             </property>
@@ -688,7 +688,7 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>100</width>
+              <width>75</width>
               <height>0</height>
              </size>
             </property>
@@ -707,7 +707,7 @@
             </property>
             <property name="minimumSize">
              <size>
-              <width>100</width>
+              <width>75</width>
               <height>0</height>
              </size>
             </property>
