@@ -1241,7 +1241,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 and not item.isHidden()
                 and getattr(fileItem, "data", {}).get("tileType") == "file"
                 ):
-                    fileItem.setChecked(checked, refresh=False)
+
+                fileItem.setChecked(checked, refresh=False)
 
         if mode == "dest":
             self.refreshTotalTransSize()
@@ -1727,10 +1728,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     ####  TESTING   SEQUENCES   ####
 
-    def groupSequences(self, pathDir):
-        allFiles = sorted(os.listdir(pathDir))
-        allFiles = [f for f in allFiles if os.path.isfile(os.path.join(pathDir, f))]
-        remaining = set(allFiles)
+    def groupSequences(self, imageFiles):
+        remaining = set(imageFiles)
         sequences = []
 
         while remaining:
@@ -1741,20 +1740,26 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 frame and
                 ext.lower() in self.core.media.supportedFormats and
                 ext.lower() not in self.core.media.videoFormats
-                ):
+            ):
                 pattern = re.escape(base) + r"\d+" + re.escape(ext)
                 regex = re.compile(pattern)
                 matched = [f for f in remaining if regex.fullmatch(f)]
                 matched.append(current)
-                remaining.difference_update(matched)
 
-                padded = "#" * len(frame)
-                basename = f"{base}{padded}{ext}"
-                sequences.append((basename, sorted(matched)))
+                # Only treat as sequence if multiple files
+                if len(matched) > 1:
+                    remaining.difference_update(matched)
+                    padded = "#" * len(frame)
+                    display_name = f"{base}{padded}{ext}"
+                    sequences.append((display_name, True, sorted(matched)))
+                else:
+                    # Only one file, so standalone
+                    sequences.append((current, False, [current]))
             else:
-                sequences.append((current, [current]))
+                sequences.append((current, False, [current]))
 
         return sequences
+
     
 
     def splitFilename(self, filename):
@@ -1822,12 +1827,40 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             # Get folders and sequences
             if self.b_sourceFilter_combineSeqs.isChecked():
-                folders = [f for f in allFileItems if self.getFileType(os.path.join(self.sourceDir, f)) == "Folders"]
-                sequences = self.groupSequences(sourceDir)
-                sequenceFiles = [seqGroup[1][0] for seqGroup in sequences]
-                filesToShow = folders + sequenceFiles
+
+                # Separate image files from others
+                imageFiles = []
+                filesToShow = []
+
+                for f in allFileItems:
+                    fullPath = os.path.join(self.sourceDir, f)
+                    fileType = self.getFileType(fullPath)
+
+                    if fileType == "Images":
+                        imageFiles.append(f)
+                    else:
+                        filesToShow.append((f, False, [f], fileType))  # Non-image file wrapped in tuple
+
+
+                sequences = self.groupSequences(imageFiles)
+
+                # print(f"\n\n***** Sequences:")                                              #    TESTING
+                # for seq in sequences:
+                #     print(f"{seq}")                                              #    TESTING
+
+
+                for displayName, isSequence, seqFiles in sequences:
+                    fileType = "Images"
+                    filesToShow.append((displayName, isSequence, seqFiles, fileType))
+
+
+
             else:
-                filesToShow = allFileItems
+                filesToShow = []
+                for f in allFileItems:
+                    fullPath = os.path.join(self.sourceDir, f)
+                    fileType = self.getFileType(fullPath)
+                    filesToShow.append((f, False, [f], fileType))
 
             # Sort before adding
             type_order = {
@@ -1838,35 +1871,40 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 "Other": 4,
             }
 
-            def sort_key(fileItem):
-                fullPath = os.path.join(self.sourceDir, fileItem)
-                fileType = self.getFileType(fullPath)
-                name = fileItem.lower()
-                return (type_order.get(fileType, 99), name)
+            def sort_key(fileTuple):
+                displayName, _, _, fileType = fileTuple
+                return (type_order.get(fileType, 99), displayName.lower())
 
             filesToShow.sort(key=sort_key)
+
+            # print(f"\n\n***** filesToShow:")                                              #    TESTING
+            # for file in filesToShow:
+            #     print(f"{file}")                                              #    TESTING
 
             # Reset Table
             self.lw_source.clear()
 
             row = 0
             for fileItem in filesToShow:
-                # Get Path and Type
-                fullPath = os.path.join(self.sourceDir, fileItem)
-                fileType = self.getFileType(fullPath)
+                displayName, isSequence, seqFiles, fileType = fileItem
+                # fullPath = os.path.join(self.sourceDir, name)
 
-                # Create Table Item and set Height
                 if fileType == "Folders":
-                    itemWidget = self.createFolderTile(fullPath)
+                    itemWidget = self.createFolderTile(os.path.join(self.sourceDir, displayName))
                     rowHeight = SOURCE_DIR_HEIGHT
                 else:
-                    itemWidget = self.createSourceFileTile(fileType, fullPath)
+                    # You can now pass sequence info
+                    itemWidget = self.createSourceFileTile(fileType, self.sourceDir, displayName, isSequence, seqFiles)
                     rowHeight = SOURCE_ITEM_HEIGHT
 
-                # Add to Table
                 list_item = QListWidgetItem()
                 list_item.setSizeHint(QSize(0, rowHeight))
-                list_item.setData(Qt.UserRole, {"name": fileItem, "fileType": fileType})
+                list_item.setData(Qt.UserRole, {
+                    "displayName": displayName,
+                    "fileType": fileType,
+                    "isSequence": isSequence,
+                    "seqFiles": seqFiles
+                })
 
                 self.lw_source.addItem(list_item)
                 self.lw_source.setItemWidget(list_item, itemWidget)
@@ -1971,8 +2009,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         WaitPopup.closePopup()
 
 
-
-
     #   Sets Each Tile Widget Proxy UI
     @err_catcher(name=__name__)
     def toggleProxy(self, checked):
@@ -2050,23 +2086,26 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)
-    def createSourceFileTile(self, fileType, filePath):
+    def createSourceFileTile(self, fileType, sourceDir, displayName, isSequence, seqFiles):
         try:
             #   Create Data
             data = {}
             data["tileType"] = "file"
             data["fileType"] = fileType
-            data["source_mainFile_path"] = os.path.normpath(filePath)
+            data["source_displayName"] = displayName
+            data["source_mainFile_path"] = os.path.join(sourceDir, seqFiles[0])
+            data["isSequence"] = isSequence
+            data["seqFiles"] = seqFiles
             data["uuid"] = self.createUUID()
 
             # Create the custom widget
             fileItem = TileWidget.SourceFileItem(self, data, parent=self.lw_source.viewport())
 
-            logger.debug(f"Created Source FileTile for: {filePath}")
+            logger.debug(f"Created Source FileTile for: {displayName}")
             return fileItem
         
         except Exception as e:
-            logger.warning(f"ERROR:  Failed to Create Source FileTile for:\n{filePath}\n\n{e}")
+            logger.warning(f"ERROR:  Failed to Create Source FileTile for:\n{displayName}\n\n{e}")
 
 
     @err_catcher(name=__name__)
@@ -2152,15 +2191,43 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def addToDestList(self, data, refresh=False):
-        if not self.checkDuplicate(data):
+
+        print(f"*** data:  {data}")                                              #    TESTING
+
+
+        #   Do Not Add if Already in the Destination List
+        if self.isDuplicate(data):
+            return
+        
+        #   If Not a Image Sequence, just Add File
+        if not data["isSequence"]:
             self.transferList.append(data)
+
+        #   If Image Sequence
+        else:
+            sourceDir = os.path.dirname(data["source_mainFile_path"])
+
+            for image in data["seqFiles"]:
+                print(f"*** image:  {image}")                                              #    TESTING
+
+                
+
+                iData = data.copy()
+                iData["source_displayName"] = image
+                iData["isSequence"] = False
+                iData["seqFiles"] = [image]
+                iData["source_mainFile_path"] = os.path.join(sourceDir, image)
+
+                self.transferList.append(iData)
+
+
 
         if refresh:
             self.refreshDestItems(restoreSelection=True)
 
 
     @err_catcher(name=__name__)
-    def checkDuplicate(self, data):
+    def isDuplicate(self, data):
         return data in self.transferList 
     
 

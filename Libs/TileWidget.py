@@ -523,12 +523,16 @@ class BaseTileItem(QWidget):
     #   Gets the Number of Frames of the File(s) to Transfer
     @err_catcher(name=__name__)
     def setDuration(self, filePath, callback=None):
-        #   Create Worker Instance
-        worker_frames = FileDurationWorker(self, self.core, filePath)
-        #   Connect to Finished Callback
-        worker_frames.finished.connect(callback)
-        #   Launch Worker in DataOps Treadpool
-        self.dataOps_threadpool.start(worker_frames)
+        if getattr(self, "isSequence", False):
+            duration = len(self.data["seqFiles"])
+            self.onMainfileDurationReady(duration)
+        else:
+            #   Create Worker Instance
+            worker_frames = FileDurationWorker(self, self.core, filePath)
+            #   Connect to Finished Callback
+            worker_frames.finished.connect(callback)
+            #   Launch Worker in DataOps Treadpool
+            self.dataOps_threadpool.start(worker_frames)
 
 
      #   Returns the Filepath
@@ -558,7 +562,10 @@ class BaseTileItem(QWidget):
 
         match fileType:
             case "Images":
-                iconPath =  os.path.join(iconDir, "render_still.png")
+                if self.data["isSequence"]:
+                    iconPath =  os.path.join(iconDir, "sequence.png")
+                else:
+                    iconPath =  os.path.join(iconDir, "render_still.png")
             case "Videos":        
                 iconPath =  os.path.join(iconDir, "movie.png")
             case "Audio":
@@ -648,10 +655,18 @@ class BaseTileItem(QWidget):
         return self.data.get("uuid", "")
     
 
+    #   Sets Icon Based and Icon Tooltip
     @err_catcher(name=__name__)
     def setIcon(self, icon):
         try:
-            self.l_icon.setToolTip(self.getSource_mainfilePath())
+            #   Tooltip
+            if self.isSequence:
+                fileType = "Image Sequence"
+            else:
+                fileType = self.fileType
+            self.l_icon.setToolTip(f"FileType:  {fileType}")
+
+            #   Sets Icon
             if isinstance(icon, QIcon):
                 self.l_icon.setPixmap(icon.pixmap(24, 24))
             else:
@@ -780,6 +795,7 @@ class SourceFileItem(BaseTileItem):
         super(SourceFileItem, self).__init__(browser, data, parent)
         self.tileType = "sourceTile"
         self.fileType = data["fileType"]
+        self.isSequence = data["isSequence"]
 
         self.setupUi()
         self.refreshUi()
@@ -917,7 +933,14 @@ class SourceFileItem(BaseTileItem):
         try:
             # Get File Path
             filePath = self.getSource_mainfilePath()
-            self.l_fileName.setText(self.getBasename(filePath))
+
+            #   Set Display Name
+            if self.isSequence:
+                displayName = self.data["source_displayName"]
+            else:
+                displayName = self.getBasename(filePath)
+
+            self.l_fileName.setText(displayName)
             self.l_fileName.setToolTip(f"FilePath: {filePath}")
 
             #   Set Filetype Icon
@@ -939,7 +962,7 @@ class SourceFileItem(BaseTileItem):
 
             #   Set Number of Frames
             fileType = self.browser.getFileType(filePath)
-            if fileType in ["Images", "Videos"]:
+            if fileType in ["Videos", "Images"]:
                 self.setDuration(filePath, self.onMainfileDurationReady)
 
             #   Set Hash
@@ -1143,6 +1166,7 @@ class DestFileItem(BaseTileItem):
         super(DestFileItem, self).__init__(browser, data, parent)
         self.tileType = "destTile"
         self.fileType = data["fileType"]
+        self.isSequence = data["isSequence"]
 
         self.main_transfer_worker = None
         self.worker_proxy = None
@@ -1333,13 +1357,18 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def setModifiedName(self):
         try:
+            #   Get Main File Path and Make Names/Paths
+            source_mainFile_path = self.getSource_mainfilePath()
+            dest_mainFile_dir = self.getDestPath()
+
             #   Get Override Enabled
             override = self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked()
 
-            #   Get Main File Path and Make Names/Paths
-            source_mainFile_path = self.getSource_mainfilePath()
-            source_mainFile_name = self.getBasename(source_mainFile_path)
-            dest_mainFile_dir = self.getDestPath()
+            if self.isSequence:
+                source_mainFile_name = self.data["source_displayName"]
+
+            else:
+                source_mainFile_name = self.getBasename(source_mainFile_path)
             
             if override:
                 #   Get Modified Name
