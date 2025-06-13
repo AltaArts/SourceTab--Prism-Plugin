@@ -183,7 +183,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self._destinationRowWidgets = []
 
 
-
         #   Initialize Variables
         self.selectedTiles = set()
         self.lastClickedTile = None
@@ -200,6 +199,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.closeParm = "closeafterload"
 
         self.exifToolEXE = self.getExiftool()
+
+        self.setupIcons()
 
         #   Load UI
         self.loadLayout()
@@ -250,6 +251,28 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         totalWidth = self.splitter.size().width()
         oneThird = totalWidth // 3
         self.splitter.setSizes([oneThird, oneThird, totalWidth - 2 * oneThird])
+
+
+
+    @err_catcher(name=__name__)
+    def setupIcons(self):
+        self.icon_sequence = QIcon(os.path.join(iconDir, "sequence.png"))
+        self.icon_image = QIcon(os.path.join(iconDir, "render_still.png"))
+        self.icon_video = QIcon(os.path.join(iconDir, "camera.png"))
+        self.icon_audio = QIcon(os.path.join(iconDir, "audio.png"))
+        self.icon_folder = QIcon(os.path.join(iconDir, "file_folder.png"))
+        self.icon_file = QIcon(os.path.join(iconDir, "file.png"))
+        self.icon_error = QIcon(os.path.join(iconDir, "error.png"))
+
+        pxyIconPath = os.path.join(iconDir, "pxy_icon.png")
+        self.icon_proxy = self.core.media.getColoredIcon(pxyIconPath)
+
+        dateIconPath = os.path.join(iconDir, "date.png")
+        self.icon_date = self.core.media.getColoredIcon(dateIconPath)
+
+        diskIconPath = os.path.join(iconDir, "disk.png")
+        self.icon_disk = self.core.media.getColoredIcon(diskIconPath)
+
 
 
 
@@ -1215,7 +1238,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.preferProxies = checked
 
 
-    @stopWatch
     @err_catcher(name=__name__)
     def selectAll(self, checked=True, mode=None):
         logger.debug(f"Selecting All - checked: {checked}")
@@ -2100,6 +2122,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             # Create the custom widget
             fileItem = TileWidget.SourceFileItem(self, data, parent=self.lw_source.viewport())
+            
+            fileItem.generateData()
+
+            iData = fileItem.getData()
+            print(f"iData:  {iData}")							#	TESTING
+
+            fileItem.createTile()
 
             logger.debug(f"Created Source FileTile for: {displayName}")
             return fileItem

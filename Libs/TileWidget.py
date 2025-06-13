@@ -118,6 +118,25 @@ COLOR_GREY = "100, 100, 100"
 
 
 
+#   StopWatch Decorator
+def stopWatch(func):
+    from functools import wraps
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        timer = QElapsedTimer()
+        timer.start()
+        
+        result = func(*args, **kwargs)
+        
+        elapsed_sec = round(timer.elapsed() / 1000.0, 2)
+        print(f"[STOPWATCH]: Method '{func.__name__}' took {elapsed_sec:.2f} seconds")
+        
+        return result
+    return wrapper
+
+
+
 
 ##   BASE FILE TILE FOR SHARED METHODS  ##
 class BaseTileItem(QWidget):
@@ -154,7 +173,6 @@ class BaseTileItem(QWidget):
         super(BaseTileItem, self).__init__(parent)
         self.core = browser.core
         self.browser = browser
-        self.data = data
 
         self.state = "deselected"
 
@@ -563,19 +581,19 @@ class BaseTileItem(QWidget):
         match fileType:
             case "Images":
                 if self.data["isSequence"]:
-                    iconPath =  os.path.join(iconDir, "sequence.png")
+                    iconPath =  self.browser.icon_sequence
                 else:
-                    iconPath =  os.path.join(iconDir, "render_still.png")
+                    iconPath =  self.browser.icon_image
             case "Videos":        
-                iconPath =  os.path.join(iconDir, "movie.png")
+                iconPath =  self.browser.icon_video
             case "Audio":
-                iconPath =  os.path.join(iconDir, "disk.png")
+                iconPath =  self.browser.icon_audio
             case "Folders":
-                iconPath =  os.path.join(iconDir, "file_folder.png")
+                iconPath =  self.browser.icon_folder
             case "Other":
-                iconPath =  os.path.join(iconDir, "file.png")
+                iconPath =  self.browser.icon_file
             case _:
-                iconPath =  os.path.join(iconDir, "error.png")
+                iconPath =  self.browser.icon_error
 
         return QIcon(iconPath)
 
@@ -797,10 +815,48 @@ class SourceFileItem(BaseTileItem):
         self.fileType = data["fileType"]
         self.isSequence = data["isSequence"]
 
+        self.data = data
+        self.data["source_mainFile_duration"] = None
+        self.data["source_mainFile_hash"] = None
+        self.data["hasProxy"] = False
+
+        logger.debug("Loaded Source FileTile")
+
+
+    def generateData(self):
+        #   Get Main File Path
+        filePath = self.getSource_mainfilePath()
+
+        #   Icon
+        icon = self.getIconByType(filePath)
+        self.data["icon"] = icon
+
+        #   Date
+        date_data = self.getFileDate(filePath)
+        date_str = self.core.getFormattedDate(date_data)
+        self.data["source_mainFile_date"] = date_str
+
+        #   Size
+        mainSize_data = self.getFileSize(filePath)
+        mainSize_str = self.getFileSizeStr(mainSize_data)
+        self.data["source_mainFile_size"] = mainSize_str
+
+        #   Duration
+        if self.fileType in ["Videos", "Images", "Image Sequence"]:
+            self.setDuration(filePath, self.onMainfileDurationReady)
+
+        #   Main File Hash
+        self.setFileHash(filePath, self.onMainfileHashReady)
+        
+
+        self.refreshPreview()
+        self.setProxyFile()
+
+
+    def createTile(self):
         self.setupUi()
         self.refreshUi()
 
-        logger.debug("Loaded Source FileTile")
 
 
     def mouseReleaseEvent(self, event):
@@ -834,10 +890,8 @@ class SourceFileItem(BaseTileItem):
         self.lo_preview.addWidget(self.l_preview)
 
         #   Proxy Icon Label
-        pxyIconPath = os.path.join(iconDir, "pxy_icon.png")
-        pxyIcon = self.core.media.getColoredIcon(pxyIconPath)
         self.l_pxyIcon = QLabel(self.thumbContainer)
-        self.l_pxyIcon.setPixmap(pxyIcon.pixmap(40, 40))
+        self.l_pxyIcon.setPixmap(self.browser.icon_proxy.pixmap(40, 40))
         self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
 
         #   Position Proxy Icon in Bottom-Left Corner
@@ -875,10 +929,9 @@ class SourceFileItem(BaseTileItem):
         #   Create Date Layout
         self.lo_date = QHBoxLayout()
         #   Date Icon
-        dateIconPath = os.path.join(iconDir, "date.png")
-        dateIcon = self.core.media.getColoredIcon(dateIconPath)
+
         self.l_dateIcon = QLabel()
-        self.l_dateIcon.setPixmap(dateIcon.pixmap(15, 15))
+        self.l_dateIcon.setPixmap(self.browser.icon_date.pixmap(15, 15))
         #   Date Label
         self.l_date = QLabel()
         self.l_date.setAlignment(Qt.AlignRight)
@@ -891,10 +944,8 @@ class SourceFileItem(BaseTileItem):
         self.lo_fileSize = QHBoxLayout()
 
         #   Disk Icon
-        diskIconPath = os.path.join(iconDir, "disk.png")
-        diskIcon = self.core.media.getColoredIcon(diskIconPath)
         self.l_diskIcon = QLabel()
-        self.l_diskIcon.setPixmap(diskIcon.pixmap(15, 15))
+        self.l_diskIcon.setPixmap(self.browser.icon_disk.pixmap(15, 15))
         #   File Size Label
         self.l_fileSize = QLabel("--")
         self.l_fileSize.setAlignment(Qt.AlignRight)
@@ -944,33 +995,30 @@ class SourceFileItem(BaseTileItem):
             self.l_fileName.setToolTip(f"FilePath: {filePath}")
 
             #   Set Filetype Icon
-            icon = self.getIconByType(filePath)
-            self.data["icon"] = icon
-            self.setIcon(icon)
+            self.setIcon(self.data["icon"])
 
             #   Set Date
-            date_data = self.getFileDate(filePath)
-            date_str = self.core.getFormattedDate(date_data)
-            self.l_date.setText(date_str)
-            self.data["source_mainFile_date"] = date_str
+            self.l_date.setText(self.data["source_mainFile_date"])
 
             #   Set Filesize
-            mainSize_data = self.getFileSize(filePath)
-            mainSize_str = self.getFileSizeStr(mainSize_data)
-            self.data["source_mainFile_size"] = mainSize_str
-            self.l_fileSize.setText(mainSize_str)
+            self.l_fileSize.setText(self.data["source_mainFile_size"])
 
             #   Set Number of Frames
-            fileType = self.browser.getFileType(filePath)
-            if fileType in ["Videos", "Images"]:
-                self.setDuration(filePath, self.onMainfileDurationReady)
+            if self.fileType in ["Videos", "Images", "Image Sequence"]:
+                self.l_frames.setText("--")
+            if self.data["source_mainFile_duration"]:
+                self.l_frames.setText(str(self.data["source_mainFile_duration"]))
 
             #   Set Hash
             self.l_fileSize.setToolTip("Calculating file hash...")
-            self.setFileHash(filePath, self.onMainfileHashReady)
+            if self.data["source_mainFile_hash"]:
+                self.l_fileSize.setToolTip(f"Hash: {self.data['source_mainFile_hash']}")
 
-            self.refreshPreview()
-            self.setProxyFile()
+            #   Proxy Icon
+            if self.data["hasProxy"]:
+                self.l_pxyIcon.show()
+
+
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
@@ -981,8 +1029,9 @@ class SourceFileItem(BaseTileItem):
     def onMainfileDurationReady(self, duration):
         try:
             self.data["source_mainFile_duration"] = duration
-            self.l_frames.setText(str(duration))
-            logger.debug("Duration Set on FileTile")
+
+            if hasattr(self, "l_frames"):
+                self.l_frames.setText(str(duration))
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Main File Duration:\n{e}")
@@ -993,7 +1042,10 @@ class SourceFileItem(BaseTileItem):
     def onMainfileHashReady(self, result_hash):
         try:
             self.data["source_mainFile_hash"] = result_hash
-            self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+
+            if hasattr(self, "l_fileSize"):
+                self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Main File Hash:\n{e}")
 
@@ -1015,9 +1067,6 @@ class SourceFileItem(BaseTileItem):
                 #   Set Proxy Flag
                 self.data["hasProxy"] = True
 
-                #   Show Proxy Icon on Thumbnail
-                self.l_pxyIcon.show()
-
                 #   Set Source Proxy Path
                 self.data["source_proxyFile_path"] = proxyFilepath
 
@@ -1034,12 +1083,16 @@ class SourceFileItem(BaseTileItem):
                 #   Set Source Proxy Hash
                 self.setFileHash(proxyFilepath, self.onProxyfileHashReady)
 
-                #   Set Proxy Tooltip
-                tip = (f"Proxy File detected:\n\n"
-                    f"File: {proxyFilepath}\n"
-                    f"Date: {date_str}\n"
-                    f"Size: {mainSize_str}")
-                self.l_pxyIcon.setToolTip(tip)
+                #   Show Proxy Icon on Thumbnail
+                if hasattr(self, "l_pxyIcon"):
+                    self.l_pxyIcon.show()
+
+                    #   Set Proxy Tooltip
+                    tip = (f"Proxy File detected:\n\n"
+                        f"File: {proxyFilepath}\n"
+                        f"Date: {date_str}\n"
+                        f"Size: {mainSize_str}")
+                    self.l_pxyIcon.setToolTip(tip)
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
@@ -1167,6 +1220,8 @@ class DestFileItem(BaseTileItem):
         self.tileType = "destTile"
         self.fileType = data["fileType"]
         self.isSequence = data["isSequence"]
+
+        self.data = data
 
         self.main_transfer_worker = None
         self.worker_proxy = None
@@ -2127,6 +2182,8 @@ class FolderItem(BaseTileItem):
     def __init__(self, browser, data, parent=None):
         super(FolderItem, self).__init__(browser, data, parent)
         self.tileType = "folderTile"
+
+        self.data = data
 
         #   Calls the SetupUI Method of the Child Tile
         self.setupUi()
