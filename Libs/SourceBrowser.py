@@ -58,7 +58,7 @@ import shutil
 import uuid
 import hashlib
 from datetime import datetime
-import time
+from time import time
 from functools import partial
 import re
 
@@ -509,7 +509,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
         self.b_destFilter_sort.clicked.connect(lambda: self.showSortMenu("destination"))
-        self.b_destFilter_filtersEnable.toggled.connect(lambda: self.sortTable("destination"))
+        self.b_destFilter_filtersEnable.toggled.connect(lambda: self.refreshDestTable())
         self.b_destFilter_combineSeqs.toggled.connect(self.refreshDestItems)
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
@@ -625,7 +625,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             }
             sortMenu.close()
             self.plugin.saveSettings(key="sortOptions", data=self.sortOptions)
-            self.refreshSourceTable()
+
+            if table == "source":
+                self.refreshSourceTable()
+            elif table == "destination":
+                self.refreshDestTable()
 
         b_apply.clicked.connect(applyAndClose)
         layout.addWidget(b_apply, alignment=Qt.AlignRight)
@@ -709,7 +713,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for label, cb in checkboxRefs.items():
                 self.filterStates_dest[label] = cb.isChecked()
 
-            # self.sortTable("destination")
+            self.refreshDestTable()
 
         menu.close()
 
@@ -753,7 +757,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             e.acceptProposedAction()
 
-            # Normal file/folder drop
+            #   Normal File/Folder Drop
             url = e.mimeData().urls()[0]
             path = os.path.normpath(url.toLocalFile())
 
@@ -774,7 +778,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
 
         elif e.mimeData().hasFormat("application/x-sourcefileitem"):
-            # This is your custom item!
+            ##  This is your custom item!
             e.acceptProposedAction()
 
             dataBytes = e.mimeData().data("application/x-sourcefileitem")
@@ -823,7 +827,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for i in range(self.lw_source.count()):
                 item = self.lw_source.item(i)
                 widget = self.lw_source.itemWidget(item)
-                if isinstance(widget, TileWidget.SourceFileItem):
+                if isinstance(widget, TileWidget.SourceFileTile):
                     tiles.append(widget)
 
             logger.debug("Fetched All Source Tiles")
@@ -842,7 +846,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for i in range(self.lw_destination.count()):
                 item = self.lw_destination.item(i)
                 widget = self.lw_destination.itemWidget(item)
-                if isinstance(widget, TileWidget.DestFileItem):
+                if isinstance(widget, TileWidget.DestFileTile):
                     if onlyChecked:
                         if widget.isChecked():
                             tiles.append(widget)
@@ -1642,156 +1646,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
 
-########    TESTING - TRY TO SORT FILE LISTS WITHOUT LOSING WIDGETS ########
-########    vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv  ########
-    # def moveRow(self, listWidget, fromIndex, toIndex):
-    #     print(f"moveRow called: fromIndex={fromIndex}, toIndex={toIndex}")
-    #     if fromIndex == toIndex:
-    #         print("moveRow: fromIndex == toIndex, nothing to do.")
-    #         return
-
-    #     item = listWidget.item(fromIndex)
-    #     widget = listWidget.itemWidget(item)
-    #     print(f"moveRow: pre-take item widget: {widget}")
-
-    #     if widget is None:
-    #         print(f"moveRow: WARNING - Widget is None at index {fromIndex}, skipping move.")
-    #         return
-
-    #     # Detach widget before taking the item
-    #     listWidget.removeItemWidget(item)
-    #     widget.setParent(None)
-
-    #     # Take and insert item
-    #     item = listWidget.takeItem(fromIndex)
-    #     print(f"moveRow: took item at {fromIndex}: {item}")
-    #     listWidget.insertItem(toIndex, item)
-    #     print(f"moveRow: inserted item at {toIndex}")
-
-    #     # Reattach widget
-    #     widget.setParent(listWidget.viewport())
-    #     listWidget.setItemWidget(item, widget)
-    #     widget.show()
-    #     print(f"moveRow: reattached widget to item at {toIndex}")
-
-    #     # Force visual update
-    #     listWidget.viewport().update()
-    #     listWidget.viewport().repaint()
-
-    #     print(f"moveRow complete: listWidget.count() = {listWidget.count()}")
-
-
-
-    # def applySorting(self, table, sortType):
-    #     print(f"applySorting called: table={table}, sortType={sortType}")
-
-    #     if table == "source":
-    #         listWidget = self.lw_source
-    #         widgetListAttr = "_sourceRowWidgets"
-    #     elif table == "destination":
-    #         listWidget = self.lw_destination
-    #         widgetListAttr = "_destinationRowWidgets"
-    #     else:
-    #         print(f"applySorting: unknown table '{table}', exiting")
-    #         return
-
-    #     setattr(self, widgetListAttr, [])
-
-    #     type_order = {
-    #         "Folders": 0,
-    #         "Videos": 1,
-    #         "Images": 2,
-    #         "Audio": 3,
-    #         "Other": 4,
-    #     }
-
-    #     sortableData = []
-
-    #     print(f"applySorting: Gathering sortable data for {listWidget.count()} items")
-    #     for i in range(listWidget.count()):
-    #         item = listWidget.item(i)
-    #         widget = listWidget.itemWidget(item)
-
-    #         if widget is None:
-    #             print(f"applySorting: WARNING - No widget found for item at index {i}, skipping.")
-    #             continue
-
-    #         data = item.data(Qt.UserRole)
-    #         if not data:
-    #             print(f"applySorting: WARNING - No data found for item at index {i}, skipping.")
-    #             continue
-
-    #         name = data.get("name", "").lower()
-    #         fileType = data.get("fileType", "Other")
-    #         orderIndex = type_order.get(fileType, 99)
-
-    #         if sortType == "type":
-    #             sortKey = (orderIndex, name)
-    #         else:
-    #             sortKey = (name,)
-
-    #         print(f"applySorting: item {i}: name='{name}', fileType='{fileType}', sortKey={sortKey}, widget={widget}")
-    #         sortableData.append((sortKey, i))
-
-    #     print(f"applySorting: sortableData before sort: {sortableData}")
-
-    #     sortedData = sorted(sortableData, key=lambda x: x[0])
-    #     print(f"applySorting: sortedData: {sortedData}")
-
-    #     newOrder = [origIndex for _, origIndex in sortedData]
-    #     print(f"applySorting: newOrder: {newOrder}")
-
-    #     indexMap = {i: i for i in range(listWidget.count())}
-    #     print(f"applySorting: initial indexMap: {indexMap}")
-
-    #     for targetIndex, origIndex in enumerate(newOrder):
-    #         currentIndex = indexMap.get(origIndex)
-    #         if currentIndex is None:
-    #             print(f"applySorting: ERROR - origIndex {origIndex} not found in indexMap, skipping")
-    #             continue
-
-    #         print(f"applySorting: targetIndex={targetIndex}, origIndex={origIndex}, currentIndex={currentIndex}")
-
-    #         if currentIndex != targetIndex:
-    #             print(f"applySorting: moving item from {currentIndex} to {targetIndex}")
-    #             self.moveRow(listWidget, currentIndex, targetIndex)
-
-    #             if currentIndex > targetIndex:
-    #                 for k in indexMap:
-    #                     if indexMap[k] >= targetIndex and indexMap[k] < currentIndex:
-    #                         indexMap[k] += 1
-    #                         print(f"applySorting: indexMap[{k}] incremented to {indexMap[k]}")
-    #             else:
-    #                 for k in indexMap:
-    #                     if indexMap[k] > currentIndex and indexMap[k] <= targetIndex:
-    #                         indexMap[k] -= 1
-    #                         print(f"applySorting: indexMap[{k}] decremented to {indexMap[k]}")
-
-    #             indexMap[origIndex] = targetIndex
-    #             print(f"applySorting: indexMap[{origIndex}] set to {targetIndex}")
-
-    #     updatedList = []
-    #     for i in range(listWidget.count()):
-    #         item = listWidget.item(i)
-    #         widget = listWidget.itemWidget(item)
-    #         if widget:
-    #             updatedList.append(widget)
-    #         print(f"applySorting: final list index {i} has widget {widget}")
-
-    #     setattr(self, widgetListAttr, updatedList)
-    #     print(f"applySorting complete: {widgetListAttr} updated with {len(updatedList)} widgets")
-
-####### ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    ########
-########    TESTING - TRY TO SORT FILE LISTS WITHOUT LOSING WIDGETS ########
-
-
-
-
     #   Show/Hide FileTiles Based on Table Filters
     @err_catcher(name=__name__)
     def applyTableFilters(self, table, sortedList):
         try:
-            # Get filter settings
+            #   Get Filter Settings
             if table == "source":
                 filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
                 filterStates = self.filterStates_source
@@ -1799,13 +1658,14 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 filterEnabled = self.b_destFilter_filtersEnable.isChecked()
                 filterStates = self.filterStates_dest
             else:
-                return sortedList  # fallback
+                #   Fallback Return Original List
+                return sortedList
 
-            # If filters aren't enabled, skip filtering
+            #   If Filters Not Enabled, Skip Filtering
             if not filterEnabled:
                 return sortedList
 
-            # Apply filtering: remove items not matching the active filters
+            #   Make Filtered List
             filteredList = []
             for item in sortedList:
                 data = item.get("data", {})
@@ -1819,11 +1679,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR: Unable to Apply '{table}' Table Filters:\n{e}")
 
             return sortedList
-
-
-
-
-
 
 
     ####  TESTING   SEQUENCES   ####
@@ -1879,41 +1734,26 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     
     ######################
 
-
-    
-
+   
 
 
-
-
-    #   Update Table using Filters and Sorting
-    @err_catcher(name=__name__)
-    def sortTable(self, table, origList):
-
-        origList_copy = origList.copy()
-
-        sortedList = self.applySorting(table, origList_copy)
-
-        sortedList = self.applyTableFilters(table, sortedList)
-
-        return sortedList
-    
-
-
+    #   Sort Items According to User Selection
     @err_catcher(name=__name__)
     def applySorting(self, table, origList):
+        #   Get Selected Options
         opts = self.sortOptions.get(table, {})
         sortType = opts.get("sortType", "name")
         ascending = opts.get("ascending", True)
         groupTypes = opts.get("groupTypes", True)
 
-        # Folder/File separation
+        #   Folder/File Separation
         folderList = [item for item in origList if item["data"].get("tileType") == "folder"]
         fileList = [item for item in origList if item["data"].get("tileType") != "folder"]
 
-        # Sort folders alphabetically
+        # Sort Folders Alphabetically
         sortedFolders = sorted(folderList, key=lambda x: x["data"].get("displayName", "").lower())
 
+        #   Sorting Order for Tile Types
         typePriority = {
             "Videos": 0,
             "Image Sequence": 1,
@@ -1922,10 +1762,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             "Other": 4
         }
 
-        # Determine if sorting should be reversed
+        #   Sort Order
         reverse = not ascending
 
-        # Build sort key
+        #   Get Sort Key
         def get_sort_key(item):
             data = item["data"]
             match sortType:
@@ -1938,17 +1778,18 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 case _:
                     return data.get("displayName", "").lower()
 
+        #   Flat sort
         if not groupTypes:
-            # Flat sort
             sortedFiles = sorted(fileList, key=get_sort_key, reverse=reverse)
+
+        #   Grouped Sort
         else:
-            # Grouped sort
             grouped = {}
             for item in fileList:
                 ftype = item["data"].get("fileType", "Other")
                 grouped.setdefault(ftype, []).append(item)
 
-            # Sort groups by typePriority, then sort each group
+            #   Sort Groups by typePriority, then Sort Each Group
             sortedFiles = []
             for ftype in sorted(grouped.keys(), key=lambda t: typePriority.get(t, 99)):
                 groupItems = sorted(grouped[ftype], key=get_sort_key, reverse=reverse)
@@ -1957,60 +1798,65 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         return sortedFolders + sortedFiles
 
 
+    #   Update Table using Filters and Sorting
+    @err_catcher(name=__name__)
+    def sortTable(self, table, origList):
+        #   Make Copy of Item List
+        origList_copy = origList.copy()
+
+        #   Sort the Items
+        sortedList = self.applySorting(table, origList_copy)
+
+        #   Filter the Items
+        sortedList = self.applyTableFilters(table, sortedList)
+
+        return sortedList
 
 
 
-
+    #   Build List of Items in Source Directory
     @err_catcher(name=__name__)
     def refreshSourceItems(self, restoreSelection=False):
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
-            # Get Dir and Set Short Name
+            #   Get Dir and Set Short Name
             sourceDir = getattr(self, "sourceDir", "")
             metrics = QFontMetrics(self.le_sourcePath.font())
             elided_text = metrics.elidedText(sourceDir, Qt.ElideMiddle, self.le_sourcePath.width())
             self.le_sourcePath.setText(elided_text)
 
-            # Color Dir LineEdit if Invalid
+            #   Color Dir LineEdit if Invalid
             if not os.path.exists(sourceDir):
                 self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
             else:
                 self.le_sourcePath.setToolTip(sourceDir)
                 self.le_sourcePath.setStyleSheet("")
 
-            # Return if there is no Dir set
+            #   Return if there is no Dir set
             if not hasattr(self, "sourceDir"):
                 return
 
-            # Capture Scrollbar Position
+            #   Capture Scrollbar Position
             scrollPos = self.lw_destination.verticalScrollBar().value()
 
-            # Get all Items from the Source Dir
+            #   Get all Items from the Source Dir
             allFileItems = os.listdir(self.sourceDir)
 
-            filesToShow = []
+            self.sourceDataItems = []
+
+            #   Create Data Item for Each Item in Dir
             for file in allFileItems:
                 fullPath = os.path.join(self.sourceDir, file)
                 fileType = self.getFileType(fullPath)
 
-                filesToShow.append((file, self.sourceDir, fullPath, fileType))
+                self.createSourceItem(file, fullPath, fileType)
 
-
-            self.sourceDataItems = []
-
-            for fileItem in filesToShow:
-                file, sourceDir, fullPath, fileType = fileItem
-
-                self.createSourceTile(fileItem)
-
-
-
+            #   Sort / Filter / Refresh Source Table
             self.refreshSourceTable()
 
-
+            #   Reposition Scrollbar
             QTimer.singleShot(50, lambda: self.lw_destination.verticalScrollBar().setValue(scrollPos))
-
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")
@@ -2020,6 +1866,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
 
+    #   Sort / Filter / Refresh Source Table
     @err_catcher(name=__name__)
     def refreshSourceTable(self):
         WaitPopup.showPopup(parent=self.projectBrowser)
@@ -2028,11 +1875,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Sort the Table Items
             sourceDataItems_sorted = self.sortTable("source", self.sourceDataItems)
 
-
             # Reset Table
             self.lw_source.clear()
             row = 0
 
+            #   Itterate Sorted Items and Create Tile UI Widgets
             for dataItem in sourceDataItems_sorted:
                 fileItem = dataItem["tile"]
                 fileType = dataItem["tileType"]
@@ -2045,6 +1892,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     itemTile = TileWidget.SourceFileTile(fileItem)
                     rowHeight = SOURCE_ITEM_HEIGHT
 
+                #   Set Row Size and Add File Tile widget and Data to Row
                 list_item = QListWidgetItem()
                 list_item.setSizeHint(QSize(0, rowHeight))
                 list_item.setData(Qt.UserRole, {
@@ -2067,87 +1915,155 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             WaitPopup.closePopup()
 
 
-
-
+    #   Build List of Items in Destination Directory
     @err_catcher(name=__name__)
     def refreshDestItems(self, restoreSelection=False):
+        WaitPopup.showPopup(parent=self.projectBrowser)
 
-        # try:
+        try:
+            destDir = getattr(self, "destDir", "")
 
-        # Show Wait Popup
-        # WaitPopup.showPopup(parent=self.projectBrowser)
-
-        destDir = getattr(self, "destDir", "")
-
-        # Save selection state if needed
-        if restoreSelection:
-            self.fileItemSelectionState = {}
-            for row in range(self.lw_destination.count()):
-                item = self.lw_destination.item(row)
-                fileTile = self.lw_destination.itemWidget(item)
-                if fileTile:
-                    key = fileTile.data["uuid"]
-                    self.fileItemSelectionState[key] = fileTile.isChecked()
-
-        # Update elided path
-        metrics = QFontMetrics(self.le_destPath.font())
-        elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
-        self.le_destPath.setText(elided_text)
-
-        # Color line edit if path invalid
-        if not os.path.exists(destDir):
-            self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
-        else:
-            self.le_destPath.setToolTip(destDir)
-            self.le_destPath.setStyleSheet("")
-
-        # Save scrollbar position
-        scrollPos = self.lw_destination.verticalScrollBar().value()
-
-        # Clear list
-        self.lw_destination.clear()
-
-        # Add new items
-        for iData in self.transferList:
-            fileItem = self.createDestFileTile(iData)
-            fileItem.applyStyle("None")
-
-            # Create QListWidgetItem
-            listItem = QListWidgetItem()
-            listItem.setSizeHint(QSize(0, SOURCE_ITEM_HEIGHT))
-
-            # Store fileType (for sorting/filtering if needed)
-            listItem.setData(Qt.UserRole, {
-                "fileType": getattr(fileItem, "fileType", "Other")
-            })
-
-            # Add to list and assign custom widget
-            self.lw_destination.addItem(listItem)
-            self.lw_destination.setItemWidget(listItem, fileItem)
-
-            # Restore selection if needed
+            #   Save Selection State if Needed
             if restoreSelection:
-                key = iData["uuid"]
-                if key in self.fileItemSelectionState:
-                    fileItem.setChecked(self.fileItemSelectionState[key], refresh=False)
+                self.fileItemSelectionState = {}
+                for row in range(self.lw_destination.count()):
+                    item = self.lw_destination.item(row)
+                    fileTile = self.lw_destination.itemWidget(item)
+                    if fileTile:
+                        key = fileTile.data["uuid"]
+                        self.fileItemSelectionState[key] = fileTile.isChecked()
 
-        # Apply sorting/filtering
-        # self.sortTable("destination")
+            #   Get Dir and Set Short Name
+            metrics = QFontMetrics(self.le_destPath.font())
+            elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
+            self.le_destPath.setText(elided_text)
 
-        # Restore scroll position
-        QTimer.singleShot(50, lambda: self.lw_destination.verticalScrollBar().setValue(scrollPos))
+            #   Color Dir LineEdit if Invalid
+            if not os.path.exists(destDir):
+                self.le_destPath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+            else:
+                self.le_destPath.setToolTip(destDir)
+                self.le_destPath.setStyleSheet("")
 
-        # Refresh stats
-        self.refreshTotalTransSize()
+            #   Capture Scrollbar Position
+            scrollPos = self.lw_destination.verticalScrollBar().value()
 
-        logger.debug("Refreshed Destination Items")
+            self.destDataItems = []
 
-        # except Exception as e:
-        #     logger.warning(f"ERROR:  Failed to Refresh Destination Items:\n{e}")
+            #   Create Data Item for Each Item in Dir
+            for iData in self.transferList:
+                self.createDestItem(iData)
 
-        # finally:
+            #   Sort / Filter / Refresh Destination Table
+            self.refreshDestTable()
 
-        WaitPopup.closePopup()
+            #   Reposition Scrollbar
+            QTimer.singleShot(50, lambda: self.lw_destination.verticalScrollBar().setValue(scrollPos))
+
+            logger.debug("Refreshed Destination Items")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Destination Items:\n{e}")
+
+        finally:
+            WaitPopup.closePopup()
+
+
+    #   Sort / Filter / Refresh Destination Table
+    @err_catcher(name=__name__)
+    def refreshDestTable(self):
+        WaitPopup.showPopup(parent=self.projectBrowser)
+
+        try:
+            #   Sort the Table Items
+            destDataItems_sorted = self.sortTable("destination", self.destDataItems)
+
+            # Reset Table
+            self.lw_destination.clear()
+            row = 0
+
+            #   Itterate Sorted Items and Create Tile UI Widgets
+            for dataItem in destDataItems_sorted:
+                fileItem = dataItem["tile"]
+                fileType = dataItem["tileType"]
+
+                itemTile = TileWidget.DestFileTile(fileItem)
+                rowHeight = SOURCE_ITEM_HEIGHT
+
+                #   Set Row Size and Add File Tile widget and Data to Row
+                list_item = QListWidgetItem()
+                list_item.setSizeHint(QSize(0, rowHeight))
+                list_item.setData(Qt.UserRole, {
+                    # "displayName": displayName,
+                    "fileType": fileType
+                    # "isSequence": isSequence,
+                    # "seqFiles": seqFiles
+                })
+
+                self.lw_destination.addItem(list_item)
+                self.lw_destination.setItemWidget(list_item, itemTile)
+
+                row += 1
+
+            #   Refresh Transfer Size UI
+            self.refreshTotalTransSize()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Destination Table:\n{e}")
+
+        finally:
+            WaitPopup.closePopup()
+
+
+    #   Create Source Data Item (this is the class that will calculate and hold all the data)
+    @err_catcher(name=__name__)
+    def createSourceItem(self, file, fullPath, fileType):
+        try:
+            #   Separate Folders and Files
+            tileType = "folder" if fileType == "Folders" else "file"
+            
+            #   Create Data
+            data = {}
+            data["displayName"] = file
+            data["tileType"] = tileType
+            data["fileType"] = fileType
+            data["uuid"] = self.createUUID()
+
+            if fileType == "Folders":
+                #    Create Folder Data Item
+                data["dirPath"] = fullPath
+                dataItem = TileWidget.FolderItem(self, data)
+
+            else:
+                #    Create File Data Item
+                data["source_mainFile_path"] = fullPath
+                dataItem = TileWidget.SourceFileItem(self, data)
+
+            #   Get Item Data and Add to the List
+            fData = dataItem.getData()
+            self.sourceDataItems.append({"tile": dataItem, "tileType": tileType, "data": fData})
+
+            logger.debug(f"Created Source Data Item for: {file}")
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Source Data Item for:\n{file}\n\n{e}")
+
+
+    #   Create Dest Data Item (this is the class that will calculate and hold all the data)
+    @err_catcher(name=__name__)
+    def createDestItem(self, data):
+        try:
+            #    Create File Data Item
+            dataItem = TileWidget.DestFileItem(self, data)
+
+            #   Get Item Data and Add to the List
+            fData = dataItem.getData()
+            self.destDataItems.append({"tile": dataItem, "tileType": data["tileType"], "data": fData})
+
+            logger.debug("Created Destination Data Item")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Destination Data Item:\n{e}")
 
 
     #   Sets Each Tile Widget Proxy UI
@@ -2180,7 +2096,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Modify Filenames:\n{e}")
-
 
 
     #   Called from Tile Widget to Modify Original Name based on Active Mods
@@ -2224,73 +2139,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Refresh Total Transfer Size:\n{e}")
-
-
-    @err_catcher(name=__name__)
-    def createSourceTile(self, fileItem):
-        file, sourceDir, fullPath, fileType = fileItem
-
-        # try:
-
-        tileType = "folder" if fileType == "Folders" else "file"
-        #   Create Data
-        data = {}
-        data["displayName"] = file
-        data["tileType"] = tileType
-        data["fileType"] = fileType
-        data["uuid"] = self.createUUID()
-
-
-        if fileType == "Folders":
-            data["dirPath"] = fullPath
-
-            itemWidget = TileWidget.FolderItem(self, data)
-
-            fData = itemWidget.getData()
-
-        else:
-            data["source_mainFile_path"] = fullPath
-
-            # Create the custom widget
-            itemWidget = TileWidget.SourceFileItem(self, data)
-
-            fData = itemWidget.getData()
-
-
-        self.sourceDataItems.append({"tile": itemWidget, "tileType": tileType, "data": fData})
-
-        # fileItem.createTile()
-
-
-        # logger.debug(f"Created Source FileTile for: {displayName}")
-
-
-        # return fileItem
-    
-        
-        # except Exception as e:
-        #     logger.warning(f"ERROR:  Failed to Create Source FileTile for:\n{displayName}\n\n{e}")
-
-
-
-
-
-
-
-
-
-    @err_catcher(name=__name__)
-    def createDestFileTile(self, data):
-        try:
-            # Create the custom widget
-            fileItem = TileWidget.DestFileItem(self, data)
-
-            logger.debug("Created Destination FileTile")
-            return fileItem
-        
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Create Destination FileTile:\n{e}")
-    
 
 
     #   Opens clicked Folder and refreshes

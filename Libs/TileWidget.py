@@ -285,9 +285,9 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def _selectRange(self):
         # Get all tiles in order
-        if isinstance(self, SourceFileItem):
+        if isinstance(self, SourceFileTile):
             allTiles = self.browser.getAllSourceTiles()
-        elif isinstance(self, DestFileItem):
+        elif isinstance(self, DestFileTile):
             allTiles = self.browser.getAllDestTiles()
         else:
             return
@@ -902,7 +902,7 @@ class FolderItem(BaseTileItem):
 class SourceFileItem(BaseTileItem):
     def __init__(self, browser, data, parent=None):
         super(SourceFileItem, self).__init__(browser, data, parent)
-        self.tileType = "sourceTile"
+        self.tileType = "sourceItem"
         self.fileType = data["fileType"]
         # self.isSequence = data["isSequence"]
 
@@ -1093,7 +1093,7 @@ class SourceFileTile(BaseTileItem):
     def __init__(self, item: SourceFileItem, parent=None):
         self.item = item
         self.data = item.data
-        self.tileType = item.tileType
+        self.tileType = "sourceTile"
         self.fileType = self.data["fileType"]
 
 
@@ -1350,21 +1350,13 @@ class SourceFileTile(BaseTileItem):
 class DestFileItem(BaseTileItem):
     def __init__(self, browser, data, parent=None):
         super(DestFileItem, self).__init__(browser, data, parent)
-        self.tileType = "destTile"
+        self.tileType = "destItem"
         self.fileType = data["fileType"]
         # self.isSequence = data["isSequence"]
 
         self.data = data
 
-        self.main_transfer_worker = None
-        self.worker_proxy = None
-        self.transferState = None
-
-        self.main_copiedSize = 0.0
-        self.proxy_copiedSize = 0.0
-
-
-        logger.debug("Loaded Destination FileTile")
+        logger.debug("Loaded Destination FileTile")                         #   TODO
 
 
 
@@ -1375,7 +1367,7 @@ class DestFileTile(BaseTileItem):
     def __init__(self, item: DestFileItem, parent=None):
         self.item = item
         self.data = item.data
-        self.tileType = item.tileType
+        self.tileType = "destTile"
         self.fileType = self.data["fileType"]
 
         # self.isSequence = data["isSequence"]
@@ -1398,7 +1390,7 @@ class DestFileTile(BaseTileItem):
 
 
     def mouseReleaseEvent(self, event):
-        super(DestFileItem, self).mouseReleaseEvent(event)
+        super(DestFileTile, self).mouseReleaseEvent(event)
         self.signalReleased.emit(self)
         event.accept()
 
@@ -1428,10 +1420,8 @@ class DestFileTile(BaseTileItem):
         self.lo_preview.addWidget(self.l_preview)
 
         #   Proxy Icon Label
-        pxyIconPath = os.path.join(iconDir, "pxy_icon.png")
-        pxyIcon = self.core.media.getColoredIcon(pxyIconPath)
         self.l_pxyIcon = QLabel(self.thumbContainer)
-        self.l_pxyIcon.setPixmap(pxyIcon.pixmap(40, 40))
+        self.l_pxyIcon.setPixmap(self.browser.icon_proxy.pixmap(40, 40))
         self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
 
         #   Position Proxy Icon in Bottom-Left Corner
@@ -1534,12 +1524,15 @@ class DestFileTile(BaseTileItem):
         try:
             #   Get FilePath (Modified if Enabled)
             fileName, filePath = self.setModifiedName()
-            #   Get and Set Proxy File
-            self.setProxyFile()
 
             tip = (f"Source File:  {filePath}\n"
                 f"Destination File:  {self.getDestPath()}")
             self.l_fileName.setToolTip(tip)
+
+            self.setThumbnail(self.data.get("thumbnail"))
+
+            #   Get and Set Proxy File
+            self.setProxy()
 
             #   Set Filetype Icon
             self.setIcon(self.data["icon"])
@@ -1548,7 +1541,7 @@ class DestFileTile(BaseTileItem):
             self.setQuanityUI("idle")
 
             self.toggleProxyProgbar()
-            self.getThumbnail()
+
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
@@ -1618,7 +1611,7 @@ class DestFileTile(BaseTileItem):
 
     #   Sets Destination Proxy Filepath and Icon
     @err_catcher(name=__name__)
-    def setProxyFile(self):
+    def setProxy(self):
         try:
             if self.getProxy():
                 #   Show Proxy Icon
