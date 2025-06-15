@@ -284,9 +284,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_sourcePathUp.setIcon(upIcon)
         self.b_browseSource.setIcon(dirIcon)
         self.b_refreshSource.setIcon(refreshIcon)
-        self.b_sourceFilter_sort.setIcon(sortIcon)
-        self.b_sourceFilter_filtersEnable.setIcon(filtersIcon)
-        self.b_sourceFilter_combineSeqs.setIcon(sequenceIcon)
+        self.b_source_sorting_sort.setIcon(sortIcon)
+        self.b_source_sorting_filtersEnable.setIcon(filtersIcon)
+        self.b_source_sorting_combineSeqs.setIcon(sequenceIcon)
         self.b_tips_source.setIcon(tipIcon)
 
         #   Setup Cheatsheets
@@ -314,9 +314,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_destPathUp.setIcon(upIcon)
         self.b_browseDest.setIcon(dirIcon)
         self.b_refreshDest.setIcon(refreshIcon)
-        self.b_destFilter_sort.setIcon(sortIcon)
-        self.b_destFilter_filtersEnable.setIcon(filtersIcon)
-        self.b_destFilter_combineSeqs.setIcon(sequenceIcon)
+        self.b_dest_sorting_sort.setIcon(sortIcon)
+        self.b_dest_sorting_filtersEnable.setIcon(filtersIcon)
+        self.b_dest_sorting_combineSeqs.setIcon(sequenceIcon)
         self.b_tips_dest.setIcon(tipIcon)
 
         #   Destination Table setup
@@ -402,18 +402,18 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         tip = ("Sorting\n\n"
                "   Click to Open Sort Menu")
-        self.b_sourceFilter_sort.setToolTip(tip)
-        self.b_destFilter_sort.setToolTip(tip)
+        self.b_source_sorting_sort.setToolTip(tip)
+        self.b_dest_sorting_sort.setToolTip(tip)
 
         tip = ("File Filters\n\n"
                "   Click to Enable View Filters\n"
                "   Right-click to Select Filters")
-        self.b_sourceFilter_filtersEnable.setToolTip(tip)
-        self.b_destFilter_filtersEnable.setToolTip(tip)
+        self.b_source_sorting_filtersEnable.setToolTip(tip)
+        self.b_dest_sorting_filtersEnable.setToolTip(tip)
 
         tip = "Group Image Sequences"
-        self.b_sourceFilter_combineSeqs.setToolTip(tip)
-        self.b_destFilter_combineSeqs.setToolTip(tip)
+        self.b_source_sorting_combineSeqs.setToolTip(tip)
+        self.b_dest_sorting_combineSeqs.setToolTip(tip)
 
         tip = "Select (check) all Items in the List"
         self.b_source_checkAll.setToolTip(tip)
@@ -484,20 +484,20 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.lw_destination.customContextMenuRequested.connect(lambda x: self.rclList(x, self.lw_destination))
 
         #   Source Filters
-        self.b_sourceFilter_filtersEnable.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.b_sourceFilter_filtersEnable.customContextMenuRequested.connect(lambda: self.filtersRCL("source"))
+        self.b_source_sorting_filtersEnable.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.b_source_sorting_filtersEnable.customContextMenuRequested.connect(lambda: self.filtersRCL("source"))
         #   Destination Filters
-        self.b_destFilter_filtersEnable.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.b_destFilter_filtersEnable.customContextMenuRequested.connect(lambda: self.filtersRCL("destination"))
+        self.b_dest_sorting_filtersEnable.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.b_dest_sorting_filtersEnable.customContextMenuRequested.connect(lambda: self.filtersRCL("destination"))
 
         #   Source Buttons
         self.b_sourcePathUp.clicked.connect(lambda: self.goUpDir("source"))
         self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
-        self.b_sourceFilter_sort.clicked.connect(lambda: self.showSortMenu("source"))
-        self.b_sourceFilter_filtersEnable.toggled.connect(lambda: self.refreshSourceTable())
-        self.b_sourceFilter_combineSeqs.toggled.connect(self.refreshSourceItems)
+        self.b_source_sorting_sort.clicked.connect(lambda: self.showSortMenu("source"))
+        self.b_source_sorting_filtersEnable.toggled.connect(lambda: self.refreshSourceTable())
+        self.b_source_sorting_combineSeqs.toggled.connect(self.refreshSourceItems)
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
@@ -508,9 +508,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
-        self.b_destFilter_sort.clicked.connect(lambda: self.showSortMenu("destination"))
-        self.b_destFilter_filtersEnable.toggled.connect(lambda: self.refreshDestTable())
-        self.b_destFilter_combineSeqs.toggled.connect(self.refreshDestItems)
+        self.b_dest_sorting_sort.clicked.connect(lambda: self.showSortMenu("destination"))
+        self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable())
+        self.b_dest_sorting_combineSeqs.toggled.connect(self.refreshDestItems)
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
@@ -1160,9 +1160,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 enabled = False
 
             lockItems = [self.sourceFuncts.gb_functions,
-                        self.gb_sourcePath,
+                        self.gb_sourceHeader,
                         self.gb_sourceFooter,
-                        self.gb_destPath,
+                        self.gb_destHeader,
                         self.gb_destFooter]
 
             for item in lockItems:
@@ -1652,10 +1652,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         try:
             #   Get Filter Settings
             if table == "source":
-                filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
+                filterEnabled = self.b_source_sorting_filtersEnable.isChecked()
                 filterStates = self.filterStates_source
             elif table == "destination":
-                filterEnabled = self.b_destFilter_filtersEnable.isChecked()
+                filterEnabled = self.b_dest_sorting_filtersEnable.isChecked()
                 filterStates = self.filterStates_dest
             else:
                 #   Fallback Return Original List
