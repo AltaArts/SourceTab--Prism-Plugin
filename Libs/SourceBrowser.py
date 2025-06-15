@@ -496,7 +496,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
         self.b_source_sorting_sort.clicked.connect(lambda: self.showSortMenu("source"))
-        self.b_source_sorting_filtersEnable.toggled.connect(lambda: self.refreshSourceTable())
+        self.b_source_sorting_filtersEnable.toggled.connect(lambda: self.refreshSourceTable(restoreSelection=True))
         self.b_source_sorting_combineSeqs.toggled.connect(self.refreshSourceItems)
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
@@ -507,9 +507,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
-        self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
+        self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems())
         self.b_dest_sorting_sort.clicked.connect(lambda: self.showSortMenu("destination"))
-        self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable())
+        self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable(restoreSelection=True))
         self.b_dest_sorting_combineSeqs.toggled.connect(self.refreshDestItems)
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
@@ -627,9 +627,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.plugin.saveSettings(key="sortOptions", data=self.sortOptions)
 
             if table == "source":
-                self.refreshSourceTable()
+                self.refreshSourceTable(restoreSelection=True)
             elif table == "destination":
-                self.refreshDestTable()
+                self.refreshDestTable(restoreSelection=True)
 
         b_apply.clicked.connect(applyAndClose)
         layout.addWidget(b_apply, alignment=Qt.AlignRight)
@@ -707,13 +707,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for label, cb in checkboxRefs.items():
                 self.filterStates_source[label] = cb.isChecked()
 
-            self.refreshSourceTable()
+            self.refreshSourceTable(restoreSelection=True)
 
         elif table == "destination":
             for label, cb in checkboxRefs.items():
                 self.filterStates_dest[label] = cb.isChecked()
 
-            self.refreshDestTable()
+            self.refreshDestTable(restoreSelection=True)
 
         menu.close()
 
@@ -773,7 +773,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     self.refreshSourceItems()
                 elif mode == "dest":
                     self.destDir = path
-                    self.refreshDestItems(restoreSelection=True)
+                    self.refreshDestItems()
             else:
                 self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
 
@@ -1297,7 +1297,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.le_destPath.setText(self.destDir)
         
         self.refreshSourceItems()
-        self.refreshDestItems(restoreSelection=True)
+        self.refreshDestItems()
 
         # self.entityChanged()
         self.refreshStatus = "valid"
@@ -1383,7 +1383,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.refreshSourceItems()
             elif mode == "dest":
                 self.destDir = os.path.normpath(selected_path)
-                self.refreshDestItems(restoreSelection=True)
+                self.refreshDestItems()
 
             return selected_path
 
@@ -1520,7 +1520,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             elif mode == "dest":
                 attribute = "destDir"
                 addrBar = self.le_destPath
-                refreshFunc = lambda: self.refreshDestItems(restoreSelection=True)
+                refreshFunc = lambda: self.refreshDestItems()
             else:
                 return
 
@@ -1567,7 +1567,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         elif mode == "dest":
             attribute = "destDir"
-            refreshFunc = lambda: self.refreshDestItems(restoreSelection=True)
+            refreshFunc = self.refreshDestItems
         else:
             return
 
@@ -1816,7 +1816,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     #   Build List of Items in Source Directory
     @err_catcher(name=__name__)
-    def refreshSourceItems(self, restoreSelection=False):
+    def refreshSourceItems(self):
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
@@ -1868,10 +1868,20 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     #   Sort / Filter / Refresh Source Table
     @err_catcher(name=__name__)
-    def refreshSourceTable(self):
+    def refreshSourceTable(self, restoreSelection=False):
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
+            #   Save Selection State if Needed
+            if restoreSelection:
+                self.sourceSelState = {}
+                for row in range(self.lw_source.count()):
+                    item = self.lw_source.item(row)
+                    fileTile = self.lw_source.itemWidget(item)
+                    if fileTile and isinstance(fileTile, TileWidget.SourceFileTile):
+                        key = fileTile.data["uuid"]
+                        self.sourceSelState[key] = fileTile.isChecked()
+
             #   Sort the Table Items
             sourceDataItems_sorted = self.sortTable("source", self.sourceDataItems)
 
@@ -1902,11 +1912,20 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     # "seqFiles": seqFiles
                 })
 
-
                 self.lw_source.addItem(list_item)
                 self.lw_source.setItemWidget(list_item, itemTile)
 
                 row += 1
+
+            #   Restore Checked Status
+            if restoreSelection:
+                for row in range(self.lw_source.count()):
+                    item = self.lw_source.item(row)
+                    fileTile = self.lw_source.itemWidget(item)
+                    if fileTile and isinstance(fileTile, TileWidget.SourceFileTile):
+                        uuid = fileTile.data.get("uuid")
+                        if uuid in self.sourceSelState:
+                            fileTile.setChecked(self.sourceSelState[uuid])
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Refresh Source Table:\n{e}")
@@ -1917,21 +1936,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     #   Build List of Items in Destination Directory
     @err_catcher(name=__name__)
-    def refreshDestItems(self, restoreSelection=False):
+    def refreshDestItems(self):
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
             destDir = getattr(self, "destDir", "")
-
-            #   Save Selection State if Needed
-            if restoreSelection:
-                self.fileItemSelectionState = {}
-                for row in range(self.lw_destination.count()):
-                    item = self.lw_destination.item(row)
-                    fileTile = self.lw_destination.itemWidget(item)
-                    if fileTile:
-                        key = fileTile.data["uuid"]
-                        self.fileItemSelectionState[key] = fileTile.isChecked()
 
             #   Get Dir and Set Short Name
             metrics = QFontMetrics(self.le_destPath.font())
@@ -1971,10 +1980,20 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     #   Sort / Filter / Refresh Destination Table
     @err_catcher(name=__name__)
-    def refreshDestTable(self):
+    def refreshDestTable(self, restoreSelection=False):
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
+            #   Save Selection State if Needed
+            if restoreSelection:
+                self.destSelState = {}
+                for row in range(self.lw_destination.count()):
+                    item = self.lw_destination.item(row)
+                    fileTile = self.lw_destination.itemWidget(item)
+                    if fileTile and isinstance(fileTile, TileWidget.DestFileTile):
+                        key = fileTile.data["uuid"]
+                        self.destSelState[key] = fileTile.isChecked()
+
             #   Sort the Table Items
             destDataItems_sorted = self.sortTable("destination", self.destDataItems)
 
@@ -2004,6 +2023,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.lw_destination.setItemWidget(list_item, itemTile)
 
                 row += 1
+
+            #   Restore Checked Status
+            if restoreSelection:
+                for row in range(self.lw_destination.count()):
+                    item = self.lw_destination.item(row)
+                    fileTile = self.lw_destination.itemWidget(item)
+                    if fileTile and isinstance(fileTile, TileWidget.DestFileTile):
+                        uuid = fileTile.data.get("uuid")
+                        if uuid in self.destSelState:
+                            fileTile.setChecked(self.destSelState[uuid])
 
             #   Refresh Transfer Size UI
             self.refreshTotalTransSize()
@@ -2223,7 +2252,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
         if refresh:
-            self.refreshDestItems(restoreSelection=True)
+            self.refreshDestItems()
 
 
     @err_catcher(name=__name__)
@@ -2244,7 +2273,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     if fileItem.isChecked():
                         self.addToDestList(fileItem.getData())
 
-            self.refreshDestItems(restoreSelection=True)
+            self.refreshDestItems()
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Add Selected Item to Destination List:\n{e}")
