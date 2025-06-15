@@ -447,7 +447,7 @@ class Prism_SourceTab_Functions(object):
 
     @err_catcher(name=__name__)
     def saveSettings(self, key=None, data=None, *args, **kwargs):                       #   TODO - ALSO SAVE TO MAIN PRISM SETTINGS.JSON
-        try:
+        try:                                                                            #   AND COMBINE ALL THE ELIF's
             if key == "tabSettings":
                 tData = {}
 
@@ -462,6 +462,9 @@ class Prism_SourceTab_Functions(object):
                 tData["enable_overwrite"] = functs.chb_overwrite.isChecked()
 
                 self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
+
+            elif key == "sortOptions":
+                self.core.setConfig(cat="sourceTab", param="sortOptions", val=data, config="project")
 
             elif key == "proxySettings":
                 pData = self.sourceBrowser.proxySettings
@@ -539,6 +542,18 @@ class Prism_SourceTab_Functions(object):
                     "enable_fileNaming": False,
                     "enable_metadata": False,
                     "enable_overwrite": False
+                },
+                "sortOptions": {
+                    "source": {
+                        "groupTypes": True,
+                        "ascending": True,
+                        "sortType": "name"
+                    },
+                    "destination": {
+                        "groupTypes": True,
+                        "sortType": "name",
+                        "ascending": True
+                    }
                 },
                 "proxySettings": {
                     "fallback_proxyDir": ".\\proxy",

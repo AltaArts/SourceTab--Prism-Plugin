@@ -93,6 +93,20 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_sourceFilters = QHBoxLayout()
         self.lo_sourceFilters.setObjectName(u"lo_sourceFilters")
+        self.b_sourceFilter_sort = QPushButton(self.w_source)
+        self.b_sourceFilter_sort.setObjectName(u"b_sourceFilter_sort")
+        sizePolicy2.setHeightForWidth(self.b_sourceFilter_sort.sizePolicy().hasHeightForWidth())
+        self.b_sourceFilter_sort.setSizePolicy(sizePolicy2)
+        self.b_sourceFilter_sort.setMinimumSize(QSize(30, 0))
+        self.b_sourceFilter_sort.setMaximumSize(QSize(30, 16777215))
+        self.b_sourceFilter_sort.setCheckable(False)
+
+        self.lo_sourceFilters.addWidget(self.b_sourceFilter_sort)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.lo_sourceFilters.addItem(self.horizontalSpacer_2)
+
         self.b_sourceFilter_filtersEnable = QPushButton(self.w_source)
         self.b_sourceFilter_filtersEnable.setObjectName(u"b_sourceFilter_filtersEnable")
         sizePolicy2.setHeightForWidth(self.b_sourceFilter_filtersEnable.sizePolicy().hasHeightForWidth())
@@ -102,10 +116,6 @@ class Ui_w_sourceBrowser(object):
         self.b_sourceFilter_filtersEnable.setCheckable(True)
 
         self.lo_sourceFilters.addWidget(self.b_sourceFilter_filtersEnable)
-
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-
-        self.lo_sourceFilters.addItem(self.horizontalSpacer_2)
 
         self.b_sourceFilter_combineSeqs = QPushButton(self.w_source)
         self.b_sourceFilter_combineSeqs.setObjectName(u"b_sourceFilter_combineSeqs")
@@ -239,6 +249,20 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_destFilters = QHBoxLayout()
         self.lo_destFilters.setObjectName(u"lo_destFilters")
+        self.b_destFilter_sort = QPushButton(self.w_destination)
+        self.b_destFilter_sort.setObjectName(u"b_destFilter_sort")
+        sizePolicy2.setHeightForWidth(self.b_destFilter_sort.sizePolicy().hasHeightForWidth())
+        self.b_destFilter_sort.setSizePolicy(sizePolicy2)
+        self.b_destFilter_sort.setMinimumSize(QSize(30, 0))
+        self.b_destFilter_sort.setMaximumSize(QSize(30, 16777215))
+        self.b_destFilter_sort.setCheckable(False)
+
+        self.lo_destFilters.addWidget(self.b_destFilter_sort)
+
+        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.lo_destFilters.addItem(self.horizontalSpacer_4)
+
         self.b_destFilter_filtersEnable = QPushButton(self.w_destination)
         self.b_destFilter_filtersEnable.setObjectName(u"b_destFilter_filtersEnable")
         sizePolicy2.setHeightForWidth(self.b_destFilter_filtersEnable.sizePolicy().hasHeightForWidth())
@@ -248,10 +272,6 @@ class Ui_w_sourceBrowser(object):
         self.b_destFilter_filtersEnable.setCheckable(True)
 
         self.lo_destFilters.addWidget(self.b_destFilter_filtersEnable)
-
-        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
-
-        self.lo_destFilters.addItem(self.horizontalSpacer_4)
 
         self.b_destFilter_combineSeqs = QPushButton(self.w_destination)
         self.b_destFilter_combineSeqs.setObjectName(u"b_destFilter_combineSeqs")
@@ -343,6 +363,7 @@ class Ui_w_sourceBrowser(object):
         self.b_sourcePathUp.setText("")
         self.b_browseSource.setText("")
         self.b_refreshSource.setText("")
+        self.b_sourceFilter_sort.setText("")
         self.b_sourceFilter_filtersEnable.setText("")
         self.b_sourceFilter_combineSeqs.setText("")
         self.b_tips_source.setText("")
@@ -353,6 +374,7 @@ class Ui_w_sourceBrowser(object):
         self.b_destPathUp.setText("")
         self.b_browseDest.setText("")
         self.b_refreshDest.setText("")
+        self.b_destFilter_sort.setText("")
         self.b_destFilter_filtersEnable.setText("")
         self.b_destFilter_combineSeqs.setText("")
         self.b_tips_dest.setText("")

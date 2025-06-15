@@ -58,7 +58,7 @@ import shutil
 import uuid
 import hashlib
 from datetime import datetime
-from time import time
+import time
 from functools import partial
 import re
 
@@ -256,33 +256,26 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def setupIcons(self):
-        self.icon_sequence = QIcon(os.path.join(iconDir, "sequence.png"))
-        self.icon_image = QIcon(os.path.join(iconDir, "render_still.png"))
-        self.icon_video = QIcon(os.path.join(iconDir, "camera.png"))
-        self.icon_audio = QIcon(os.path.join(iconDir, "audio.png"))
-        self.icon_folder = QIcon(os.path.join(iconDir, "file_folder.png"))
-        self.icon_file = QIcon(os.path.join(iconDir, "file.png"))
-        self.icon_error = QIcon(os.path.join(iconDir, "error.png"))
+        icon_names = [
+            "sequence", "image", "video", "audio",
+            "folder", "file", "error", "proxy",
+            "date", "disk"
+        ]
 
-        pxyIconPath = os.path.join(iconDir, "pxy_icon.png")
-        self.icon_proxy = self.core.media.getColoredIcon(pxyIconPath)
-
-        dateIconPath = os.path.join(iconDir, "date.png")
-        self.icon_date = self.core.media.getColoredIcon(dateIconPath)
-
-        diskIconPath = os.path.join(iconDir, "disk.png")
-        self.icon_disk = self.core.media.getColoredIcon(diskIconPath)
-
-
+        for name in icon_names:
+            path = os.path.join(iconDir, f"{name}.png")
+            icon = self.core.media.getColoredIcon(path)
+            setattr(self, f"icon_{name}", icon)
 
 
     @err_catcher(name=__name__)
     def loadLayout(self):
         #   Set Icons
         upIcon = self.getIconFromPath(os.path.join(iconDir, "up.png"))
-        dirIcon = self.getIconFromPath(os.path.join(iconDir, "file_folder.png"))
+        dirIcon = self.getIconFromPath(os.path.join(iconDir, "folder.png"))
         refreshIcon = self.getIconFromPath(os.path.join(iconDir, "reset.png"))
         tipIcon = self.getIconFromPath(os.path.join(iconDir, "help.png"))
+        sortIcon = self.getIconFromPath(os.path.join(iconDir, "sort.png"))
         filtersIcon = self.getIconFromPath(os.path.join(iconDir, "filters.png"))
         sequenceIcon = self.getIconFromPath(os.path.join(iconDir, "sequence.png"))
 
@@ -291,13 +284,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_sourcePathUp.setIcon(upIcon)
         self.b_browseSource.setIcon(dirIcon)
         self.b_refreshSource.setIcon(refreshIcon)
-        self.b_refreshDest.setIcon(refreshIcon)
+        self.b_sourceFilter_sort.setIcon(sortIcon)
         self.b_sourceFilter_filtersEnable.setIcon(filtersIcon)
-        self.b_destFilter_filtersEnable.setIcon(filtersIcon)
         self.b_sourceFilter_combineSeqs.setIcon(sequenceIcon)
-        self.b_destFilter_combineSeqs.setIcon(sequenceIcon)
         self.b_tips_source.setIcon(tipIcon)
-        self.b_tips_dest.setIcon(tipIcon)
 
         #   Setup Cheatsheets
         sourceTip = self.getCheatsheet("source", tip=True)
@@ -323,6 +313,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Set Button Icons
         self.b_destPathUp.setIcon(upIcon)
         self.b_browseDest.setIcon(dirIcon)
+        self.b_refreshDest.setIcon(refreshIcon)
+        self.b_destFilter_sort.setIcon(sortIcon)
+        self.b_destFilter_filtersEnable.setIcon(filtersIcon)
+        self.b_destFilter_combineSeqs.setIcon(sequenceIcon)
+        self.b_tips_dest.setIcon(tipIcon)
 
         #   Destination Table setup
         self.lw_destination.setObjectName("destTable")
@@ -405,14 +400,20 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_refreshSource.setToolTip("Reload Source List")
         self.b_refreshDest.setToolTip("Reload Destination List")
 
+        tip = ("Sorting\n\n"
+               "   Click to Open Sort Menu")
+        self.b_sourceFilter_sort.setToolTip(tip)
+        self.b_destFilter_sort.setToolTip(tip)
+
+        tip = ("File Filters\n\n"
+               "   Click to Enable View Filters\n"
+               "   Right-click to Select Filters")
+        self.b_sourceFilter_filtersEnable.setToolTip(tip)
+        self.b_destFilter_filtersEnable.setToolTip(tip)
+
         tip = "Group Image Sequences"
         self.b_sourceFilter_combineSeqs.setToolTip(tip)
         self.b_destFilter_combineSeqs.setToolTip(tip)
-
-        tip = ("Click to Enable View Filters\n\n"
-               "Right-click to Select Filters")
-        self.b_sourceFilter_filtersEnable.setToolTip(tip)
-        self.b_destFilter_filtersEnable.setToolTip(tip)
 
         tip = "Select (check) all Items in the List"
         self.b_source_checkAll.setToolTip(tip)
@@ -494,7 +495,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.le_sourcePath.returnPressed.connect(lambda: self.onPasteAddress("source"))
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
-        self.b_sourceFilter_filtersEnable.toggled.connect(lambda: self.sortTable("source"))
+        self.b_sourceFilter_sort.clicked.connect(lambda: self.showSortMenu("source"))
+        self.b_sourceFilter_filtersEnable.toggled.connect(lambda: self.refreshSourceTable())
         self.b_sourceFilter_combineSeqs.toggled.connect(self.refreshSourceItems)
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
@@ -506,6 +508,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
         self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems(restoreSelection=True))
+        self.b_destFilter_sort.clicked.connect(lambda: self.showSortMenu("destination"))
         self.b_destFilter_filtersEnable.toggled.connect(lambda: self.sortTable("destination"))
         self.b_destFilter_combineSeqs.toggled.connect(self.refreshDestItems)
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
@@ -528,6 +531,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.sourceFuncts.b_transfer_reset.clicked.connect(self.resetTransfer)
 
 
+####    MENUS   ####
+
     #   Right Click List for Source / Destination Tables (not on an item)
     @err_catcher(name=__name__)
     def rclList(self, pos, lw):
@@ -547,28 +552,98 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             clearAct.triggered.connect(self.clearTransferList)
             rcmenu.addAction(clearAct)
 
-
-        # act_refresh = QAction("Refresh", self)
-        # iconPath = os.path.join(
-        #     self.core.prismRoot, "Scripts", "UserInterfacesPrism", "refresh.png"
-        # )
-        # icon = self.core.media.getColoredIcon(iconPath)
-        # act_refresh.setIcon(icon)
-        # act_refresh.triggered.connect(lambda: refresh(restoreSelection=True))
-        # rcmenu.addAction(act_refresh)
-        # if os.path.exists(path):
-        #     opAct = QAction("Open in Explorer", self)
-        #     opAct.triggered.connect(lambda: self.core.openFolder(path))
-        #     rcmenu.addAction(opAct)
-        # self.core.callback(
-        #     name="openPBListContextMenu",
-        #     args=[self, rcmenu, lw, item, path],
-        # )
-
         if rcmenu.isEmpty():
             return False
 
         rcmenu.exec_(cpos)
+
+
+    #   Item Sorting Menu
+    @err_catcher(name=__name__)
+    def showSortMenu(self, table):
+        cpos = QCursor.pos()
+        sortMenu = QMenu(self)
+
+        opts = self.sortOptions.get(table, {
+            "groupTypes": True,
+            "sortType": "name",
+            "ascending": True
+        })
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(10, 10, 10, 10)
+
+        #   Group Types Checkbox
+        cb_groupTypes = QCheckBox("Group Types")
+        cb_groupTypes.setChecked(opts.get("groupTypes", True))
+        cb_groupTypes.setToolTip("Sort File Items ")
+        layout.addWidget(cb_groupTypes)
+
+        #   Separator
+        layout.addWidget(QGroupBox())
+
+        #   Sort Type Radio Buttons
+        sortTypeGroup = QButtonGroup(sortMenu)
+        sortTypes = ["Name", "Date", "Size"]
+        radioButtons = {}
+        for label in sortTypes:
+            rb = QRadioButton(label)
+            if label.lower() == opts.get("sortType", "name").lower():
+                rb.setChecked(True)
+            sortTypeGroup.addButton(rb)
+            radioButtons[label.lower()] = rb
+            layout.addWidget(rb)
+
+        #   Separator
+        layout.addWidget(QGroupBox())
+
+        #   Ascending/Descending
+        sortDirGroup = QButtonGroup(sortMenu)
+        rb_asc = QRadioButton("Ascending")
+        rb_desc = QRadioButton("Descending")
+        rb_asc.setChecked(opts.get("ascending", True))
+        rb_desc.setChecked(not opts.get("ascending", True))
+        sortDirGroup.addButton(rb_asc)
+        sortDirGroup.addButton(rb_desc)
+        layout.addWidget(rb_asc)
+        layout.addWidget(rb_desc)
+
+        #   Separator
+        layout.addWidget(QGroupBox())
+
+        #   Apply Button
+        b_apply = QPushButton("Apply")
+        b_apply.setFixedWidth(80)
+        b_apply.setStyleSheet("font-weight: bold;")
+
+        def applyAndClose():
+            self.sortOptions[table] = {
+                "groupTypes": cb_groupTypes.isChecked(),
+                "ascending": rb_asc.isChecked(),
+                "sortType": self._getSelectedSortType(radioButtons)
+            }
+            sortMenu.close()
+            self.plugin.saveSettings(key="sortOptions", data=self.sortOptions)
+            self.refreshSourceTable()
+
+        b_apply.clicked.connect(applyAndClose)
+        layout.addWidget(b_apply, alignment=Qt.AlignRight)
+
+        wrapperAction = QWidgetAction(self)
+        wrapperAction.setDefaultWidget(container)
+        sortMenu.addAction(wrapperAction)
+
+        sortMenu.exec_(cpos)
+
+    #   Helper for Sort Menu
+    @err_catcher(name=__name__)
+    def _getSelectedSortType(self, radioButtons):
+        for key, rb in radioButtons.items():
+            if rb.isChecked():
+                return key
+        return "type"  # Fallback
+
 
 
 
@@ -585,21 +660,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return action
     
 
-        # Temporary state dictionary
+        #   Temporary State Dictionary
         if table == "source":
             tempStates = self.filterStates_source.copy()
         elif table == "destination":
             tempStates = self.filterStates_dest.copy()
         checkboxRefs = {}
 
-        # Add checkboxes
+        #   Checkboxes
         for label, checked in tempStates.items():
             cb = QCheckBox(label)
             cb.setChecked(checked)
             checkboxRefs[label] = cb
             rcmenu.addAction(_wrapWidget(cb))
 
-        # Add vertical space before Apply button
+        #   Vert Dummy Spacer
         spacer = QLabel(" ")
         rcmenu.addAction(_wrapWidget(spacer))
 
@@ -609,12 +684,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         elif table == "destination":
             pass
 
-        #   Add Apply Button to bottom
-        applyBtn = QPushButton("Apply")
-        applyBtn.setFixedWidth(80)
-        applyBtn.setStyleSheet("font-weight: bold;")
-        applyBtn.clicked.connect(lambda: self.applyFilterStates(checkboxRefs, rcmenu, table))
-        rcmenu.addAction(_wrapWidget(applyBtn))
+        #   Apply Button
+        b_apply = QPushButton("Apply")
+        b_apply.setFixedWidth(80)
+        b_apply.setStyleSheet("font-weight: bold;")
+        b_apply.clicked.connect(lambda: self._applyFilterStates(checkboxRefs, rcmenu, table))
+        rcmenu.addAction(_wrapWidget(b_apply))
 
         if rcmenu.isEmpty():
             return False
@@ -622,21 +697,24 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         rcmenu.exec_(cpos)
 
 
-    def applyFilterStates(self, checkboxRefs, menu, table):
+    #   Helper for filtersRCL()
+    def _applyFilterStates(self, checkboxRefs, menu, table):
         if table == "source":
             for label, cb in checkboxRefs.items():
                 self.filterStates_source[label] = cb.isChecked()
 
-            self.sortTable("source")
+            self.refreshSourceTable()
 
         elif table == "destination":
             for label, cb in checkboxRefs.items():
                 self.filterStates_dest[label] = cb.isChecked()
 
-            self.sortTable("destination")
+            # self.sortTable("destination")
 
         menu.close()
 
+
+####    MOUSE ACTIONS   ####
 
     #   Checks if Dragged Object has a Path
     @err_catcher(name=__name__)
@@ -713,8 +791,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         else:
             e.ignore()
-
-
 
 
     @err_catcher(name=__name__)
@@ -817,10 +893,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Get Tab (UI) Settings
             tabData = sData["tabSettings"]
 
-            # #   File Filters                                          #   TODO - Do we want this saved?
-            # self.filterStates_source = tabData["filterStates_source"]
-            # self.filterStates_dest = tabData["filterStates_dest"]
-
+            #   Sorting Options
+            self.sortOptions = sData["sortOptions"]
 
             #   Media Player Enabled Checkbox
             playerEnabled = tabData["playerEnabled"]
@@ -1715,33 +1789,37 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     #   Show/Hide FileTiles Based on Table Filters
     @err_catcher(name=__name__)
-    def applyTableFilters(self, table):
-        #   Set Objects
-        if table == "source":
-            filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
-            tableObject = self.lw_source
-            filterStates = self.filterStates_source
-
-        elif table == "destination":
-            filterEnabled = self.b_destFilter_filtersEnable.isChecked()
-            tableObject = self.lw_destination
-            filterStates = self.filterStates_dest
-
+    def applyTableFilters(self, table, sortedList):
         try:
-            for i in range(tableObject.count()):
-                #   Get Data
-                item = tableObject.item(i)
-                data = item.data(Qt.UserRole) or {}
+            # Get filter settings
+            if table == "source":
+                filterEnabled = self.b_sourceFilter_filtersEnable.isChecked()
+                filterStates = self.filterStates_source
+            elif table == "destination":
+                filterEnabled = self.b_destFilter_filtersEnable.isChecked()
+                filterStates = self.filterStates_dest
+            else:
+                return sortedList  # fallback
 
-                #   Get FileType
+            # If filters aren't enabled, skip filtering
+            if not filterEnabled:
+                return sortedList
+
+            # Apply filtering: remove items not matching the active filters
+            filteredList = []
+            for item in sortedList:
+                data = item.get("data", {})
                 fileType = data.get("fileType", "Other").capitalize()
+                if filterStates.get(fileType, True):
+                    filteredList.append(item)
 
-                #   Toggle if Enabled and Filters
-                shouldHide = filterEnabled and not filterStates.get(fileType, True)
-                item.setHidden(shouldHide)
+            return filteredList
 
         except Exception as e:
-            logger.warning(f"ERROR:  Unable to Apply '{table}' Table Filters:\n{e}")
+            logger.warning(f"ERROR: Unable to Apply '{table}' Table Filters:\n{e}")
+
+            return sortedList
+
 
 
 
@@ -1810,12 +1888,76 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     #   Update Table using Filters and Sorting
     @err_catcher(name=__name__)
-    def sortTable(self, table):
+    def sortTable(self, table, origList):
 
-        self.applyTableFilters(table)
+        origList_copy = origList.copy()
 
-        # sortType = "type"                           #   TEMP TESTING HARDCODED
-        # self.applySorting(table, sortType)
+        sortedList = self.applySorting(table, origList_copy)
+
+        sortedList = self.applyTableFilters(table, sortedList)
+
+        return sortedList
+    
+
+
+    @err_catcher(name=__name__)
+    def applySorting(self, table, origList):
+        opts = self.sortOptions.get(table, {})
+        sortType = opts.get("sortType", "name")
+        ascending = opts.get("ascending", True)
+        groupTypes = opts.get("groupTypes", True)
+
+        # Folder/File separation
+        folderList = [item for item in origList if item["data"].get("tileType") == "folder"]
+        fileList = [item for item in origList if item["data"].get("tileType") != "folder"]
+
+        # Sort folders alphabetically
+        sortedFolders = sorted(folderList, key=lambda x: x["data"].get("displayName", "").lower())
+
+        typePriority = {
+            "Videos": 0,
+            "Image Sequence": 1,
+            "Images": 2,
+            "Audio": 3,
+            "Other": 4
+        }
+
+        # Determine if sorting should be reversed
+        reverse = not ascending
+
+        # Build sort key
+        def get_sort_key(item):
+            data = item["data"]
+            match sortType:
+                case "name":
+                    return data.get("displayName", "").lower()
+                case "size":
+                    return data.get("source_mainFile_size_raw", 0)
+                case "date":
+                    return data.get("source_mainFile_date_raw", 0)
+                case _:
+                    return data.get("displayName", "").lower()
+
+        if not groupTypes:
+            # Flat sort
+            sortedFiles = sorted(fileList, key=get_sort_key, reverse=reverse)
+        else:
+            # Grouped sort
+            grouped = {}
+            for item in fileList:
+                ftype = item["data"].get("fileType", "Other")
+                grouped.setdefault(ftype, []).append(item)
+
+            # Sort groups by typePriority, then sort each group
+            sortedFiles = []
+            for ftype in sorted(grouped.keys(), key=lambda t: typePriority.get(t, 99)):
+                groupItems = sorted(grouped[ftype], key=get_sort_key, reverse=reverse)
+                sortedFiles.extend(groupItems)
+
+        return sortedFolders + sortedFiles
+
+
+
 
 
 
@@ -1847,98 +1989,28 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             # Get all Items from the Source Dir
             allFileItems = os.listdir(self.sourceDir)
 
-            # Get folders and sequences
-            if self.b_sourceFilter_combineSeqs.isChecked():
+            filesToShow = []
+            for file in allFileItems:
+                fullPath = os.path.join(self.sourceDir, file)
+                fileType = self.getFileType(fullPath)
 
-                # Separate image files from others
-                imageFiles = []
-                filesToShow = []
-
-                for f in allFileItems:
-                    fullPath = os.path.join(self.sourceDir, f)
-                    fileType = self.getFileType(fullPath)
-
-                    if fileType == "Images":
-                        imageFiles.append(f)
-                    else:
-                        filesToShow.append((f, False, [f], fileType))  # Non-image file wrapped in tuple
+                filesToShow.append((file, self.sourceDir, fullPath, fileType))
 
 
-                sequences = self.groupSequences(imageFiles)
+            self.sourceDataItems = []
 
-                # print(f"\n\n***** Sequences:")                                              #    TESTING
-                # for seq in sequences:
-                #     print(f"{seq}")                                              #    TESTING
-
-
-                for displayName, isSequence, seqFiles in sequences:
-                    fileType = "Images"
-                    filesToShow.append((displayName, isSequence, seqFiles, fileType))
-
-
-
-            else:
-                filesToShow = []
-                for f in allFileItems:
-                    fullPath = os.path.join(self.sourceDir, f)
-                    fileType = self.getFileType(fullPath)
-                    filesToShow.append((f, False, [f], fileType))
-
-            # Sort before adding
-            type_order = {
-                "Folders": 0,
-                "Videos": 1,
-                "Images": 2,
-                "Audio": 3,
-                "Other": 4,
-            }
-
-            def sort_key(fileTuple):
-                displayName, _, _, fileType = fileTuple
-                return (type_order.get(fileType, 99), displayName.lower())
-
-            filesToShow.sort(key=sort_key)
-
-            # print(f"\n\n***** filesToShow:")                                              #    TESTING
-            # for file in filesToShow:
-            #     print(f"{file}")                                              #    TESTING
-
-            # Reset Table
-            self.lw_source.clear()
-
-            row = 0
             for fileItem in filesToShow:
-                displayName, isSequence, seqFiles, fileType = fileItem
-                # fullPath = os.path.join(self.sourceDir, name)
+                file, sourceDir, fullPath, fileType = fileItem
 
-                if fileType == "Folders":
-                    itemWidget = self.createFolderTile(os.path.join(self.sourceDir, displayName))
-                    rowHeight = SOURCE_DIR_HEIGHT
-                else:
-                    # You can now pass sequence info
-                    itemWidget = self.createSourceFileTile(fileType, self.sourceDir, displayName, isSequence, seqFiles)
-                    rowHeight = SOURCE_ITEM_HEIGHT
+                self.createSourceTile(fileItem)
 
-                list_item = QListWidgetItem()
-                list_item.setSizeHint(QSize(0, rowHeight))
-                list_item.setData(Qt.UserRole, {
-                    "displayName": displayName,
-                    "fileType": fileType,
-                    "isSequence": isSequence,
-                    "seqFiles": seqFiles
-                })
 
-                self.lw_source.addItem(list_item)
-                self.lw_source.setItemWidget(list_item, itemWidget)
 
-                row += 1
+            self.refreshSourceTable()
 
-            #   Sort the Table Items
-            self.sortTable("source")
 
             QTimer.singleShot(50, lambda: self.lw_destination.verticalScrollBar().setValue(scrollPos))
 
-            logger.debug("Refreshed Source Items")
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")
@@ -1946,6 +2018,53 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         finally:
             WaitPopup.closePopup()
 
+
+
+    @err_catcher(name=__name__)
+    def refreshSourceTable(self):
+        WaitPopup.showPopup(parent=self.projectBrowser)
+
+        try:
+            #   Sort the Table Items
+            sourceDataItems_sorted = self.sortTable("source", self.sourceDataItems)
+
+
+            # Reset Table
+            self.lw_source.clear()
+            row = 0
+
+            for dataItem in sourceDataItems_sorted:
+                fileItem = dataItem["tile"]
+                fileType = dataItem["tileType"]
+                data = dataItem["data"]
+
+                if fileType == "folder":
+                    itemTile = TileWidget.FolderItem(self, data)
+                    rowHeight = SOURCE_DIR_HEIGHT
+                else:
+                    itemTile = TileWidget.SourceFileTile(fileItem)
+                    rowHeight = SOURCE_ITEM_HEIGHT
+
+                list_item = QListWidgetItem()
+                list_item.setSizeHint(QSize(0, rowHeight))
+                list_item.setData(Qt.UserRole, {
+                    # "displayName": displayName,
+                    "fileType": fileType
+                    # "isSequence": isSequence,
+                    # "seqFiles": seqFiles
+                })
+
+
+                self.lw_source.addItem(list_item)
+                self.lw_source.setItemWidget(list_item, itemTile)
+
+                row += 1
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Refresh Source Table:\n{e}")
+
+        finally:
+            WaitPopup.closePopup()
 
 
 
@@ -1956,7 +2075,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         # try:
 
         # Show Wait Popup
-        WaitPopup.showPopup(parent=self.projectBrowser)
+        # WaitPopup.showPopup(parent=self.projectBrowser)
 
         destDir = getattr(self, "destDir", "")
 
@@ -2013,7 +2132,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     fileItem.setChecked(self.fileItemSelectionState[key], refresh=False)
 
         # Apply sorting/filtering
-        self.sortTable("destination")
+        # self.sortTable("destination")
 
         # Restore scroll position
         QTimer.singleShot(50, lambda: self.lw_destination.verticalScrollBar().setValue(scrollPos))
@@ -2108,40 +2227,63 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)
-    def createSourceFileTile(self, fileType, sourceDir, displayName, isSequence, seqFiles):
-        try:
-            #   Create Data
-            data = {}
-            data["tileType"] = "file"
-            data["fileType"] = fileType
-            data["source_displayName"] = displayName
-            data["source_mainFile_path"] = os.path.join(sourceDir, seqFiles[0])
-            data["isSequence"] = isSequence
-            data["seqFiles"] = seqFiles
-            data["uuid"] = self.createUUID()
+    def createSourceTile(self, fileItem):
+        file, sourceDir, fullPath, fileType = fileItem
+
+        # try:
+
+        tileType = "folder" if fileType == "Folders" else "file"
+        #   Create Data
+        data = {}
+        data["displayName"] = file
+        data["tileType"] = tileType
+        data["fileType"] = fileType
+        data["uuid"] = self.createUUID()
+
+
+        if fileType == "Folders":
+            data["dirPath"] = fullPath
+
+            itemWidget = TileWidget.FolderItem(self, data)
+
+            fData = itemWidget.getData()
+
+        else:
+            data["source_mainFile_path"] = fullPath
 
             # Create the custom widget
-            fileItem = TileWidget.SourceFileItem(self, data, parent=self.lw_source.viewport())
-            
-            fileItem.generateData()
+            itemWidget = TileWidget.SourceFileItem(self, data)
 
-            iData = fileItem.getData()
-            print(f"iData:  {iData}")							#	TESTING
+            fData = itemWidget.getData()
 
-            fileItem.createTile()
 
-            logger.debug(f"Created Source FileTile for: {displayName}")
-            return fileItem
+        self.sourceDataItems.append({"tile": itemWidget, "tileType": tileType, "data": fData})
+
+        # fileItem.createTile()
+
+
+        # logger.debug(f"Created Source FileTile for: {displayName}")
+
+
+        # return fileItem
+    
         
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Create Source FileTile for:\n{displayName}\n\n{e}")
+        # except Exception as e:
+        #     logger.warning(f"ERROR:  Failed to Create Source FileTile for:\n{displayName}\n\n{e}")
+
+
+
+
+
+
+
 
 
     @err_catcher(name=__name__)
     def createDestFileTile(self, data):
         try:
             # Create the custom widget
-            fileItem = TileWidget.DestFileItem(self, data, parent=self.lw_source.viewport())
+            fileItem = TileWidget.DestFileItem(self, data)
 
             logger.debug("Created Destination FileTile")
             return fileItem
@@ -2149,23 +2291,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Create Destination FileTile:\n{e}")
     
-
-    @err_catcher(name=__name__)
-    def createFolderTile(self, dirPath):
-        try:
-            data = {}
-            data["tileType"] = "folder"
-            data["dirPath"] = dirPath
-            data["uuid"] = self.createUUID()
-
-            # Create the custom widget
-            folderItem = TileWidget.FolderItem(self, data, parent=self.lw_source.viewport())
-
-            logger.debug("Created FolderTile")
-            return folderItem
-        
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Create FolderTile:\n{e}")
 
 
     #   Opens clicked Folder and refreshes
@@ -2221,33 +2346,31 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def addToDestList(self, data, refresh=False):
 
-        print(f"*** data:  {data}")                                              #    TESTING
-
-
         #   Do Not Add if Already in the Destination List
         if self.isDuplicate(data):
             return
         
         #   If Not a Image Sequence, just Add File
-        if not data["isSequence"]:
-            self.transferList.append(data)
+        # if not data["isSequence"]:
+
+        self.transferList.append(data)
 
         #   If Image Sequence
-        else:
-            sourceDir = os.path.dirname(data["source_mainFile_path"])
+        # else:
+        #     sourceDir = os.path.dirname(data["source_mainFile_path"])
 
-            for image in data["seqFiles"]:
-                print(f"*** image:  {image}")                                              #    TESTING
+        #     for image in data["seqFiles"]:
+        #         print(f"*** image:  {image}")                                              #    TESTING
 
                 
 
-                iData = data.copy()
-                iData["source_displayName"] = image
-                iData["isSequence"] = False
-                iData["seqFiles"] = [image]
-                iData["source_mainFile_path"] = os.path.join(sourceDir, image)
+        #         iData = data.copy()
+        #         iData["source_displayName"] = image
+        #         iData["isSequence"] = False
+        #         iData["seqFiles"] = [image]
+        #         iData["source_mainFile_path"] = os.path.join(sourceDir, image)
 
-                self.transferList.append(iData)
+        #         self.transferList.append(iData)
 
 
 

@@ -145,6 +145,11 @@ class BaseTileItem(QWidget):
     signalSelect = Signal(object)
     signalReleased = Signal(object)
 
+    thumbnailReady = Signal(object)
+    durationReady = Signal(object)
+    hashReady = Signal(object)
+
+
     #   Properties from the SourceTab Config Settings
     @property
     def thumb_semaphore(self):
@@ -173,6 +178,7 @@ class BaseTileItem(QWidget):
         super(BaseTileItem, self).__init__(parent)
         self.core = browser.core
         self.browser = browser
+        # self.data = data
 
         self.state = "deselected"
 
@@ -540,10 +546,10 @@ class BaseTileItem(QWidget):
 
     #   Gets the Number of Frames of the File(s) to Transfer
     @err_catcher(name=__name__)
-    def setDuration(self, filePath, callback=None):
+    def calcDuration(self, filePath, callback=None):
         if getattr(self, "isSequence", False):
             duration = len(self.data["seqFiles"])
-            self.onMainfileDurationReady(duration)
+            self.onMainfileDurationReady(duration)                      #   TODO - Get CALLBACK WORKING BETTER
         else:
             #   Create Worker Instance
             worker_frames = FileDurationWorker(self, self.core, filePath)
@@ -551,6 +557,7 @@ class BaseTileItem(QWidget):
             worker_frames.finished.connect(callback)
             #   Launch Worker in DataOps Treadpool
             self.dataOps_threadpool.start(worker_frames)
+
 
 
      #   Returns the Filepath
@@ -580,10 +587,10 @@ class BaseTileItem(QWidget):
 
         match fileType:
             case "Images":
-                if self.data["isSequence"]:
-                    iconPath =  self.browser.icon_sequence
-                else:
-                    iconPath =  self.browser.icon_image
+                # if self.data["isSequence"]:
+                #     iconPath =  self.browser.icon_sequence
+                # else:
+                iconPath =  self.browser.icon_image
             case "Videos":        
                 iconPath =  self.browser.icon_video
             case "Audio":
@@ -600,11 +607,11 @@ class BaseTileItem(QWidget):
 
     #   Gets and Sets Thumbnail Using Thread
     @err_catcher(name=__name__)
-    def refreshPreview(self):
+    def getThumbnail(self):
         try:
-            if hasattr(self.data, "thumbnail"):
-                self.setThumbnail(self.data["thumbnail"])
-                return
+            # if hasattr(self.data, "thumbnail"):
+            #     self.onThumbComplete(self.data["thumbnail"])
+            #     return
 
             filePath = self.getSource_mainfilePath()
 
@@ -612,16 +619,14 @@ class BaseTileItem(QWidget):
             worker_thumb = ThumbnailWorker(
                 self,
                 filePath=filePath,
-                getPixmapFromPath=self.core.media.getPixmapFromPath,
-                supportedFormats=self.core.media.supportedFormats,
+                mediaLib = self.core.media,
                 width=self.itemPreviewWidth,
                 height=self.itemPreviewHeight,
                 getThumbnailPath=self.getThumbnailPath,
-                scalePixmapFunc=self.core.media.scalePixmap
             )
 
             worker_thumb.setAutoDelete(True)
-            worker_thumb.result.connect(self.setThumbnail)
+            worker_thumb.result.connect(self.onThumbComplete)
             self.thumb_threadpool.start(worker_thumb)
 
             logger.debug("Refreshing Thumbnail")
@@ -632,16 +637,26 @@ class BaseTileItem(QWidget):
 
     #   Adds Thumbnail to FileTile Label
     @err_catcher(name=__name__)
-    def setThumbnail(self, scaledPixmap):
-        try:
-            self.l_preview.setAlignment(Qt.AlignCenter)
-            self.l_preview.setPixmap(scaledPixmap)
-            self.data["thumbnail"] = scaledPixmap
+    def onThumbComplete(self, scaledPixmap):
+        self.data["thumbnail"] = scaledPixmap
 
-            logger.debug("Thumbnail Added to FileTile")
-        
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Add Thumbnail to FileTile:\n{e}")
+        self.thumbnailReady.emit(scaledPixmap)
+
+
+
+    @err_catcher(name=__name__)
+    def setThumbnail(self, pixmap):
+        if hasattr(self, "l_preview"):
+            self.l_preview.setAlignment(Qt.AlignCenter)
+            self.l_preview.setPixmap(pixmap)
+            
+
+
+    #   Populates Hash when ready from Thread
+    @err_catcher(name=__name__)
+    def setDuration(self):
+        duration = self.data["source_mainFile_duration"]
+        self.l_frames.setText(str(duration))
 
 
     #   Returns File's Extension
@@ -678,10 +693,10 @@ class BaseTileItem(QWidget):
     def setIcon(self, icon):
         try:
             #   Tooltip
-            if self.isSequence:
-                fileType = "Image Sequence"
-            else:
-                fileType = self.fileType
+            # if self.isSequence:
+            #     fileType = "Image Sequence"
+            # else:
+            fileType = self.fileType
             self.l_icon.setToolTip(f"FileType:  {fileType}")
 
             #   Sets Icon
@@ -807,20 +822,98 @@ class BaseTileItem(QWidget):
 
 
 
+##   FOLDER TILES (Inherits from BaseTileItem)  ##
+class FolderItem(BaseTileItem):
+    def __init__(self, browser, data, parent=None):
+        super(FolderItem, self).__init__(browser, data, parent)
+        self.tileType = "folderTile"
+
+        self.data = data
+
+        self.setupUi()
+        self.refreshUi()
+
+
+    def mouseReleaseEvent(self, event):
+        super(FolderItem, self).mouseReleaseEvent(event)
+        self.signalReleased.emit(self)
+        event.accept()
+
+
+    @err_catcher(name=__name__)
+    def setupUi(self):
+        self.setObjectName("FolderTile")
+        self.applyStyle(self.state)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+
+        # Main horizontal layout
+        self.lo_main = QHBoxLayout()
+        self.setLayout(self.lo_main)
+        self.lo_main.setSpacing(5)
+        self.lo_main.setContentsMargins(0, 0, 0, 0)
+
+        #   Icon Label
+        self.l_icon = QLabel()
+        #   Directory Name Label
+        self.l_fileName = QLabel()
+
+        self.lo_main.addWidget(self.l_icon)
+        self.lo_main.addWidget(self.l_fileName)
+
+        self.lo_main.addStretch()
+        self.lo_main.addStretch(1000)
+
+        #   Tooltips
+        dirPath = os.path.normpath(self.data["dirPath"])
+        self.l_icon.setToolTip(dirPath)
+        self.l_fileName.setToolTip(dirPath)
+
+        # Set up context menu
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.rightClicked)
+
+
+    @err_catcher(name=__name__)
+    def refreshUi(self):
+        # Set the icon and folder name
+        dir_path = self.data["dirPath"]
+        dir_icon = self.getIconByType(dir_path)
+
+        # Set the icon on the left side
+        self.l_icon.setPixmap(dir_icon.pixmap(32, 32))
+
+        # Set the folder name (extract folder name from the path)
+        folder_name = os.path.basename(dir_path)
+        self.l_fileName.setText(folder_name)
+
+
+    @err_catcher(name=__name__)
+    def mouseDoubleClickEvent(self, event):
+        self.browser.doubleClickFolder(self.data["dirPath"], mode="source")
+
+
+    @err_catcher(name=__name__)
+    def rightClicked(self, pos):
+        pass
+
+
+
 ##   FILE TILES ON THE SOURCE SIDE (Inherits from BaseTileItem)     ##
 class SourceFileItem(BaseTileItem):
     def __init__(self, browser, data, parent=None):
         super(SourceFileItem, self).__init__(browser, data, parent)
         self.tileType = "sourceTile"
         self.fileType = data["fileType"]
-        self.isSequence = data["isSequence"]
+        # self.isSequence = data["isSequence"]
 
         self.data = data
         self.data["source_mainFile_duration"] = None
         self.data["source_mainFile_hash"] = None
         self.data["hasProxy"] = False
 
-        logger.debug("Loaded Source FileTile")
+        self.generateData()
+
+        logger.debug("Loaded Source FileTile")                          #   TODO - LOGGIN FOR SEPARATE CLASSES
 
 
     def generateData(self):
@@ -833,195 +926,26 @@ class SourceFileItem(BaseTileItem):
 
         #   Date
         date_data = self.getFileDate(filePath)
+        self.data["source_mainFile_date_raw"] = date_data
         date_str = self.core.getFormattedDate(date_data)
         self.data["source_mainFile_date"] = date_str
 
         #   Size
         mainSize_data = self.getFileSize(filePath)
+        self.data["source_mainFile_size_raw"] = mainSize_data
         mainSize_str = self.getFileSizeStr(mainSize_data)
         self.data["source_mainFile_size"] = mainSize_str
 
         #   Duration
         if self.fileType in ["Videos", "Images", "Image Sequence"]:
-            self.setDuration(filePath, self.onMainfileDurationReady)
+            self.calcDuration(filePath, self.onMainfileDurationReady)
 
         #   Main File Hash
         self.setFileHash(filePath, self.onMainfileHashReady)
         
 
-        self.refreshPreview()
+        self.getThumbnail()
         self.setProxyFile()
-
-
-    def createTile(self):
-        self.setupUi()
-        self.refreshUi()
-
-
-
-    def mouseReleaseEvent(self, event):
-        super(SourceFileItem, self).mouseReleaseEvent(event)
-        self.signalReleased.emit(self)
-        event.accept()
-
-
-    @err_catcher(name=__name__)
-    def setupUi(self):
-        self.setObjectName("FileTile")
-        self.applyStyle("deselected")
-        self.setAttribute(Qt.WA_StyledBackground, True)
-
-        self.lo_main = QHBoxLayout()
-        self.setLayout(self.lo_main)
-        self.lo_main.setSpacing(5)
-        self.lo_main.setContentsMargins(0, 0, 0, 0)
-
-        #   Thumbnail Container (Holds the thumbnail & proxy icon)
-        self.thumbContainer = QWidget(self)
-        self.thumbContainer.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
-
-        #   Stacked Layout (For Overlaying Elements)
-        self.lo_preview = QStackedLayout(self.thumbContainer)
-        self.lo_preview.setStackingMode(QStackedLayout.StackAll)
-
-        #   Thumbnail Label (Main Image)
-        self.l_preview = QLabel(self.thumbContainer)
-        self.l_preview.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
-        self.lo_preview.addWidget(self.l_preview)
-
-        #   Proxy Icon Label
-        self.l_pxyIcon = QLabel(self.thumbContainer)
-        self.l_pxyIcon.setPixmap(self.browser.icon_proxy.pixmap(40, 40))
-        self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
-
-        #   Position Proxy Icon in Bottom-Left Corner
-        pxy_x = 3
-        pxy_y = self.itemPreviewHeight - self.l_pxyIcon.height()
-        self.l_pxyIcon.move(pxy_x, pxy_y)
-        self.l_pxyIcon.hide()
-
-        ##  Create Details Layout
-        self.lo_details = QVBoxLayout()
-
-        ##   Create Top Layout
-        self.lo_top = QHBoxLayout()
-
-        #   Selected CheckBox
-        self.chb_selected = QCheckBox()
-        self.chb_selected.toggled.connect(self.setSelected)
-        #   Filename Label
-        self.l_fileName = QLabel()
-
-        #   Add Items to Top Layout
-        self.lo_top.addWidget(self.chb_selected)
-        self.lo_top.addWidget(self.l_fileName)
-        self.lo_top.addStretch()
-
-        #   Create Bottom Layout
-        self.lo_bottom = QHBoxLayout()
-
-        #   File Type Icon
-        self.l_icon = QLabel()
-
-        #   Frames Label
-        self.l_frames = QLabel("")
-
-        #   Create Date Layout
-        self.lo_date = QHBoxLayout()
-        #   Date Icon
-
-        self.l_dateIcon = QLabel()
-        self.l_dateIcon.setPixmap(self.browser.icon_date.pixmap(15, 15))
-        #   Date Label
-        self.l_date = QLabel()
-        self.l_date.setAlignment(Qt.AlignRight)
-
-        #   Add Date Items to Date LAyout
-        self.lo_date.addWidget(self.l_dateIcon, alignment=Qt.AlignVCenter)
-        self.lo_date.addWidget(self.l_date, alignment=Qt.AlignVCenter)
-        
-        #   Create File Size Layout
-        self.lo_fileSize = QHBoxLayout()
-
-        #   Disk Icon
-        self.l_diskIcon = QLabel()
-        self.l_diskIcon.setPixmap(self.browser.icon_disk.pixmap(15, 15))
-        #   File Size Label
-        self.l_fileSize = QLabel("--")
-        self.l_fileSize.setAlignment(Qt.AlignRight)
-
-        self.lo_fileSize.addWidget(self.l_diskIcon, alignment=Qt.AlignVCenter)
-        self.lo_fileSize.addWidget(self.l_fileSize, alignment=Qt.AlignVCenter)
-
-        #   Add Items to Bottom Layout
-        self.lo_bottom.addWidget(self.l_icon, alignment=Qt.AlignVCenter)
-
-        self.lo_bottom.addWidget(self.l_frames, alignment=Qt.AlignVCenter)
-
-        self.lo_bottom.addStretch()
-        self.lo_bottom.addLayout(self.lo_date)
-        self.lo_bottom.addStretch()
-        self.lo_bottom.addLayout(self.lo_fileSize)
-
-        #   Add Top and Bottom to Details Layout
-        self.lo_details.addLayout(self.lo_top)
-        self.lo_details.addLayout(self.lo_bottom)
-
-        #   Add Layouts to Main Layout
-        self.lo_main.addWidget(self.thumbContainer)
-        self.lo_main.addLayout(self.lo_details)
-
-        self.spacer4 = QSpacerItem(30, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.lo_main.addItem(self.spacer4)
-
-        #   Context Menu
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.rightClicked)
-
-
-    @err_catcher(name=__name__)
-    def refreshUi(self):
-        try:
-            # Get File Path
-            filePath = self.getSource_mainfilePath()
-
-            #   Set Display Name
-            if self.isSequence:
-                displayName = self.data["source_displayName"]
-            else:
-                displayName = self.getBasename(filePath)
-
-            self.l_fileName.setText(displayName)
-            self.l_fileName.setToolTip(f"FilePath: {filePath}")
-
-            #   Set Filetype Icon
-            self.setIcon(self.data["icon"])
-
-            #   Set Date
-            self.l_date.setText(self.data["source_mainFile_date"])
-
-            #   Set Filesize
-            self.l_fileSize.setText(self.data["source_mainFile_size"])
-
-            #   Set Number of Frames
-            if self.fileType in ["Videos", "Images", "Image Sequence"]:
-                self.l_frames.setText("--")
-            if self.data["source_mainFile_duration"]:
-                self.l_frames.setText(str(self.data["source_mainFile_duration"]))
-
-            #   Set Hash
-            self.l_fileSize.setToolTip("Calculating file hash...")
-            if self.data["source_mainFile_hash"]:
-                self.l_fileSize.setToolTip(f"Hash: {self.data['source_mainFile_hash']}")
-
-            #   Proxy Icon
-            if self.data["hasProxy"]:
-                self.l_pxyIcon.show()
-
-
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
 
 
     #   Populates Frames when ready from Thread
@@ -1031,7 +955,9 @@ class SourceFileItem(BaseTileItem):
             self.data["source_mainFile_duration"] = duration
 
             if hasattr(self, "l_frames"):
-                self.l_frames.setText(str(duration))
+                self.setDuration()
+            
+            self.durationReady.emit(duration)
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Main File Duration:\n{e}")
@@ -1160,6 +1086,205 @@ class SourceFileItem(BaseTileItem):
             logger.warning(f"ERROR:  Failed to Set Proxy File Hash:\n{e}")
 
 
+
+
+
+class SourceFileTile(BaseTileItem):
+    def __init__(self, item: SourceFileItem, parent=None):
+        self.item = item
+        self.data = item.data
+        self.tileType = item.tileType
+        self.fileType = self.data["fileType"]
+
+
+        super().__init__(item.browser, item.data, parent)
+
+        self.setupUi()
+        self.refreshUi()
+
+
+        #   If Thumbnail Exists, Set Immediately
+        if self.data.get("thumbnail"):
+            self.setThumbnail(self.data.get("thumbnail"))
+        else:
+            #   Or Add Signal Connection
+            self.item.thumbnailReady.connect(self.setThumbnail)
+
+
+        if self.data.get("source_mainFile_duration"):
+            self.setDuration()
+        else:
+            self.item.durationReady.connect(lambda: self.setDuration())
+
+
+    def mouseReleaseEvent(self, event):
+        super(SourceFileTile, self).mouseReleaseEvent(event)
+        self.signalReleased.emit(self)
+        event.accept()
+
+
+    @err_catcher(name=__name__)
+    def setupUi(self):
+        self.setObjectName("FileTile")
+        self.applyStyle("deselected")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+
+        self.lo_main = QHBoxLayout()
+        self.setLayout(self.lo_main)
+        self.lo_main.setSpacing(5)
+        self.lo_main.setContentsMargins(0, 0, 0, 0)
+
+        #   Thumbnail Container (Holds the thumbnail & proxy icon)
+        self.thumbContainer = QWidget(self)
+        self.thumbContainer.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
+
+        #   Stacked Layout (For Overlaying Elements)
+        self.lo_preview = QStackedLayout(self.thumbContainer)
+        self.lo_preview.setStackingMode(QStackedLayout.StackAll)
+
+        #   Thumbnail Label (Main Image)
+        self.l_preview = QLabel(self.thumbContainer)
+        self.l_preview.setFixedSize(self.itemPreviewWidth, self.itemPreviewHeight)
+        self.lo_preview.addWidget(self.l_preview)
+
+        #   Proxy Icon Label
+        self.l_pxyIcon = QLabel(self.thumbContainer)
+        self.l_pxyIcon.setPixmap(self.browser.icon_proxy.pixmap(40, 40))
+        self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
+
+        #   Position Proxy Icon in Bottom-Left Corner
+        pxy_x = 3
+        pxy_y = self.itemPreviewHeight - self.l_pxyIcon.height()
+        self.l_pxyIcon.move(pxy_x, pxy_y)
+        self.l_pxyIcon.hide()
+
+        ##  Create Details Layout
+        self.lo_details = QVBoxLayout()
+
+        ##   Create Top Layout
+        self.lo_top = QHBoxLayout()
+
+        #   Selected CheckBox
+        self.chb_selected = QCheckBox()
+        self.chb_selected.toggled.connect(self.setSelected)
+        #   Filename Label
+        self.l_fileName = QLabel()
+
+        #   Add Items to Top Layout
+        self.lo_top.addWidget(self.chb_selected)
+        self.lo_top.addWidget(self.l_fileName)
+        self.lo_top.addStretch()
+
+        #   Create Bottom Layout
+        self.lo_bottom = QHBoxLayout()
+
+        #   File Type Icon
+        self.l_icon = QLabel()
+
+        #   Frames Label
+        self.l_frames = QLabel("")
+
+        #   Create Date Layout
+        self.lo_date = QHBoxLayout()
+        #   Date Icon
+
+        self.l_dateIcon = QLabel()
+        self.l_dateIcon.setPixmap(self.browser.icon_date.pixmap(15, 15))
+        #   Date Label
+        self.l_date = QLabel()
+        self.l_date.setAlignment(Qt.AlignRight)
+
+        #   Add Date Items to Date LAyout
+        self.lo_date.addWidget(self.l_dateIcon, alignment=Qt.AlignVCenter)
+        self.lo_date.addWidget(self.l_date, alignment=Qt.AlignVCenter)
+        
+        #   Create File Size Layout
+        self.lo_fileSize = QHBoxLayout()
+
+        #   Disk Icon
+        self.l_diskIcon = QLabel()
+        self.l_diskIcon.setPixmap(self.browser.icon_disk.pixmap(15, 15))
+        #   File Size Label
+        self.l_fileSize = QLabel("--")
+        self.l_fileSize.setAlignment(Qt.AlignRight)
+
+        self.lo_fileSize.addWidget(self.l_diskIcon, alignment=Qt.AlignVCenter)
+        self.lo_fileSize.addWidget(self.l_fileSize, alignment=Qt.AlignVCenter)
+
+        #   Add Items to Bottom Layout
+        self.lo_bottom.addWidget(self.l_icon, alignment=Qt.AlignVCenter)
+
+        self.lo_bottom.addWidget(self.l_frames, alignment=Qt.AlignVCenter)
+
+        self.lo_bottom.addStretch()
+        self.lo_bottom.addLayout(self.lo_date)
+        self.lo_bottom.addStretch()
+        self.lo_bottom.addLayout(self.lo_fileSize)
+
+        #   Add Top and Bottom to Details Layout
+        self.lo_details.addLayout(self.lo_top)
+        self.lo_details.addLayout(self.lo_bottom)
+
+        #   Add Layouts to Main Layout
+        self.lo_main.addWidget(self.thumbContainer)
+        self.lo_main.addLayout(self.lo_details)
+
+        self.spacer4 = QSpacerItem(30, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.lo_main.addItem(self.spacer4)
+
+        #   Context Menu
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.rightClicked)
+
+
+
+    @err_catcher(name=__name__)
+    def refreshUi(self):
+        try:
+            # Get File Path
+            filePath = self.getSource_mainfilePath()
+
+            # #   Set Display Name
+            # if self.isSequence:
+            #     displayName = self.data["source_displayName"]
+            # else:
+
+            displayName = self.getBasename(filePath)
+
+            self.l_fileName.setText(displayName)
+            self.l_fileName.setToolTip(f"FilePath: {filePath}")
+
+            #   Set Filetype Icon
+            self.setIcon(self.data["icon"])
+
+            #   Set Date
+            self.l_date.setText(self.data["source_mainFile_date"])
+
+            #   Set Filesize
+            self.l_fileSize.setText(self.data["source_mainFile_size"])
+
+            #   Set Number of Frames
+            if self.fileType in ["Videos", "Images", "Image Sequence"]:
+                self.l_frames.setText("--")
+            if self.data["source_mainFile_duration"]:
+                self.l_frames.setText(str(self.data["source_mainFile_duration"]))
+
+            #   Set Hash
+            self.l_fileSize.setToolTip("Calculating file hash...")
+            if self.data["source_mainFile_hash"]:
+                self.l_fileSize.setToolTip(f"Hash: {self.data['source_mainFile_hash']}")
+
+            #   Proxy Icon
+            if self.data["hasProxy"]:
+                self.l_pxyIcon.show()
+
+
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
+
+
+
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
@@ -1198,18 +1323,26 @@ class SourceFileItem(BaseTileItem):
         rcmenu.exec_(QCursor.pos())
 
 
+    #   Adds Tile(s) to Destination
     @err_catcher(name=__name__)
     def addToDestList(self):
         try:
+            #   If Multiple Tiles Selected
             if len(self.browser.selectedTiles) > 1:
                 for tile in list(self.browser.selectedTiles):
                     self.browser.addToDestList(tile.data)
+            #   If Single Just Add Tile
             else:
                 self.browser.addToDestList(self.data)
             
             self.browser.refreshDestItems()
+            
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Add to Destination List:\n{e}")
+
+
+
+
 
 
 
@@ -1219,9 +1352,36 @@ class DestFileItem(BaseTileItem):
         super(DestFileItem, self).__init__(browser, data, parent)
         self.tileType = "destTile"
         self.fileType = data["fileType"]
-        self.isSequence = data["isSequence"]
+        # self.isSequence = data["isSequence"]
 
         self.data = data
+
+        self.main_transfer_worker = None
+        self.worker_proxy = None
+        self.transferState = None
+
+        self.main_copiedSize = 0.0
+        self.proxy_copiedSize = 0.0
+
+
+        logger.debug("Loaded Destination FileTile")
+
+
+
+
+
+##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
+class DestFileTile(BaseTileItem):
+    def __init__(self, item: DestFileItem, parent=None):
+        self.item = item
+        self.data = item.data
+        self.tileType = item.tileType
+        self.fileType = self.data["fileType"]
+
+        # self.isSequence = data["isSequence"]
+
+
+        super().__init__(item.browser, item.data, parent)
 
         self.main_transfer_worker = None
         self.worker_proxy = None
@@ -1234,6 +1394,7 @@ class DestFileItem(BaseTileItem):
         self.refreshUi()
 
         logger.debug("Loaded Destination FileTile")
+
 
 
     def mouseReleaseEvent(self, event):
@@ -1387,7 +1548,7 @@ class DestFileItem(BaseTileItem):
             self.setQuanityUI("idle")
 
             self.toggleProxyProgbar()
-            self.refreshPreview()
+            self.getThumbnail()
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
@@ -1419,11 +1580,12 @@ class DestFileItem(BaseTileItem):
             #   Get Override Enabled
             override = self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked()
 
-            if self.isSequence:
-                source_mainFile_name = self.data["source_displayName"]
+            # if self.isSequence:
+            #     source_mainFile_name = self.data["source_displayName"]
 
-            else:
-                source_mainFile_name = self.getBasename(source_mainFile_path)
+            # else:
+
+            source_mainFile_name = self.getBasename(source_mainFile_path)
             
             if override:
                 #   Get Modified Name
@@ -2177,81 +2339,6 @@ class DestFileItem(BaseTileItem):
 
 
 
-##   FOLDER TILES (Inherits from BaseTileItem)  ##
-class FolderItem(BaseTileItem):
-    def __init__(self, browser, data, parent=None):
-        super(FolderItem, self).__init__(browser, data, parent)
-        self.tileType = "folderTile"
-
-        self.data = data
-
-        #   Calls the SetupUI Method of the Child Tile
-        self.setupUi()
-        #   Calls the Refresh Method of the Child Tile
-        self.refreshUi()
-
-
-    def mouseReleaseEvent(self, event):
-        super(FolderItem, self).mouseReleaseEvent(event)
-        self.signalReleased.emit(self)
-        event.accept()
-
-
-    @err_catcher(name=__name__)
-    def setupUi(self):
-        self.setObjectName("FolderTile")
-        self.applyStyle(self.state)
-        self.setAttribute(Qt.WA_StyledBackground, True)
-
-        # Main horizontal layout
-        self.lo_main = QHBoxLayout()
-        self.setLayout(self.lo_main)
-        self.lo_main.setSpacing(5)
-        self.lo_main.setContentsMargins(0, 0, 0, 0)
-
-        #   Icon Label
-        self.l_icon = QLabel()
-        #   Directory Name Label
-        self.l_fileName = QLabel()
-
-        self.lo_main.addWidget(self.l_icon)
-        self.lo_main.addWidget(self.l_fileName)
-
-        self.lo_main.addStretch()
-        self.lo_main.addStretch(1000)
-
-        #   Tooltips
-        dirPath = os.path.normpath(self.data["dirPath"])
-        self.l_icon.setToolTip(dirPath)
-        self.l_fileName.setToolTip(dirPath)
-
-        # Set up context menu
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.rightClicked)
-
-
-    @err_catcher(name=__name__)
-    def refreshUi(self):
-        # Set the icon and folder name
-        dir_path = self.data["dirPath"]
-        dir_icon = self.getIconByType(dir_path)
-
-        # Set the icon on the left side
-        self.l_icon.setPixmap(dir_icon.pixmap(32, 32))
-
-        # Set the folder name (extract folder name from the path)
-        folder_name = os.path.basename(dir_path)
-        self.l_fileName.setText(folder_name)
-
-
-    @err_catcher(name=__name__)
-    def mouseDoubleClickEvent(self, event):
-        self.browser.doubleClickFolder(self.data["dirPath"], mode="source")
-
-
-    @err_catcher(name=__name__)
-    def rightClicked(self, pos):
-        pass
 
 
 ####    THREAD WORKERS    ####
@@ -2260,19 +2347,18 @@ class FolderItem(BaseTileItem):
 class ThumbnailWorker(QObject, QRunnable):
     result = Signal(QPixmap)
 
-    def __init__(self, origin, filePath, getPixmapFromPath, supportedFormats,
-                 width, height, getThumbnailPath, scalePixmapFunc):
+    def __init__(self, origin, filePath, mediaLib, width, height, getThumbnailPath):
         QObject.__init__(self)
         QRunnable.__init__(self)
 
         self.origin = origin
         self.filePath = filePath
-        self.getPixmapFromPath = getPixmapFromPath
-        self.supportedFormats = supportedFormats
+        self.getPixmapFromPath = mediaLib.getPixmapFromPath
+        self.supportedFormats = mediaLib.supportedFormats
         self.width = width
         self.height = height
         self.getThumbnailPath = getThumbnailPath
-        self.scalePixmapFunc = scalePixmapFunc
+        self.scalePixmapFunc = mediaLib.scalePixmap
 
 
     @Slot()
@@ -2283,6 +2369,7 @@ class ThumbnailWorker(QObject, QRunnable):
             pixmap = None
             extension = os.path.splitext(self.filePath)[1].lower()
 
+            #   Use App Icon for Non-Media Formats
             if extension not in self.supportedFormats:
                 file_info = QFileInfo(self.filePath)
                 icon_provider = QFileIconProvider()
@@ -2293,10 +2380,15 @@ class ThumbnailWorker(QObject, QRunnable):
                 scale = 0.5
                 logger.debug(f"Using File Icon for Unsupported Format: {extension}")
 
+            #   Get Thumbnail for Media Formats
             else:
+                #   Use Saved Thumbnail in "_thumbs" if Exists
                 thumbPath = self.getThumbnailPath(self.filePath)
                 if os.path.exists(thumbPath):
-                    pixmap = QPixmap(thumbPath)
+                    image = QImage(thumbPath)
+                    pixmap = QPixmap.fromImage(image)
+
+                #   Or Generate New Thumb
                 else:
                     pixmap = self.getPixmapFromPath(
                         self.filePath,
@@ -2304,10 +2396,12 @@ class ThumbnailWorker(QObject, QRunnable):
                         height=self.height,
                         colorAdjust=False
                         )
+                
                 fitIntoBounds = False
                 crop = True
                 scale = 1
 
+            #   Scale and Emit Signal
             if pixmap:
                 scaledPixmap = self.scalePixmapFunc(
                     pixmap,
