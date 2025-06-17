@@ -497,7 +497,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
         self.b_source_sorting_sort.clicked.connect(lambda: self.showSortMenu("source"))
         self.b_source_sorting_filtersEnable.toggled.connect(lambda: self.refreshSourceTable(restoreSelection=True))
-        self.b_source_sorting_combineSeqs.toggled.connect(self.refreshSourceItems)
+        self.b_source_sorting_combineSeqs.toggled.connect(lambda: self.refreshSourceItems())
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
         self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
         self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
@@ -510,7 +510,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems())
         self.b_dest_sorting_sort.clicked.connect(lambda: self.showSortMenu("destination"))
         self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable(restoreSelection=True))
-        self.b_dest_sorting_combineSeqs.toggled.connect(self.refreshDestItems)
+        self.b_dest_sorting_combineSeqs.toggled.connect(lambda: self.refreshDestItems())
         self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
@@ -777,21 +777,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             else:
                 self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
 
-        elif e.mimeData().hasFormat("application/x-sourcefileitem"):
-            ##  This is your custom item!
-            e.acceptProposedAction()
+        # elif e.mimeData().hasFormat("application/x-sourcefileitem"):
+        #     ##  This is your custom item!
+        #     e.acceptProposedAction()
 
-            dataBytes = e.mimeData().data("application/x-sourcefileitem")
-            dataString = bytes(dataBytes).decode('utf-8')
+        #     dataBytes = e.mimeData().data("application/x-sourcefileitem")
+        #     dataString = bytes(dataBytes).decode('utf-8')
 
-            fileItem = self.createDestFileTile(dataString)
+        #     fileItem = self.createDestFileTile(dataString)
 
-            # Insert into QListWidget
-            listItem = QListWidgetItem()
-            listItem.setSizeHint(fileItem.sizeHint())  # Optional, if sizing matters
+        #     # Insert into QListWidget
+        #     listItem = QListWidgetItem()
+        #     listItem.setSizeHint(fileItem.sizeHint())  # Optional, if sizing matters
 
-            self.lw_destination.addItem(listItem)
-            self.lw_destination.setItemWidget(listItem, fileItem)
+        #     self.lw_destination.addItem(listItem)
+        #     self.lw_destination.setItemWidget(listItem, fileItem)
 
         else:
             e.ignore()
@@ -1614,7 +1614,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR:  isVideo() Failed:\n{e}")
     
 
-    #   Returns Bool if File in Prism Video Formats
+    #   Returns Bool if File is in Audio Formats
     @err_catcher(name=__name__)
     def isAudio(self, path=None, ext=None):
         if path:
@@ -1624,7 +1624,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         else:
             extension = self.getFileExtension()
         
-        return  extension.lower() in self.audioFormats
+        return extension.lower() in self.audioFormats
 
 
     @err_catcher(name=__name__)
@@ -1681,60 +1681,95 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return sortedList
 
 
-    ####  TESTING   SEQUENCES   ####
+    #   Group Image Sequences with Seq Number Suffix
+    @err_catcher(name=__name__)
+    def groupSequences(self, table, sortedList):
 
-    def groupSequences(self, imageFiles):
-        remaining = set(imageFiles)
-        sequences = []
+        #   Helper to Split Filename into Parts
+        def _splitFilename(filename):
+            name, ext = os.path.splitext(filename)
+            match = re.search(r'(\d+)$', name)
+            if match:
+                frame = match.group(1)
+                base = name[:match.start(1)]
+            else:
+                base = name
+                frame = ''
+            return base, frame, ext
+        
 
-        while remaining:
-            current = remaining.pop()
-            base, frame, ext = self.splitFilename(current)
+        filePath_to_item = {}
+        seen = set()
+        groupedItems = []
 
+        #   Collect Files
+        ordered_file_paths = []
+        for item in sortedList:
+            if item["tileType"] == "file":
+                path = item["data"]["source_mainFile_path"]
+                filePath_to_item[path] = item
+                ordered_file_paths.append(path)
+
+        for current in ordered_file_paths:
+            #   Skip if Already Grouped
+            if current in seen:
+                continue
+
+            base, frame, ext = _splitFilename(current)
+
+            #   Check if Still Image Format
             if (
                 frame and
                 ext.lower() in self.core.media.supportedFormats and
                 ext.lower() not in self.core.media.videoFormats
             ):
+                
+                #   Find Sequence Number Suffix
                 pattern = re.escape(base) + r"\d+" + re.escape(ext)
                 regex = re.compile(pattern)
-                matched = [f for f in remaining if regex.fullmatch(f)]
-                matched.append(current)
 
-                # Only treat as sequence if multiple files
+                #   Itterate Files to Find Matching Seq Files
+                matched_dict = OrderedDict()
+                for f in ordered_file_paths:
+                    if f not in seen and regex.fullmatch(f):
+                        matched_dict[f] = None
+                matched_dict[current] = None
+                matched = list(matched_dict.keys())
+
+                #   If there is a Sequence, build Dict
                 if len(matched) > 1:
-                    remaining.difference_update(matched)
+                    seen.update(matched)
                     padded = "#" * len(frame)
                     display_name = f"{base}{padded}{ext}"
-                    sequences.append((display_name, True, sorted(matched)))
+
+                    matchedItems = [filePath_to_item[f] for f in matched]
+                    uuid_list = [item["data"]["uuid"] for item in matchedItems]
+                    baseItem = filePath_to_item[current]
+
+                    groupedData = baseItem["data"].copy()
+                    groupedData["displayName"] = os.path.basename(display_name)
+                    groupedData["fileType"] = "Image Sequence"
+                    groupedData["sequenceItems"] = matchedItems
+                    groupedData["sequenceUUIDs"] = uuid_list
+
+                    groupedItems.append({
+                        "tile": baseItem["tile"],
+                        "tileType": "file",
+                        "data": groupedData
+                    })
+
                 else:
-                    # Only one file, so standalone
-                    sequences.append((current, False, [current]))
+                    seen.add(current)
+                    groupedItems.append(filePath_to_item[current])
+
             else:
-                sequences.append((current, False, [current]))
+                seen.add(current)
+                groupedItems.append(filePath_to_item[current])
 
-        return sequences
+        #   Preserve Folders in Original Order (first in list)
+        folders = [item for item in sortedList if item["tileType"] == "folder"]
 
-    
-
-    def splitFilename(self, filename):
-        """
-        Splits a filename like 'plate_0001.exr' -> ('plate_', '0001', '.exr')
-        If no digits are found, returns (name, '', ext)
-        """
-        name, ext = os.path.splitext(filename)
-        match = re.search(r'(\d+)$', name)
-        if match:
-            frame = match.group(1)
-            base = name[:match.start(1)]
-        else:
-            base = name
-            frame = ''
-        return base, frame, ext
-    
-    ######################
-
-   
+        return folders + groupedItems
 
 
     #   Sort Items According to User Selection
@@ -1808,10 +1843,18 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         sortedList = self.applySorting(table, origList_copy)
 
         #   Filter the Items
-        sortedList = self.applyTableFilters(table, sortedList)
+        if ((table == "source" and self.b_source_sorting_filtersEnable.isChecked()) or
+            (table == "destination" and self.b_dest_sorting_filtersEnable.isChecked())):
+
+            sortedList = self.applyTableFilters(table, sortedList)
+
+        #   Combine Image Sequences
+        if ((table == "source" and self.b_source_sorting_combineSeqs.isChecked()) or
+            (table == "destination" and self.b_dest_sorting_combineSeqs.isChecked())):
+
+            sortedList = self.groupSequences(table, sortedList)
 
         return sortedList
-
 
 
     #   Build List of Items in Source Directory
@@ -1892,24 +1935,27 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Itterate Sorted Items and Create Tile UI Widgets
             for dataItem in sourceDataItems_sorted:
                 fileItem = dataItem["tile"]
-                fileType = dataItem["tileType"]
-                data = dataItem["data"]
+                tileType = dataItem["tileType"]
+                seqData = dataItem["data"]
+                displayName = seqData["displayName"]
+                fileType = seqData["fileType"]
+                uuid = seqData["uuid"]
 
-                if fileType == "folder":
-                    itemTile = TileWidget.FolderItem(self, data)
+                if tileType == "folder":
+                    itemTile = TileWidget.FolderItem(self, seqData)
                     rowHeight = SOURCE_DIR_HEIGHT
                 else:
-                    itemTile = TileWidget.SourceFileTile(fileItem)
+                    itemTile = TileWidget.SourceFileTile(fileItem, fileType, seqData)
                     rowHeight = SOURCE_ITEM_HEIGHT
 
                 #   Set Row Size and Add File Tile widget and Data to Row
                 list_item = QListWidgetItem()
                 list_item.setSizeHint(QSize(0, rowHeight))
                 list_item.setData(Qt.UserRole, {
-                    # "displayName": displayName,
-                    "fileType": fileType
-                    # "isSequence": isSequence,
-                    # "seqFiles": seqFiles
+                    "displayName": displayName,
+                    "tileType": tileType,
+                    "fileType": fileType,
+                    "uuid": uuid
                 })
 
                 self.lw_source.addItem(list_item)
@@ -2075,7 +2121,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.debug(f"Created Source Data Item for: {file}")
         
         except Exception as e:
-            logger.warning(f"ERROR:  Failed to Create Source Data Item for:\n{file}\n\n{e}")
+            logger.warning(f"ERROR:  Failed to Create Source Data Item for:{file}\n{e}")
 
 
     #   Create Dest Data Item (this is the class that will calculate and hold all the data)
@@ -2178,7 +2224,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.refreshSourceItems()
 
 
-    #   Plays Media in External Player
+    #   Opens File in External System Default App
     @err_catcher(name=__name__)
     def openInShell(self, filePath, prog=""):
         if prog == "default":
@@ -2190,18 +2236,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         fileName = os.path.basename(filePath)
         baseName, extension = os.path.splitext(fileName)
-        if extension.lower() in self.core.media.supportedFormats:
-            logger.debug("Opening Media File in Shell Application")
 
-            if not progPath:
-                cmd = ["start", "", "%s" % self.core.fixPath(filePath)]
-                subprocess.call(cmd, shell=True)
-                return
-            else:
-                if self.mediaPlayerPattern:
-                    filePath = self.core.media.getSequenceFromFilename(filePath)
+        ##   Commented Out to Allow All Files to Open   ##
+        # if extension.lower() in self.core.media.supportedFormats:
 
-                    comd = [progPath, filePath]
+        logger.debug("Opening Media File in Shell Application")
+
+        if not progPath:
+            cmd = ["start", "", "%s" % self.core.fixPath(filePath)]
+            subprocess.call(cmd, shell=True)
+            return
+        else:
+            if self.mediaPlayerPattern:
+                filePath = self.core.media.getSequenceFromFilename(filePath)
+
+                comd = [progPath, filePath]
 
         if comd:
             logger.debug("Opening File in Shell Application")
@@ -2220,44 +2269,37 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                         raise RuntimeError("%s - %s" % (comd, e))
 
 
+    #   Adds the Item(s) to the Transfer List (and thus the Destination Table)
     @err_catcher(name=__name__)
     def addToDestList(self, data, refresh=False):
+        addList = []
+
+        #   If there is Sequence Data
+        seqData = data["seqData"]
+        if seqData.get("sequenceItems"):
+            #   Itterate Seq Items and Add to List
+            for sData in seqData["sequenceItems"]:
+                tile = sData["tile"]
+                addList.append(tile.getData())
+
+        else:
+            #   Just Add to List
+            addList.append(data)
 
         #   Do Not Add if Already in the Destination List
-        if self.isDuplicate(data):
-            return
+        for tData in addList:
+            if not self.isDuplicate(tData):
+                self.transferList.append(tData)
         
-        #   If Not a Image Sequence, just Add File
-        # if not data["isSequence"]:
-
-        self.transferList.append(data)
-
-        #   If Image Sequence
-        # else:
-        #     sourceDir = os.path.dirname(data["source_mainFile_path"])
-
-        #     for image in data["seqFiles"]:
-        #         print(f"*** image:  {image}")                                              #    TESTING
-
-                
-
-        #         iData = data.copy()
-        #         iData["source_displayName"] = image
-        #         iData["isSequence"] = False
-        #         iData["seqFiles"] = [image]
-        #         iData["source_mainFile_path"] = os.path.join(sourceDir, image)
-
-        #         self.transferList.append(iData)
-
-
-
         if refresh:
             self.refreshDestItems()
 
 
+    #   Returns Bool if Display Name Already in Transfer List
     @err_catcher(name=__name__)
     def isDuplicate(self, data):
-        return data in self.transferList 
+        displayName = data["displayName"]
+        return any(item.get("displayName") == displayName for item in self.transferList)
     
 
     @err_catcher(name=__name__)

@@ -194,17 +194,33 @@ class BaseTileItem(QWidget):
     #   Launches the Single-click File Action
     @err_catcher(name=__name__)
     def mousePressEvent(self, event):
+        modifiers = QApplication.keyboardModifiers()
+
         if event.button() == Qt.LeftButton:
-            self.setSelected()
+            self.setSelected()  # Already handles Ctrl/Shift logic
+            return
+
         elif event.button() == Qt.RightButton:
-            if self not in self.browser.selectedTiles:
-                # Don't clear others, just add this one
-                self.state = "selected"
-                self.applyStyle(self.state)
-                self.browser.selectedTiles.add(self)
+            # If this item is already selected, keep the current selection
+            if self in self.browser.selectedTiles:
+                # Just update lastClickedTile for consistency
                 self.browser.lastClickedTile = self
+                return
+
+            # Otherwise, no modifiers -> reset selection to just this tile
+            for tile in list(self.browser.selectedTiles):
+                tile.deselect()
+            self.browser.selectedTiles.clear()
+
+            self.state = "selected"
+            self.applyStyle(self.state)
+            self.browser.selectedTiles.add(self)
+            self.browser.lastClickedTile = self
+            return
 
         super().mousePressEvent(event)
+
+
 
 
     @err_catcher(name=__name__)
@@ -321,13 +337,8 @@ class BaseTileItem(QWidget):
         if len(self.browser.selectedTiles) > 1:
             for tile in list(self.browser.selectedTiles):
                 tile.chb_selected.setChecked(checked)
-
-                # tile.setSelected()                           #   TODO - IS THIS NEEDED??
-        
         else:
             self.chb_selected.setChecked(checked)
-
-            # self.setSelected()                            #   TODO - IS THIS NEEDED??
 
         #   Refresh Transfer Size
         if refresh and self.tileType == "destTile":
@@ -503,6 +514,7 @@ class BaseTileItem(QWidget):
     
 
     #   Gets Thumbnail Save Path
+    @err_catcher(name=__name__)
     def getThumbnailPath(self, filepath):                                       #   TODO - USE CUSTOM PATH???
         thumbBasename = os.path.basename(os.path.splitext(filepath)[0]) + ".jpg"
 
@@ -550,6 +562,7 @@ class BaseTileItem(QWidget):
         if getattr(self, "isSequence", False):
             duration = len(self.data["seqFiles"])
             self.onMainfileDurationReady(duration)                      #   TODO - Get CALLBACK WORKING BETTER
+
         else:
             #   Create Worker Instance
             worker_frames = FileDurationWorker(self, self.core, filePath)
@@ -587,10 +600,9 @@ class BaseTileItem(QWidget):
 
         match fileType:
             case "Images":
-                # if self.data["isSequence"]:
-                #     iconPath =  self.browser.icon_sequence
-                # else:
                 iconPath =  self.browser.icon_image
+            case "Image Sequence":
+                iconPath =  self.browser.icon_sequence
             case "Videos":        
                 iconPath =  self.browser.icon_video
             case "Audio":
@@ -904,7 +916,6 @@ class SourceFileItem(BaseTileItem):
         super(SourceFileItem, self).__init__(browser, data, parent)
         self.tileType = "sourceItem"
         self.fileType = data["fileType"]
-        # self.isSequence = data["isSequence"]
 
         self.data = data
         self.data["source_mainFile_duration"] = None
@@ -916,6 +927,7 @@ class SourceFileItem(BaseTileItem):
         logger.debug("Loaded Source FileTile")                          #   TODO - LOGGIN FOR SEPARATE CLASSES
 
 
+    @err_catcher(name=__name__)
     def generateData(self):
         #   Get Main File Path
         filePath = self.getSource_mainfilePath()
@@ -1090,14 +1102,20 @@ class SourceFileItem(BaseTileItem):
 
 
 class SourceFileTile(BaseTileItem):
-    def __init__(self, item: SourceFileItem, parent=None):
+    def __init__(self, item: SourceFileItem, fileType, seqData=None, parent=None):
         self.item = item
         self.data = item.data
         self.tileType = "sourceTile"
-        self.fileType = self.data["fileType"]
-
 
         super().__init__(item.browser, item.data, parent)
+
+        self.fileType = fileType
+
+        self.seqData = seqData
+        self.isSequence = bool(self.fileType == "Image Sequence")
+
+        item.data["seqData"] = seqData
+
 
         self.setupUi()
         self.refreshUi()
@@ -1109,12 +1127,6 @@ class SourceFileTile(BaseTileItem):
         else:
             #   Or Add Signal Connection
             self.item.thumbnailReady.connect(self.setThumbnail)
-
-
-        if self.data.get("source_mainFile_duration"):
-            self.setDuration()
-        else:
-            self.item.durationReady.connect(lambda: self.setDuration())
 
 
     def mouseReleaseEvent(self, event):
@@ -1245,29 +1257,29 @@ class SourceFileTile(BaseTileItem):
             filePath = self.getSource_mainfilePath()
 
             # #   Set Display Name
-            # if self.isSequence:
-            #     displayName = self.data["source_displayName"]
-            # else:
+            if self.isSequence:
+                displayName = self.seqData["displayName"]
+            else:
+                displayName = self.getBasename(filePath)
 
-            displayName = self.getBasename(filePath)
 
             self.l_fileName.setText(displayName)
             self.l_fileName.setToolTip(f"FilePath: {filePath}")
 
             #   Set Filetype Icon
-            self.setIcon(self.data["icon"])
+            if self.isSequence:
+                self.setIcon(self.browser.icon_sequence)
+            else:
+                self.setIcon(self.data["icon"])
 
             #   Set Date
             self.l_date.setText(self.data["source_mainFile_date"])
 
             #   Set Filesize
-            self.l_fileSize.setText(self.data["source_mainFile_size"])
+            self.setFileSize()
 
             #   Set Number of Frames
-            if self.fileType in ["Videos", "Images", "Image Sequence"]:
-                self.l_frames.setText("--")
-            if self.data["source_mainFile_duration"]:
-                self.l_frames.setText(str(self.data["source_mainFile_duration"]))
+            self.setFrames()
 
             #   Set Hash
             self.l_fileSize.setToolTip("Calculating file hash...")
@@ -1282,6 +1294,39 @@ class SourceFileTile(BaseTileItem):
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
+
+    
+    @err_catcher(name=__name__)
+    def setFileSize(self):
+        if self.isSequence:
+            totalSize_raw = 0
+            for item in self.seqData.get("sequenceItems", []):
+                size = item.get("data", {}).get("source_mainFile_size_raw")
+                if isinstance(size, (int, float)):
+                    totalSize_raw += size
+            
+            totalSize_str = self.getFileSizeStr(totalSize_raw)
+
+        else:
+            totalSize_str = self.data["source_mainFile_size"]
+
+        self.l_fileSize.setText(totalSize_str)
+
+
+    @err_catcher(name=__name__)
+    def setFrames(self):
+        if self.fileType in ["Videos", "Images", "Image Sequence"]:
+            self.l_frames.setText("--")
+
+        if self.isSequence:
+            self.l_frames.setText(str(len(self.seqData["sequenceItems"])))
+
+        elif self.data["source_mainFile_duration"]:
+            self.setDuration()
+
+        else:
+            self.item.durationReady.connect(lambda: self.setDuration())
+
 
 
 
@@ -1330,9 +1375,12 @@ class SourceFileTile(BaseTileItem):
             #   If Multiple Tiles Selected
             if len(self.browser.selectedTiles) > 1:
                 for tile in list(self.browser.selectedTiles):
+                    tile.setChecked(True)
                     self.browser.addToDestList(tile.data)
+
             #   If Single Just Add Tile
             else:
+                self.setChecked(True)
                 self.browser.addToDestList(self.data)
             
             self.browser.refreshDestItems()
