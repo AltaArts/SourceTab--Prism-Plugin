@@ -174,7 +174,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   "Videos": True,
                                   "Images": True,
                                   "Audio": True,
-                                  "Folders": True,
                                   "Other": True,
                                   }
 
@@ -197,6 +196,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.transferList = []
         self.initialized = False
         self.closeParm = "closeafterload"
+
+        #   Controls the "Smoothness" of the Estmated Transfer Time Remaining
+        #   (1st value is Min samples at the start, 2nd is the Max Samples at the end)
+        # self.adaptiveProgUpdate = [5, 10]   #   Sensitive - for small files
+        self.adaptiveProgUpdate = [20, 60]  #   Medium - for normal files
+        # self.adaptiveProgUpdate = [30, 100] #   Smoother - for large files
 
         self.exifToolEXE = self.getExiftool()
 
@@ -1215,7 +1220,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             # Adaptive maxlen: increase as transfer progresses
             progress_ratio = copiedSize / totalSize if totalSize > 0 else 0
-            adaptive_maxlen = int(5 + progress_ratio * 20)
+            adapt_start, adapt_end = self.adaptiveProgUpdate
+            adaptive_maxlen = int(adapt_start + progress_ratio * adapt_end)
             self.speedSamples = deque(self.speedSamples, maxlen=adaptive_maxlen)
 
             # Calculate rolling average speed
@@ -1884,12 +1890,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             scrollPos = self.lw_destination.verticalScrollBar().value()
 
             #   Get all Items from the Source Dir
-            allFileItems = os.listdir(self.sourceDir)
+            allSourceItems = os.listdir(self.sourceDir)
 
             self.sourceDataItems = []
 
             #   Create Data Item for Each Item in Dir
-            for file in allFileItems:
+            for file in allSourceItems:
                 fullPath = os.path.join(self.sourceDir, file)
                 fileType = self.getFileType(fullPath)
 
@@ -1986,9 +1992,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
-            destDir = getattr(self, "destDir", "")
-
             #   Get Dir and Set Short Name
+            destDir = getattr(self, "destDir", "")
             metrics = QFontMetrics(self.le_destPath.font())
             elided_text = metrics.elidedText(destDir, Qt.ElideMiddle, self.le_destPath.width())
             self.le_destPath.setText(elided_text)
@@ -2050,19 +2055,23 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Itterate Sorted Items and Create Tile UI Widgets
             for dataItem in destDataItems_sorted:
                 fileItem = dataItem["tile"]
-                fileType = dataItem["tileType"]
+                tileType = dataItem["tileType"]
+                seqData = dataItem["data"]
+                displayName = seqData["displayName"]
+                fileType = seqData["fileType"]
+                uuid = seqData["uuid"]
 
-                itemTile = TileWidget.DestFileTile(fileItem)
+                itemTile = TileWidget.DestFileTile(fileItem, fileType, seqData)
                 rowHeight = SOURCE_ITEM_HEIGHT
 
                 #   Set Row Size and Add File Tile widget and Data to Row
                 list_item = QListWidgetItem()
                 list_item.setSizeHint(QSize(0, rowHeight))
                 list_item.setData(Qt.UserRole, {
-                    # "displayName": displayName,
-                    "fileType": fileType
-                    # "isSequence": isSequence,
-                    # "seqFiles": seqFiles
+                    "displayName": displayName,
+                    "tileType": tileType,
+                    "fileType": fileType,
+                    "uuid": uuid
                 })
 
                 self.lw_destination.addItem(list_item)

@@ -492,6 +492,20 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def getFileSizeStr(self, size_bytes):
         return self.browser.getFileSizeStr(size_bytes)
+    
+
+    #   Returns Total Size of Image Sequnce
+    @err_catcher(name=__name__)
+    def getSequenceSize(self, seqItems):
+        totalSize_raw = 0
+        
+        for item in seqItems:
+            size = item.get("data", {}).get("source_mainFile_size_raw")
+            if isinstance(size, (int, float)):
+                totalSize_raw += size
+
+        return totalSize_raw
+
 
 
     #   Returns the Filepath
@@ -537,9 +551,20 @@ class BaseTileItem(QWidget):
     #   Returns the Size of the File(s) to Transfer
     @err_catcher(name=__name__)
     def getTransferSize(self, proxyEnabled, proxyMode):
-        total_size = self.getFileSize(self.getSource_mainfilePath())
+        try:
+            if self.isSequence:
+                #   Get Image Sequence Size
+                total_size = self.getSequenceSize(self.seqData.get("sequenceItems", []))
+            else:
+                #   Or Get the Main File Size
+                total_size = self.data["source_mainFile_size_raw"]
 
-        if proxyEnabled:
+        except KeyError:
+            #   Fallback
+            total_size = self.getFileSize(self.getSource_mainfilePath())
+
+        #   Add Proxy Size (or estimated) if this is a Video or Image Sequence
+        if proxyEnabled and (self.isVideo() or self.isSequence):
             if proxyMode == "copy":
                 if self.getSource_proxyfilePath():
                     total_size += self.getFileSize(self.getSource_proxyfilePath())
@@ -705,9 +730,6 @@ class BaseTileItem(QWidget):
     def setIcon(self, icon):
         try:
             #   Tooltip
-            # if self.isSequence:
-            #     fileType = "Image Sequence"
-            # else:
             fileType = self.fileType
             self.l_icon.setToolTip(f"FileType:  {fileType}")
 
@@ -1112,14 +1134,11 @@ class SourceFileTile(BaseTileItem):
         self.fileType = fileType
 
         self.seqData = seqData
-        self.isSequence = bool(self.fileType == "Image Sequence")
-
         item.data["seqData"] = seqData
-
+        self.isSequence = bool(self.fileType == "Image Sequence")
 
         self.setupUi()
         self.refreshUi()
-
 
         #   If Thumbnail Exists, Set Immediately
         if self.data.get("thumbnail"):
@@ -1262,7 +1281,6 @@ class SourceFileTile(BaseTileItem):
             else:
                 displayName = self.getBasename(filePath)
 
-
             self.l_fileName.setText(displayName)
             self.l_fileName.setToolTip(f"FilePath: {filePath}")
 
@@ -1290,8 +1308,6 @@ class SourceFileTile(BaseTileItem):
             if self.data["hasProxy"]:
                 self.l_pxyIcon.show()
 
-
-
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
 
@@ -1299,12 +1315,7 @@ class SourceFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def setFileSize(self):
         if self.isSequence:
-            totalSize_raw = 0
-            for item in self.seqData.get("sequenceItems", []):
-                size = item.get("data", {}).get("source_mainFile_size_raw")
-                if isinstance(size, (int, float)):
-                    totalSize_raw += size
-            
+            totalSize_raw = self.getSequenceSize(self.seqData.get("sequenceItems", []))
             totalSize_str = self.getFileSizeStr(totalSize_raw)
 
         else:
@@ -1326,8 +1337,6 @@ class SourceFileTile(BaseTileItem):
 
         else:
             self.item.durationReady.connect(lambda: self.setDuration())
-
-
 
 
     @err_catcher(name=__name__)
@@ -1400,7 +1409,6 @@ class DestFileItem(BaseTileItem):
         super(DestFileItem, self).__init__(browser, data, parent)
         self.tileType = "destItem"
         self.fileType = data["fileType"]
-        # self.isSequence = data["isSequence"]
 
         self.data = data
 
@@ -1412,16 +1420,18 @@ class DestFileItem(BaseTileItem):
 
 ##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
 class DestFileTile(BaseTileItem):
-    def __init__(self, item: DestFileItem, parent=None):
+    def __init__(self, item: DestFileItem, fileType, seqData=None, parent=None):
         self.item = item
         self.data = item.data
         self.tileType = "destTile"
-        self.fileType = self.data["fileType"]
-
-        # self.isSequence = data["isSequence"]
-
 
         super().__init__(item.browser, item.data, parent)
+
+        self.fileType = fileType
+
+        self.seqData = seqData
+        item.data["seqData"] = seqData
+        self.isSequence = bool(self.fileType == "Image Sequence")
 
         self.main_transfer_worker = None
         self.worker_proxy = None
@@ -1570,11 +1580,10 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def refreshUi(self):
         try:
-            #   Get FilePath (Modified if Enabled)
-            fileName, filePath = self.setModifiedName()
+            name, source_mainFile_path = self.setModifiedName()
 
-            tip = (f"Source File:  {filePath}\n"
-                f"Destination File:  {self.getDestPath()}")
+            tip = (f"Source File:  {os.path.join(source_mainFile_path, name)}\n"
+                f"Destination File:  {os.path.join(self.getDestPath(), name)}")
             self.l_fileName.setToolTip(tip)
 
             self.setThumbnail(self.data.get("thumbnail"))
@@ -1583,7 +1592,10 @@ class DestFileTile(BaseTileItem):
             self.setProxy()
 
             #   Set Filetype Icon
-            self.setIcon(self.data["icon"])
+            if self.isSequence:
+                self.setIcon(self.browser.icon_sequence)
+            else:
+                self.setIcon(self.data["icon"])
 
             #   Set Quanity Details
             self.setQuanityUI("idle")
@@ -1614,27 +1626,22 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def setModifiedName(self):
         try:
-            #   Get Main File Path and Make Names/Paths
             source_mainFile_path = self.getSource_mainfilePath()
             dest_mainFile_dir = self.getDestPath()
 
-            #   Get Override Enabled
-            override = self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked()
-
-            # if self.isSequence:
-            #     source_mainFile_name = self.data["source_displayName"]
-
-            # else:
-
-            source_mainFile_name = self.getBasename(source_mainFile_path)
-            
-            if override:
-                #   Get Modified Name
-                name = self.getModifiedName(source_mainFile_name)
-
+            # #   Set Display Name
+            if self.isSequence:
+                displayName = self.seqData["displayName"]
             else:
-                #   Use Un-Modified Name
-                name = source_mainFile_name
+                displayName = self.getBasename(source_mainFile_path)
+
+            #   Get Modified Name
+            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+                name = self.getModifiedName(displayName)
+
+            #   Use Un-Modified Name
+            else:
+                name = displayName
 
             #    Set Name and Path
             self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
@@ -1893,16 +1900,31 @@ class DestFileTile(BaseTileItem):
         dash = ""
         total = ""
 
+        #   Gets Frames and File Size of Sequence
+        if self.isSequence:
+            totalSize_raw = self.getSequenceSize(self.seqData.get("sequenceItems", []))
+            self.seqData["totalSeqSize"] = totalSize_raw
+            mainSize = self.getFileSizeStr(totalSize_raw)
+
+            duration = str(len(self.seqData["sequenceItems"]))
+            self.seqData["seqDuration"] = duration
+            
+        #   Get Frames and File Size of Non-Sequences
+        else:
+            mainSize = self.data["source_mainFile_size"]
+            duration = str(self.data["source_mainFile_duration"])
+
+        #   Sets UI Based on Mode
         if mode in ["idle", "complete"]:
             if "source_mainFile_duration" in self.data:
-                copied = str(self.data["source_mainFile_duration"])
+                copied = duration
                 dash = "frames -"
-            total = self.data["source_mainFile_size"]
+                total = mainSize
 
         elif mode == "copyMain":
             copied = "--"
             dash = "of"
-            total = self.data["source_mainFile_size"]
+            total = mainSize
 
         elif mode == "copyProxy":
             copied = "--"
@@ -1912,7 +1934,7 @@ class DestFileTile(BaseTileItem):
         elif mode == "generate":
             copied = "--"
             dash = "of"
-            total = str(self.data["source_mainFile_duration"])
+            total = duration
 
         self.l_amountCopied.setText(copied)
         self.l_size_dash.setText(dash)
@@ -2080,6 +2102,29 @@ class DestFileTile(BaseTileItem):
         destPath = self.getDestMainPath()
         self.data["dest_mainFile_path"] = destPath
 
+
+
+        if self.isSequence:
+            transferList = []
+            for item in self.seqData.get("sequenceItems", []):
+                iData = item["data"]
+
+                if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+                    name = self.getModifiedName(iData["displayName"])
+                else:
+                    name = iData["displayName"]
+
+                sourcePath = iData["source_mainFile_path"]
+                destPath = os.path.join(self.getDestPath(), name)
+                transferList.append({"sourcePath": sourcePath,
+                                     "destPath": destPath})
+
+        else:
+            transferList = [{"sourcePath": sourcePath,
+                            "destPath": destPath}]
+
+
+
         ##  IF PROXY IS ENABLED ##
         if proxyEnabled and self.isVideo():                                     #   TODO - HANDLE NON-VIDEO
             proxySettings = options["proxySettings"]
@@ -2103,21 +2148,20 @@ class DestFileTile(BaseTileItem):
         self.transferStartTime = time.time()
 
         #   Call Main File Transfer
-        self.transferMainFile(sourcePath, destPath)
+        self.transferMainFile(transferList)
 
 
     #   Call Worker Thread to Copy Main File
     @err_catcher(name=__name__)
-    def transferMainFile(self, sourcePath, destPath):
+    def transferMainFile(self, transferList):
         self.setTransferStatus(progBar="transfer", status="Queued")
         self.setQuanityUI("copyMain")
         self.applyStyle(self.state)
 
-
-        logger.debug(f"Starting MainFile Transfer: {destPath}")
+        logger.debug(f"Starting MainFile Transfer: {transferList[0]}")
 
         #   Call the Transfer Worker Thread for Main File
-        self.main_transfer_worker = FileCopyWorker(self, "transfer", sourcePath, destPath)
+        self.main_transfer_worker = FileCopyWorker(self, "transfer", transferList)
         #   Connect the Progress Signals
         self.main_transfer_worker.progress.connect(self.update_main_transferProgress)
         self.main_transfer_worker.finished.connect(self.main_transfer_complete)
@@ -2127,12 +2171,13 @@ class DestFileTile(BaseTileItem):
 
     #   Gets called when Transfer Thread Starts in Queue
     @err_catcher(name=__name__)
-    def _onTransferStart(self, transType):
+    def _onTransferStart(self, transType, filePath):
         self.setTransferStatus(progBar=transType, status="Transferring")
         if transType == "transfer":
-            logger.status(f"Transfer Started: {self.data['source_mainFile_path']}")
+            logger.status(f"MainFile Transfer Started: {filePath}")
+
         elif transType == "proxy":
-            logger.status(f"Transfer Started: {self.data['source_proxyFile_path']}")
+            logger.status(f"Proxy Transfer Started: {filePath}")
 
 
 
@@ -2273,6 +2318,7 @@ class DestFileTile(BaseTileItem):
                     self.setQuanityUI("generate")
                     self.generateProxy()
 
+            
             logger.status(f"Main Transfer complete: {self.data['dest_mainFile_path']}")
             
         #   Transfer Hash is Not Correct
@@ -2291,11 +2337,11 @@ class DestFileTile(BaseTileItem):
     #   Generates Proxy with FFmpeg in a Worker Thread
     @err_catcher(name=__name__)
     def transferProxy(self):
-        sourcePath = self.transferData["sourceProxy"]
-        destPath = self.transferData["destProxy"]
+        transferList = [{"sourcePath": self.transferData["sourceProxy"],
+                        "destPath": self.transferData["destProxy"]}]
 
         #   Call the Transfer Worker Thread for Main File
-        self.proxy_transfer_worker = FileCopyWorker(self, "proxy", sourcePath, destPath)
+        self.proxy_transfer_worker = FileCopyWorker(self, "proxy", transferList)
         #   Connect the Progress Signals
         self.proxy_transfer_worker.progress.connect(self.update_proxyCopyProgress)
         self.proxy_transfer_worker.finished.connect(self.proxyCopy_complete)
@@ -2582,13 +2628,12 @@ class FileCopyWorker(QThread):
     progress = Signal(int, float)
     finished = Signal(bool)
 
-    def __init__(self, origin, transType, sourcePath, destPath):
+    def __init__(self, origin, transType, transferList):
         super().__init__()
         
         self.origin = origin
         self.transType = transType
-        self.sourcePath = sourcePath
-        self.destPath = destPath
+        self.transferList = transferList
 
         self.running = True
         self.pause_flag = False
@@ -2599,50 +2644,74 @@ class FileCopyWorker(QThread):
     def pause(self):
         self.pause_flag = True
 
+
     def resume(self):
         self.pause_flag = False
+
 
     def cancel(self):
         self.cancel_flag = True
 
+
     def run(self):
         try:
-            total_size = os.path.getsize(self.sourcePath)
-            copied_size = 0
-
-            buffer_size = 1024 * 1024 * self.origin.size_copyChunk
             self.origin.copy_semaphore.acquire()
 
-            #   Create Dir if Needed
-            os.makedirs(os.path.dirname(self.destPath), exist_ok=True)
+            # Step 1: Get total size of all transfers
+            total_size_all = 0
+            for transItem in self.transferList:
+                try:
+                    total_size_all += os.path.getsize(transItem["sourcePath"])
+                except Exception as e:
+                    print(f"Could not get size for: {transItem['sourcePath']} - {e}")
 
-            #   Trigger Start UI
-            self.origin._onTransferStart(self.transType)
+            copied_size_all = 0
 
-            with open(self.sourcePath, 'rb') as fsrc, open(self.destPath, 'wb') as fdst:
-                while True:
-                    if self.cancel_flag:
-                        self.finished.emit(False)
-                        fdst.close()
-                        os.remove(self.destPath)
-                        return
+            # Step 2: Loop through all items
+            for transItem in self.transferList:
+                sourcePath = transItem["sourcePath"]
+                destPath = transItem["destPath"]
 
-                    if self.pause_flag:
-                        time.sleep(0.1)
-                        continue
+                try:
+                    total_size = os.path.getsize(sourcePath)
+                except Exception as e:
+                    print(f"Error getting size of {sourcePath}: {e}")
+                    continue  # skip this file
 
-                    chunk = fsrc.read(buffer_size)
-                    if not chunk:
-                        break
+                copied_size_file = 0
+                buffer_size = 1024 * 1024 * self.origin.size_copyChunk
 
-                    fdst.write(chunk)
-                    copied_size += len(chunk)
-                    progress_percent = int((copied_size / total_size) * 100)
+                os.makedirs(os.path.dirname(destPath), exist_ok=True)
 
-                    now = time.time()
-                    if now - self.last_emit_time >= self.origin.progUpdateInterval or progress_percent == 100:
-                        self.progress.emit(progress_percent, copied_size)
-                        self.last_emit_time = now
+                #   Signal Main Code for UI
+                self.origin._onTransferStart(self.transType, sourcePath)
+
+                with open(sourcePath, 'rb') as fsrc, open(destPath, 'wb') as fdst:
+                    while True:
+                        if self.cancel_flag:
+                            self.finished.emit(False)
+                            fdst.close()
+                            os.remove(destPath)
+                            return
+
+                        if self.pause_flag:
+                            time.sleep(0.1)
+                            continue
+
+                        chunk = fsrc.read(buffer_size)
+                        if not chunk:
+                            break
+
+                        fdst.write(chunk)
+                        copied_size_file += len(chunk)
+                        copied_size_all += len(chunk)
+
+                        progress_percent = int((copied_size_all / total_size_all) * 100)
+
+                        now = time.time()
+                        if now - self.last_emit_time >= self.origin.progUpdateInterval or progress_percent == 100:
+                            self.progress.emit(progress_percent, copied_size_all)
+                            self.last_emit_time = now
 
             self.finished.emit(True)
 
@@ -2653,6 +2722,7 @@ class FileCopyWorker(QThread):
         finally:
             self.origin.copy_semaphore.release()
             self.running = False
+
 
 
 

@@ -282,7 +282,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
                     self.sourceBrowser.nameMods.append(mod_data)
                 
                 #   Refresh List
-                self.sourceBrowser.refreshDestItems(restoreSelection=True)
+                self.sourceBrowser.refreshDestTable(restoreSelection=True)
                 #   Save Mods to Project Settings
                 self.sourceBrowser.plugin.saveSettings(key="nameMods")
 
