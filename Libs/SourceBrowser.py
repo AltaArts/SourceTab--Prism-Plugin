@@ -132,6 +132,7 @@ logger = logging.getLogger(__name__)
 
 
 
+#########   TESTING FUNCTIONS   ############
 #   StopWatch Decorator
 def stopWatch(func):
     @wraps(func)
@@ -146,6 +147,39 @@ def stopWatch(func):
         
         return result
     return wrapper
+
+def _debug_recursive_print(data: object, label: str = None) -> None:
+    """
+    Recursively print nested dictionaries and lists with indentation for debugging.
+
+    data:   object to inspect
+    label:  text name of object to display (optional)
+    """
+
+    def _print_nested(d, indent=0):
+        prefix = "    " * indent
+        if isinstance(d, dict):
+            for key, value in d.items():
+                if isinstance(value, (dict, list)):
+                    print(f"{prefix}{key}:")
+                    _print_nested(value, indent + 1)
+                else:
+                    print(f"{prefix}{key}: {value}")
+        elif isinstance(d, list):
+            for item in d:
+                _print_nested(item, indent)
+        else:
+            print(f"{prefix}{d}")
+
+    try:
+        print("\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
+        if label:
+            print(f"Object: '{label}':\n")
+        _print_nested(data)
+    finally:
+        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n")
+
+###########################################
 
 
 
@@ -1651,7 +1685,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return fileType
 
 
-
     #   Show/Hide FileTiles Based on Table Filters
     @err_catcher(name=__name__)
     def applyTableFilters(self, table, sortedList):
@@ -1690,8 +1723,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Group Image Sequences with Seq Number Suffix
     @err_catcher(name=__name__)
     def groupSequences(self, table, sortedList):
-
-        #   Helper to Split Filename into Parts
+        # Helper to Split Filename into Parts
         def _splitFilename(filename):
             name, ext = os.path.splitext(filename)
             match = re.search(r'(\d+)$', name)
@@ -1702,13 +1734,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 base = name
                 frame = ''
             return base, frame, ext
-        
 
         filePath_to_item = {}
         seen = set()
         groupedItems = []
 
-        #   Collect Files
+        # Collect Files
         ordered_file_paths = []
         for item in sortedList:
             if item["tileType"] == "file":
@@ -1717,46 +1748,58 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 ordered_file_paths.append(path)
 
         for current in ordered_file_paths:
-            #   Skip if Already Grouped
             if current in seen:
                 continue
 
             base, frame, ext = _splitFilename(current)
 
-            #   Check if Still Image Format
             if (
                 frame and
                 ext.lower() in self.core.media.supportedFormats and
                 ext.lower() not in self.core.media.videoFormats
             ):
-                
-                #   Find Sequence Number Suffix
-                pattern = re.escape(base) + r"\d+" + re.escape(ext)
+                # Build regex pattern for matching sequence files
+                pattern = re.escape(base) + r'\d+' + re.escape(ext)
                 regex = re.compile(pattern)
 
-                #   Itterate Files to Find Matching Seq Files
                 matched_dict = OrderedDict()
                 for f in ordered_file_paths:
                     if f not in seen and regex.fullmatch(f):
                         matched_dict[f] = None
-                matched_dict[current] = None
+                matched_dict[current] = None  # ensure current is included
+
                 matched = list(matched_dict.keys())
 
-                #   If there is a Sequence, build Dict
                 if len(matched) > 1:
                     seen.update(matched)
                     padded = "#" * len(frame)
-                    display_name = f"{base}{padded}{ext}"
+                    display_name = os.path.basename(f"{base}{padded}{ext}")
 
                     matchedItems = [filePath_to_item[f] for f in matched]
                     uuid_list = [item["data"]["uuid"] for item in matchedItems]
-                    baseItem = filePath_to_item[current]
 
+                    baseItem = filePath_to_item[current]
                     groupedData = baseItem["data"].copy()
-                    groupedData["displayName"] = os.path.basename(display_name)
+
+                    # Remove redundant per-frame fields from main dict
+                    for key in [
+                        "source_mainFile_path",
+                        "source_mainFile_duration",
+                        "source_mainFile_hash",
+                        "hasProxy",
+                        "icon",
+                        "source_mainFile_date_raw",
+                        "source_mainFile_date",
+                        "source_mainFile_size_raw",
+                        "source_mainFile_size"
+                    ]:
+                        groupedData.pop(key, None)
+
+                    groupedData["displayName"] = display_name
                     groupedData["fileType"] = "Image Sequence"
                     groupedData["sequenceItems"] = matchedItems
                     groupedData["sequenceUUIDs"] = uuid_list
+
 
                     groupedItems.append({
                         "tile": baseItem["tile"],
@@ -1772,9 +1815,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 seen.add(current)
                 groupedItems.append(filePath_to_item[current])
 
-        #   Preserve Folders in Original Order (first in list)
+        # Preserve folder order (if any)
         folders = [item for item in sortedList if item["tileType"] == "folder"]
-
         return folders + groupedItems
 
 
@@ -1914,10 +1956,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             WaitPopup.closePopup()
 
 
-
     #   Sort / Filter / Refresh Source Table
     @err_catcher(name=__name__)
     def refreshSourceTable(self, restoreSelection=False):
+
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
@@ -1940,18 +1982,26 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             #   Itterate Sorted Items and Create Tile UI Widgets
             for dataItem in sourceDataItems_sorted:
-                fileItem = dataItem["tile"]
+                data = dataItem.get("data", {})
                 tileType = dataItem["tileType"]
-                seqData = dataItem["data"]
-                displayName = seqData["displayName"]
-                fileType = seqData["fileType"]
-                uuid = seqData["uuid"]
+                displayName = data["displayName"]
+                fileType = data["fileType"]
+                uuid = data["uuid"]
 
                 if tileType == "folder":
-                    itemTile = TileWidget.FolderItem(self, seqData)
+                    itemTile = TileWidget.FolderItem(self, data)
                     rowHeight = SOURCE_DIR_HEIGHT
+
                 else:
-                    itemTile = TileWidget.SourceFileTile(fileItem, fileType, seqData)
+                    #   Get SeqData if Exists
+                    if "sequenceItems" in data:
+                        uuid = data["uuid"] = self.createUUID()
+                        fileItem = TileWidget.SourceFileItem(self, passedData=data)
+
+                    else:
+                        fileItem = dataItem["tile"]
+
+                    itemTile = TileWidget.SourceFileTile(fileItem, fileType)
                     rowHeight = SOURCE_ITEM_HEIGHT
 
                 #   Set Row Size and Add File Tile widget and Data to Row
@@ -2056,12 +2106,19 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for dataItem in destDataItems_sorted:
                 fileItem = dataItem["tile"]
                 tileType = dataItem["tileType"]
-                seqData = dataItem["data"]
-                displayName = seqData["displayName"]
-                fileType = seqData["fileType"]
-                uuid = seqData["uuid"]
+                data = dataItem["data"]
+                displayName = data["displayName"]
+                fileType = data["fileType"]
+                uuid = data["uuid"]
 
-                itemTile = TileWidget.DestFileTile(fileItem, fileType, seqData)
+                if "sequenceItems" in data:
+                    uuid = data["uuid"] = self.createUUID()
+                    fileItem = TileWidget.DestFileItem(self, passedData=data)
+
+                else:
+                    fileItem = dataItem["tile"]
+
+                itemTile = TileWidget.DestFileTile(fileItem, fileType)
                 rowHeight = SOURCE_ITEM_HEIGHT
 
                 #   Set Row Size and Add File Tile widget and Data to Row
@@ -2284,10 +2341,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         addList = []
 
         #   If there is Sequence Data
-        seqData = data["seqData"]
-        if seqData.get("sequenceItems"):
+        if data.get("sequenceItems"):
             #   Itterate Seq Items and Add to List
-            for sData in seqData["sequenceItems"]:
+            for sData in data["sequenceItems"]:
                 tile = sData["tile"]
                 addList.append(tile.getData())
 

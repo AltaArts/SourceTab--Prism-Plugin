@@ -98,6 +98,7 @@ sys.path.append(uiPath)
 # if os.path.exists(os.path.join(pyLibsPath, "Python311")):                 #   TODO Add python libs check
 
 
+from PythonLibs.Python311 import playsound
 import exiftool
 
 from PopupWindows import DisplayPopup
@@ -118,6 +119,7 @@ COLOR_GREY = "100, 100, 100"
 
 
 
+#########   TESTING FUNCTIONS   ############
 #   StopWatch Decorator
 def stopWatch(func):
     from functools import wraps
@@ -134,6 +136,39 @@ def stopWatch(func):
         
         return result
     return wrapper
+
+def _debug_recursive_print(data: object, label: str = None) -> None:
+    """
+    Recursively print nested dictionaries and lists with indentation for debugging.
+
+    data:   object to inspect
+    label:  text name of object to display (optional)
+    """
+
+    def _print_nested(d, indent=0):
+        prefix = "    " * indent
+        if isinstance(d, dict):
+            for key, value in d.items():
+                if isinstance(value, (dict, list)):
+                    print(f"{prefix}{key}:")
+                    _print_nested(value, indent + 1)
+                else:
+                    print(f"{prefix}{key}: {value}")
+        elif isinstance(d, list):
+            for item in d:
+                _print_nested(item, indent)
+        else:
+            print(f"{prefix}{d}")
+
+    try:
+        print("\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
+        if label:
+            print(f"Object: '{label}':\n")
+        _print_nested(data)
+    finally:
+        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n")
+
+###########################################
 
 
 
@@ -174,11 +209,11 @@ class BaseTileItem(QWidget):
         return self.browser.dataOps_threadpool
 
 
-    def __init__(self, browser, data, parent=None):
+    def __init__(self, browser, data=None, passedData=None, parent=None):
         super(BaseTileItem, self).__init__(parent)
+
         self.core = browser.core
         self.browser = browser
-        # self.data = data
 
         self.state = "deselected"
 
@@ -463,15 +498,28 @@ class BaseTileItem(QWidget):
 
 
 
-    ####    TEMP TESTING    ####
-    @err_catcher(name=__name__)                                                             # TESTING
+    ####    TEMP TESTING    ####                                                      # TESTING
+    @err_catcher(name=__name__)
     def TEST_SHOW_DATA(self):
         if not hasattr(self, "data") or not isinstance(self.data, dict):
             self.core.popup("No data to display or 'data' is not a dictionary.")
             return
+        
+        _debug_recursive_print(self.data, label="ItemData")
 
-        data_str = "\n\n".join(f"{key}: {value}" for key, value in self.data.items())
+        lines = []
+        for key, value in self.data.items():
+            if key == "seqData" and isinstance(value, dict):
+                lines.append(f"{key}:")
+                for sub_key, sub_value in value.items():
+                    lines.append(f"    {sub_key}:     {sub_value}")
+            else:
+                lines.append(f"{key}:     {value}")
+
+        data_str = "\n".join(lines)
+
         self.core.popup(data_str)
+
     ####    ^^^^^^^^^^^^^    ####
     
 
@@ -480,7 +528,17 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def getFileDate(self, filePath):
         return os.path.getmtime(filePath)
+    
 
+    @err_catcher(name=__name__)
+    def getSequenceItems(self):
+        return self.data["sequenceItems"]
+    
+
+    @err_catcher(name=__name__)
+    def getFirstSeqData(self):
+        return self.getSequenceItems()[0]["data"]
+    
 
     #   Returns the File Size from the OS
     @err_catcher(name=__name__)
@@ -512,7 +570,11 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def getSource_mainfilePath(self):
         try:
-            return self.data.get("source_mainFile_path")
+            if getattr(self, "isSequence", False):
+                return self.getFirstSeqData()["source_mainFile_path"]
+            else:
+                return self.data.get("source_mainFile_path")
+            
         except Exception as e:
             logger.warning(f"ERROR:  Failed to get Source Main File Path:\n{e}")
             return None
@@ -554,7 +616,7 @@ class BaseTileItem(QWidget):
         try:
             if self.isSequence:
                 #   Get Image Sequence Size
-                total_size = self.getSequenceSize(self.seqData.get("sequenceItems", []))
+                total_size = self.getSequenceSize(self.data.get("sequenceItems", []))
             else:
                 #   Or Get the Main File Size
                 total_size = self.data["source_mainFile_size_raw"]
@@ -644,13 +706,12 @@ class BaseTileItem(QWidget):
 
     #   Gets and Sets Thumbnail Using Thread
     @err_catcher(name=__name__)
-    def getThumbnail(self):
+    def getThumbnail(self, path=None):
         try:
-            # if hasattr(self.data, "thumbnail"):
-            #     self.onThumbComplete(self.data["thumbnail"])
-            #     return
-
-            filePath = self.getSource_mainfilePath()
+            if path:
+                filePath = path
+            else:
+                filePath = self.getSource_mainfilePath()
 
             # Create Worker Thread
             worker_thumb = ThumbnailWorker(
@@ -672,15 +733,18 @@ class BaseTileItem(QWidget):
             logger.warning(f"ERROR:  Failed to Refresh Thumbnail:\n{e}")
         
 
-    #   Adds Thumbnail to FileTile Label
+    #   Gets called from Thumb Worker Finished
     @err_catcher(name=__name__)
     def onThumbComplete(self, scaledPixmap):
         self.data["thumbnail"] = scaledPixmap
+
+        self.setThumbnail(scaledPixmap)
 
         self.thumbnailReady.emit(scaledPixmap)
 
 
 
+    #   Adds Thumbnail to FileTile Label
     @err_catcher(name=__name__)
     def setThumbnail(self, pixmap):
         if hasattr(self, "l_preview"):
@@ -858,7 +922,7 @@ class BaseTileItem(QWidget):
 
 ##   FOLDER TILES (Inherits from BaseTileItem)  ##
 class FolderItem(BaseTileItem):
-    def __init__(self, browser, data, parent=None):
+    def __init__(self, browser, data=None, passedData=None, parent=None):
         super(FolderItem, self).__init__(browser, data, parent)
         self.tileType = "folderTile"
 
@@ -926,25 +990,41 @@ class FolderItem(BaseTileItem):
         self.browser.doubleClickFolder(self.data["dirPath"], mode="source")
 
 
+    #   Place Holder for RCL for Folder Items
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
-        pass
+        rcmenu = QMenu(self.browser)
 
+        showDataAct = QAction("Show Data", self.browser)                         #   TESTING
+        showDataAct.triggered.connect(self.TEST_SHOW_DATA)
+        rcmenu.addAction(showDataAct)
+
+        expAct = QAction("Open in Explorer", self)
+        expAct.triggered.connect(lambda: self.openInExplorer(self.data["dirPath"]))
+        rcmenu.addAction(expAct)
+
+        rcmenu.exec_(QCursor.pos())
 
 
 ##   FILE TILES ON THE SOURCE SIDE (Inherits from BaseTileItem)     ##
 class SourceFileItem(BaseTileItem):
-    def __init__(self, browser, data, parent=None):
-        super(SourceFileItem, self).__init__(browser, data, parent)
+    def __init__(self, browser, data=None, passedData=None, parent=None):
+        super(SourceFileItem, self).__init__(browser, data, passedData, parent)
         self.tileType = "sourceItem"
-        self.fileType = data["fileType"]
 
-        self.data = data
-        self.data["source_mainFile_duration"] = None
-        self.data["source_mainFile_hash"] = None
-        self.data["hasProxy"] = False
+        if passedData:
+            self.data = passedData
 
-        self.generateData()
+        else:
+            self.data = data
+            self.data["source_mainFile_duration"] = None
+            self.data["source_mainFile_hash"] = None
+            self.data["hasProxy"] = False
+            
+            self.fileType = self.data["fileType"]
+
+            self.generateData()
+
 
         logger.debug("Loaded Source FileTile")                          #   TODO - LOGGIN FOR SEPARATE CLASSES
 
@@ -1124,7 +1204,7 @@ class SourceFileItem(BaseTileItem):
 
 
 class SourceFileTile(BaseTileItem):
-    def __init__(self, item: SourceFileItem, fileType, seqData=None, parent=None):
+    def __init__(self, item: SourceFileItem, fileType, parent=None):
         self.item = item
         self.data = item.data
         self.tileType = "sourceTile"
@@ -1133,19 +1213,16 @@ class SourceFileTile(BaseTileItem):
 
         self.fileType = fileType
 
-        self.seqData = seqData
-        item.data["seqData"] = seqData
         self.isSequence = bool(self.fileType == "Image Sequence")
+
+        # _debug_recursive_print(self.isSequence, "self.isSequence")                                              #    TESTING
+
+        # _debug_recursive_print(self.data, "self.data")                                              #    TESTING
+
 
         self.setupUi()
         self.refreshUi()
 
-        #   If Thumbnail Exists, Set Immediately
-        if self.data.get("thumbnail"):
-            self.setThumbnail(self.data.get("thumbnail"))
-        else:
-            #   Or Add Signal Connection
-            self.item.thumbnailReady.connect(self.setThumbnail)
 
 
     def mouseReleaseEvent(self, event):
@@ -1277,7 +1354,7 @@ class SourceFileTile(BaseTileItem):
 
             # #   Set Display Name
             if self.isSequence:
-                displayName = self.seqData["displayName"]
+                displayName = self.data["displayName"]
             else:
                 displayName = self.getBasename(filePath)
 
@@ -1291,7 +1368,11 @@ class SourceFileTile(BaseTileItem):
                 self.setIcon(self.data["icon"])
 
             #   Set Date
-            self.l_date.setText(self.data["source_mainFile_date"])
+            if self.isSequence:
+                date_str = self.getFirstSeqData()["source_mainFile_date"]
+            else:
+                date_str = self.data["source_mainFile_date"]
+            self.l_date.setText(date_str)
 
             #   Set Filesize
             self.setFileSize()
@@ -1300,13 +1381,37 @@ class SourceFileTile(BaseTileItem):
             self.setFrames()
 
             #   Set Hash
-            self.l_fileSize.setToolTip("Calculating file hash...")
-            if self.data["source_mainFile_hash"]:
-                self.l_fileSize.setToolTip(f"Hash: {self.data['source_mainFile_hash']}")
+            if not self.isSequence:
+                self.l_fileSize.setToolTip("Calculating file hash...")
+                if self.data["source_mainFile_hash"]:
+                    self.l_fileSize.setToolTip(f"Hash: {self.data['source_mainFile_hash']}")
 
             #   Proxy Icon
-            if self.data["hasProxy"]:
+            if not self.isSequence and self.data["hasProxy"]:
                 self.l_pxyIcon.show()
+
+            #   If Thumbnail Exists, Set Immediately
+            if self.isSequence:
+                if self.getFirstSeqData().get("thumbnail"):
+                    self.setThumbnail(self.data["sequenceItems"][0]["data"].get("thumbnail"))
+                    
+                else:
+                    #   Or Add Signal Connection
+
+                    self.getThumbnail(self.getFirstSeqData().get("source_mainFile_path"))
+                    # _debug_recursive_print(self.getFirstSeqData().get('thumbnail'), "self.getFirstSeqData() thumb")                #   TESTING
+
+                    # self.item.thumbnailReady.connect(lambda: self.setThumbnail(self.getFirstSeqData().get("thumbnail")))
+                    # self.getFirstSeqData().get("source_mainFile_path")
+
+            else:
+                #   If Thumbnail Exists, Set Immediately
+                if self.data.get("thumbnail"):
+                    self.setThumbnail(self.data.get("thumbnail"))
+                else:
+                    #   Or Add Signal Connection
+                    self.item.thumbnailReady.connect(self.setThumbnail)
+
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
@@ -1315,7 +1420,7 @@ class SourceFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def setFileSize(self):
         if self.isSequence:
-            totalSize_raw = self.getSequenceSize(self.seqData.get("sequenceItems", []))
+            totalSize_raw = self.getSequenceSize(self.data.get("sequenceItems", []))
             totalSize_str = self.getFileSizeStr(totalSize_raw)
 
         else:
@@ -1330,7 +1435,7 @@ class SourceFileTile(BaseTileItem):
             self.l_frames.setText("--")
 
         if self.isSequence:
-            self.l_frames.setText(str(len(self.seqData["sequenceItems"])))
+            self.l_frames.setText(str(len(self.data["sequenceItems"])))
 
         elif self.data["source_mainFile_duration"]:
             self.setDuration()
@@ -1405,12 +1510,18 @@ class SourceFileTile(BaseTileItem):
 
 ##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
 class DestFileItem(BaseTileItem):
-    def __init__(self, browser, data, parent=None):
-        super(DestFileItem, self).__init__(browser, data, parent)
+    def __init__(self, browser, data=None, passedData=None, parent=None):
+        super(DestFileItem, self).__init__(browser, data, passedData, parent)
         self.tileType = "destItem"
-        self.fileType = data["fileType"]
 
-        self.data = data
+        if passedData:
+            self.data = passedData
+
+        else:
+            self.data = data
+
+        self.fileType = self.data["fileType"]
+
 
         logger.debug("Loaded Destination FileTile")                         #   TODO
 
@@ -1420,7 +1531,7 @@ class DestFileItem(BaseTileItem):
 
 ##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
 class DestFileTile(BaseTileItem):
-    def __init__(self, item: DestFileItem, fileType, seqData=None, parent=None):
+    def __init__(self, item: DestFileItem, fileType, parent=None):
         self.item = item
         self.data = item.data
         self.tileType = "destTile"
@@ -1429,9 +1540,10 @@ class DestFileTile(BaseTileItem):
 
         self.fileType = fileType
 
-        self.seqData = seqData
-        item.data["seqData"] = seqData
         self.isSequence = bool(self.fileType == "Image Sequence")
+
+
+        # _debug_recursive_print(self.data, "DestFileTile init Data")                 #   TESTING
 
         self.main_transfer_worker = None
         self.worker_proxy = None
@@ -1579,32 +1691,34 @@ class DestFileTile(BaseTileItem):
 
     @err_catcher(name=__name__)
     def refreshUi(self):
-        try:
-            name, source_mainFile_path = self.setModifiedName()
+        # try:
 
-            tip = (f"Source File:  {os.path.join(source_mainFile_path, name)}\n"
-                f"Destination File:  {os.path.join(self.getDestPath(), name)}")
-            self.l_fileName.setToolTip(tip)
+        name, source_mainFile_path = self.setModifiedName()
 
-            self.setThumbnail(self.data.get("thumbnail"))
+        tip = (f"Source File:  {os.path.join(source_mainFile_path, name)}\n"
+            f"Destination File:  {os.path.join(self.getDestPath(), name)}")
+        self.l_fileName.setToolTip(tip)
 
-            #   Get and Set Proxy File
-            self.setProxy()
-
-            #   Set Filetype Icon
-            if self.isSequence:
-                self.setIcon(self.browser.icon_sequence)
-            else:
-                self.setIcon(self.data["icon"])
-
-            #   Set Quanity Details
-            self.setQuanityUI("idle")
-
-            self.toggleProxyProgbar()
+        #   Set Filetype Icon
+        if self.isSequence:
+            self.setIcon(self.browser.icon_sequence)
+        else:
+            self.setIcon(self.data["icon"])
 
 
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
+        self.setThumbnail(self.data.get("thumbnail"))
+
+        #   Get and Set Proxy File
+        self.setProxy()
+
+        #   Set Quanity Details
+        self.setQuanityUI("idle")
+
+        self.toggleProxyProgbar()
+
+
+        # except Exception as e:
+        #     logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
 
 
     #   Sets the FileName based on Name Modifiers
@@ -1625,32 +1739,35 @@ class DestFileTile(BaseTileItem):
     #   Sets the FileName based on Name Modifiers
     @err_catcher(name=__name__)
     def setModifiedName(self):
-        try:
+
+        # try:
+
+        dest_mainFile_dir = self.getDestPath()
+
+        # #   Set Display Name
+        if self.isSequence:
+            source_mainFile_path = self.getFirstSeqData()["source_mainFile_path"]
+            displayName = self.data["displayName"]
+        else:
             source_mainFile_path = self.getSource_mainfilePath()
-            dest_mainFile_dir = self.getDestPath()
+            displayName = self.getBasename(source_mainFile_path)
 
-            # #   Set Display Name
-            if self.isSequence:
-                displayName = self.seqData["displayName"]
-            else:
-                displayName = self.getBasename(source_mainFile_path)
+        #   Get Modified Name
+        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+            name = self.getModifiedName(displayName)
 
-            #   Get Modified Name
-            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-                name = self.getModifiedName(displayName)
+        #   Use Un-Modified Name
+        else:
+            name = displayName
 
-            #   Use Un-Modified Name
-            else:
-                name = displayName
+        #    Set Name and Path
+        self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
+        self.l_fileName.setText(name)
 
-            #    Set Name and Path
-            self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
-            self.l_fileName.setText(name)
+        return name, source_mainFile_path
 
-            return name, source_mainFile_path
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Get Name Override:\n{e}")
+        # except Exception as e:
+        #     logger.warning(f"ERROR:  Failed to Get Name Override:\n{e}")
 
         
     @err_catcher(name=__name__)
@@ -1693,8 +1810,12 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def getDestMainPath(self):
         try:
-            sourceMainPath = self.getSource_mainfilePath()
-            baseName = self.getBasename(sourceMainPath)
+
+            if self.isSequence:
+                baseName = self.data["displayName"]
+            else:
+                sourceMainPath = self.getSource_mainfilePath()
+                baseName = self.getBasename(sourceMainPath)
 
             #   Modifiy Name is Enabled
             if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
@@ -1902,12 +2023,12 @@ class DestFileTile(BaseTileItem):
 
         #   Gets Frames and File Size of Sequence
         if self.isSequence:
-            totalSize_raw = self.getSequenceSize(self.seqData.get("sequenceItems", []))
-            self.seqData["totalSeqSize"] = totalSize_raw
+            totalSize_raw = self.getSequenceSize(self.getSequenceItems())
+            self.data["totalSeqSize"] = totalSize_raw
             mainSize = self.getFileSizeStr(totalSize_raw)
 
-            duration = str(len(self.seqData["sequenceItems"]))
-            self.seqData["seqDuration"] = duration
+            duration = str(len(self.data["sequenceItems"]))
+            self.data["seqDuration"] = duration
             
         #   Get Frames and File Size of Non-Sequences
         else:
@@ -2102,11 +2223,9 @@ class DestFileTile(BaseTileItem):
         destPath = self.getDestMainPath()
         self.data["dest_mainFile_path"] = destPath
 
-
-
         if self.isSequence:
             transferList = []
-            for item in self.seqData.get("sequenceItems", []):
+            for item in self.data.get("sequenceItems", []):
                 iData = item["data"]
 
                 if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
@@ -2124,9 +2243,8 @@ class DestFileTile(BaseTileItem):
                             "destPath": destPath}]
 
 
-
         ##  IF PROXY IS ENABLED ##
-        if proxyEnabled and self.isVideo():                                     #   TODO - HANDLE NON-VIDEO
+        if proxyEnabled and self.isVideo():                                     #   TODO - HANDLE PROXY FOR NON-VIDEO
             proxySettings = options["proxySettings"]
             self.transferData["proxyMode"] = proxyMode
             self.transferData["proxySettings"] = proxySettings
@@ -2178,7 +2296,6 @@ class DestFileTile(BaseTileItem):
 
         elif transType == "proxy":
             logger.status(f"Proxy Transfer Started: {filePath}")
-
 
 
     #   Gets called when Proxy Thread Starts in Queue
@@ -2262,27 +2379,41 @@ class DestFileTile(BaseTileItem):
     #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
     def main_transfer_complete(self, success):
-        destMainPath = self.getDestMainPath()
-
         self.transferTimer.stop()
         self.data["transferTime"] = self.browser.getFormattedTimeStr(self.getTimeElapsed())
 
-        #   Sets Destination FilePath ToolTip
-        self.l_fileName.setToolTip(os.path.normpath(destMainPath))
-
-        logger.debug(f"Main Transfer Finised: {success}")
-
         if success:
+            destMainPath = self.getDestMainPath()
+
+            #   Sets Destination FilePath ToolTip
+            self.l_fileName.setToolTip(os.path.normpath(destMainPath))
+
             self.transferProgBar.setValue(100)
 
-            if os.path.isfile(destMainPath):
+            destFiles = []
+
+            if self.isSequence:
+                transferItems = self.getSequenceItems()
+
+                for transItem in transferItems:
+                    destFiles.append(transItem["data"]["dest_mainFile_path"])
+
+            else:
+                destFiles.append(destMainPath)
+
+            #   Itterate through all Transfered Files to Check Exists
+            filesExist = all(os.path.isfile(file) for file in destFiles)
+
+            if filesExist:
                 self.setTransferStatus(progBar="transfer", status="Generating Hash")
+
+                logger.debug("Main Transfer Successful")
 
                 #   Calls for Hash Generation with Callback
                 self.setFileHash(destMainPath, self.onDestHashReady)
             
             else:
-                errorMsg = "ERROR:  Transfer File Does Not Exist"
+                errorMsg = "ERROR:  Transfer File(s) Does Not Exist"
                 logger.warning(f"Transfer failed: {destMainPath}")
                 self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
 
@@ -2318,7 +2449,7 @@ class DestFileTile(BaseTileItem):
                     self.setQuanityUI("generate")
                     self.generateProxy()
 
-            
+
             logger.status(f"Main Transfer complete: {self.data['dest_mainFile_path']}")
             
         #   Transfer Hash is Not Correct
