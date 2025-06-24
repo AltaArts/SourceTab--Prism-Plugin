@@ -1392,17 +1392,13 @@ class SourceFileTile(BaseTileItem):
 
             #   If Thumbnail Exists, Set Immediately
             if self.isSequence:
+                #   If Thumbnail Exists, Set Immediately
                 if self.getFirstSeqData().get("thumbnail"):
                     self.setThumbnail(self.data["sequenceItems"][0]["data"].get("thumbnail"))
                     
                 else:
-                    #   Or Add Signal Connection
-
+                    #   Generate Thumbnail
                     self.getThumbnail(self.getFirstSeqData().get("source_mainFile_path"))
-                    # _debug_recursive_print(self.getFirstSeqData().get('thumbnail'), "self.getFirstSeqData() thumb")                #   TESTING
-
-                    # self.item.thumbnailReady.connect(lambda: self.setThumbnail(self.getFirstSeqData().get("thumbnail")))
-                    # self.getFirstSeqData().get("source_mainFile_path")
 
             else:
                 #   If Thumbnail Exists, Set Immediately
@@ -1541,9 +1537,6 @@ class DestFileTile(BaseTileItem):
         self.fileType = fileType
 
         self.isSequence = bool(self.fileType == "Image Sequence")
-
-
-        # _debug_recursive_print(self.data, "DestFileTile init Data")                 #   TESTING
 
         self.main_transfer_worker = None
         self.worker_proxy = None
@@ -1691,34 +1684,32 @@ class DestFileTile(BaseTileItem):
 
     @err_catcher(name=__name__)
     def refreshUi(self):
-        # try:
+        try:
+            name, source_mainFile_path = self.setModifiedName()
 
-        name, source_mainFile_path = self.setModifiedName()
+            tip = (f"Source File:  {os.path.join(source_mainFile_path, name)}\n"
+                f"Destination File:  {os.path.join(self.getDestPath(), name)}")
+            self.l_fileName.setToolTip(tip)
 
-        tip = (f"Source File:  {os.path.join(source_mainFile_path, name)}\n"
-            f"Destination File:  {os.path.join(self.getDestPath(), name)}")
-        self.l_fileName.setToolTip(tip)
-
-        #   Set Filetype Icon
-        if self.isSequence:
-            self.setIcon(self.browser.icon_sequence)
-        else:
-            self.setIcon(self.data["icon"])
-
-
-        self.setThumbnail(self.data.get("thumbnail"))
-
-        #   Get and Set Proxy File
-        self.setProxy()
-
-        #   Set Quanity Details
-        self.setQuanityUI("idle")
-
-        self.toggleProxyProgbar()
+            #   Set Filetype Icon
+            if self.isSequence:
+                self.setIcon(self.browser.icon_sequence)
+            else:
+                self.setIcon(self.data["icon"])
 
 
-        # except Exception as e:
-        #     logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
+            self.setThumbnail(self.data.get("thumbnail"))
+
+            #   Get and Set Proxy File
+            self.setProxy()
+
+            #   Set Quanity Details
+            self.setQuanityUI("idle")
+
+            self.toggleProxyProgbar()
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
 
 
     #   Sets the FileName based on Name Modifiers
@@ -1739,35 +1730,33 @@ class DestFileTile(BaseTileItem):
     #   Sets the FileName based on Name Modifiers
     @err_catcher(name=__name__)
     def setModifiedName(self):
+        try:
+            dest_mainFile_dir = self.getDestPath()
 
-        # try:
+            # #   Set Display Name
+            if self.isSequence:
+                source_mainFile_path = self.getFirstSeqData()["source_mainFile_path"]
+                displayName = self.data["displayName"]
+            else:
+                source_mainFile_path = self.getSource_mainfilePath()
+                displayName = self.getBasename(source_mainFile_path)
 
-        dest_mainFile_dir = self.getDestPath()
+            #   Get Modified Name
+            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+                name = self.getModifiedName(displayName)
 
-        # #   Set Display Name
-        if self.isSequence:
-            source_mainFile_path = self.getFirstSeqData()["source_mainFile_path"]
-            displayName = self.data["displayName"]
-        else:
-            source_mainFile_path = self.getSource_mainfilePath()
-            displayName = self.getBasename(source_mainFile_path)
+            #   Use Un-Modified Name
+            else:
+                name = displayName
 
-        #   Get Modified Name
-        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-            name = self.getModifiedName(displayName)
+            #    Set Name and Path
+            self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
+            self.l_fileName.setText(name)
 
-        #   Use Un-Modified Name
-        else:
-            name = displayName
+            return name, source_mainFile_path
 
-        #    Set Name and Path
-        self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
-        self.l_fileName.setText(name)
-
-        return name, source_mainFile_path
-
-        # except Exception as e:
-        #     logger.warning(f"ERROR:  Failed to Get Name Override:\n{e}")
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Get Name Override:\n{e}")
 
         
     @err_catcher(name=__name__)
@@ -1810,7 +1799,6 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def getDestMainPath(self):
         try:
-
             if self.isSequence:
                 baseName = self.data["displayName"]
             else:

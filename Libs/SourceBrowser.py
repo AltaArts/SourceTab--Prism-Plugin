@@ -2812,8 +2812,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             progress = (total_copied / self.total_transferSize) * 100 if self.total_transferSize > 0 else 0
             self.sourceFuncts.progBar_total.setValue(progress)
 
-            if overall_status in ["Cancelled", "Complete"]:
-                self.completeTranfer(overall_status)
+            #   Call Complete Method if Applicable
+            if any(status == "Cancelled" for status in overall_statusList):
+                self.completeTranfer("Cancelled")
+            elif all(status in {"Complete"} for status in overall_statusList):
+                self.completeTranfer("Complete")
+            elif all(status in {"Complete", "Warning", "Error"} for status in overall_statusList):
+                self.completeTranfer("Complete with Warnings/Errors")
 
             logger.debug(f"Updated Overall Status: {overall_status}")
 
@@ -2821,7 +2826,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR:  Failed to Update Transfer Progress:\n{e}")
 
 
-    @err_catcher(name=__name__)                                                 #   TODO
+    @err_catcher(name=__name__)
     def completeTranfer(self, result):
         self.progressTimer.stop()
         self.setTransferStatus(result)
@@ -2861,7 +2866,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.openInExplorer(os.path.normpath(self.le_destPath.text()))
 
             elif result == "Open Report":
-                self.core.openFile(self.transferReportPath)
+                if not os.path.exists(self.transferReportPath):
+                    self.core.popup("Transfer Report Does not Exists")
+                else:
+                    self.core.openFile(self.transferReportPath)
 
 
     #   Creates Transfer Report PDF

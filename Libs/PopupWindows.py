@@ -67,6 +67,11 @@ prismRoot = os.getenv("PRISM_ROOT")
 if not prismRoot:
     prismRoot = PRISMROOT
 
+pluginRoot = os.path.dirname(os.path.dirname(__file__))
+uiPath = os.path.join(pluginRoot, "Libs", "UserInterfaces")
+iconDir = os.path.join(uiPath, "Icons")
+
+
 #   Get Name Mod Methods
 from FileNameMods import getModifiers as GetMods
 from FileNameMods import getModClassByName as GetModByName
@@ -75,64 +80,49 @@ from FileNameMods import createModifier as CreateMod
 logger = logging.getLogger(__name__)
 
 
-#   Simple Waiting Popup
-class WaitPopup(QDialog):
-    _instance = None
 
-    def __init__(self, message="Loading Data...", parent=None):
-        super(WaitPopup, self).__init__(parent)
-        self.setWindowFlags(
-            Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-        )
-        self.setModal(True)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-
-        layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setAlignment(Qt.AlignCenter)
-
-        label = QLabel(message)
-        label.setAlignment(Qt.AlignCenter)
-        label.setStyleSheet("font-size: 25pt; font-weight: bold;")
-
-        layout.addWidget(label)
-
-        self.setLayout(layout)
-        self.adjustSize()
-
-        #   Center on Parent if Provided
-        if parent and isinstance(parent, QWidget):
-            parent_rect = parent.frameGeometry()
-            center = parent_rect.center()
-            self.move(center - self.rect().center())
-        else:
-            #   Fallback to Center on Primary Screen
-            screen = QApplication.primaryScreen()
-            screen_geometry = screen.availableGeometry()
-            center = screen_geometry.center()
-            self.move(center - self.rect().center())
-
+class WaitPopup:
+    _popupProcess = None
 
     @classmethod
-    def showPopup(cls, message="Loading Data...", parent=None):
-        logger.debug("Showing Wait Popup")
-        if cls._instance is None:
-            cls._instance = WaitPopup(message=message, parent=parent)
-            cls._instance.show()
-            QApplication.processEvents()
+    def showPopup(cls, parent=None):
+        if cls._popupProcess is None:
+            #   Get Paths
+            launcherPath = os.path.abspath(os.path.join(os.path.dirname(__file__), "WaitPopup.py"))
+            gifPath = os.path.join(iconDir, "loading-dark.gif")
+
+            # Get Enviroment for Prism Qt Libs
+            env = os.environ.copy()
+            env["PRISM_SYSPATH"] = os.pathsep.join(sys.path)
+
+            #   Fallback Geometry
+            geo = [0, 0, 0, 0]
+
+            #   Get Window Geo if passed (Project Browser)
+            if parent and isinstance(parent, QWidget):
+                geom = parent.frameGeometry()
+                geo = [geom.x(), geom.y(), geom.width(), geom.height()]
+
+            #   Args: [exe, script, gifPath, x, y, w, h]
+            args = [sys.executable, launcherPath, gifPath] + [str(v) for v in geo]
+
+            logger.debug(f"Showing Wait Popup")
+
+            cls._popupProcess = subprocess.Popen(args, env=env)
 
 
     @classmethod
     def closePopup(cls):
         logger.debug("Closing Wait Popup")
-        if cls._instance is not None:
-            cls._instance.close()
-            cls._instance = None
+        if cls._popupProcess is not None:
+            cls._popupProcess.terminate()
+            cls._popupProcess.wait()
+            cls._popupProcess = None
 
 
     @classmethod
     def isShowing(cls):
-        return cls._instance is not None
+        return cls._popupProcess is not None
     
 
 
