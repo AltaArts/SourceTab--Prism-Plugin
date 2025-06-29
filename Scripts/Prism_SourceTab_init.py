@@ -48,6 +48,8 @@
 ####################################################
 
 
+import os
+
 
 #   Make Basic Class Object without Imports
 class Prism_SourceTab:
@@ -59,6 +61,8 @@ class Prism_SourceTab:
         #   Abort if not Standalone
         if self.core.appPlugin.pluginName != "Standalone":
             return
+        
+        os.environ["PRISM_ROOT"] = self.core.prismRoot
 
         #   Continue Loading SourceTab as Normal
         from Prism_SourceTab_Variables import Prism_SourceTab_Variables

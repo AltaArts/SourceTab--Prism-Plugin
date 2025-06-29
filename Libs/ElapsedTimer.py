@@ -48,56 +48,66 @@
 ####################################################
 
 
-import os
-import sys
-
-if "PRISM_SYSPATH" in os.environ:
-    prism_path_list = os.environ["PRISM_SYSPATH"].split(os.pathsep)
-    sys.path = prism_path_list + sys.path
-
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
+import time
 
 
-def main():
-    app = QApplication(sys.argv)
 
-    dialog = QDialog()
-    dialog.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog | Qt.WindowStaysOnTopHint)
-    dialog.setAttribute(Qt.WA_TranslucentBackground)
+class ElapsedTimer:
+    '''
+    Simple Elapsed Timer with Pause Functions
+    '''
+    def __init__(self):
+        self._start_time = None
+        self._elapsed = 0.0
+        self._running = False
 
-    layout = QVBoxLayout()
-    layout.setContentsMargins(20, 20, 20, 20)
-    layout.setAlignment(Qt.AlignCenter)
+    def start(self) -> None:
+        '''
+        Starts Timer
+        '''
 
-    label = QLabel()
-    label.setAlignment(Qt.AlignCenter)
+        if not self._running:
+            self._start_time = time.time()
+            self._running = True
 
-    gif_path = sys.argv[1]
-    movie = QMovie(gif_path)
-    label.setMovie(movie)
-    movie.start()
+    def pause(self) -> None:
+        '''
+        Pauses Timer and keeps Time Elapsed
+        '''
 
-    layout.addWidget(label)
-    dialog.setLayout(layout)
-    dialog.adjustSize()
+        if self._running:
+            self._elapsed += time.time() - self._start_time
+            self._start_time = None
+            self._running = False
 
-    if len(sys.argv) >= 6:
-        try:
-            x, y, w, h = map(int, sys.argv[2:6])
-            center_x = x + w // 2
-            center_y = y + h // 2
+    def stop(self) -> None:
+        '''
+        Alias of .pause() Method\n
+        Stops Timer and keeps Time Elapsed
+        '''
+        self.pause()
 
-            popup_rect = dialog.frameGeometry()
-            dialog.move(center_x - popup_rect.width() // 2, center_y - popup_rect.height() // 2)
+    def reset(self) -> None:
+        '''
+        Resets Timer to 0.0
+        '''
 
-        except Exception as e:
-            print("[WAITPOPUP]: Failed to center popup:", e)
+        self._start_time = None
+        self._elapsed = 0.0
+        self._running = False
 
-    dialog.show()
-    sys.exit(app.exec_())
+    def isRunning(self) -> bool:
+        '''
+        Returns Bool of Timer Running
+        '''
+        return self._running
 
+    def elapsed(self) -> float:
+        '''
+        Returns the Elapsed Time
+        '''
 
-if __name__ == "__main__":
-    main()
+        if self._running:
+            return self._elapsed + (time.time() - self._start_time)
+        else:
+            return self._elapsed

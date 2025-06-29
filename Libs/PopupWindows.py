@@ -62,11 +62,6 @@ from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
 
-PRISMROOT = r"C:\Prism2"                                            ###   TODO
-prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
-    prismRoot = PRISMROOT
-
 pluginRoot = os.path.dirname(os.path.dirname(__file__))
 uiPath = os.path.join(pluginRoot, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
@@ -91,7 +86,7 @@ class WaitPopup:
             launcherPath = os.path.abspath(os.path.join(os.path.dirname(__file__), "WaitPopup.py"))
             gifPath = os.path.join(iconDir, "loading-dark.gif")
 
-            # Get Enviroment for Prism Qt Libs
+            #   Get Enviroment for Prism Qt Libs
             env = os.environ.copy()
             env["PRISM_SYSPATH"] = os.pathsep.join(sys.path)
 

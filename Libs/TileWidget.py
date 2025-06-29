@@ -72,17 +72,8 @@ if sys.version[0] == "3":
 else:
     pVersion = 2
 
-# prismRoot = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))        #   TODO
 
-# if __name__ == "__main__":
-#     sys.path.append(os.path.join(prismRoot, "Scripts"))
-#     import PrismCore                                                                    #   TODO
-
-
-PRISMROOT = r"C:\Prism2"                                            ###   TODO
 prismRoot = os.getenv("PRISM_ROOT")
-if not prismRoot:
-    prismRoot = PRISMROOT
 
 rootScripts = os.path.join(prismRoot, "Scripts")
 pluginRoot = os.path.dirname(os.path.dirname(__file__))
@@ -101,7 +92,9 @@ sys.path.append(uiPath)
 from PythonLibs.Python311 import playsound
 import exiftool
 
+
 from PopupWindows import DisplayPopup
+from ElapsedTimer import ElapsedTimer
 
 
 # from PrismUtils import PrismWidgets
@@ -901,22 +894,41 @@ class BaseTileItem(QWidget):
         try:
             #   Use passed file
             if filePath:
-                sendFile = filePath
-            else:
-                #   Use Proxy if Proxy Exists and Prefer is Checked
+                sendFiles = [filePath]
+                isProxy = False
+
+            elif self.fileType == "Videos":
                 if self.isPreferProxies() and self.getSource_proxyfilePath():
-                    sendFile = self.getSource_proxyfilePath()
+                    #   Use Proxy if Proxy Exists and Prefer is Checked
+                    sendFiles = [self.getSource_proxyfilePath()]
                     isProxy = True
-                #   Use Main File
                 else:
-                    sendFile = self.getSource_mainfilePath()
+                    #   Use Main File
+                    sendFiles = [self.getSource_mainfilePath()]
                     isProxy = False
 
-            logger.debug("Sending Image to Media Viewer")
-            self.browser.mediaPlayer.updatePreview(sendFile, isProxy)
+            elif self.fileType == "Images":
+                sendFiles = [self.getSource_mainfilePath()]
+                isProxy = False
+
+            elif self.fileType == "Image Sequence":
+                isProxy = False
+
+                sendFiles = []
+                seqItems = self.data["sequenceItems"]
+                for item in seqItems:
+                    sendFiles.append(item["data"]["source_mainFile_path"])
+            
+            elif self.fileType == "Audio":
+                self.core.popup("AUDIO NOT SUPPORTED YET")
+                return
+
+            logger.debug("Sending Image(s) to Media Viewer")
+
+            self.browser.PreviewPlayer.updatePreview(sendFiles, isProxy)
 
         except Exception as e:
-            logger.warning(f"ERROR:  Failed to Send Image to Media Viewer:\n{e}")
+            logger.warning(f"ERROR:  Failed to Send Image(s) to Media Viewer:\n{e}")
 
 
 
@@ -1459,6 +1471,10 @@ class SourceFileTile(BaseTileItem):
 
         #   Displayed if Single Selection
         if len(self.browser.selectedTiles) == 1:
+            refreshThumbAct = QAction("Regenerate Thumbnail", self.browser)
+            refreshThumbAct.triggered.connect(self.getThumbnail)
+            rcmenu.addAction(refreshThumbAct)
+
             mDataAct = QAction("Show All MetaData", self.browser)
             mDataAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataAct)
@@ -1938,11 +1954,6 @@ class DestFileTile(BaseTileItem):
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Update Proxy Multiplier:\n{e}")
 
-    
-    @err_catcher(name=__name__)
-    def getTimeElapsed(self):
-        return (time.time() - self.transferStartTime)
-
 
     @err_catcher(name=__name__)
     def setTransferStatus(self, progBar, status, tooltip=None):
@@ -2026,8 +2037,13 @@ class DestFileTile(BaseTileItem):
         #   Sets UI Based on Mode
         if mode in ["idle", "complete"]:
             if "source_mainFile_duration" in self.data:
-                copied = duration
-                dash = "frames -"
+                if self.fileType in ["Videos", "Images", "Image Sequence"]:
+                    copied = duration
+                    dash = "frames -"
+                else:
+                    copied = ""
+                    dash = ""
+
                 total = mainSize
 
         elif mode == "copyMain":
@@ -2250,8 +2266,7 @@ class DestFileTile(BaseTileItem):
             self.transferData["destProxy"] = self.getDestProxyFilepath(sourcePath, proxyMode, proxySettings)
 
         #   Start Timers
-        self.transferTimer = QTimer(self)
-        self.transferStartTime = time.time()
+        self.transferTimer = ElapsedTimer()
 
         #   Call Main File Transfer
         self.transferMainFile(transferList)
@@ -2279,6 +2294,8 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def _onTransferStart(self, transType, filePath):
         self.setTransferStatus(progBar=transType, status="Transferring")
+        self.transferTimer.start()
+
         if transType == "transfer":
             logger.status(f"MainFile Transfer Started: {filePath}")
 
@@ -2296,7 +2313,7 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def pause_transfer(self, origin):
         if self.main_transfer_worker and self.transferState != "Complete":
-            self.transferTimer.stop()
+            self.transferTimer.pause()
             self.main_transfer_worker.pause()
             logger.debug("Sending Pause to Worker")
 
@@ -2368,7 +2385,7 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def main_transfer_complete(self, success):
         self.transferTimer.stop()
-        self.data["transferTime"] = self.browser.getFormattedTimeStr(self.getTimeElapsed())
+        self.data["transferTime"] = self.transferTimer.elapsed()
 
         if success:
             destMainPath = self.getDestMainPath()
@@ -2395,6 +2412,8 @@ class DestFileTile(BaseTileItem):
             if filesExist:
                 self.setTransferStatus(progBar="transfer", status="Generating Hash")
 
+                self.data["mainFile_result"] = "Complete"
+
                 logger.debug("Main Transfer Successful")
 
                 #   Calls for Hash Generation with Callback
@@ -2403,11 +2422,17 @@ class DestFileTile(BaseTileItem):
             else:
                 errorMsg = "ERROR:  Transfer File(s) Does Not Exist"
                 logger.warning(f"Transfer failed: {destMainPath}")
+
+                self.data["mainFile_result"] = errorMsg
+
                 self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
 
         else:
             errorMsg = "ERROR:  Transfer failed"
             logger.warning(f"Transfer failed: {destMainPath}")
+
+            self.data["mainFile_result"] = errorMsg
+
             self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
 
 
@@ -2420,6 +2445,8 @@ class DestFileTile(BaseTileItem):
         #   If Transfer Hash Check is Good
         if dest_hash == orig_hash:
             statusMsg = "Transfer Successful"
+            self.data["mainFile_result"] = statusMsg
+
             self.setTransferStatus(progBar="transfer", status="Complete")
             self.setQuanityUI("complete")
 
@@ -2443,6 +2470,9 @@ class DestFileTile(BaseTileItem):
         #   Transfer Hash is Not Correct
         else:
             statusMsg = "ERROR:  Transfered Hash Incorrect"
+
+            self.data["mainFile_result"] = statusMsg
+
             status = "Warning"
             logger.warning(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
 
@@ -2543,10 +2573,6 @@ class DestFileTile(BaseTileItem):
 
 
 
-
-
-
-
 ####    THREAD WORKERS    ####
 
 ###     Thumbnail Worker Thread ###
@@ -2598,8 +2624,8 @@ class ThumbnailWorker(QObject, QRunnable):
                 else:
                     pixmap = self.getPixmapFromPath(
                         self.filePath,
-                        width=self.width,
-                        height=self.height,
+                        width=self.width * 4,
+                        height=self.height * 4,
                         colorAdjust=False
                         )
                 
