@@ -210,6 +210,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
         #   Initialize Variables
+        self.sourceDir = ""
+        self.destDir = ""
         self.selectedTiles = set()
         self.lastClickedTile = None
 
@@ -1893,13 +1895,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Color Dir LineEdit if Invalid
             if not os.path.exists(sourceDir):
                 self.le_sourcePath.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+                return
             else:
                 self.le_sourcePath.setToolTip(sourceDir)
                 self.le_sourcePath.setStyleSheet("")
-
-            #   Return if there is no Dir set
-            if not hasattr(self, "sourceDir"):
-                return
 
             #   Capture Scrollbar Position
             scrollPos = self.lw_destination.verticalScrollBar().value()
@@ -2086,6 +2085,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
                 if "sequenceItems" in data:
                     uuid = data["uuid"] = self.createUUID()
+                    data["hasProxy"] = False
                     fileItem = TileWidget.DestFileItem(self, passedData=data)
 
                 else:
@@ -2451,7 +2451,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         ##   Check Drive Space Available
         #   Get Stats
-        spaceAvail = self.getDriveSpace(os.path.normpath(self.le_destPath.text()))
+        spaceAvail = self.getDriveSpace(os.path.normpath(self.destDir))
         transferSize = self.getTotalTransferSize()
 
         #   Not Enough Space
@@ -2474,6 +2474,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     warnings[f"{basename}: "] = "File Exists in Destination"
                 else:
                     errors[f"{basename}: "] = "File Exists in Destination"
+
+        ##  Proxy Conflict
+        # tile = self.copyList[0]
+        # _debug_recursive_print(tile, "tile")
+        # _debug_recursive_print(tile.data, "tile data")
+        # _debug_recursive_print(self.resolvedProxyPaths, "self.resolvedProxyPaths")
 
         hasErrors = True if len(errors) > 0 else False
 
@@ -2499,13 +2505,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         try:
             ##  HEADER SECTION
             header = {
-                "Destination Path": self.le_destPath.text(),
+                "Destination Path": self.destDir,
                 "Number of Files": len(self.copyList),
                 "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
                 "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
-                # "Copy Proxy Files": copyProxy,
-                # "Generate Proxy": self.sourceFuncts.chb_generateProxy.isChecked(),
                 "": ""
             }
 
@@ -2535,7 +2539,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 form_layout.addRow("Proxy:", QLabel(proxyPath))
 
                 group_box.setLayout(form_layout)
-                file_list.append(group_box)  # Add group box to the list
+                file_list.append(group_box)
 
             # Combine header and file groups into a final data dict
             data = {
@@ -2601,6 +2605,16 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)                                         #   TODO  Move
     def startTransfer(self):
+        self.copyList = self.getCopyList()
+
+        if len(self.copyList) == 0:
+            self.core.popup("There are no Items Selected to Transfer")
+            return False
+        
+        if not os.path.isdir(self.destDir):
+            self.core.popup("YOU FORGOT TO SELECT DEST DIR")
+            return False
+        
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         # Timer for Progress Updates
@@ -2615,16 +2629,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.speedSamples = deque(maxlen=10)
 
         self.refreshTotalTransSize()
-
-        self.copyList = self.getCopyList()
-
-        if len(self.copyList) == 0:
-            self.core.popup("There are no Items Selected to Transfer")
-            return False
-        
-        if not os.path.isdir(self.le_destPath.text()):
-            self.core.popup("YOU FORGOT TO SELECT DEST DIR")
-            return False
 
         #   Reset Calculated Proxy Multipliers
         self.calculated_proxyMults = [] 
@@ -2845,7 +2849,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             result = self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
 
             if result == "Open in Explorer":
-                self.openInExplorer(os.path.normpath(self.le_destPath.text()))
+                self.openInExplorer(os.path.normpath(self.destDir))
 
             elif result == "Open Report":
                 if not os.path.exists(self.transferReportPath):
@@ -2859,7 +2863,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def createTransferReport(self, result):
         try:
             #   Gets Destination Directory for Save Path
-            saveDir = self.le_destPath.text()
+            saveDir = self.destDir
             #   Uses CopyList for Report
             reportData = self.copyList
 
@@ -2972,11 +2976,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                         baseName = iData["displayName"]
                         mainFile_result = iData["mainFile_result"]
 
+
                     file_lines = [
                         ("Filename:",           baseName),
                         ("File Type:",          item.fileType),
                         ("Transfer Status:",    mainFile_result),
-                        ("Transfer Time:",      self.getFormattedTimeStr(iData['transferTime'])),
+                        ("Transfer Time:",      self.getFormattedTimeStr(item.data['transferTime'])),
                         ("Date:",               iData['source_mainFile_date']),
                         ("Source:",             iData["source_mainFile_path"]),
                         ("Destination:",        iData["dest_mainFile_path"]),

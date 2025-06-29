@@ -352,14 +352,23 @@ class Prism_SourceTab_Functions(object):
 
 
         #   CONNECTIONS
+        projectSettings.chb_useCustomIcon.toggled.connect(lambda: self.configureSettingsUI(projectSettings))
         # projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
 
         logger.debug("Added Settings UI to Prism Project Settings")
 
 
+    #   Configures Settings UI Elements
+    @err_catcher(name=__name__)
+    def configureSettingsUI(self, projectSettings):
+        checked = projectSettings.chb_useCustomIcon.isChecked()
+        projectSettings.le_customIconPath.setEnabled(checked)
+
+
+
     #   Gets SourceTab Settings when Prism Project Settings Loads
     @err_catcher(name=__name__)
-    def preProjectSettingsLoad(self, origin, settings):
+    def preProjectSettingsLoad(self, projectSettings, settings):
         if not settings:
             logger.warning("ERROR: No Project Settings Data")
             return
@@ -369,43 +378,45 @@ class Prism_SourceTab_Functions(object):
                 sData = settings["sourceTab"]["globals"]
 
                 if "max_thumbThreads" in sData:
-                    origin.sb_thumbThreads.setValue(sData["max_thumbThreads"])
+                    projectSettings.sb_thumbThreads.setValue(sData["max_thumbThreads"])
 
                 if "max_copyThreads" in sData:
-                    origin.sb_copyThreads.setValue(sData["max_copyThreads"])
+                    projectSettings.sb_copyThreads.setValue(sData["max_copyThreads"])
 
                 if "size_copyChunk" in sData:
-                    origin.sb_copyChunks.setValue(sData["size_copyChunk"])	
+                    projectSettings.sb_copyChunks.setValue(sData["size_copyChunk"])	
 
                 if "max_proxyThreads" in sData:
-                    origin.sb_proxyThreads.setValue(sData["max_proxyThreads"])
+                    projectSettings.sb_proxyThreads.setValue(sData["max_proxyThreads"])
 
                 if "updateInterval" in sData:
-                    origin.sp_progUpdateRate.setValue(sData["updateInterval"])
+                    projectSettings.sp_progUpdateRate.setValue(sData["updateInterval"])
 
                 if "useCompletePopup" in sData:
-                    origin.chb_showPopup.setChecked(sData["useCompletePopup"])
+                    projectSettings.chb_showPopup.setChecked(sData["useCompletePopup"])
 
                 if "useCompleteSound" in sData:
-                    origin.chb_playSound.setChecked(sData["useCompleteSound"])
+                    projectSettings.chb_playSound.setChecked(sData["useCompleteSound"])
 
                 if "useTransferReport" in sData:
-                    origin.chb_useTransferReport.setChecked(sData["useTransferReport"])	
+                    projectSettings.chb_useTransferReport.setChecked(sData["useTransferReport"])	
 
                 if "useCustomIcon" in sData:
-                    origin.chb_useCustomIcon.setChecked(sData["useCustomIcon"])
+                    projectSettings.chb_useCustomIcon.setChecked(sData["useCustomIcon"])
 
                 if "customIconPath" in sData:
-                    origin.le_customIconPath.setText(sData["customIconPath"])
+                    projectSettings.le_customIconPath.setText(sData["customIconPath"])
 
+
+            #####   UNUSED RIGHT NOW        #########################
                 # if "useViewLut" in sData:
                 #     origin.chb_useViewLut.setChecked(sData["useViewLut"])						
-
                 # if "useCustomThumbPath" in sData:
                 #     origin.chb_useCustomThumbPath.setChecked(sData["useCustomThumbPath"])
-
                 # if "customThumbPath" in sData:
                 #     origin.le_customThumbPath.setText(sData["customThumbPath"])
+                    
+                self.configureSettingsUI(projectSettings)
                 
                 logger.debug("Loaded SourceTab Project Settings")
             else:

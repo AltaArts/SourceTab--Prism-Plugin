@@ -662,10 +662,7 @@ class BaseTileItem(QWidget):
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
     def setFileHash(self, filePath, callback=None):
-        # ext = self.getFileExtension()
         
-        # if ext.lower() in self.core.media.supportedFormats:
-
         #   Create Worker Instance
         worker_hash = FileHashWorker(filePath)
         #   Connect to Finished Callback
@@ -1068,7 +1065,6 @@ class SourceFileItem(BaseTileItem):
 
         #   Main File Hash
         self.setFileHash(filePath, self.onMainfileHashReady)
-        
 
         self.getThumbnail()
         self.setProxyFile()
@@ -1224,17 +1220,10 @@ class SourceFileTile(BaseTileItem):
         super().__init__(item.browser, item.data, parent)
 
         self.fileType = fileType
-
         self.isSequence = bool(self.fileType == "Image Sequence")
-
-        # _debug_recursive_print(self.isSequence, "self.isSequence")                                              #    TESTING
-
-        # _debug_recursive_print(self.data, "self.data")                                              #    TESTING
-
 
         self.setupUi()
         self.refreshUi()
-
 
 
     def mouseReleaseEvent(self, event):
@@ -1808,7 +1797,7 @@ class DestFileTile(BaseTileItem):
     #   Returns Destination Directory
     @err_catcher(name=__name__)
     def getDestPath(self):
-        return os.path.normpath(self.browser.le_destPath.text())
+        return os.path.normpath(self.browser.destDir)
 
 
     #   Returns the Destination Mainfile Path
@@ -2239,6 +2228,8 @@ class DestFileTile(BaseTileItem):
 
                 sourcePath = iData["source_mainFile_path"]
                 destPath = os.path.join(self.getDestPath(), name)
+                iData["dest_mainFile_path"] = destPath
+
                 transferList.append({"sourcePath": sourcePath,
                                      "destPath": destPath})
 
@@ -2413,7 +2404,6 @@ class DestFileTile(BaseTileItem):
                 self.setTransferStatus(progBar="transfer", status="Generating Hash")
 
                 self.data["mainFile_result"] = "Complete"
-
                 logger.debug("Main Transfer Successful")
 
                 #   Calls for Hash Generation with Callback

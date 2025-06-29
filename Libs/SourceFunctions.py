@@ -154,7 +154,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        self.b_openDestDir.clicked.connect(lambda: self.openInExplorer(self.sourceBrowser.le_destPath.text()))
+        self.b_openDestDir.clicked.connect(lambda: self.openInExplorer(self.sourceBrowser.destDir))
         self.b_ovr_config_proxy.clicked.connect(self.configProxy)
         self.b_ovr_config_fileNaming.clicked.connect(self.configFileNaming)
         self.b_ovr_config_metadata.clicked.connect(self.configMetadata)
