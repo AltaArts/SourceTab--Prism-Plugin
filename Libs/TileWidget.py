@@ -89,7 +89,6 @@ sys.path.append(uiPath)
 # if os.path.exists(os.path.join(pyLibsPath, "Python311")):                 #   TODO Add python libs check
 
 
-from PythonLibs.Python311 import playsound
 import exiftool
 
 

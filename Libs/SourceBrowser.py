@@ -85,18 +85,21 @@ sys.path.append(pluginPath)
 sys.path.append(uiPath)
 
 
-from playsound.playsound import playsound
+#   Python Libs
+import simpleaudio as sa
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
-import exiftool
+import exiftool                                     #   TODO
 
 
+#   Prism Libs
 from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 
+#   SourceTab Libs
 import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
 from PopupWindows import DisplayPopup, WaitPopup
@@ -214,7 +217,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.destDir = ""
         self.selectedTiles = set()
         self.lastClickedTile = None
-
         self.resolvedProxyPaths = None
         self.proxyEnabled = False
         self.proxyMode = None
@@ -274,10 +276,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def entered(self, prevTab=None, navData=None):
         if not self.initialized:
+            self.initialized = True
+
             self.oiio = self.core.media.getOIIO()
 
-        #   Resize Splitter Panels
-        QTimer.singleShot(10, lambda: self.setSplitterToThirds())
+            #   Resize Splitter Panels
+            QTimer.singleShot(10, lambda: self.setSplitterToThirds())
 
 
     #   Resizes Splitter Panels to Equal Thirds
@@ -300,6 +304,18 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             path = os.path.join(iconDir, f"{name}.png")
             icon = self.core.media.getColoredIcon(path)
             setattr(self, f"icon_{name}", icon)
+
+
+    #   Plays Audio with Simple Audio
+    @err_catcher(name=__name__)
+    def playSound(self, path):
+        try:
+            wave_obj = sa.WaveObject.from_wave_file(path)
+            play_obj = wave_obj.play()
+            play_obj.wait_done()
+
+        except Exception:
+            QApplication.beep()
 
 
     @err_catcher(name=__name__)
@@ -490,17 +506,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-
-        # self.b_refresh.clicked.connect(self.refreshRender)
-
-        # self.lw_source.itemSelectionChanged.connect(self.sourceClicked)
-        # self.lw_destination.itemSelectionChanged.connect(self.sourceClicked)
-        # self.lw_destination.mmEvent = self.lw_destination.mouseMoveEvent
-        # self.lw_destination.mouseMoveEvent = lambda x: self.w_preview.PreviewPlayer.mouseDrag(x, self.lw_destination)
-        # self.lw_destination.itemDoubleClicked.connect(self.onVersionDoubleClicked)
-
         #   Connect Right Click Menus
-        #   Tables
         self.lw_source.setContextMenuPolicy(Qt.CustomContextMenu)
         self.lw_source.customContextMenuRequested.connect(lambda x: self.rclList(x, self.lw_source))
         self.lw_destination.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1227,13 +1233,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             self.speedSamples.append((current_time, copiedSize))
 
-            # Adaptive maxlen: increase as transfer progresses
+            #   Adaptive maxlen: Increase as Transfer Progresses
             progress_ratio = copiedSize / totalSize if totalSize > 0 else 0
             adapt_start, adapt_end = self.adaptiveProgUpdate
             adaptive_maxlen = int(adapt_start + progress_ratio * adapt_end)
             self.speedSamples = deque(self.speedSamples, maxlen=adaptive_maxlen)
 
-            # Calculate rolling average speed
+            #   Calculate Rolling Average Speed
             if len(self.speedSamples) >= 2:
                 t0, b0 = self.speedSamples[0]
                 t1, b1 = self.speedSamples[-1]
@@ -1245,7 +1251,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 else:
                     speed_bps = 0
 
-            # Estimate remaining time
+            #   Estimate Remaining Time
             if speed_bps > 0:
                 remaining_bytes = totalSize - copiedSize
                 time_remaining = remaining_bytes / speed_bps
@@ -1314,7 +1320,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.refreshSourceItems()
         self.refreshDestItems()
 
-        # self.entityChanged()
         self.refreshStatus = "valid"
 
 
@@ -2829,13 +2834,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.updateProxyPresetMultipliers()
 
         if self.useCompleteSound:
-            try:
-                if result == "Complete":
-                    playsound(SOUND_SUCCESS)
-                else:
-                    playsound(SOUND_ERROR)
-            except:
-                QApplication.beep()
+            if result == "Complete":
+                self.playSound(SOUND_SUCCESS)
+            else:
+                self.playSound(SOUND_ERROR)
 
         if self.useCompletePopup:
             text = "Transfer Complete"
