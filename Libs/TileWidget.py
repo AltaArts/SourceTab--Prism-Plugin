@@ -784,10 +784,17 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def setDuration(self):
         if self.isVideo():
+            #   Abort if All Items have not been Generated
+            for key in ["source_mainFile_frames",
+                        "source_mainFile_fps",
+                        "source_mainFile_time"]:
+                if key not in self.data:
+                    return
+            #   Get Data Items
             frames = self.data["source_mainFile_frames"]
             fps = self.data["source_mainFile_fps"]
-            time = self.data["durationTime"]
-
+            time = self.data["source_mainFile_time"]
+           
             if self.browser.b_source_sorting_duration.isChecked():
                 dur_str = f"{frames} - {fps} fps"
             else:
@@ -814,7 +821,6 @@ class BaseTileItem(QWidget):
             self.l_frames.setToolTip(tip)
 
         self.l_icon.setToolTip(tip)
-
 
 
     #   Returns File's Extension
@@ -1166,8 +1172,8 @@ class SourceFileItem(BaseTileItem):
         try:
             self.data["source_mainFile_frames"] = frames
             self.data["source_mainFile_fps"] = self.getFpsStr(fps)
-            self.data["durationTime_raw"] = time
-            self.data["durationTime"] = self.browser.getFormattedTimeStr(time)
+            self.data["source_mainFile_time_raw"] = time
+            self.data["source_mainFile_time"] = self.browser.getFormattedTimeStr(time)
 
             self._notify("duration")
 
@@ -1480,6 +1486,7 @@ class SourceFileTile(BaseTileItem):
             if not self.isSequence:
                 self.setProxyIcon()
 
+            self.setDuration()
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Load Source FileTile UI:\n{e}")

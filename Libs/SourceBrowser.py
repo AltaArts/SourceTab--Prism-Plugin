@@ -622,6 +622,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         #   Sort Type Radio Buttons
         sortTypeGroup = QButtonGroup(sortMenu)
+        # sortTypes = ["Name", "Date", "Size", "Duration"]                      #   TODO ADD DURATION SORTING
         sortTypes = ["Name", "Date", "Size"]
         radioButtons = {}
         for label in sortTypes:
@@ -1854,6 +1855,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                     return data.get("source_mainFile_size_raw", 0)
                 case "date":
                     return data.get("source_mainFile_date_raw", 0)
+                # case "duration":
+                #     return data.get("source_mainFile_frames", 0)
                 case _:
                     return data.get("displayName", "").lower()
 
@@ -1901,7 +1904,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         return sortedList
 
 
-    @stopWatch
     #   Build List of Items in Source Directory
     @err_catcher(name=__name__)
     def refreshSourceItems(self):
