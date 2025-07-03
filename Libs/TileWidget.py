@@ -56,6 +56,7 @@ import re
 import hashlib
 import subprocess
 import psutil
+import numpy
 import signal
 import platform
 import shlex
@@ -212,8 +213,9 @@ class BaseTileItem(QWidget):
         self.setMouseTracking(True)
 
         #   Thumbnail Size
-        self.itemPreviewWidth = 120
-        self.itemPreviewHeight = 69
+        self.saveThumbWidth = 1280  #   For Saved Thumbs
+        self.itemPreviewWidth = 120 #   For Tile Thumbnail
+        self.itemPreviewHeight = 69 #   For Tile Thumbnail
 
         logger.debug("Loaded Base Tile Item")
 
@@ -228,13 +230,13 @@ class BaseTileItem(QWidget):
             return
 
         elif event.button() == Qt.RightButton:
-            # If this item is already selected, keep the current selection
+            #   If this item is already selected, keep the current selection
             if self in self.browser.selectedTiles:
                 # Just update lastClickedTile for consistency
                 self.browser.lastClickedTile = self
                 return
 
-            # Otherwise, no modifiers -> reset selection to just this tile
+            #   Otherwise, no modifiers -> reset selection to just this tile
             for tile in list(self.browser.selectedTiles):
                 tile.deselect()
             self.browser.selectedTiles.clear()
@@ -246,8 +248,6 @@ class BaseTileItem(QWidget):
             return
 
         super().mousePressEvent(event)
-
-
 
 
     @err_catcher(name=__name__)
@@ -555,7 +555,15 @@ class BaseTileItem(QWidget):
                 totalSize_raw += size
 
         return totalSize_raw
+    
 
+    #   Returns Formatted FPS String (ie 24, 25, 29.97 etc)
+    @err_catcher(name=__name__)
+    def getFpsStr(self, fps):
+        if fps.is_integer():
+            return f"{int(fps)}"
+        else:
+            return f"{fps:.2f}"
 
 
     #   Returns the Filepath
@@ -706,11 +714,10 @@ class BaseTileItem(QWidget):
             worker_thumb = ThumbnailWorker(
                 self,
                 filePath=filePath,
-                mediaLib = self.core.media,
+                saveWidth=self.saveThumbWidth,
                 width=self.itemPreviewWidth,
                 height=self.itemPreviewHeight,
-                getThumbnailPath=self.getThumbnailPath,
-            )
+                )
 
             worker_thumb.setAutoDelete(True)
             worker_thumb.result.connect(self.onThumbComplete)
@@ -724,13 +731,28 @@ class BaseTileItem(QWidget):
 
     #   Gets called from Thumb Worker Finished
     @err_catcher(name=__name__)
-    def onThumbComplete(self, scaledPixmap):
-        self.data["thumbnail"] = scaledPixmap
+    def onThumbComplete(self, thumbImage, path, scale, fit, crop):
+        #   Get Pixmap from QImage
+        pixmap = QPixmap.fromImage(thumbImage)
+    
+        if pixmap:
+            #   Save "Fullsize" Thumb to Disk
+            thumbPath = self.getThumbnailPath(path)
+            self.core.media.savePixmap(pixmap, thumbPath)
 
+            #   Scale Pixap to Tile Preview Size
+            scaledPixmap = self.core.media.scalePixmap(
+                pixmap,
+                self.itemPreviewWidth * scale,
+                self.itemPreviewHeight * scale,
+                fitIntoBounds=fit,
+                crop=crop
+                )
+
+        self.data["thumbnail"] = scaledPixmap
         self.setThumbnail(scaledPixmap)
 
         self.thumbnailReady.emit(scaledPixmap)
-
 
 
     #   Adds Thumbnail to FileTile Label
@@ -741,12 +763,17 @@ class BaseTileItem(QWidget):
             self.l_preview.setPixmap(pixmap)
             
 
-
-    #   Populates Hash when ready from Thread
+    #   Populates Duration when ready from Thread
     @err_catcher(name=__name__)
     def setDuration(self):
-        duration = self.data["source_mainFile_duration"]
-        self.l_frames.setText(str(duration))
+        if self.isVideo():
+            duration = self.data["source_mainFile_duration"]
+            fps = self.data["source_mainFile_fps"]
+            dur_str = f"{duration} - {fps} fps"
+        else:
+            dur_str = str(self.data["source_mainFile_duration"])
+            
+        self.l_frames.setText(dur_str)
 
 
     #   Returns File's Extension
@@ -1071,9 +1098,10 @@ class SourceFileItem(BaseTileItem):
 
     #   Populates Frames when ready from Thread
     @err_catcher(name=__name__)
-    def onMainfileDurationReady(self, duration):
+    def onMainfileDurationReady(self, duration, fps):
         try:
             self.data["source_mainFile_duration"] = duration
+            self.data["source_mainFile_fps"] = self.getFpsStr(fps)
 
             if hasattr(self, "l_frames"):
                 self.setDuration()
@@ -2371,20 +2399,10 @@ class DestFileTile(BaseTileItem):
             self.proxy_copiedSize = self.getMultipliedProxySize(frame=frame)
 
 
-    #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
-    def main_transfer_complete(self, success):
-        self.transferTimer.stop()
-        self.data["transferTime"] = self.transferTimer.elapsed()
-
-        if success:
+    def checkFilesExist(self):
+        try:
             destMainPath = self.getDestMainPath()
-
-            #   Sets Destination FilePath ToolTip
-            self.l_fileName.setToolTip(os.path.normpath(destMainPath))
-
-            self.transferProgBar.setValue(100)
-
             destFiles = []
 
             if self.isSequence:
@@ -2392,12 +2410,35 @@ class DestFileTile(BaseTileItem):
 
                 for transItem in transferItems:
                     destFiles.append(transItem["data"]["dest_mainFile_path"])
-
             else:
                 destFiles.append(destMainPath)
 
             #   Itterate through all Transfered Files to Check Exists
             filesExist = all(os.path.isfile(file) for file in destFiles)
+
+            return filesExist
+    
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Check if Files Exist:\n{e}")
+            return False
+    
+
+    #   Gets Called from the Finished Signal
+    @err_catcher(name=__name__)
+    def main_transfer_complete(self, success):
+        self.transferTimer.stop()
+        self.data["transferTime"] = self.transferTimer.elapsed()
+
+        if success:
+            self.transferProgBar.setValue(100)
+
+            destMainPath = self.getDestMainPath()
+
+            #   Sets Destination FilePath ToolTip
+            self.l_fileName.setToolTip(os.path.normpath(destMainPath))
+
+            #   Check if all the Transferred Files Exist in Destination
+            filesExist = self.checkFilesExist()
 
             if filesExist:
                 self.setTransferStatus(progBar="transfer", status="Generating Hash")
@@ -2411,17 +2452,13 @@ class DestFileTile(BaseTileItem):
             else:
                 errorMsg = "ERROR:  Transfer File(s) Does Not Exist"
                 logger.warning(f"Transfer failed: {destMainPath}")
-
                 self.data["mainFile_result"] = errorMsg
-
                 self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
 
         else:
             errorMsg = "ERROR:  Transfer failed"
             logger.warning(f"Transfer failed: {destMainPath}")
-
             self.data["mainFile_result"] = errorMsg
-
             self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
 
 
@@ -2566,20 +2603,20 @@ class DestFileTile(BaseTileItem):
 
 ###     Thumbnail Worker Thread ###
 class ThumbnailWorker(QObject, QRunnable):
-    result = Signal(QPixmap)
+    result = Signal(QImage, str, float, bool, bool)
 
-    def __init__(self, origin, filePath, mediaLib, width, height, getThumbnailPath):
+    def __init__(self, origin, filePath, saveWidth, width, height):
         QObject.__init__(self)
         QRunnable.__init__(self)
 
         self.origin = origin
+        self.core = self.origin.core
+
         self.filePath = filePath
-        self.getPixmapFromPath = mediaLib.getPixmapFromPath
-        self.supportedFormats = mediaLib.supportedFormats
-        self.width = width
-        self.height = height
-        self.getThumbnailPath = getThumbnailPath
-        self.scalePixmapFunc = mediaLib.scalePixmap
+
+        self.saveThumbWidth = saveWidth
+        self.tileThumbWidth = width
+        self.tileThumbHeight = height
 
 
     @Slot()
@@ -2587,18 +2624,20 @@ class ThumbnailWorker(QObject, QRunnable):
         self.origin.thumb_semaphore.acquire()
 
         try:
-            pixmap = None
+            thumbImage = None
             extension = os.path.splitext(self.filePath)[1].lower()
 
             #   Use App Icon for Non-Media Formats
-            if extension not in self.supportedFormats:
+            if extension not in self.core.media.supportedFormats:
                 file_info = QFileInfo(self.filePath)
                 icon_provider = QFileIconProvider()
                 icon = icon_provider.icon(file_info)
-                pixmap = icon.pixmap(self.width, self.height)
+                pixmap = icon.pixmap(self.tileThumbWidth, self.tileThumbHeight)
+                thumbImage = pixmap.toImage()
+
                 fitIntoBounds = True
                 crop = False
-                scale = 0.5
+                scale = 0.5 #   Scale to make Icon smaller in Tile
                 logger.debug(f"Using File Icon for Unsupported Format: {extension}")
 
             #   Get Thumbnail for Media Formats
@@ -2606,15 +2645,13 @@ class ThumbnailWorker(QObject, QRunnable):
                 #   Use Saved Thumbnail in "_thumbs" if Exists
                 thumbPath = self.getThumbnailPath(self.filePath)
                 if os.path.exists(thumbPath):
-                    image = QImage(thumbPath)
-                    pixmap = QPixmap.fromImage(image)
+                    thumbImage = QImage(thumbPath)
 
                 #   Or Generate New Thumb
                 else:
-                    pixmap = self.getPixmapFromPath(
+                    thumbImage = self.getThumbImageFromPath(
                         self.filePath,
-                        width=self.width * 4,
-                        height=self.height * 4,
+                        saveThumbWidth=self.saveThumbWidth,
                         colorAdjust=False
                         )
                 
@@ -2622,19 +2659,265 @@ class ThumbnailWorker(QObject, QRunnable):
                 crop = True
                 scale = 1
 
-            #   Scale and Emit Signal
-            if pixmap:
-                scaledPixmap = self.scalePixmapFunc(
-                    pixmap,
-                    self.width * scale,
-                    self.height * scale,
-                    fitIntoBounds=fitIntoBounds,
-                    crop=crop
-                )
-                self.result.emit(scaledPixmap)
+            self.result.emit(thumbImage, self.filePath, scale, fitIntoBounds, crop)
 
         finally:
             self.origin.thumb_semaphore.release()
+
+
+    def getThumbnailPath(self, path):
+        thumbPath = os.path.join(os.path.dirname(path), "_thumbs", os.path.basename(os.path.splitext(path)[0]) + ".jpg")
+        return thumbPath
+    
+
+    def getUseThumbnails(self):
+        return self.core.getConfig("globals", "useMediaThumbnails", dft=True)
+
+
+    @err_catcher(name=__name__)
+    def getThumbImageFromPath(self, path, saveThumbWidth=None, colorAdjust=False):
+        if not path:
+            return
+
+        ext = os.path.splitext(path)[1].lower()
+
+        if ext in self.core.media.videoFormats:
+            thumbImage = self.getThumbImageFromVideoPath(path, thumbWidth=saveThumbWidth)
+        
+        elif ext in [".exr", ".dpx", ".hdr"]:
+            thumbImage = self.getThumbImageFromExrPath(path, thumbWidth=saveThumbWidth)
+
+        else:
+            thumbImage = self.getThumbFromImage(path, maxWidth=self.saveThumbWidth)                #   NEEDED???
+
+        return thumbImage
+
+
+    def getThumbImageFromVideoPath(self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0):
+        _, ext = os.path.splitext(path)
+
+        try:
+            vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
+            if self.core.isStr(vidFile):
+                logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{vidFile}")
+
+                fallbackPath = os.path.join(
+                    self.core.projects.getFallbackFolder(),
+                    "%s.jpg" % ext[1:].lower(),
+                )
+                thumbImage = QImage(fallbackPath)
+
+            else:
+                image = vidFile.get_data(imgNum)
+                fileRes = vidFile._meta["size"]
+                width = fileRes[0]
+                height = fileRes[1]
+                qimg = QImage(image, width, height, 3*width, QImage.Format_RGB888)
+
+                # Original image size
+                origWidth = qimg.width()
+                origHeight = qimg.height()
+
+                # Compute height to preserve aspect ratio
+                thumbHeight = int(origHeight * (thumbWidth / origWidth))
+
+                # Scale image
+                thumbImage = qimg.scaled(thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{e}")
+
+            fallbackPath = os.path.join(
+                self.core.projects.getFallbackFolder(),
+                "%s.jpg" % ext[1:].lower(),
+            )
+            thumbImage = QImage(fallbackPath)
+
+        return thumbImage
+
+
+    def getThumbImageFromExrPath(self, path, thumbWidth=None, channel=None, allowThumb=True, regenerateThumb=False):
+        thumbEnabled = self.getUseThumbnails()
+        if allowThumb and thumbEnabled and not regenerateThumb:
+            thumbPath = self.getThumbnailPath(path)
+            if os.path.exists(thumbPath):
+                return self.getPixmapFromPath(thumbPath)                    #   TODO
+
+        oiio = self.core.media.getOIIO()
+
+        if not oiio:                                #   TODO - LOOK AT THIS
+
+            return self.getPixmapFromExrPathWithoutOIIO(path, width=None, height=None, channel=channel,
+                                                        allowThumb=allowThumb, regenerateThumb=regenerateThumb)
+
+
+        path = str(path)
+        imgInput = oiio.ImageInput.open(path)
+        if not imgInput:
+            logger.debug("failed to read media file: %s" % path)
+            return
+
+        chbegin = 0
+        chend = 3
+        numChannels = 3
+        subimage = 0
+
+        # --- Updated Channel Detection ---
+        if channel:
+            # Custom channel logic (unchanged from yours)
+            while imgInput.seek_subimage(subimage, 0):
+                idx = imgInput.spec().channelindex(channel + ".R")
+                if idx == -1:
+                    for suffix in [".red", ".r", ".x", ".Z"]:
+                        idx = imgInput.spec().channelindex(channel + suffix)
+                        if idx != -1:
+                            if suffix == ".Z":
+                                numChannels = 1
+                            break
+                    if idx == -1 and channel in ["RGB", "RGBA"]:
+                        idx = imgInput.spec().channelindex("R")
+                if idx == -1:
+                    subimage += 1
+                else:
+                    chbegin = idx
+                    chend = chbegin + numChannels
+                    break
+        else:
+            # FAST: Try to get RGB, fallback to grayscale
+            while imgInput.seek_subimage(subimage, 0):
+                spec = imgInput.spec()
+                r = spec.channelindex("R")
+                g = spec.channelindex("G")
+                b = spec.channelindex("B")
+                y = spec.channelindex("Y")
+                z = spec.channelindex("Z")
+
+                if r != -1 and g != -1 and b != -1:
+                    chbegin = r
+                    chend = r + 3
+                    numChannels = 3
+                    break
+                elif y != -1:
+                    chbegin = y
+                    chend = y + 1
+                    numChannels = 1
+                    break
+                elif z != -1:
+                    chbegin = z
+                    chend = z + 1
+                    numChannels = 1
+                    break
+                else:
+                    # fallback: use first available channel if nothing else found
+                    chbegin = 0
+                    chend = 1
+                    numChannels = 1
+                    break
+
+                subimage += 1
+
+
+        try:
+            pixels = imgInput.read_image(subimage=subimage, miplevel=0, chbegin=chbegin, chend=chend)
+        except Exception as e:
+            logger.warning("failed to read image: %s - %s" % (path, e))
+            return
+
+        if pixels is None:
+            logger.warning("failed to read image (no pixels): %s" % (path))
+            return
+
+        spec = imgInput.spec()
+        imgWidth = spec.full_width
+        imgHeight = spec.full_height
+        if not imgWidth or not imgHeight:
+            return
+
+        rgbImgSrc = oiio.ImageBuf(
+            oiio.ImageSpec(imgWidth, imgHeight, numChannels, oiio.UINT16)
+        )
+        imgInput.close()
+
+        if "numpy" in globals():
+            rgbImgSrc.set_pixels(spec.roi, numpy.array(pixels))
+        else:
+            for h in range(imgHeight):
+                for w in range(imgWidth):
+                    color = [pixels[h][w][0], pixels[h][w][1], pixels[h][w][2]]
+                    rgbImgSrc.setpixel(w, h, 0, color)
+
+        # --- Thumbnail Size Calculation ---
+        if thumbWidth:
+            thumbHeight = int(imgHeight * (thumbWidth / float(imgWidth)))
+            newImgWidth = thumbWidth
+            newImgHeight = thumbHeight
+        else:
+            newImgWidth = imgWidth
+            newImgHeight = imgHeight
+
+        # --- Resize and gamma correct ---
+        imgDst = oiio.ImageBuf(
+            oiio.ImageSpec(int(newImgWidth), int(newImgHeight), numChannels, oiio.UINT16)
+        )
+        oiio.ImageBufAlgo.resample(imgDst, rgbImgSrc)
+        sRGBimg = oiio.ImageBuf()
+        oiio.ImageBufAlgo.pow(sRGBimg, imgDst, (1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2))
+        bckImg = oiio.ImageBuf(
+            oiio.ImageSpec(int(newImgWidth), int(newImgHeight), numChannels, oiio.UINT16)
+        )
+        oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
+        oiio.ImageBufAlgo.paste(bckImg, 0, 0, 0, 0, sRGBimg)
+
+        # --- Fast numpy-to-QImage conversion ---
+        try:
+            arr = bckImg.get_pixels(oiio.FLOAT)  # shape: (H, W, C)
+            arr = numpy.clip(arr * 255.0, 0, 255).astype(numpy.uint8)
+            height, width, channels = arr.shape
+
+            if channels >= 3:
+                fmt = QImage.Format_RGB888
+                arr = arr[:, :, :3]
+            else:
+                fmt = QImage.Format_Grayscale8
+
+            bytesPerLine = width * arr.shape[2]
+            thumbImage = QImage(arr.data, width, height, bytesPerLine, fmt).copy()
+
+        except Exception as e:
+            print(f"[Fallback] Slow pixel copy: {e}")
+            thumbImage = QImage(int(newImgWidth), int(newImgHeight), QImage.Format_RGB32)
+            for i in range(int(newImgWidth)):
+                for k in range(int(newImgHeight)):
+                    px = bckImg.getpixel(i, k)
+                    if numChannels == 3:
+                        rgb = qRgb(px[0] * 255, px[1] * 255, px[2] * 255)
+                    else:
+                        v = px[0] * 255
+                        rgb = qRgb(v, v, v)
+                    thumbImage.setPixel(i, k, rgb)
+
+        return thumbImage
+
+
+    def getThumbFromImage(self, path, maxWidth=320):
+        reader = QImageReader(path)
+        if not reader.canRead():
+            print(f"Cannot read image: {path}")
+            return None
+
+        thumbImage = reader.read()
+        if thumbImage.isNull():
+            print(f"Failed to load image: {path}")
+            return None
+
+        # Optional: scale by width
+        origWidth = thumbImage.width()
+        origHeight = thumbImage.height()
+        if origWidth > maxWidth:
+            newHeight = int(origHeight * (maxWidth / origWidth))
+            thumbImage = thumbImage.scaled(maxWidth, newHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        return thumbImage
 
 
 
@@ -2672,7 +2955,7 @@ class FileHashWorker(QObject, QRunnable):
 
 ###     File Duration (Frames) Worker Thread    ###
 class FileDurationWorker(QObject, QRunnable):                                #   TODO - FINISH DURATION FOR SEQUENCES
-    finished = Signal(int)
+    finished = Signal(int, float)
 
     def __init__(self, origin, core, filePath):
         QObject.__init__(self)
@@ -2689,6 +2972,7 @@ class FileDurationWorker(QObject, QRunnable):                                #  
             extension = os.path.splitext(os.path.basename(self.filePath))[1].lower()
 
             frames = 1
+            fps = 0.0
 
             #   Return None if not Media File
             if extension not in self.core.media.supportedFormats:
@@ -2714,18 +2998,26 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                         ffprobePath,
                         "-v", "error",
                         "-select_streams", "v:0",
-                        "-show_entries", "stream=nb_frames",
-                        "-of", "default=nokey=1:noprint_wrappers=1",
+                        "-show_entries", "stream=nb_frames,r_frame_rate",
+                        "-of", "default=noprint_wrappers=1",
                         self.filePath
                     ],
                     **kwargs
                 )
+                
+                #   Get Frames and FPS from Output
+                output_lines = result.stdout.strip().splitlines()
+                values = {}
+                for line in output_lines:
+                    if '=' in line:
+                        k, v = line.strip().split('=', 1)
+                        values[k] = v
 
-                #   Get Frames from Output
-                frames = result.stdout.strip()
+                frames_str = values.get("nb_frames", "1")
+                fps_str = values.get("r_frame_rate", "0/1")
 
                 #   If Quick Method didnt work, try Slower Fallback Method
-                if frames == 'N/A' or not frames.isdigit():
+                if frames_str == 'N/A' or not frames_str.isdigit():
                     result = subprocess.run(
                         [
                             ffprobePath,
@@ -2736,20 +3028,19 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                             "-of", "default=nokey=1:noprint_wrappers=1",
                             self.filePath
                         ],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True
+                        **kwargs
                     )
+                    frames_str = result.stdout.strip()
 
-                    frames = result.stdout.strip()
+                frames = int(frames_str) if frames_str.isdigit() else 1
 
-            else:                                                   #   TODO - Add Sequence Count
-                baseFile = os.path.basename(self.filePath)
-                seq = self.core.media.detectSequence(self.filePath, baseFile=baseFile)
-                # frames = len(seq)
+                if '/' in fps_str:
+                    num, denom = map(int, fps_str.split('/'))
+                    fps = num / denom if denom else 0.0
+
 
             #   Emit Frames to Main Thread
-            self.finished.emit(int(frames))
+            self.finished.emit(frames, fps)
 
         except Exception as e:
             print(f"[Duration Worker] ERROR: {self.filePath} - {e}")

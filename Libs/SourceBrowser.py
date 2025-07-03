@@ -1885,6 +1885,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         return sortedList
 
 
+    @stopWatch
     #   Build List of Items in Source Directory
     @err_catcher(name=__name__)
     def refreshSourceItems(self):

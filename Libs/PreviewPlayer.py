@@ -449,6 +449,7 @@ class PreviewPlayer(QWidget):
         if self.prvIsSequence:
             start = str(self.pstart)
             end = str(self.pend)
+
         elif ext in self.core.media.videoFormats:
             if self.pwidth != "?":
                 end = str(int(start) + self.pduration - 1)
@@ -723,6 +724,53 @@ class PreviewPlayer(QWidget):
         return int(self.previewTimeline.currentTime() / self.previewTimeline.updateInterval())
 
 
+    # @err_catcher(name=__name__)
+    # def getPixmapFromVideoPath(self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0):
+    #     _, ext = os.path.splitext(path)
+
+    #     try:
+    #         vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
+    #         if self.core.isStr(vidFile):
+    #             logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{vidFile}")
+
+    #             fallbackPath = os.path.join(
+    #                 self.core.projects.getFallbackFolder(),
+    #                 "%s.jpg" % ext[1:].lower(),
+    #             )
+    #             thumbImage = QImage(fallbackPath)
+    #             pixmap = QPixmap.fromImage(thumbImage)
+
+    #         else:
+    #             image = vidFile.get_data(imgNum)
+    #             fileRes = vidFile._meta["size"]
+    #             width = fileRes[0]
+    #             height = fileRes[1]
+    #             qimg = QImage(image, width, height, 3*width, QImage.Format_RGB888)
+
+    #             # Original image size
+    #             origWidth = qimg.width()
+    #             origHeight = qimg.height()
+
+    #             # Compute height to preserve aspect ratio
+    #             thumbHeight = int(origHeight * (thumbWidth / origWidth))
+
+    #             # Scale image
+    #             thumbImage = qimg.scaled(thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    #             pixmap = QPixmap.fromImage(thumbImage)
+
+    #     except Exception as e:
+    #         logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{e}")
+
+    #         fallbackPath = os.path.join(
+    #             self.core.projects.getFallbackFolder(),
+    #             "%s.jpg" % ext[1:].lower(),
+    #         )
+    #         thumbImage = QImage(fallbackPath)
+    #         pixmap = QPixmap.fromImage(thumbImage)
+
+    #     return pixmap
+
+
     @err_catcher(name=__name__)
     def changeImg(self, frame=0, seq=None, thread=None, regenerateThumb=False):
         if seq is not None:
@@ -826,15 +874,24 @@ class PreviewPlayer(QWidget):
                                 else:
                                     self.updatePrvInfo(fileName, vidReader=vidFile, seq=seq)
 
+                        # pm = self.getPixmapFromVideoPath(
+                        #         fileName,
+                        #         thumbWidth=1280,
+                        #         videoReader=vidFile,
+                        #         imgNum=imgNum,
+                        #         regenerateThumb=regenerateThumb
+                        #     )
                         pm = self.core.media.getPixmapFromVideoPath(
                                 fileName,
                                 videoReader=vidFile,
                                 imgNum=imgNum,
                                 regenerateThumb=regenerateThumb
                             )
+
                         pmsmall = self.core.media.scalePixmap(
                             pm, self.getThumbnailWidth(), self.getThumbnailHeight()
                         ) or QPixmap()
+                        
                     except Exception as e:
                         logger.debug(traceback.format_exc())
                         imgPath = os.path.join(
