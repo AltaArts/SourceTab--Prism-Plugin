@@ -326,6 +326,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         refreshIcon = self.getIconFromPath(os.path.join(iconDir, "reset.png"))
         tipIcon = self.getIconFromPath(os.path.join(iconDir, "help.png"))
         sortIcon = self.getIconFromPath(os.path.join(iconDir, "sort.png"))
+        durationIcon = self.getIconFromPath(os.path.join(iconDir, "duration.png"))
         filtersIcon = self.getIconFromPath(os.path.join(iconDir, "filters.png"))
         sequenceIcon = self.getIconFromPath(os.path.join(iconDir, "sequence.png"))
 
@@ -335,6 +336,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_browseSource.setIcon(dirIcon)
         self.b_refreshSource.setIcon(refreshIcon)
         self.b_source_sorting_sort.setIcon(sortIcon)
+        self.b_source_sorting_duration.setIcon(durationIcon)
         self.b_source_sorting_filtersEnable.setIcon(filtersIcon)
         self.b_source_sorting_combineSeqs.setIcon(sequenceIcon)
         self.b_tips_source.setIcon(tipIcon)
@@ -455,6 +457,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_source_sorting_sort.setToolTip(tip)
         self.b_dest_sorting_sort.setToolTip(tip)
 
+        tip = ("Duration Display Toggle\n\n"
+               "   - Min:Sec\n"
+               "   - Frames / FPS")
+        self.b_source_sorting_duration.setToolTip(tip)
+
         tip = ("File Filters\n\n"
                "   Click to Enable View Filters\n"
                "   Right-click to Select Filters")
@@ -525,6 +532,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.b_browseSource.clicked.connect(lambda: self.explorer("source"))
         self.b_refreshSource.clicked.connect(self.refreshSourceItems)
         self.b_source_sorting_sort.clicked.connect(lambda: self.showSortMenu("source"))
+        self.b_source_sorting_duration.clicked.connect(lambda: self.toggleDuration())
         self.b_source_sorting_filtersEnable.toggled.connect(lambda: self.refreshSourceTable(restoreSelection=True))
         self.b_source_sorting_combineSeqs.toggled.connect(lambda: self.refreshSourceItems())
         self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
@@ -744,6 +752,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         menu.close()
 
 
+    #   Toggles Duration Display in Tiles
+    @err_catcher(name=__name__)
+    def toggleDuration(self):
+        for tile in self.getAllSourceTiles():
+            tile.setDuration()
+
+
 ####    MOUSE ACTIONS   ####
 
     #   Checks if Dragged Object has a Path
@@ -925,6 +940,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             #   Sorting Options
             self.sortOptions = sData["sortOptions"]
+            self.b_source_sorting_duration.setChecked(tabData["enable_frames"])
 
             #   Media Player Enabled Checkbox
             playerEnabled = tabData["playerEnabled"]

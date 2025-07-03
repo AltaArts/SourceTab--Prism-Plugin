@@ -463,6 +463,7 @@ class Prism_SourceTab_Functions(object):
             if key == "tabSettings":
                 tData = {}
 
+                tData["enable_frames"] = self.sourceBrowser.b_source_sorting_duration.isChecked()
                 tData["playerEnabled"] = self.sourceBrowser.chb_enablePlayer.isChecked()
                 tData["preferProxies"] = self.sourceBrowser.chb_preferProxies.isChecked()
                 tData["proxyMode"] = self.sourceBrowser.proxyMode
@@ -547,6 +548,7 @@ class Prism_SourceTab_Functions(object):
                     "customThumbPath": ""
                 },
                 "tabSettings": {
+                    "enable_frames": False,
                     "playerEnabled": True,
                     "preferProxies": True,
                     "enable_proxy": False,

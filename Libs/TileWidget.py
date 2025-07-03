@@ -763,21 +763,45 @@ class BaseTileItem(QWidget):
 
         self.l_preview.setAlignment(Qt.AlignCenter)
         self.l_preview.setPixmap(thumb)
+
+
+    @err_catcher(name=__name__)
+    def setProxyIcon(self):
+        #   Show Proxy Icon on Thumbnail
+        if self.data["hasProxy"] and hasattr(self, "l_pxyIcon"):
+            self.l_pxyIcon.show()
+
+            #   Set Proxy Tooltip
+            tip = (f"Proxy File detected:\n\n"
+                f"File: {self.data['source_proxyFile_path']}\n"
+                f"Date: {self.data['source_proxyFile_date']}\n"
+                f"Size: {self.data['source_proxyFile_size']}")
+            self.l_pxyIcon.setToolTip(tip)
             
 
     #   Populates Duration when ready from Thread
     @err_catcher(name=__name__)
     def setDuration(self):
         if self.isVideo():
-            duration = self.data["source_mainFile_duration"]
+            frames = self.data["source_mainFile_frames"]
             fps = self.data["source_mainFile_fps"]
-            dur_str = f"{duration} - {fps} fps"
+            time = self.data["durationTime"]
+
+            if self.browser.b_source_sorting_duration.isChecked():
+                dur_str = f"{frames} - {fps} fps"
+            else:
+                dur_str = time
+
+            tip = (f"Duration:   {time}\n"
+                   f"Frames:     {frames}\n"
+                   f"FPS:           {fps}")
+            self.l_frames.setToolTip(tip)
 
         elif self.isSequence:
             dur_str = str(len(self.data["sequenceItems"]))
 
         else:
-            dur_str = str(self.data["source_mainFile_duration"])
+            dur_str = str(self.data["source_mainFile_frames"])
             
         self.l_frames.setText(dur_str)
 
@@ -1058,7 +1082,7 @@ class SourceFileItem(BaseTileItem):
 
         else:
             self.data = data
-            self.data["source_mainFile_duration"] = None
+            self.data["source_mainFile_frames"] = None
             self.data["source_mainFile_hash"] = None
             self.data["hasProxy"] = False
             
@@ -1127,10 +1151,13 @@ class SourceFileItem(BaseTileItem):
     
     #   Populates Frames when ready from Thread
     @err_catcher(name=__name__)
-    def onMainfileDurationReady(self, duration, fps):
+    def onMainfileDurationReady(self, frames, fps, time):
         try:
-            self.data["source_mainFile_duration"] = duration
+            self.data["source_mainFile_frames"] = frames
             self.data["source_mainFile_fps"] = self.getFpsStr(fps)
+            self.data["durationTime_raw"] = time
+            self.data["durationTime"] = self.browser.getFormattedTimeStr(time)
+
             self._notify("duration")
 
         except Exception as e:
@@ -1181,16 +1208,18 @@ class SourceFileItem(BaseTileItem):
                 #   Set Source Proxy Hash
                 self.setFileHash(proxyFilepath, self.onProxyfileHashReady)
 
-                #   Show Proxy Icon on Thumbnail
-                if hasattr(self, "l_pxyIcon"):
-                    self.l_pxyIcon.show()
+                self.setProxyIcon()
 
-                    #   Set Proxy Tooltip
-                    tip = (f"Proxy File detected:\n\n"
-                        f"File: {proxyFilepath}\n"
-                        f"Date: {date_str}\n"
-                        f"Size: {mainSize_str}")
-                    self.l_pxyIcon.setToolTip(tip)
+                # #   Show Proxy Icon on Thumbnail
+                # if hasattr(self, "l_pxyIcon"):
+                #     self.l_pxyIcon.show()
+
+                #     #   Set Proxy Tooltip
+                #     tip = (f"Proxy File detected:\n\n"
+                #         f"File: {proxyFilepath}\n"
+                #         f"Date: {date_str}\n"
+                #         f"Size: {mainSize_str}")
+                #     self.l_pxyIcon.setToolTip(tip)
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
@@ -1437,8 +1466,8 @@ class SourceFileTile(BaseTileItem):
                 self.l_fileSize.setToolTip("Calculating file hash…")
 
             # Proxy Icon
-            if not self.isSequence and self.data["hasProxy"]:
-                self.l_pxyIcon.show()
+            if not self.isSequence:
+                self.setProxyIcon()
 
 
         except Exception as e:
@@ -1729,8 +1758,9 @@ class DestFileTile(BaseTileItem):
 
             self.setThumbnail()
 
+            self.setProxyIcon()
             #   Get and Set Proxy File
-            self.setProxy()
+            # self.setProxy()
 
             #   Set Quanity Details
             self.setQuanityUI("idle")
@@ -1800,22 +1830,22 @@ class DestFileTile(BaseTileItem):
 
 
     #   Sets Destination Proxy Filepath and Icon
-    @err_catcher(name=__name__)
-    def setProxy(self):
-        try:
-            if self.getProxy():
-                #   Show Proxy Icon
-                self.l_pxyIcon.show()
+    # @err_catcher(name=__name__)
+    # def setProxy(self):
+    #     try:
+    #         if self.getProxy():
+    #             #   Show Proxy Icon
+    #             self.l_pxyIcon.show()
 
-                #   Set Proxy Tooltip
-                tip = (f"Proxy File detected:\n\n"
-                    f"File: {self.data['source_proxyFile_path']}\n"
-                    f"Date: {self.data['source_proxyFile_date']}\n"
-                    f"Size: {self.data['source_proxyFile_size']}")
-                self.l_pxyIcon.setToolTip(tip)
+    #             #   Set Proxy Tooltip
+    #             tip = (f"Proxy File detected:\n\n"
+    #                 f"File: {self.data['source_proxyFile_path']}\n"
+    #                 f"Date: {self.data['source_proxyFile_date']}\n"
+    #                 f"Size: {self.data['source_proxyFile_size']}")
+    #             self.l_pxyIcon.setToolTip(tip)
 
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
+    #     except Exception as e:
+    #         logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
 
 
     #   Returns Destination Directory
@@ -1922,7 +1952,7 @@ class DestFileTile(BaseTileItem):
             
             else:
                 #   Get Number of Frames
-                total_frames = self.data["source_mainFile_duration"]
+                total_frames = self.data["source_mainFile_frames"]
 
                 #   Abort if Incorrect Data
                 if total_frames <= 0 or frame is None:
@@ -2045,11 +2075,11 @@ class DestFileTile(BaseTileItem):
         #   Get Frames and File Size of Non-Sequences
         else:
             mainSize = self.data["source_mainFile_size"]
-            duration = str(self.data["source_mainFile_duration"])
+            duration = str(self.data["source_mainFile_frames"])
 
         #   Sets UI Based on Mode
         if mode in ["idle", "complete"]:
-            if "source_mainFile_duration" in self.data:
+            if "source_mainFile_frames" in self.data:
                 if self.fileType in ["Videos", "Images", "Image Sequence"]:
                     copied = duration
                     dash = "frames -"
@@ -2531,7 +2561,7 @@ class DestFileTile(BaseTileItem):
         output_path = self.data["dest_proxyFile_path"]
 
         #   Add Duration to settings Data
-        settings["frames"] = self.data["source_mainFile_duration"]
+        settings["frames"] = self.data["source_mainFile_frames"]
 
         #   Call the Transfer Worker Thread
         self.worker_proxy = ProxyGenerationWorker(self, self.core, input_path, output_path, settings)
@@ -2952,7 +2982,7 @@ class FileHashWorker(QObject, QRunnable):
 
 ###     File Duration (Frames) Worker Thread    ###
 class FileDurationWorker(QObject, QRunnable):                                #   TODO - FINISH DURATION FOR SEQUENCES
-    finished = Signal(int, float)
+    finished = Signal(int, float, float)
 
     def __init__(self, origin, core, filePath):
         QObject.__init__(self)
@@ -2970,6 +3000,7 @@ class FileDurationWorker(QObject, QRunnable):                                #  
 
             frames = 1
             fps = 0.0
+            duration_sec = 0.0
 
             #   Return None if not Media File
             if extension not in self.core.media.supportedFormats:
@@ -2995,7 +3026,7 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                         ffprobePath,
                         "-v", "error",
                         "-select_streams", "v:0",
-                        "-show_entries", "stream=nb_frames,r_frame_rate",
+                        "-show_entries", "stream=nb_frames,r_frame_rate:format=duration",
                         "-of", "default=noprint_wrappers=1",
                         self.filePath
                     ],
@@ -3012,6 +3043,7 @@ class FileDurationWorker(QObject, QRunnable):                                #  
 
                 frames_str = values.get("nb_frames", "1")
                 fps_str = values.get("r_frame_rate", "0/1")
+                duration_sec_str = values.get("duration", "0")
 
                 #   If Quick Method didnt work, try Slower Fallback Method
                 if frames_str == 'N/A' or not frames_str.isdigit():
@@ -3021,27 +3053,37 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                             "-v", "error",
                             "-select_streams", "v:0",
                             "-count_frames",
-                            "-show_entries", "stream=nb_read_frames",
+                            "-show_entries", "stream=nb_frames,r_frame_rate:format=duration",
                             "-of", "default=nokey=1:noprint_wrappers=1",
                             self.filePath
                         ],
                         **kwargs
                     )
-                    frames_str = result.stdout.strip()
+                    #   Fallback output is 3 lines: frames, fps, duration
+                    lines = result.stdout.strip().splitlines()
+                    frames_str = lines[0] if len(lines) > 0 else "1"
+                    fps_str = lines[1] if len(lines) > 1 else "0/1"
+                    duration_sec_str = lines[2] if len(lines) > 2 else "0"
 
+                #   Convert Parsed Data
                 frames = int(frames_str) if frames_str.isdigit() else 1
 
                 if '/' in fps_str:
                     num, denom = map(int, fps_str.split('/'))
                     fps = num / denom if denom else 0.0
 
+                try:
+                    duration_sec = float(duration_sec_str)
+                except ValueError:
+                    duration_sec = 0.0
 
             #   Emit Frames to Main Thread
-            self.finished.emit(frames, fps)
+            self.finished.emit(frames, fps, duration_sec)
 
         except Exception as e:
             print(f"[Duration Worker] ERROR: {self.filePath} - {e}")
             self.finished.emit("Error")
+
 
 
 

@@ -106,6 +106,16 @@ class Ui_w_sourceBrowser(object):
 
         self.lo_source_sorting.addWidget(self.b_source_sorting_sort)
 
+        self.b_source_sorting_duration = QPushButton(self.gb_sourceHeader)
+        self.b_source_sorting_duration.setObjectName(u"b_source_sorting_duration")
+        sizePolicy2.setHeightForWidth(self.b_source_sorting_duration.sizePolicy().hasHeightForWidth())
+        self.b_source_sorting_duration.setSizePolicy(sizePolicy2)
+        self.b_source_sorting_duration.setMinimumSize(QSize(30, 0))
+        self.b_source_sorting_duration.setMaximumSize(QSize(30, 16777215))
+        self.b_source_sorting_duration.setCheckable(True)
+
+        self.lo_source_sorting.addWidget(self.b_source_sorting_duration)
+
         self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.lo_source_sorting.addItem(self.horizontalSpacer_2)
@@ -374,6 +384,7 @@ class Ui_w_sourceBrowser(object):
         self.b_browseSource.setText("")
         self.b_refreshSource.setText("")
         self.b_source_sorting_sort.setText("")
+        self.b_source_sorting_duration.setText("")
         self.b_source_sorting_filtersEnable.setText("")
         self.b_source_sorting_combineSeqs.setText("")
         self.b_tips_source.setText("")
