@@ -48,6 +48,7 @@
 ####################################################
 
 
+from argparse import FileType
 import os
 import sys
 import logging
@@ -792,18 +793,28 @@ class BaseTileItem(QWidget):
             else:
                 dur_str = time
 
-            tip = (f"Duration:   {time}\n"
+            tip = (f"File Type:   {self.fileType}\n"
+                   f"Duration:   {time}\n"
                    f"Frames:     {frames}\n"
                    f"FPS:           {fps}")
-            self.l_frames.setToolTip(tip)
 
         elif self.isSequence:
             dur_str = str(len(self.data["sequenceItems"]))
 
+            tip = (f"File Type:   {self.fileType}\n"
+                   f"Images:   {dur_str}")
         else:
             dur_str = str(self.data["source_mainFile_frames"])
+
+            tip = (f"File Type:   {self.fileType}\n"
+                   f"Frames:   {dur_str}")
             
-        self.l_frames.setText(dur_str)
+        if hasattr(self, "l_frames"):
+            self.l_frames.setText(dur_str)
+            self.l_frames.setToolTip(tip)
+
+        self.l_icon.setToolTip(tip)
+
 
 
     #   Returns File's Extension
@@ -1755,12 +1766,9 @@ class DestFileTile(BaseTileItem):
             else:
                 self.setIcon(self.data["icon"])
 
-
+            self.setDuration()
             self.setThumbnail()
-
             self.setProxyIcon()
-            #   Get and Set Proxy File
-            # self.setProxy()
 
             #   Set Quanity Details
             self.setQuanityUI("idle")
