@@ -85,9 +85,6 @@ sys.path.append(os.path.join(rootScripts, "Libs"))
 sys.path.insert(0, pyLibsPath)
 sys.path.append(pluginRoot)
 sys.path.append(uiPath)
-# sys.path.append(os.path.join(pyLibsPath))
-
-# if os.path.exists(os.path.join(pyLibsPath, "Python311")):                 #   TODO Add python libs check
 
 
 import exiftool
@@ -648,7 +645,7 @@ class BaseTileItem(QWidget):
     def calcDuration(self, filePath, callback=None):
         if getattr(self, "isSequence", False):
             duration = len(self.data["seqFiles"])
-            self.onMainfileDurationReady(duration)                      #   TODO - Get CALLBACK WORKING BETTER
+            self.onMainfileDurationReady(duration)
 
         else:
             #   Create Worker Instance
@@ -657,7 +654,6 @@ class BaseTileItem(QWidget):
             worker_frames.finished.connect(callback)
             #   Launch Worker in DataOps Treadpool
             self.dataOps_threadpool.start(worker_frames)
-
 
 
      #   Returns the Filepath
@@ -669,13 +665,17 @@ class BaseTileItem(QWidget):
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
     def setFileHash(self, filePath, callback=None):
-        
         #   Create Worker Instance
         worker_hash = FileHashWorker(filePath)
         #   Connect to Finished Callback
         worker_hash.finished.connect(callback)
         #   Launch Worker in DataOps Treadpool
         self.dataOps_threadpool.start(worker_hash)
+
+
+    def setMainHash(self):
+        if not self.isSequence and hasattr(self, "l_fileSize"):
+            self.l_fileSize.setToolTip(f"Hash: {self.data['source_mainFile_hash']}")
     
 
     @err_catcher(name=__name__)
@@ -749,18 +749,20 @@ class BaseTileItem(QWidget):
                 crop=crop
                 )
 
-        self.data["thumbnail"] = scaledPixmap
-        self.setThumbnail(scaledPixmap)
-
-        self.thumbnailReady.emit(scaledPixmap)
+        self.data["source_mainFile_thumbnail"] = scaledPixmap
+        self._notify("thumbnail")
 
 
     #   Adds Thumbnail to FileTile Label
     @err_catcher(name=__name__)
-    def setThumbnail(self, pixmap):
-        if hasattr(self, "l_preview"):
-            self.l_preview.setAlignment(Qt.AlignCenter)
-            self.l_preview.setPixmap(pixmap)
+    def setThumbnail(self):
+        if self.isSequence:
+            thumb = self.getFirstSeqData().get("source_mainFile_thumbnail")
+        else:
+            thumb = self.data.get("source_mainFile_thumbnail")
+
+        self.l_preview.setAlignment(Qt.AlignCenter)
+        self.l_preview.setPixmap(thumb)
             
 
     #   Populates Duration when ready from Thread
@@ -770,6 +772,10 @@ class BaseTileItem(QWidget):
             duration = self.data["source_mainFile_duration"]
             fps = self.data["source_mainFile_fps"]
             dur_str = f"{duration} - {fps} fps"
+
+        elif self.isSequence:
+            dur_str = str(len(self.data["sequenceItems"]))
+
         else:
             dur_str = str(self.data["source_mainFile_duration"])
             
@@ -1041,7 +1047,7 @@ class FolderItem(BaseTileItem):
         rcmenu.exec_(QCursor.pos())
 
 
-##   FILE TILES ON THE SOURCE SIDE (Inherits from BaseTileItem)     ##
+##   FILE TILES ON THE SOURCE SIDE (process and holds the Data)(Inherits from BaseTileItem)     ##
 class SourceFileItem(BaseTileItem):
     def __init__(self, browser, data=None, passedData=None, parent=None):
         super(SourceFileItem, self).__init__(browser, data, passedData, parent)
@@ -1060,6 +1066,11 @@ class SourceFileItem(BaseTileItem):
 
             self.generateData()
 
+        self.updateCallbacks = {
+            "duration": [],
+            "thumbnail": [],
+            "hash": [],
+        }
 
         logger.debug("Loaded Source FileTile")                          #   TODO - LOGGIN FOR SEPARATE CLASSES
 
@@ -1096,17 +1107,31 @@ class SourceFileItem(BaseTileItem):
         self.setProxyFile()
 
 
+    #   Attach a FileTile and Process Callbacks
+    @err_catcher(name=__name__)
+    def registerTile(self, tile: "SourceFileTile"):
+        for field in self.updateCallbacks:
+            if self.data.get(f"source_mainFile_{field}") is not None:
+                tile.updateField(field)
+            else:
+                self.updateCallbacks[field].append(tile.updateField)
+
+
+    #   Process Callbacks when Ready
+    @err_catcher(name=__name__)
+    def _notify(self, field):
+        for callback in self.updateCallbacks[field]:
+            callback(field)
+        self.updateCallbacks[field].clear()
+    
+    
     #   Populates Frames when ready from Thread
     @err_catcher(name=__name__)
     def onMainfileDurationReady(self, duration, fps):
         try:
             self.data["source_mainFile_duration"] = duration
             self.data["source_mainFile_fps"] = self.getFpsStr(fps)
-
-            if hasattr(self, "l_frames"):
-                self.setDuration()
-            
-            self.durationReady.emit(duration)
+            self._notify("duration")
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Main File Duration:\n{e}")
@@ -1117,9 +1142,7 @@ class SourceFileItem(BaseTileItem):
     def onMainfileHashReady(self, result_hash):
         try:
             self.data["source_mainFile_hash"] = result_hash
-
-            if hasattr(self, "l_fileSize"):
-                self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+            self._notify("hash")
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Main File Hash:\n{e}")
@@ -1237,7 +1260,7 @@ class SourceFileItem(BaseTileItem):
 
 
 
-
+##   FILE TILES ON THE SOURCE SIDE (the Tile UI)(Inherits from BaseTileItem)    ##
 class SourceFileTile(BaseTileItem):
     def __init__(self, item: SourceFileItem, fileType, parent=None):
         self.item = item
@@ -1251,6 +1274,13 @@ class SourceFileTile(BaseTileItem):
 
         self.setupUi()
         self.refreshUi()
+
+        #   Register Tile (UI) to Item Callbacks
+        if self.isSequence:
+            seq_item = self.data["sequenceItems"][0]
+            seq_item["tile"].registerTile(self)
+        else:
+            self.item.registerTile(self)
 
 
     def mouseReleaseEvent(self, event):
@@ -1373,72 +1403,57 @@ class SourceFileTile(BaseTileItem):
         self.customContextMenuRequested.connect(self.rightClicked)
 
 
-
     @err_catcher(name=__name__)
     def refreshUi(self):
         try:
-            # Get File Path
             filePath = self.getSource_mainfilePath()
 
-            # #   Set Display Name
-            if self.isSequence:
-                displayName = self.data["displayName"]
-            else:
-                displayName = self.getBasename(filePath)
-
+            # Display Name
+            displayName = (
+                self.data["displayName"] if self.isSequence else self.getBasename(filePath)
+            )
             self.l_fileName.setText(displayName)
             self.l_fileName.setToolTip(f"FilePath: {filePath}")
 
-            #   Set Filetype Icon
+            # Filetype Icon
             if self.isSequence:
                 self.setIcon(self.browser.icon_sequence)
             else:
                 self.setIcon(self.data["icon"])
 
-            #   Set Date
-            if self.isSequence:
-                date_str = self.getFirstSeqData()["source_mainFile_date"]
-            else:
-                date_str = self.data["source_mainFile_date"]
+            # Date
+            date_str = (
+                self.getFirstSeqData()["source_mainFile_date"]
+                if self.isSequence
+                else self.data["source_mainFile_date"]
+            )
             self.l_date.setText(date_str)
 
-            #   Set Filesize
+            # File Size
             self.setFileSize()
 
-            #   Set Number of Frames
-            self.setFrames()
-
-            #   Set Hash
+            # Hash tooltip placeholder
             if not self.isSequence:
-                self.l_fileSize.setToolTip("Calculating file hash...")
-                if self.data["source_mainFile_hash"]:
-                    self.l_fileSize.setToolTip(f"Hash: {self.data['source_mainFile_hash']}")
+                self.l_fileSize.setToolTip("Calculating file hash…")
 
-            #   Proxy Icon
+            # Proxy Icon
             if not self.isSequence and self.data["hasProxy"]:
                 self.l_pxyIcon.show()
 
-            #   If Thumbnail Exists, Set Immediately
-            if self.isSequence:
-                #   If Thumbnail Exists, Set Immediately
-                if self.getFirstSeqData().get("thumbnail"):
-                    self.setThumbnail(self.data["sequenceItems"][0]["data"].get("thumbnail"))
-                    
-                else:
-                    #   Generate Thumbnail
-                    self.getThumbnail(self.getFirstSeqData().get("source_mainFile_path"))
-
-            else:
-                #   If Thumbnail Exists, Set Immediately
-                if self.data.get("thumbnail"):
-                    self.setThumbnail(self.data.get("thumbnail"))
-                else:
-                    #   Or Add Signal Connection
-                    self.item.thumbnailReady.connect(self.setThumbnail)
-
 
         except Exception as e:
-            logger.warning(f"ERROR:  Failed to Load Source FileTile UI:\n{e}")
+            logger.warning(f"ERROR: Failed to Load Source FileTile UI:\n{e}")
+
+
+    #   Gets Called From FileItem Callbacks to Update when Ready
+    @err_catcher(name=__name__)
+    def updateField(self, field):
+        if field == "duration":
+            self.setDuration()
+        elif field == "thumbnail":
+            self.setThumbnail()
+        elif field == "hash":
+            self.setMainHash()
 
     
     @err_catcher(name=__name__)
@@ -1446,26 +1461,10 @@ class SourceFileTile(BaseTileItem):
         if self.isSequence:
             totalSize_raw = self.getSequenceSize(self.data.get("sequenceItems", []))
             totalSize_str = self.getFileSizeStr(totalSize_raw)
-
         else:
             totalSize_str = self.data["source_mainFile_size"]
 
         self.l_fileSize.setText(totalSize_str)
-
-
-    @err_catcher(name=__name__)
-    def setFrames(self):
-        if self.fileType in ["Videos", "Images", "Image Sequence"]:
-            self.l_frames.setText("--")
-
-        if self.isSequence:
-            self.l_frames.setText(str(len(self.data["sequenceItems"])))
-
-        elif self.data["source_mainFile_duration"]:
-            self.setDuration()
-
-        else:
-            self.item.durationReady.connect(lambda: self.setDuration())
 
 
     @err_catcher(name=__name__)
@@ -1536,7 +1535,7 @@ class SourceFileTile(BaseTileItem):
 
 
 
-##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
+##   FILE TILES ON THE DESTINATION SIDE (holds the Data)(Inherits from BaseTileItem)    ##
 class DestFileItem(BaseTileItem):
     def __init__(self, browser, data=None, passedData=None, parent=None):
         super(DestFileItem, self).__init__(browser, data, passedData, parent)
@@ -1544,12 +1543,10 @@ class DestFileItem(BaseTileItem):
 
         if passedData:
             self.data = passedData
-
         else:
             self.data = data
 
         self.fileType = self.data["fileType"]
-
 
         logger.debug("Loaded Destination FileTile")                         #   TODO
 
@@ -1557,7 +1554,7 @@ class DestFileItem(BaseTileItem):
 
 
 
-##   FILE TILES ON THE DESTINATION SIDE (Inherits from BaseTileItem)    ##
+##   FILE TILES ON THE DESTINATION SIDE (the Tile UI)(Inherits from BaseTileItem)    ##
 class DestFileTile(BaseTileItem):
     def __init__(self, item: DestFileItem, fileType, parent=None):
         self.item = item
@@ -1730,7 +1727,7 @@ class DestFileTile(BaseTileItem):
                 self.setIcon(self.data["icon"])
 
 
-            self.setThumbnail(self.data.get("thumbnail"))
+            self.setThumbnail()
 
             #   Get and Set Proxy File
             self.setProxy()

@@ -1937,7 +1937,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     #   Sort / Filter / Refresh Source Table
     @err_catcher(name=__name__)
     def refreshSourceTable(self, restoreSelection=False):
-
         WaitPopup.showPopup(parent=self.projectBrowser)
 
         try:
