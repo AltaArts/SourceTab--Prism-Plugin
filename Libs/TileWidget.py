@@ -665,9 +665,9 @@ class BaseTileItem(QWidget):
 
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
-    def setFileHash(self, filePath, callback=None):
+    def setFileHash(self, filePath, callback=None, tile=None):
         #   Create Worker Instance
-        worker_hash = FileHashWorker(filePath)
+        worker_hash = FileHashWorker(filePath, tile)
         #   Connect to Finished Callback
         worker_hash.finished.connect(callback)
         #   Launch Worker in DataOps Treadpool
@@ -1142,7 +1142,7 @@ class SourceFileItem(BaseTileItem):
             self.calcDuration(filePath, self.onMainfileDurationReady)
 
         #   Main File Hash
-        self.setFileHash(filePath, self.onMainfileHashReady)
+        # self.setFileHash(filePath, self.onMainfileHashReady)
 
         self.getThumbnail()
         self.setProxyFile()
@@ -1183,9 +1183,10 @@ class SourceFileItem(BaseTileItem):
 
     #   Populates Hash when ready from Thread
     @err_catcher(name=__name__)
-    def onMainfileHashReady(self, result_hash):
+    def onMainfileHashReady(self, result_hash, tile):
         try:
             self.data["source_mainFile_hash"] = result_hash
+
             self._notify("hash")
 
         except Exception as e:
@@ -1226,17 +1227,6 @@ class SourceFileItem(BaseTileItem):
                 self.setFileHash(proxyFilepath, self.onProxyfileHashReady)
 
                 self.setProxyIcon()
-
-                # #   Show Proxy Icon on Thumbnail
-                # if hasattr(self, "l_pxyIcon"):
-                #     self.l_pxyIcon.show()
-
-                #     #   Set Proxy Tooltip
-                #     tip = (f"Proxy File detected:\n\n"
-                #         f"File: {proxyFilepath}\n"
-                #         f"Date: {date_str}\n"
-                #         f"Size: {mainSize_str}")
-                #     self.l_pxyIcon.setToolTip(tip)
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
@@ -1296,7 +1286,7 @@ class SourceFileItem(BaseTileItem):
 
     #   Populates Hash when ready from Thread
     @err_catcher(name=__name__)
-    def onProxyfileHashReady(self, result_hash):
+    def onProxyfileHashReady(self, result_hash, tile):
         try:
             self.data["source_proxyFile_hash"] = result_hash
             # self.l_fileSize.setToolTip(f"Hash: {result_hash}")
@@ -1486,7 +1476,8 @@ class SourceFileTile(BaseTileItem):
             if not self.isSequence:
                 self.setProxyIcon()
 
-            self.setDuration()
+            if self.fileType in ["Videos", "Images", "Image Sequence"]:
+                self.setDuration()
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Load Source FileTile UI:\n{e}")
@@ -1761,11 +1752,7 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def refreshUi(self):
         try:
-            name, source_mainFile_path = self.setModifiedName()
-
-            tip = (f"Source File:  {os.path.join(source_mainFile_path, name)}\n"
-                f"Destination File:  {os.path.join(self.getDestPath(), name)}")
-            self.l_fileName.setToolTip(tip)
+            self.setModifiedName()
 
             #   Set Filetype Icon
             if self.isSequence:
@@ -1827,7 +1814,9 @@ class DestFileTile(BaseTileItem):
             self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
             self.l_fileName.setText(name)
 
-            return name, source_mainFile_path
+            tip = (f"Source:          {os.path.join(source_mainFile_path, name)}\n"
+                   f"Destination:  {os.path.join(self.getDestPath(), name)}")
+            self.l_fileName.setToolTip(tip)
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Get Name Override:\n{e}")
@@ -1842,25 +1831,6 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def getProxy(self):
         return self.data.get("source_proxyFile_path", None)
-
-
-    #   Sets Destination Proxy Filepath and Icon
-    # @err_catcher(name=__name__)
-    # def setProxy(self):
-    #     try:
-    #         if self.getProxy():
-    #             #   Show Proxy Icon
-    #             self.l_pxyIcon.show()
-
-    #             #   Set Proxy Tooltip
-    #             tip = (f"Proxy File detected:\n\n"
-    #                 f"File: {self.data['source_proxyFile_path']}\n"
-    #                 f"Date: {self.data['source_proxyFile_date']}\n"
-    #                 f"Size: {self.data['source_proxyFile_size']}")
-    #             self.l_pxyIcon.setToolTip(tip)
-
-    #     except Exception as e:
-    #         logger.warning(f"ERROR:  Failed to Set Proxy File:\n{e}")
 
 
     #   Returns Destination Directory
@@ -2477,7 +2447,7 @@ class DestFileTile(BaseTileItem):
             destMainPath = self.getDestMainPath()
 
             #   Sets Destination FilePath ToolTip
-            self.l_fileName.setToolTip(os.path.normpath(destMainPath))
+            # self.l_fileName.setToolTip(os.path.normpath(destMainPath))
 
             #   Check if all the Transferred Files Exist in Destination
             filesExist = self.checkFilesExist()
@@ -2488,8 +2458,8 @@ class DestFileTile(BaseTileItem):
                 self.data["mainFile_result"] = "Complete"
                 logger.debug("Main Transfer Successful")
 
-                #   Calls for Hash Generation with Callback
-                self.setFileHash(destMainPath, self.onDestHashReady)
+                #   Calls for Hash Generation
+                self.generateDestHashs()
             
             else:
                 errorMsg = "ERROR:  Transfer File(s) Does Not Exist"
@@ -2506,7 +2476,42 @@ class DestFileTile(BaseTileItem):
 
     #   Called After Hash Genertaion for UI Feedback
     @err_catcher(name=__name__)
-    def onDestHashReady(self, dest_hash):
+    def generateDestHashs(self):
+
+        self._pending_tiles = set()
+        self._hash_results = {}
+
+
+        if self.isSequence:
+
+
+            for transItem in self.getSequenceItems():
+                tile = transItem["tile"]
+                destPath = transItem["data"]["dest_mainFile_path"]
+
+                self._pending_tiles.add(tile)
+
+                tile.setFileHash(destPath, self.setDestHash, tile)
+
+        else:
+            #   Calls for Hash Generation with Callback
+
+            dummy_tile = object()
+            self._pending_tiles.add(dummy_tile)
+
+            self.setFileHash(self.getDestMainPath(), self.onDestHashReady, dummy_tile)
+
+
+
+
+    def setDestHash(self, dest_hash, tile):
+        tile.data["dest_mainFile_hash"] = dest_hash
+
+
+
+    #   Called After Hash Genertaion for UI Feedback
+    @err_catcher(name=__name__)
+    def onDestHashReady(self, dest_hash, tile):
         self.data["dest_mainFile_hash"] = dest_hash
         orig_hash = self.data.get("source_mainFile_hash", None)
 
@@ -2538,7 +2543,6 @@ class DestFileTile(BaseTileItem):
         #   Transfer Hash is Not Correct
         else:
             statusMsg = "ERROR:  Transfered Hash Incorrect"
-
             self.data["mainFile_result"] = statusMsg
 
             status = "Warning"
@@ -2735,47 +2739,95 @@ class ThumbnailWorker(QObject, QRunnable):
         return thumbImage
 
 
-    def getThumbImageFromVideoPath(self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0):
+    def getThumbImageFromVideoPath(
+        self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0
+    ):
         _, ext = os.path.splitext(path)
 
+        fallbackPath = os.path.join(
+            self.core.projects.getFallbackFolder(),
+            "%s.jpg" % ext[1:].lower(),
+        )
+
         try:
+            # Attempt to use videoReader (fast)
             vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
             if self.core.isStr(vidFile):
-                logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{vidFile}")
+                raise RuntimeError(vidFile)
 
-                fallbackPath = os.path.join(
-                    self.core.projects.getFallbackFolder(),
-                    "%s.jpg" % ext[1:].lower(),
-                )
-                thumbImage = QImage(fallbackPath)
+            # Success: read frame
+            image = vidFile.get_data(imgNum)
+            fileRes = vidFile._meta["size"]
+            width = fileRes[0]
+            height = fileRes[1]
+            qimg = QImage(image, width, height, 3 * width, QImage.Format_RGB888)
 
-            else:
-                image = vidFile.get_data(imgNum)
-                fileRes = vidFile._meta["size"]
-                width = fileRes[0]
-                height = fileRes[1]
-                qimg = QImage(image, width, height, 3*width, QImage.Format_RGB888)
+            # Resize
+            origWidth = qimg.width()
+            origHeight = qimg.height()
+            thumbHeight = int(origHeight * (thumbWidth / origWidth))
+            thumbImage = qimg.scaled(
+                thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
 
-                # Original image size
-                origWidth = qimg.width()
-                origHeight = qimg.height()
-
-                # Compute height to preserve aspect ratio
-                thumbHeight = int(origHeight * (thumbWidth / origWidth))
-
-                # Scale image
-                thumbImage = qimg.scaled(thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            return thumbImage
 
         except Exception as e:
-            logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{e}")
+            logger.debug(f"[Thumbnail Worker] Prism Video Reader failed for {path}, falling back to ffmpeg:\n{e}")
 
-            fallbackPath = os.path.join(
-                self.core.projects.getFallbackFolder(),
-                "%s.jpg" % ext[1:].lower(),
-            )
-            thumbImage = QImage(fallbackPath)
+            # --- fallback: ffmpeg ---
+            try:
+                import tempfile
 
-        return thumbImage
+                ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
+
+                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmpfile:
+                    thumbTempPath = tmpfile.name
+
+                cmd = [
+                    ffmpegPath,
+                    "-v", "error",
+                    "-y",
+                    "-ss", "00:00:01.000",  # 1 second in
+                    "-i", path,
+                    "-frames:v", "1",
+                    "-q:v", "2",
+                    thumbTempPath,
+                ]
+
+                result = subprocess.run(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+
+                if result.returncode != 0:
+                    logger.warning(f"FFmpeg thumbnail failed: {result.stderr}")
+                    return QImage(fallbackPath)
+
+                thumbImage = QImage(thumbTempPath)
+
+                if not thumbImage.isNull() and thumbWidth > 0:
+                    origWidth = thumbImage.width()
+                    origHeight = thumbImage.height()
+                    thumbHeight = int(origHeight * (thumbWidth / origWidth))
+                    thumbImage = thumbImage.scaled(
+                        thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                    )
+
+                return thumbImage
+
+            except Exception as e2:
+                logger.warning(f"FFmpeg fallback failed for {path}: {e2}")
+                return QImage(fallbackPath)
+
+            finally:
+                try:
+                    os.remove(thumbTempPath)
+                except Exception:
+                    pass
+
 
 
     def getThumbImageFromExrPath(self, path, thumbWidth=None, channel=None, allowThumb=True, regenerateThumb=False):
@@ -2965,13 +3017,14 @@ class ThumbnailWorker(QObject, QRunnable):
 
 ###     Hash Worker Thread    ###
 class FileHashWorker(QObject, QRunnable):
-    finished = Signal(str)
+    finished = Signal(str, QObject)
 
-    def __init__(self, filePath):
+    def __init__(self, filePath, tile=None):
         QObject.__init__(self)
         QRunnable.__init__(self)
 
         self.filePath = filePath
+        self.tile = tile
 
 
     @Slot()
@@ -2987,16 +3040,20 @@ class FileHashWorker(QObject, QRunnable):
             file_size = os.path.getsize(self.filePath)
             hash_func.update(str(file_size).encode())
             result_hash = hash_func.hexdigest()
-            self.finished.emit(result_hash)
+        
+            logger.debug(f"[FileHashWorker] Hash Generated for {self.filePath}")
+            self.finished.emit(result_hash, self.tile)
 
         except Exception as e:
-            print(f"[FileHashWorker] Error hashing {self.filePath} - {e}")
+            logger.warning(f"[FileHashWorker] Error hashing {self.filePath} - {e}")
             self.finished.emit("Error")
 
 
 
+
+
 ###     File Duration (Frames) Worker Thread    ###
-class FileDurationWorker(QObject, QRunnable):                                #   TODO - FINISH DURATION FOR SEQUENCES
+class FileDurationWorker(QObject, QRunnable):
     finished = Signal(int, float, float)
 
     def __init__(self, origin, core, filePath):
@@ -3017,25 +3074,24 @@ class FileDurationWorker(QObject, QRunnable):                                #  
             fps = 0.0
             duration_sec = 0.0
 
-            #   Return None if not Media File
+            #   Return None if Not Media File
             if extension not in self.core.media.supportedFormats:
                 return
-            
-            #   Use ffProbe for Video Files
+
+            #   Use ffprobe for Video Files
             if self.origin.isVideo(ext=extension):
-                #   Get ffProbe path from Plugin Libs
                 ffprobePath = self.origin.browser.getFFprobePath()
 
                 kwargs = {
                     "stdout": subprocess.PIPE,
                     "stderr": subprocess.PIPE,
-                    "text":   True,
+                    "text": True,
                 }
 
                 if sys.platform == "win32":
                     kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
-                #   Execute Quick Method
+                #   Quick Method
                 result = subprocess.run(
                     [
                         ffprobePath,
@@ -3047,8 +3103,8 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                     ],
                     **kwargs
                 )
-                
-                #   Get Frames and FPS from Output
+
+                #   Parse Output
                 output_lines = result.stdout.strip().splitlines()
                 values = {}
                 for line in output_lines:
@@ -3060,44 +3116,35 @@ class FileDurationWorker(QObject, QRunnable):                                #  
                 fps_str = values.get("r_frame_rate", "0/1")
                 duration_sec_str = values.get("duration", "0")
 
-                #   If Quick Method didnt work, try Slower Fallback Method
-                if frames_str == 'N/A' or not frames_str.isdigit():
-                    result = subprocess.run(
-                        [
-                            ffprobePath,
-                            "-v", "error",
-                            "-select_streams", "v:0",
-                            "-count_frames",
-                            "-show_entries", "stream=nb_frames,r_frame_rate:format=duration",
-                            "-of", "default=nokey=1:noprint_wrappers=1",
-                            self.filePath
-                        ],
-                        **kwargs
-                    )
-                    #   Fallback output is 3 lines: frames, fps, duration
-                    lines = result.stdout.strip().splitlines()
-                    frames_str = lines[0] if len(lines) > 0 else "1"
-                    fps_str = lines[1] if len(lines) > 1 else "0/1"
-                    duration_sec_str = lines[2] if len(lines) > 2 else "0"
-
-                #   Convert Parsed Data
-                frames = int(frames_str) if frames_str.isdigit() else 1
-
+                #   Parse FPS
                 if '/' in fps_str:
-                    num, denom = map(int, fps_str.split('/'))
-                    fps = num / denom if denom else 0.0
+                    try:
+                        num, denom = map(int, fps_str.split('/'))
+                        fps = num / denom if denom else 0.0
+                    except Exception:
+                        fps = 0.0
 
+                #   Parse Duration
                 try:
                     duration_sec = float(duration_sec_str)
-                except ValueError:
+                except Exception:
                     duration_sec = 0.0
 
-            #   Emit Frames to Main Thread
+                #   Decide on Frames MEthod
+                if frames_str == 'N/A' or not frames_str.isdigit():
+                    logger.debug("[FileDurationWorker] FFprobe failed to get Frames Metadata. Calculating Frames.")
+                    frames = int(round(duration_sec * fps)) if fps > 0 and duration_sec > 0 else 1
+                else:
+                    frames = int(frames_str)
+
+            logger.debug(f"[FileDurationWorker] Calculated Duration for {self.filePath}")
+
+            #   Emit Signal
             self.finished.emit(frames, fps, duration_sec)
 
         except Exception as e:
-            print(f"[Duration Worker] ERROR: {self.filePath} - {e}")
-            self.finished.emit("Error")
+            logger.warning(f"[FileDurationWorker] ERROR: {self.filePath} - {e}")
+            self.finished.emit(1, 0.0, 0.0)
 
 
 
@@ -3142,7 +3189,7 @@ class FileCopyWorker(QThread):
                 try:
                     total_size_all += os.path.getsize(transItem["sourcePath"])
                 except Exception as e:
-                    print(f"Could not get size for: {transItem['sourcePath']} - {e}")
+                    logger.warning(f"[FileCopyWorker] ERROR: Could not get size for: {transItem['sourcePath']} - {e}")
 
             copied_size_all = 0
 
@@ -3154,7 +3201,7 @@ class FileCopyWorker(QThread):
                 try:
                     total_size = os.path.getsize(sourcePath)
                 except Exception as e:
-                    print(f"Error getting size of {sourcePath}: {e}")
+                    print(f"[FileCopyWorker] ERROR: Could not get size of {sourcePath}: {e}")
                     continue  # skip this file
 
                 copied_size_file = 0
@@ -3195,7 +3242,7 @@ class FileCopyWorker(QThread):
             self.finished.emit(True)
 
         except Exception as e:
-            print(f"Error copying file: {e}")
+            logger.warning(f"[FileCopyWorker] ERROR: Could not copy file: {e}")
             self.finished.emit(False)
 
         finally:
@@ -3234,7 +3281,7 @@ class ProxyGenerationWorker(QThread):
 
 
     def cancel(self):
-        print("[ProxyWorker] Cancel called!")                       #   TODO - Add Logging
+        logger.warning("[ProxyWorker] Cancel called!")                       #   TODO - Add Logging
         self.cancel_flag = True
 
 
@@ -3275,9 +3322,10 @@ class ProxyGenerationWorker(QThread):
 
         #   Get Total Frames
         total_frames = int(self.settings.get("frames", 0))
+
         #   Abort if No Frames
         if total_frames <= 0:
-            print("[ProxyWorker] Invalid total frame count!")                           #   TODO - Handle Errors
+            logger.warning("[ProxyWorker] ERROR: Invalid total frame count.")
             self.finished.emit(False)
             return
 
@@ -3369,7 +3417,7 @@ class ProxyGenerationWorker(QThread):
             while True:
                 #   Cancel Generation
                 if self.cancel_flag:
-                    print("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")
+                    logger.warning("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")
                     self._kill_ffmpeg_tree()
                     self.finished.emit(False)
                     return
@@ -3402,7 +3450,7 @@ class ProxyGenerationWorker(QThread):
             self.finished.emit(self.nProc.returncode == 0)
 
         except Exception as e:
-            print(f"[ProxyWorker] Exception: {e}")
+            logger.warning(f"[ProxyWorker] ERROR: {e}")
             if self.nProc.poll() is None:
                 self._kill_ffmpeg_tree()
             self.finished.emit(False)

@@ -264,13 +264,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
-    def entityChanged(self, *args, **kwargs):
-        pass
-    @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
     def getSelectedContext(self, *args, **kwargs):
         pass
-
-
 
 
     @err_catcher(name=__name__)
@@ -278,6 +273,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if not self.initialized:
             self.initialized = True
 
+            #   Add .mxf format to Supported Formats
+            self.core.media.supportedFormats.append(".mxf")
+            self.core.media.videoFormats.append(".mxf")
+
+            #   Get OIIO from Core
             self.oiio = self.core.media.getOIIO()
 
             #   Resize Splitter Panels
@@ -942,6 +942,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Sorting Options
             self.sortOptions = sData["sortOptions"]
             self.b_source_sorting_duration.setChecked(tabData["enable_frames"])
+            self.b_source_sorting_combineSeqs.setChecked(tabData["source_combineSeq"]) 
+            self.b_dest_sorting_combineSeqs.setChecked(tabData["dest_combineSeq"]) 
 
             #   Media Player Enabled Checkbox
             playerEnabled = tabData["playerEnabled"]
@@ -2826,8 +2828,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.completeTranfer("Cancelled")
             elif all(status in {"Complete"} for status in overall_statusList):
                 self.completeTranfer("Complete")
-            elif all(status in {"Complete", "Warning", "Error"} for status in overall_statusList):
-                self.completeTranfer("Complete with Warnings/Errors")
+            elif all(status in {"Complete", "Warning"} for status in overall_statusList):
+                self.completeTranfer("Complete with Warnings")
+            elif all(status in {"Complete", "Error"} for status in overall_statusList):
+                self.completeTranfer("Complete with Errors")
 
             logger.debug(f"Updated Overall Status: {overall_status}")
 
@@ -2836,23 +2840,31 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)
-    def completeTranfer(self, result):
+    def completeTranfer(self, transResult):
         self.progressTimer.stop()
-        self.setTransferStatus(result)
-        self.sourceFuncts.progBar_total.setValue(100)
-        logger.status(f"Transfer Result: {result}")
 
-        self.configTransUI("complete")                      #   TODO
+        if transResult == "Complete with Warnings":
+            status = "Warning"
+        elif transResult == "Complete with Errors":
+            status = "Error"
+        else:
+            status = transResult
+        self.setTransferStatus(status)
+
+        self.sourceFuncts.progBar_total.setValue(100)
+        logger.status(f"Transfer Result: {transResult}")
+
+        self.configTransUI("complete")
 
         if self.useTransferReport:
-            self.createTransferReport(result)
+            self.createTransferReport(transResult)
 
         if self.calculated_proxyMults:
             #   Updates Presets Multiplier
             self.updateProxyPresetMultipliers()
 
         if self.useCompleteSound:
-            if result == "Complete":
+            if transResult == "Complete":
                 self.playSound(SOUND_SUCCESS)
             else:
                 self.playSound(SOUND_ERROR)
@@ -3072,28 +3084,28 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR: Failed to Update Proxy Preset Multiplier:\n{e}")
 
 
-    @err_catcher(name=__name__)
-    def getSelectedContexts(self):
-        contexts = []
-        if len(self.lw_source.selectedItems()) > 1:
-            contexts = self.lw_source.selectedItems()
-        elif len(self.lw_destination.selectedItems()) > 1:
-            contexts = self.lw_destination.selectedItems()
-        else:
-            data = self.getCurrentFilelayer()
-            if not data:
-                data = self.getCurrentSource()
-                if not data:
-                    data = self.getCurrentAOV()
-                    if not data:
-                        items = self.lw_destination.selectedItems()
-                        if items:
-                            data = items[0].data(Qt.UserRole)
+    # @err_catcher(name=__name__)
+    # def getSelectedContexts(self):
+    #     contexts = []
+    #     if len(self.lw_source.selectedItems()) > 1:
+    #         contexts = self.lw_source.selectedItems()
+    #     elif len(self.lw_destination.selectedItems()) > 1:
+    #         contexts = self.lw_destination.selectedItems()
+    #     else:
+    #         data = self.getCurrentFilelayer()
+    #         if not data:
+    #             data = self.getCurrentSource()
+    #             if not data:
+    #                 data = self.getCurrentAOV()
+    #                 if not data:
+    #                     items = self.lw_destination.selectedItems()
+    #                     if items:
+    #                         data = items[0].data(Qt.UserRole)
 
-            if data:
-                contexts = [data]
+    #         if data:
+    #             contexts = [data]
 
-        return contexts
+    #     return contexts
     
 
     # @err_catcher(name=__name__)
