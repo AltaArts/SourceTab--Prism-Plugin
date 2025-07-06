@@ -404,7 +404,7 @@ class PreviewPlayer(QWidget):
     def updatePrvInfo(self, prvFile="", vidReader=None, seq=None, frame=None):
         if seq is not None:
             if self.previewSeq != seq:
-                logger.debug("exit preview info update")
+                logger.debug("Exit Preview Info Update")
                 return
 
         if not os.path.exists(prvFile):
@@ -571,53 +571,68 @@ class PreviewPlayer(QWidget):
 
     @err_catcher(name=__name__)
     def getVideoDuration(self, filePath):
+        frames = 1
+        fps = 0.0
+        duration_sec = 0.0
+
         ffprobePath = self.sourceBrowser.getFFprobePath()
 
         kwargs = {
             "stdout": subprocess.PIPE,
             "stderr": subprocess.PIPE,
-            "text":   True,
+            "text": True,
         }
 
         if sys.platform == "win32":
             kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
-        #   Execute Quick Method
+        #   Quick Method
         result = subprocess.run(
             [
                 ffprobePath,
                 "-v", "error",
                 "-select_streams", "v:0",
-                "-show_entries", "stream=nb_frames",
-                "-of", "default=nokey=1:noprint_wrappers=1",
+                "-show_entries", "stream=nb_frames,r_frame_rate:format=duration",
+                "-of", "default=noprint_wrappers=1",
                 filePath
             ],
             **kwargs
         )
 
-        #   Get Frames from Output
-        frames = result.stdout.strip()
+        #   Parse Output
+        output_lines = result.stdout.strip().splitlines()
+        values = {}
+        for line in output_lines:
+            if '=' in line:
+                k, v = line.strip().split('=', 1)
+                values[k] = v
 
-        #   If Quick Method didnt work, try Slower Fallback Method
-        if frames == 'N/A' or not frames.isdigit():
-            result = subprocess.run(
-                [
-                    ffprobePath,
-                    "-v", "error",
-                    "-select_streams", "v:0",
-                    "-count_frames",
-                    "-show_entries", "stream=nb_read_frames",
-                    "-of", "default=nokey=1:noprint_wrappers=1",
-                    filePath
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+        frames_str = values.get("nb_frames", "1")
+        fps_str = values.get("r_frame_rate", "0/1")
+        duration_sec_str = values.get("duration", "0")
 
-            frames = result.stdout.strip() 
+        #   Parse FPS
+        if '/' in fps_str:
+            try:
+                num, denom = map(int, fps_str.split('/'))
+                fps = num / denom if denom else 0.0
+            except Exception:
+                fps = 0.0
 
-        return int(frames)
+        #   Parse Duration
+        try:
+            duration_sec = float(duration_sec_str)
+        except Exception:
+            duration_sec = 0.0
+
+        #   Decide on Frames MEthod
+        if frames_str == 'N/A' or not frames_str.isdigit():
+            logger.debug("FFprobe failed to get Frames Metadata. Calculating Frames.")
+            frames = int(round(duration_sec * fps)) if fps > 0 and duration_sec > 0 else 1
+        else:
+            frames = int(frames_str)
+
+        return frames
 
 
     @err_catcher(name=__name__)
@@ -678,6 +693,7 @@ class PreviewPlayer(QWidget):
         thread.function = lambda x=list(self.previewSeq): self.changeImg(
             frame=frame, seq=x, thread=thread, regenerateThumb=regenerateThumb
         )
+        
         thread.errored.connect(self.core.writeErrorLog)
         thread.finished.connect(self.onMediaThreadFinished)
         thread.warningSent.connect(self.core.popup)
@@ -724,51 +740,96 @@ class PreviewPlayer(QWidget):
         return int(self.previewTimeline.currentTime() / self.previewTimeline.updateInterval())
 
 
-    # @err_catcher(name=__name__)
-    # def getPixmapFromVideoPath(self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0):
-    #     _, ext = os.path.splitext(path)
+    @err_catcher(name=__name__)
+    def getPixmapFromVideoPath(
+        self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0
+        ):
 
-    #     try:
-    #         vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
-    #         if self.core.isStr(vidFile):
-    #             logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{vidFile}")
+        _, ext = os.path.splitext(path)
 
-    #             fallbackPath = os.path.join(
-    #                 self.core.projects.getFallbackFolder(),
-    #                 "%s.jpg" % ext[1:].lower(),
-    #             )
-    #             thumbImage = QImage(fallbackPath)
-    #             pixmap = QPixmap.fromImage(thumbImage)
+        fallbackPath = os.path.join(
+            self.core.projects.getFallbackFolder(),
+            "%s.jpg" % ext[1:].lower(),
+        )
 
-    #         else:
-    #             image = vidFile.get_data(imgNum)
-    #             fileRes = vidFile._meta["size"]
-    #             width = fileRes[0]
-    #             height = fileRes[1]
-    #             qimg = QImage(image, width, height, 3*width, QImage.Format_RGB888)
+        try:
+            # Attempt to use videoReader (fast)
+            vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
+            if self.core.isStr(vidFile):
+                raise RuntimeError(vidFile)
 
-    #             # Original image size
-    #             origWidth = qimg.width()
-    #             origHeight = qimg.height()
+            # Success: read frame
+            image = vidFile.get_data(imgNum)
+            fileRes = vidFile._meta["size"]
+            width = fileRes[0]
+            height = fileRes[1]
+            qimg = QImage(image, width, height, 3 * width, QImage.Format_RGB888)
 
-    #             # Compute height to preserve aspect ratio
-    #             thumbHeight = int(origHeight * (thumbWidth / origWidth))
+            # Resize
+            origWidth = qimg.width()
+            origHeight = qimg.height()
+            thumbHeight = int(origHeight * (thumbWidth / origWidth))
+            thumbImage = qimg.scaled(
+                thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
 
-    #             # Scale image
-    #             thumbImage = qimg.scaled(thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-    #             pixmap = QPixmap.fromImage(thumbImage)
+            return QPixmap.fromImage(thumbImage)
 
-    #     except Exception as e:
-    #         logger.warning(f"ERROR: Failed to Gemerate Thumbnail for {path}:\n{e}")
+        except Exception as e:
+            logger.debug(f"[Thumbnail Worker] Prism Video Reader failed for {path}, falling back to ffmpeg:\n{e}")
 
-    #         fallbackPath = os.path.join(
-    #             self.core.projects.getFallbackFolder(),
-    #             "%s.jpg" % ext[1:].lower(),
-    #         )
-    #         thumbImage = QImage(fallbackPath)
-    #         pixmap = QPixmap.fromImage(thumbImage)
+        # --- fallback: ffmpeg ---
+        try:
+            import tempfile
 
-    #     return pixmap
+            ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
+
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmpfile:
+                thumbTempPath = tmpfile.name
+
+            cmd = [
+                ffmpegPath,
+                "-v", "error",
+                "-y",
+                "-ss", "00:00:01.000",  # 1 second in
+                "-i", path,
+                "-frames:v", "1",
+                "-q:v", "2",
+                thumbTempPath,
+            ]
+
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                logger.warning(f"ERROR: FFmpeg thumbnail failed: {result.stderr}")
+                return QImage(fallbackPath)
+
+            thumbImage = QImage(thumbTempPath)
+
+            if not thumbImage.isNull() and thumbWidth > 0:
+                origWidth = thumbImage.width()
+                origHeight = thumbImage.height()
+                thumbHeight = int(origHeight * (thumbWidth / origWidth))
+                thumbImage = thumbImage.scaled(
+                    thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+
+            return QPixmap.fromImage(thumbImage)
+
+        except Exception as e2:
+            logger.warning(f"ERROR: FFmpeg fallback failed for {path}: {e2}")
+            return QImage(fallbackPath)
+
+        finally:
+            try:
+                os.remove(thumbTempPath)
+            except Exception:
+                pass
 
 
     @err_catcher(name=__name__)
@@ -874,19 +935,19 @@ class PreviewPlayer(QWidget):
                                 else:
                                     self.updatePrvInfo(fileName, vidReader=vidFile, seq=seq)
 
-                        # pm = self.getPixmapFromVideoPath(
-                        #         fileName,
-                        #         thumbWidth=1280,
-                        #         videoReader=vidFile,
-                        #         imgNum=imgNum,
-                        #         regenerateThumb=regenerateThumb
-                        #     )
-                        pm = self.core.media.getPixmapFromVideoPath(
+                        pm = self.getPixmapFromVideoPath(
                                 fileName,
+                                thumbWidth=1280,
                                 videoReader=vidFile,
                                 imgNum=imgNum,
                                 regenerateThumb=regenerateThumb
                             )
+                        # pm = self.core.media.getPixmapFromVideoPath(
+                        #         fileName,
+                        #         videoReader=vidFile,
+                        #         imgNum=imgNum,
+                        #         regenerateThumb=regenerateThumb
+                        #     )
 
                         pmsmall = self.core.media.scalePixmap(
                             pm, self.getThumbnailWidth(), self.getThumbnailHeight()

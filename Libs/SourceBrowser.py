@@ -52,7 +52,6 @@ import os
 import sys
 import subprocess
 import logging
-import traceback
 from collections import OrderedDict, deque
 import shutil
 import uuid
@@ -191,7 +190,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.core.parentWindow(self)
 
-        self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff", ".flac", ".alac", ".ogg", ".wma"]
+        self.supportedCodecs = ["h264", "hevc", "mpeg4", "mpeg2video", "prores",
+                                "dnxhd", "dnxhr", "mjpeg", "jpeg2000", "rawvideo",
+                                "vp8","vp9","av1"]
+
+        self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff",
+                             ".flac", ".alac", ".ogg", ".wma"]
 
         self.filterStates_source = {
                                     "Videos": True,
@@ -272,10 +276,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def entered(self, prevTab=None, navData=None):
         if not self.initialized:
             self.initialized = True
-
-            #   Add .mxf format to Supported Formats
-            self.core.media.supportedFormats.append(".mxf")
-            self.core.media.videoFormats.append(".mxf")
 
             #   Get OIIO from Core
             self.oiio = self.core.media.getOIIO()

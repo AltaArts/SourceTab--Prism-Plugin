@@ -48,7 +48,6 @@
 ####################################################
 
 
-from argparse import FileType
 import os
 import sys
 import logging
@@ -641,20 +640,25 @@ class BaseTileItem(QWidget):
         return total_size
 
 
-    #   Gets the Number of Frames of the File(s) to Transfer
+    #   Gets Info such as Duration and Codec
     @err_catcher(name=__name__)
-    def calcDuration(self, filePath, callback=None):
-        if getattr(self, "isSequence", False):
-            duration = len(self.data["seqFiles"])
-            self.onMainfileDurationReady(duration)
+    def getFileInfo(self, filePath, callback=None):
+        # if getattr(self, "isSequence", False):
+        #     duration = len(self.data["seqFiles"])
 
-        else:
-            #   Create Worker Instance
-            worker_frames = FileDurationWorker(self, self.core, filePath)
-            #   Connect to Finished Callback
-            worker_frames.finished.connect(callback)
-            #   Launch Worker in DataOps Treadpool
-            self.dataOps_threadpool.start(worker_frames)
+        #     sData = self.getFirstSeqData()
+        #     fps = 0
+        #     time = 0
+        #     codec = sData["source_mainFile_codec"]
+        #     metadata = sData["source_mainFile_codecMetadata"]
+
+        #     self.onMainfileInfoReady(duration, fps, time, codec, metadata)
+
+        # else:
+
+        worker_frames = FileInfoWorker(self, self.core, filePath)
+        worker_frames.finished.connect(callback)
+        self.dataOps_threadpool.start(worker_frames)
 
 
      #   Returns the Filepath
@@ -783,45 +787,95 @@ class BaseTileItem(QWidget):
     #   Populates Duration when ready from Thread
     @err_catcher(name=__name__)
     def setDuration(self):
+        #   Abort if All Items have not been Generated
+        if self.isSequence:
+            sData = self.getFirstSeqData()
+        else:
+            sData = self.data
+
+        for key in ["source_mainFile_frames",
+                    "source_mainFile_fps",
+                    "source_mainFile_time"]:
+            if key not in sData:
+                return
+
         if self.isVideo():
-            #   Abort if All Items have not been Generated
-            for key in ["source_mainFile_frames",
-                        "source_mainFile_fps",
-                        "source_mainFile_time"]:
-                if key not in self.data:
-                    return
             #   Get Data Items
-            frames = self.data["source_mainFile_frames"]
-            fps = self.data["source_mainFile_fps"]
-            time = self.data["source_mainFile_time"]
+            frames = sData["source_mainFile_frames"]
+            fps = sData["source_mainFile_fps"]
+            time = sData["source_mainFile_time"]
            
             if self.browser.b_source_sorting_duration.isChecked():
                 dur_str = f"{frames} - {fps} fps"
             else:
                 dur_str = time
 
-            tip = (f"File Type:   {self.fileType}\n"
-                   f"Duration:   {time}\n"
-                   f"Frames:     {frames}\n"
-                   f"FPS:           {fps}")
-
         elif self.isSequence:
             dur_str = str(len(self.data["sequenceItems"]))
 
-            tip = (f"File Type:   {self.fileType}\n"
-                   f"Images:   {dur_str}")
         else:
             dur_str = str(self.data["source_mainFile_frames"])
 
-            tip = (f"File Type:   {self.fileType}\n"
-                   f"Frames:   {dur_str}")
-            
         if hasattr(self, "l_frames"):
             self.l_frames.setText(dur_str)
-            self.l_frames.setToolTip(tip)
+            self.setIconTooltip()
 
+
+    @err_catcher(name=__name__)
+    def setIconTooltip(self):
+        if self.isVideo():
+            #   Get Data Items
+
+            frames = self.data["source_mainFile_frames"]
+            fps = self.data["source_mainFile_fps"]
+            time = self.data["source_mainFile_time"]
+            codec = self.data["source_mainFile_codec"]
+            metadata = self.data["source_mainFile_codecMetadata"]
+           
+            tip = (f"File Type:   {self.fileType}\n"
+                   f"Duration:   {time}\n"
+                   f"Frames:     {frames}\n"
+                   f"FPS:           {fps}\n\n"
+                   f"Codec:       {codec}\n"
+                   f"{self.formatMetadata(metadata)}"
+            )
+
+        elif self.isSequence:
+            frames = len(self.data["sequenceItems"])
+
+            sData = self.getFirstSeqData()
+
+            fps = 0
+            time = 0
+            codec = sData["source_mainFile_codec"]
+            codecMetatdata = sData["source_mainFile_codecMetadata"]
+
+            tip = (f"File Type:   {self.fileType}\n"
+                   f"Images:      {str(frames)}\n\n"
+                   f"Codec:       {codec}\n"
+                   f"Metadata:    {self.formatMetadata(codecMetatdata)}"
+            )
+
+        else:
+            tip = (f"File Type:   {self.fileType}\n"
+                   f"Frames:   {str(self.data['source_mainFile_frames'])}\n\n"
+                   f"Codec:       {self.data['source_mainFile_codec']}\n"
+                   f"Metadata:    {self.formatMetadata(self.data['source_mainFile_codecMetadata'])}"
+            )
+
+        self.l_frames.setToolTip(tip)
         self.l_icon.setToolTip(tip)
 
+
+    @err_catcher(name=__name__)
+    def formatMetadata(self, metadata):
+        if not metadata:
+            return "Metadata:    None"
+        lines = ["Metadata:"]
+        for k, v in metadata.items():
+            lines.append(f"  {k}: {v}")
+        return "\n".join(lines)
+    
 
     #   Returns File's Extension
     @err_catcher(name=__name__)
@@ -1121,6 +1175,13 @@ class SourceFileItem(BaseTileItem):
         #   Get Main File Path
         filePath = self.getSource_mainfilePath()
 
+        #   Duration
+        if self.fileType in ["Videos", "Images", "Image Sequence"]:
+            self.getFileInfo(filePath, self.onMainfileInfoReady)
+
+        #   Main File Hash
+        self.setFileHash(filePath, self.onMainfileHashReady)
+
         #   Icon
         icon = self.getIconByType(filePath)
         self.data["icon"] = icon
@@ -1137,15 +1198,10 @@ class SourceFileItem(BaseTileItem):
         mainSize_str = self.getFileSizeStr(mainSize_data)
         self.data["source_mainFile_size"] = mainSize_str
 
-        #   Duration
-        if self.fileType in ["Videos", "Images", "Image Sequence"]:
-            self.calcDuration(filePath, self.onMainfileDurationReady)
-
-        #   Main File Hash
-        # self.setFileHash(filePath, self.onMainfileHashReady)
 
         self.getThumbnail()
         self.setProxyFile()
+
 
 
     #   Attach a FileTile and Process Callbacks
@@ -1168,12 +1224,14 @@ class SourceFileItem(BaseTileItem):
     
     #   Populates Frames when ready from Thread
     @err_catcher(name=__name__)
-    def onMainfileDurationReady(self, frames, fps, time):
+    def onMainfileInfoReady(self, frames, fps, time, codec, codecMetatdata):
         try:
             self.data["source_mainFile_frames"] = frames
             self.data["source_mainFile_fps"] = self.getFpsStr(fps)
             self.data["source_mainFile_time_raw"] = time
             self.data["source_mainFile_time"] = self.browser.getFormattedTimeStr(time)
+            self.data["source_mainFile_codec"] = codec
+            self.data["source_mainFile_codecMetadata"] = codecMetatdata
 
             self._notify("duration")
 
@@ -1478,6 +1536,7 @@ class SourceFileTile(BaseTileItem):
 
             if self.fileType in ["Videos", "Images", "Image Sequence"]:
                 self.setDuration()
+
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Load Source FileTile UI:\n{e}")
@@ -2496,7 +2555,7 @@ class DestFileTile(BaseTileItem):
         else:
             #   Calls for Hash Generation with Callback
 
-            dummy_tile = object()
+            dummy_tile = QObject()
             self._pending_tiles.add(dummy_tile)
 
             self.setFileHash(self.getDestMainPath(), self.onDestHashReady, dummy_tile)
@@ -2677,7 +2736,7 @@ class ThumbnailWorker(QObject, QRunnable):
             if extension not in self.core.media.supportedFormats:
                 file_info = QFileInfo(self.filePath)
                 icon_provider = QFileIconProvider()
-                icon = icon_provider.icon(file_info)
+                icon = icon_provider.icon(file_info)                
                 pixmap = icon.pixmap(self.tileThumbWidth, self.tileThumbHeight)
                 thumbImage = pixmap.toImage()
 
@@ -3032,29 +3091,36 @@ class FileHashWorker(QObject, QRunnable):
         try:
             chunk_size = 8192
             hash_func = hashlib.sha256()
-            with open(self.filePath, "rb") as f:
-                hash_func.update(f.read(chunk_size))  # First chunk
-                f.seek(-chunk_size, os.SEEK_END)      # Last chunk
-                hash_func.update(f.read(chunk_size))
-
             file_size = os.path.getsize(self.filePath)
+
+            with open(self.filePath, "rb") as f:
+                if file_size <= chunk_size * 2:
+                    #   File is Small, Read it All
+                    hash_func.update(f.read())
+                else:
+                    #   Large File, First and Last chunks
+                    hash_func.update(f.read(chunk_size))
+                    f.seek(-chunk_size, os.SEEK_END)
+                    hash_func.update(f.read(chunk_size))
+
+            #   Always include file size in hash
             hash_func.update(str(file_size).encode())
             result_hash = hash_func.hexdigest()
-        
+
             logger.debug(f"[FileHashWorker] Hash Generated for {self.filePath}")
             self.finished.emit(result_hash, self.tile)
 
         except Exception as e:
             logger.warning(f"[FileHashWorker] Error hashing {self.filePath} - {e}")
-            self.finished.emit("Error")
+            self.finished.emit("Error", self.tile)
 
 
 
 
 
-###     File Duration (Frames) Worker Thread    ###
-class FileDurationWorker(QObject, QRunnable):
-    finished = Signal(int, float, float)
+###     File Info Worker Thread    ###
+class FileInfoWorker(QObject, QRunnable):
+    finished = Signal(int, float, float, str, dict)
 
     def __init__(self, origin, core, filePath):
         QObject.__init__(self)
@@ -3064,7 +3130,6 @@ class FileDurationWorker(QObject, QRunnable):
         self.core = core
         self.filePath = filePath
 
-
     @Slot()
     def run(self):
         try:
@@ -3072,14 +3137,16 @@ class FileDurationWorker(QObject, QRunnable):
 
             frames = 1
             fps = 0.0
-            duration_sec = 0.0
+            secs = 0.0
+            codec = None
+            metadata = {}
 
-            #   Return None if Not Media File
             if extension not in self.core.media.supportedFormats:
                 return
 
-            #   Use ffprobe for Video Files
-            if self.origin.isVideo(ext=extension):
+            fileType = self.origin.fileType
+
+            if fileType in ("Videos", "Images", "Audio"):
                 ffprobePath = self.origin.browser.getFFprobePath()
 
                 kwargs = {
@@ -3091,20 +3158,34 @@ class FileDurationWorker(QObject, QRunnable):
                 if sys.platform == "win32":
                     kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
-                #   Quick Method
+                # Determine stream type
+                if fileType in ("Videos", "Images"):
+                    stream_type = "v:0"
+                elif fileType == "Audio":
+                    stream_type = "a:0"
+                else:
+                    logger.debug(f"[FileInfoWorker] Unknown fileType for ffprobe: {fileType}")
+                    self.finished.emit(1, 0.0, 0.0, None, {})
+                    return
+
                 result = subprocess.run(
                     [
                         ffprobePath,
                         "-v", "error",
-                        "-select_streams", "v:0",
-                        "-show_entries", "stream=nb_frames,r_frame_rate:format=duration",
+                        "-select_streams", stream_type,
+                        "-show_entries",
+                        "stream=nb_frames,r_frame_rate,codec_name,profile,codec_tag_string,codec_long_name:format=duration",
                         "-of", "default=noprint_wrappers=1",
                         self.filePath
                     ],
                     **kwargs
                 )
 
-                #   Parse Output
+                if result.returncode != 0:
+                    logger.warning(f"ERROR: FFprobe failed for {self.filePath}:\n{result.stderr}")
+                    self.finished.emit(1, 0.0, 0.0, None, {})
+                    return
+
                 output_lines = result.stdout.strip().splitlines()
                 values = {}
                 for line in output_lines:
@@ -3112,11 +3193,14 @@ class FileDurationWorker(QObject, QRunnable):
                         k, v = line.strip().split('=', 1)
                         values[k] = v
 
+                metadata = values
+
                 frames_str = values.get("nb_frames", "1")
                 fps_str = values.get("r_frame_rate", "0/1")
-                duration_sec_str = values.get("duration", "0")
+                sec_str = values.get("duration", "0")
+                codec = values.get("codec_name")
 
-                #   Parse FPS
+                # Parse fps
                 if '/' in fps_str:
                     try:
                         num, denom = map(int, fps_str.split('/'))
@@ -3124,27 +3208,33 @@ class FileDurationWorker(QObject, QRunnable):
                     except Exception:
                         fps = 0.0
 
-                #   Parse Duration
+                # Parse duration
                 try:
-                    duration_sec = float(duration_sec_str)
+                    secs = float(sec_str)
                 except Exception:
-                    duration_sec = 0.0
+                    secs = 0.0
 
-                #   Decide on Frames MEthod
+                # Parse frames
                 if frames_str == 'N/A' or not frames_str.isdigit():
-                    logger.debug("[FileDurationWorker] FFprobe failed to get Frames Metadata. Calculating Frames.")
-                    frames = int(round(duration_sec * fps)) if fps > 0 and duration_sec > 0 else 1
+                    logger.debug("[FileInfoWorker] FFprobe failed to get Frames Metadata. Estimating.")
+                    frames = int(round(secs * fps)) if fps > 0 and secs > 0 else 1
                 else:
                     frames = int(frames_str)
 
-            logger.debug(f"[FileDurationWorker] Calculated Duration for {self.filePath}")
+                logger.debug(f"[FileInfoWorker] ffprobe complete for {self.filePath}")
 
-            #   Emit Signal
-            self.finished.emit(frames, fps, duration_sec)
+            else:
+                logger.debug(f"[FileInfoWorker] Unsupported fileType: {fileType}")
+                self.finished.emit(1, 0.0, 0.0, None, {})
+                return
+
+
+            self.finished.emit(frames, fps, secs, codec, metadata)
 
         except Exception as e:
-            logger.warning(f"[FileDurationWorker] ERROR: {self.filePath} - {e}")
-            self.finished.emit(1, 0.0, 0.0)
+            logger.warning(f"[FileInfoWorker] ERROR: {self.filePath} - {e}")
+            self.finished.emit(1, 0.0, 0.0, None, {})
+
 
 
 
@@ -3281,7 +3371,7 @@ class ProxyGenerationWorker(QThread):
 
 
     def cancel(self):
-        logger.warning("[ProxyWorker] Cancel called!")                       #   TODO - Add Logging
+        logger.warning("[ProxyWorker] Cancel called!")
         self.cancel_flag = True
 
 
@@ -3339,13 +3429,14 @@ class ProxyGenerationWorker(QThread):
 
         #   Check if Video or Image Sequence
         inputExt = os.path.splitext(os.path.basename(self.inputPath))[1].lower()
-        videoInput = inputExt in [".mp4", ".mov", ".m4v"]
+        videoInput = inputExt in self.core.media.videoFormats
 
         #   Set Start Number
         if videoInput:
             #   Video Starts at 0
             startNum = 0
-        else:
+
+        else:                                                   #   TODO - HANDLE SEQ PROXY GENERATION
             #   Default to 25fps
             fps = "25"
             #   Get Project FPS 
@@ -3415,6 +3506,7 @@ class ProxyGenerationWorker(QThread):
 
         try:
             while True:
+                
                 #   Cancel Generation
                 if self.cancel_flag:
                     logger.warning("[ProxyWorker] Cancel flag detected, terminating FFmpeg.")

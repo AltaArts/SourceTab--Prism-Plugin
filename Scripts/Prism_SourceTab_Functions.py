@@ -107,6 +107,11 @@ class Prism_SourceTab_Functions(object):
 
             logger.debug("Registered callbacks")
 
+            #   Add .mxf format to Supported Formats
+            self.core.media.supportedFormats.append(".mxf")
+            self.core.media.videoFormats.append(".mxf")
+            logger.status("Added '.mxf' format to Prism Supported Formats")
+
         except Exception as e:
             logger.warning(f"ERROR: Registering callbacks failed:\n {e}")
 
