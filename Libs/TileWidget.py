@@ -655,7 +655,7 @@ class BaseTileItem(QWidget):
 
     #   Gets Custom Hash of File in Separate Thread
     @err_catcher(name=__name__)
-    def setFileHash(self, filePath, callback=None, mainTile=None, seqTile=None):
+    def setFileHash(self, filePath, callback=None, mode="transfer",  mainTile=None, seqTile=None):
         #   Create Worker Instance
         worker_hash = FileHashWorker(filePath, seqTile)
         #   Connect to Finished Callback
@@ -663,10 +663,10 @@ class BaseTileItem(QWidget):
         #   Launch Worker in DataOps Treadpool
         self.dataOps_threadpool.start(worker_hash)
 
-
+        #   Timer to Ensure Hash Generation does not Hang
         self.hashWatchdogTimer = QTimer()
         self.hashWatchdogTimer.setSingleShot(True)
-        self.hashWatchdogTimer.timeout.connect(lambda: self.onHashTimeout(mainTile))
+        self.hashWatchdogTimer.timeout.connect(lambda: self.onHashTimeout(mainTile, mode))
         self.hashWatchdogTimer.start(30000)
 
 
@@ -682,14 +682,14 @@ class BaseTileItem(QWidget):
 
 
     @err_catcher(name=__name__)
-    def onHashTimeout(self, mainTile):
+    def onHashTimeout(self, mainTile, mode):
         logger.warning("ERROR: Hash generation timed out.")
 
         tip = "The Hash Worker timed out."
         self.setMainHash(error=tip)
 
         if mainTile:
-            mainTile.setTransferStatus(progBar="transfer", status="Warning", tooltip=tip)
+            mainTile.setTransferStatus(progBar=mode, status="Warning", tooltip=tip)
     
 
     @err_catcher(name=__name__)
@@ -1331,7 +1331,7 @@ class SourceFileItem(BaseTileItem):
                 self.data["source_proxyFile_size"] = mainSize_str
 
                 #   Set Source Proxy Hash
-                self.setFileHash(proxyFilepath, self.onProxyfileHashReady)
+                self.setFileHash(proxyFilepath, self.onProxyfileHashReady, mode="proxy")
 
                 self.getFileInfo(proxyFilepath, self.onProxyInfoReady)
 
@@ -2547,27 +2547,31 @@ class DestFileTile(BaseTileItem):
 
 
     @err_catcher(name=__name__)
-    def checkFilesExist(self):
-        try:
-            destMainPath = self.getDestMainPath()
-            destFiles = []
+    def checkFilesExist(self, mode):
+        if mode == "main":
+            try:
+                destMainPath = self.getDestMainPath()
+                destFiles = []
 
-            if self.isSequence:
-                transferItems = self.getSequenceItems()
+                if self.isSequence:
+                    transferItems = self.getSequenceItems()
 
-                for transItem in transferItems:
-                    destFiles.append(transItem["data"]["dest_mainFile_path"])
-            else:
-                destFiles.append(destMainPath)
+                    for transItem in transferItems:
+                        destFiles.append(transItem["data"]["dest_mainFile_path"])
+                else:
+                    destFiles.append(destMainPath)
 
-            #   Itterate through all Transfered Files to Check Exists
-            filesExist = all(os.path.isfile(file) for file in destFiles)
+                #   Itterate through all Transfered Files to Check Exists
+                filesExist = all(os.path.isfile(file) for file in destFiles)
 
-            return filesExist
-    
-        except Exception as e:
-            logger.warning(f"ERROR: Unable to Check if Files Exist:\n{e}")
-            return False
+                return filesExist
+        
+            except Exception as e:
+                logger.warning(f"ERROR: Unable to Check if Files Exist:\n{e}")
+                return False
+            
+        elif mode == "proxy":
+            return os.path.exists(self.data["dest_proxyFile_path"])
     
 
     #   Gets Called from the Finished Signal
@@ -2585,9 +2589,7 @@ class DestFileTile(BaseTileItem):
             # self.l_fileName.setToolTip(os.path.normpath(destMainPath))
 
             #   Check if all the Transferred Files Exist in Destination
-            filesExist = self.checkFilesExist()
-
-            if filesExist:
+            if self.checkFilesExist("main"):
                 self.setTransferStatus(progBar="transfer", status="Generating Hash")
 
                 self.data["mainFile_result"] = "Complete"
@@ -2612,24 +2614,19 @@ class DestFileTile(BaseTileItem):
     #   Called After Hash Genertaion for UI Feedback
     @err_catcher(name=__name__)
     def generateDestHashs(self):
-
         self._pending_tiles = set()
         self._hash_results = {}
 
         if self.isSequence:
-
-
             for transItem in self.getSequenceItems():
                 tile = transItem["tile"]
                 destPath = transItem["data"]["dest_mainFile_path"]
 
                 self._pending_tiles.add(tile)
-
                 tile.setFileHash(destPath, self.setDestHash, mainTile=self, seqTile=tile)
 
         else:
             #   Calls for Hash Generation with Callback
-
             dummy_tile = QObject()
             self._pending_tiles.add(dummy_tile)
 
@@ -2651,7 +2648,6 @@ class DestFileTile(BaseTileItem):
         else:
             self.seqHashes = False
 
-
         if self.seqHashes:
             statusMsg = "Transfer Successful"
             tile.data["mainFile_result"] = statusMsg
@@ -2662,7 +2658,6 @@ class DestFileTile(BaseTileItem):
             logger.status(f"Main Transfer complete: {tile.data['dest_mainFile_path']}")
 
         else:
-
             statusMsg = "ERROR:  Transfered Hash Incorrect"
             tile.data["mainFile_result"] = statusMsg
 
@@ -2673,9 +2668,7 @@ class DestFileTile(BaseTileItem):
                     f"Source Hash:   {orig_hash}\n"
                     f"Transfer Hash: {dest_hash}")
 
-
             self.setTransferStatus(progBar="transfer", status=status, tooltip=hashMsg)
-
 
 
     #   Called After Hash Genertaion for UI Feedback
@@ -2712,7 +2705,6 @@ class DestFileTile(BaseTileItem):
                 if self.transferData["generateProxy"]:
                     self.setQuanityUI("generate")
                     self.generateProxy()
-
 
             logger.status(f"Main Transfer complete: {self.data['dest_mainFile_path']}")
             
@@ -2771,40 +2763,69 @@ class DestFileTile(BaseTileItem):
     def proxyCopy_complete(self, success):
         if success:
             self.proxyProgBar.setValue(100)
-            self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Transferred")
+            if self.checkFilesExist("proxy"):
+                status = "Generating Hash"
+                tip = "Proxy Transferred"
+                self.setQuanityUI("complete")
+                logger.status(f"Proxy Transfer Complete: {self.data['dest_proxyFile_path']}")
+
+                self.setFileHash(self.data["dest_proxyFile_path"], self.onDestProxyHashReady, mode="proxy", mainTile=self)
+
+            else:
+                status = "Error"
+                tip = "ERROR:  Proxy File Does Not Exist"
+                logger.warning(f"Transfered Proxy Does Not Exist: {self.data['dest_proxyFile_path']}")
+
+        else:
+            status = "Error"
+            tip = "ERROR:  Proxy Transfer failed"
+            logger.warning(f"Transfer failed: {self.data['dest_proxyFile_path']}")
+
+        self.setTransferStatus(progBar="proxy", status=status, tooltip=tip)
+
+
+    #   Called After Hash Genertaion
+    @err_catcher(name=__name__)
+    def onDestProxyHashReady(self, dest_hash, tile):
+        self.hashWatchdogTimer.stop()
+
+        self.data["dest_proxyFile_hash"] = dest_hash
+        orig_hash = self.data.get("source_proxyFile_hash", None)
+
+        #   If Transfer Hash Check is Good
+        if dest_hash == orig_hash:
+            statusMsg = "Proxy Transfer Successful"
+            self.data["proxyFile_result"] = statusMsg
+
             self.setQuanityUI("complete")
 
-            logger.status(f"Transfer Proxy Complete: {self.data['dest_proxyFile_path']}")
-
-            return
+            hashMsg = (f"Status: {statusMsg}\n\n"
+                       f"Source Hash:   {orig_hash}\n"
+                       f"Transfer Hash: {dest_hash}")
             
-            # else:
-            #     hashMsg = "ERROR:  Transfer File Does Not Exist"                      #   TODO - ADD ERROR CHECKING
-            #     logger.warning(f"Transfer failed: {destMainPath}")
-        # else:
-        #     hashMsg = "ERROR:  Transfer failed"
-        #     logger.warning(f"Transfer failed: {destMainPath}")
-
-        # Final fallback (error case only)
-        # self.setTransferStatus(progBar="transfer", status="Error", tooltip=hashMsg)
+            self.setTransferStatus(progBar="proxy", status="Complete", tooltip=hashMsg)
 
 
     #   Gets Called from the Finished Signal
     @err_catcher(name=__name__)
     def proxyGenerate_complete(self, result):
+        self.proxyProgBar.setValue(100)
+
         if result == "success":
-            self.proxyProgBar.setValue(100)
-            self.setTransferStatus(progBar="proxy", status="Complete", tooltip="Proxy Generated")
+            if self.checkFilesExist("proxy"):
+                status = "Complete"
+                tip = "Proxy Generated"
+
             self.setQuanityUI("complete")
             self.updateProxyPresetMultiplier()
             logger.status(f"Transfer Generation Complete: {self.data['dest_proxyFile_path']}")
         
         else:
-            errMsg = f"ERROR:  Proxy Generation failed:\n{result}"
-            logger.warning(errMsg)
-            self.proxyProgBar.setValue(100)
-            self.setTransferStatus(progBar="proxy", status="Error", tooltip=errMsg)
+            status = "Error"
+            tip = f"ERROR:  Proxy Generation failed:\n{result}"
+            logger.warning(tip)
 
+        self.setTransferStatus(progBar="proxy", status=status, tooltip=tip)
 
 
     #   Returns Total Transferred Size
