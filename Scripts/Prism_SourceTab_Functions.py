@@ -618,6 +618,7 @@ class Prism_SourceTab_Functions(object):
                 "ffmpegPresets": {
                     "Fast H.264 Proxy": {
                         "Description": "Quick and small proxy, good for review or offline editing",
+                        "Global_Parameters": "",
                         "Video_Parameters": "-c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 128k",
                         "Extension": ".mp4",
@@ -625,6 +626,7 @@ class Prism_SourceTab_Functions(object):
                     },
                     "ProRes Proxy": {
                         "Description": "Edit-friendly proxy for high-performance workflows (large size)",
+                        "Global_Parameters": "",
                         "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
                         "Audio_Parameters": "-c:a copy",
                         "Extension": ".mov",
@@ -632,6 +634,7 @@ class Prism_SourceTab_Functions(object):
                     },
                     "DNxHD 36M Proxy": {
                         "Description": "Avid-style proxy with intra-frame compression (36 Mbps)",
+                        "Global_Parameters": "",
                         "Video_Parameters": "-c:v dnxhd -b:v 36M -pix_fmt yuv422p",
                         "Audio_Parameters": "-c:a pcm_s16le",
                         "Extension": ".mov",
@@ -639,6 +642,7 @@ class Prism_SourceTab_Functions(object):
                     },
                     "Ultra-Light Preview": {
                         "Description": "Low-res H.264 preview for web or quick review",
+                        "Global_Parameters": "",
                         "Video_Parameters": "-c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 96k",
                         "Extension": ".mp4",
@@ -646,6 +650,7 @@ class Prism_SourceTab_Functions(object):
                     },
                     "Full-Res H.264": {
                         "Description": "Full-resolution H.264 transcode, good quality balance",
+                        "Global_Parameters": "",
                         "Video_Parameters": "-c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 192k",
                         "Extension": ".mp4",
@@ -653,10 +658,11 @@ class Prism_SourceTab_Functions(object):
                     },
                     "NVIDIA H.265 High Qual": {
                         "Description": "GPU H.265 encode with good quality settings",
-                        "Video_Parameters": "-c:v hevc_nvenc -preset slow -rc vbr -cq 19 -b:v 0 -pix_fmt yuv420p",
+                        "Global_Parameters": "",
+                        "Video_Parameters": "-c:v hevc_nvenc -preset medium -rc vbr -cq 19 -b:v 0 -pix_fmt yuv420p",
                         "Audio_Parameters": "-c:a aac -b:a 192k",
                         "Extension": ".mp4",
-                        "Multiplier": 0.03
+                        "Multiplier": 0.02
                     }
                 }
             }

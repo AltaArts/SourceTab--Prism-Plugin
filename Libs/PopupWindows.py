@@ -1487,7 +1487,8 @@ class ProxyPresetsEditor(QDialog):
         #   Set up Sizing and Position
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.availableGeometry()
-        width = screen_geometry.width() // 1.5
+        calc_width = screen_geometry.width() // 1.5
+        width = max(1700, min(2500, calc_width))
         height = screen_geometry.height() // 2
         x_pos = (screen_geometry.width() - width) // 2
         y_pos = (screen_geometry.height() - height) // 2
@@ -1502,6 +1503,12 @@ class ProxyPresetsEditor(QDialog):
         self.tw_presets.setHorizontalHeaderLabels(self.headers)
         self.tw_presets.setSelectionBehavior(QTableWidget.SelectRows)
         self.tw_presets.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tw_presets.setShowGrid(False)
+        self.tw_presets.setStyleSheet("""
+            QTableView::item {
+                border-right: 1px solid grey;
+            }
+        """)
 
         #   Footer Buttons
         lo_buttonBox    = QHBoxLayout()
@@ -1638,10 +1645,11 @@ class ProxyPresetsEditor(QDialog):
         weights = {
             0: 1.3,  # Name
             1: 3.2,  # Description
-            2: 3.2,  # Video Params
-            3: 1.8,  # Audio Params
-            4: 0.7,  # Extension
-            5: 0.7   # Compression Multiplier
+            2: 2.0,  # Global Params
+            3: 3.2,  # Video Params
+            4: 1.5,  # Audio Params
+            5: 0.5,  # Extension
+            6: 0.5   # Compression Multiplier
         }
 
         total_weight = sum(weights.values())
@@ -1724,14 +1732,16 @@ class ProxyPresetsEditor(QDialog):
         #   Get data from the table
         name    = self.tw_presets.item(row, 0).text()
         desc    = self.tw_presets.item(row, 1).text()
-        vid     = self.tw_presets.item(row, 2).text()
-        aud     = self.tw_presets.item(row, 3).text()
-        ext     = self.tw_presets.item(row, 4).text()
-        mult  = self.tw_presets.item(row, 5).text()
+        glob  = self.tw_presets.item(row, 2).text()
+        vid     = self.tw_presets.item(row, 3).text()
+        aud     = self.tw_presets.item(row, 4).text()
+        ext     = self.tw_presets.item(row, 5).text()
+        mult    = self.tw_presets.item(row, 6).text()
 
         #   Make Preset Dict
         preset = {
             "Description": desc,
+            "Global_Parameters": glob,
             "Video_Parameters": vid,
             "Audio_Parameters": aud,
             "Extension": ext,
@@ -1815,19 +1825,25 @@ class ProxyPresetsEditor(QDialog):
 
         # 5. FFmpeg Dry Run
         try:
+
             cmd = [
                 ffmpegPath,
                 "-hide_banner", "-v", "error",
+            ]
+
+            cmd.extend(shlex.split(data["Global_Parameters"]))
+
+            cmd.extend([
                 "-f", "lavfi", "-i", "testsrc=duration=0.1",
                 "-f", "lavfi", "-i", "anullsrc=duration=0.1",
-            ]
+            ])
 
             cmd.extend(shlex.split(data["Video_Parameters"]))
             cmd.extend(shlex.split(data["Audio_Parameters"]))
             cmd.extend(["-f", "null", "-"])
 
-            print("Test FFmpeg command:")                                    #   TODO - Logging
-            print(" ".join(shlex.quote(arg) for arg in cmd))
+            testCmd = " ".join(shlex.quote(arg) for arg in cmd)
+            logger.status(f"Test FFmpeg command:\n{testCmd}")
 
             kwargs = {
                 "stdout": subprocess.PIPE,

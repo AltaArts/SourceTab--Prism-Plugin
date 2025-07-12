@@ -306,16 +306,25 @@ class PreviewPlayer(QWidget):
 
 
     @err_catcher(name=__name__)
+    def loadMedia(self, mediaFiles, metadata, isProxy):
+        self.mediaFiles = mediaFiles
+        self.metadata = metadata
+        self.isProxy = isProxy
+
+        self.updatePreview(regenerateThumb=False)
+
+
+    @err_catcher(name=__name__)
     def getSelectedImage(self):
         return self.mediaFiles
 
 
     @err_catcher(name=__name__)
-    def updatePreview(self, mediaFiles, isProxy=False, regenerateThumb=False):
+    def updatePreview(self, regenerateThumb=False):
         if not self.previewEnabled:
             return
         
-        self.l_pxyIcon.setVisible(isProxy)
+        self.l_pxyIcon.setVisible(self.isProxy)
 
         if self.previewTimeline:
             curFrame = self.getCurrentFrame()
@@ -352,25 +361,23 @@ class PreviewPlayer(QWidget):
 
         self.videoPlayers = {}
 
-        if mediaFiles:
-            self.mediaFiles = mediaFiles
-
-            _, extension = os.path.splitext(mediaFiles[0])
+        if len(self.mediaFiles) > 0:
+            _, extension = os.path.splitext(self.mediaFiles[0])
             extension = extension.lower()
 
-            if (len(mediaFiles) > 1 and extension not in self.core.media.videoFormats):
-                self.previewSeq = mediaFiles
+            if (len(self.mediaFiles) > 1 and extension not in self.core.media.videoFormats):
+                self.previewSeq = self.mediaFiles
                 self.prvIsSequence = True
 
-                (self.pstart, self.pend,) = self.core.media.getFrameRangeFromSequence(mediaFiles)
+                (self.pstart, self.pend,) = self.core.media.getFrameRangeFromSequence(self.mediaFiles)
 
             else:
                 self.prvIsSequence = False
-                self.previewSeq = mediaFiles
+                self.previewSeq = self.mediaFiles
 
             self.pduration = len(self.previewSeq)
 
-            imgPath = mediaFiles[0]
+            imgPath = self.mediaFiles[0]
             if (self.pduration == 1 and os.path.splitext(imgPath)[1].lower() in self.core.media.videoFormats):
                 self.vidPrw = "loading"
                 self.updatePrvInfo(imgPath, vidReader="loading", frame=prevFrame)
@@ -422,22 +429,24 @@ class PreviewPlayer(QWidget):
                 self.pwidth = "loading..."
                 self.pheight = ""
             else:
-                resolution = self.core.media.getMediaResolution(prvFile, videoReader=vidReader)
-                self.pwidth = resolution["width"]
-                self.pheight = resolution["height"]
-                pass
+                self.pwidth = self.metadata.get("source_mainFile_xRez", None)
+                self.pheight = self.metadata.get("source_mainFile_yRez", None)
+
+                if not self.pwidth:
+                    resolution = self.core.media.getMediaResolution(prvFile, videoReader=vidReader)
+                    self.pwidth = resolution["width"]
+                    self.pheight = resolution["height"]
 
         ext = os.path.splitext(prvFile)[1].lower()
         if ext in self.core.media.videoFormats:
             if len(self.previewSeq) == 1:
-                if self.core.isStr(vidReader) or self.state == "disabled":
-                    duration = 1
-                else:
+                duration = self.metadata.get("source_mainFile_frames", None)
+                if not duration:
                     duration = self.getVideoDuration(prvFile)
-                    if not duration:
-                        duration = 1
+                if not duration:
+                    duration = 1
 
-                self.pduration = duration
+                self.pduration = int(duration)
 
         self.pformat = "*" + ext
 
@@ -935,19 +944,22 @@ class PreviewPlayer(QWidget):
                                 else:
                                     self.updatePrvInfo(fileName, vidReader=vidFile, seq=seq)
 
-                        pm = self.getPixmapFromVideoPath(
-                                fileName,
-                                thumbWidth=1280,
-                                videoReader=vidFile,
-                                imgNum=imgNum,
-                                regenerateThumb=regenerateThumb
-                            )
-                        # pm = self.core.media.getPixmapFromVideoPath(
+                        # pm = self.getPixmapFromVideoPath(
                         #         fileName,
+                        #         thumbWidth=1280,
                         #         videoReader=vidFile,
                         #         imgNum=imgNum,
                         #         regenerateThumb=regenerateThumb
                         #     )
+                        
+                        #####   PRISM NATIVE METHOD     ########
+                        pm = self.core.media.getPixmapFromVideoPath(
+                                fileName,
+                                videoReader=vidFile,
+                                imgNum=imgNum,
+                                regenerateThumb=regenerateThumb
+                            )
+                        #########################################
 
                         pmsmall = self.core.media.scalePixmap(
                             pm, self.getThumbnailWidth(), self.getThumbnailHeight()
@@ -1105,7 +1117,7 @@ class PreviewPlayer(QWidget):
     @err_catcher(name=__name__)
     def regenerateThumbnail(self):
         self.clearCurrentThumbnails()
-        self.updatePreview(self.mediaFiles, regenerateThumb=True)
+        self.updatePreview(regenerateThumb=True)
 
 
     @err_catcher(name=__name__)

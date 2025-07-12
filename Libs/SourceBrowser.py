@@ -185,6 +185,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.plugin = origin
         self.core = core
         self.projectBrowser = projectBrowser
+        self.iconDir = iconDir
 
         logger.debug("Initializing Source Browser")
 
@@ -1399,22 +1400,24 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             elif mode == "dest" and hasattr(self, "destDir"):
                 dir = self.destDir
 
+        # self.launchLibBrowser()
+
         # Create file dialog
         dialog = QFileDialog(None, f"Select {mode.capitalize()} Directory", dir or "")
         
         # Set mode to allow selecting both files and directories
-        dialog.setFileMode(QFileDialog.FileMode.AnyFile)  # Allow file selection
-        dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)  # Show directories too
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, False)  # Use native dialog
+        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, False)
 
         # Add an option to select directories
-        dialog.setOption(QFileDialog.Option.ReadOnly, True)  # Prevent accidental editing
-        dialog.setFileMode(QFileDialog.FileMode.Directory)  # Allow directory selection
+        dialog.setOption(QFileDialog.Option.ReadOnly, True)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
 
         if dialog.exec():  # Open dialog and check if selection is made
-            selected_path = dialog.selectedFiles()[0]  # Get selected file or directory
+            selected_path = dialog.selectedFiles()[0]
 
-            if os.path.isfile(selected_path):  # If it's a file, get its parent directory
+            if os.path.isfile(selected_path):
                 selected_path = os.path.dirname(selected_path)
 
             if mode == "source":
@@ -1430,7 +1433,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 #########   TESTING - TO GET LIBRARIES TAB TO OPEN AND SELECT DIRECTORY ##########
 #########   vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv ##########
 
-    # #   Launch Libraries window and return selected Import Path(s)
+    #   Launch Libraries window and return selected Import Path(s)
     # @err_catcher(name=__name__)
     # def launchLibBrowser(self):
     #     try:
@@ -1452,12 +1455,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     #     self.list_props(libs)                                   #   TESTING
-    #     self.list_props(entity.plugin)
+    #     # self.list_props(entity.plugin)
 
 
 
-    #     # self.deep_inspect(libs, max_depth=1)
-    #     # self.find_line_edits_and_views(libs)
+    #     self.deep_inspect(libs, max_depth=1)
+    #     self.find_line_edits_and_views(libs)
 
 
     #     paths = libs.getAssetImportPaths()
@@ -2500,6 +2503,15 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 else:
                     errors[f"{basename}: "] = "File Exists in Destination"
 
+        ##  UnSupported Format for Proxy Generation
+        if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
+            for fileTile in self.copyList:
+                if fileTile.isVideo() and not fileTile.isCodecSupported():
+                    basename = os.path.basename(fileTile.getDestMainPath())
+                    codec = fileTile.data.get("source_mainFile_codec", "unknown")
+                    warnings[f"{basename}: "] = f"Proxy Generation not supported for  '{codec}'  format"
+
+
         ##  Proxy Conflict
         # tile = self.copyList[0]
         # _debug_recursive_print(tile, "tile")
@@ -2704,6 +2716,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 proxySettings.update({
                     "resolved_proxyDir": resolved_proxyDir,
                     "scale"            : self.proxySettings["proxyScale"],
+                    "Global_Parameters" : preset["Global_Parameters"],
                     "Video_Parameters" : preset["Video_Parameters"],
                     "Audio_Parameters" : preset["Audio_Parameters"],
                     "Extension"        : preset["Extension"],
