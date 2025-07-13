@@ -2282,7 +2282,7 @@ class DestFileTile(BaseTileItem):
 
     #   Return Proxy Path Based on Mode, Overrides, and Filename Mods
     @err_catcher(name=__name__)
-    def getDestProxyFilepath(self, sourcePath, proxyMode, proxySettings):
+    def getDestProxyFilepath(self):
         
         #   Helper to Resolve Absolute or Relative Path
         def _resolvePath(user_dir, dest_dir):
@@ -2303,14 +2303,25 @@ class DestFileTile(BaseTileItem):
                 return None
 
         try:
+            sourcePath = self.getSource_mainfilePath()
             #   Get Source Base Name and Modify if Enabled
             source_baseFile = os.path.basename(sourcePath)
             if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
                 source_baseFile = self.getModifiedName(source_baseFile)
 
+            #   Get Proxy Settings
+            proxyMode = self.browser.proxyMode
+            resolved_proxyDir = self.browser.resolved_proxyDir
+            proxySettings = self.browser.proxySettings.copy()
+            try:
+                presets = self.browser.ffmpegPresets
+                preset = presets[proxySettings["proxyPreset"]]
+            except KeyError:
+                raise RuntimeError(f"Proxy preset {proxySettings['proxyPreset']} not found in settings")           #   TODO - DEAL WITH ERROR
+            
             #   Make Proxy Name
             source_baseName = os.path.splitext(source_baseFile)[0]
-            proxy_baseFile = source_baseName + proxySettings["Extension"]
+            proxy_baseFile = source_baseName + preset["Extension"]
 
             #   Convert dest_dir to Path
             dest_dir = Path(self.getDestPath())
@@ -2335,6 +2346,7 @@ class DestFileTile(BaseTileItem):
                 return str(proxyPath)
 
             ##  NO OVERRIDE  ##
+
             #   COPY MODE
             if proxyMode == "copy" and self.data["hasProxy"]:
                 self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
@@ -2342,8 +2354,8 @@ class DestFileTile(BaseTileItem):
 
             #   GENERATE MODE
             elif proxyMode == "generate":
-                if proxySettings["resolved_proxyDir"]:
-                    proxy_dir = Path(proxySettings["resolved_proxyDir"])
+                if resolved_proxyDir:
+                    proxy_dir = Path(resolved_proxyDir)
                 else:
                     fallback_dir_raw = proxySettings["fallback_proxyDir"].strip()
                     proxy_dir = _resolvePath(fallback_dir_raw, dest_dir)
@@ -2356,8 +2368,8 @@ class DestFileTile(BaseTileItem):
                     self.transferData["sourceProxy"] = self.data["source_proxyFile_path"]
                     proxyPath = Path(self.getResolvedDestProxyPath())
                 else:
-                    if proxySettings["resolved_proxyDir"]:
-                        proxy_dir = Path(proxySettings["resolved_proxyDir"])
+                    if resolved_proxyDir:
+                        proxy_dir = Path(resolved_proxyDir)
                     else:
                         fallback_dir_raw = proxySettings["fallback_proxyDir"].strip()
                         proxy_dir = _resolvePath(fallback_dir_raw, dest_dir)
@@ -2428,7 +2440,7 @@ class DestFileTile(BaseTileItem):
             self.transferData["generateProxy"] = isGenerateMode or (isMissingMode and not hasProxy)
 
             #   Get Proxy Destination Path
-            self.transferData["destProxy"] = self.getDestProxyFilepath(sourcePath, proxyMode, proxySettings)
+            self.transferData["destProxy"] = self.getDestProxyFilepath()
 
         #   Start Timers
         self.transferTimer = ElapsedTimer()

@@ -60,6 +60,8 @@ from datetime import datetime
 from time import time
 from functools import partial
 import re
+from pathlib import Path
+
 
 ##  FOR TESTING
 from functools import wraps
@@ -2503,20 +2505,23 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 else:
                     errors[f"{basename}: "] = "File Exists in Destination"
 
-        ##  UnSupported Format for Proxy Generation
+        ##  CODEC Not Supported and MainFile/Proxy Conflict
         if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
-            for fileTile in self.copyList:
-                if fileTile.isVideo() and not fileTile.isCodecSupported():
-                    basename = os.path.basename(fileTile.getDestMainPath())
+            for fileTile in (ft for ft in self.copyList if ft.isVideo()):
+                basename = os.path.basename(fileTile.getDestMainPath())
+
+                ##  UnSupported Format for Proxy Generation
+                if not fileTile.isCodecSupported():
                     codec = fileTile.data.get("source_mainFile_codec", "unknown")
                     warnings[f"{basename}: "] = f"Proxy Generation not supported for  '{codec}'  format"
 
+                ##  Proxy Conflict
+                elif fileTile.isCodecSupported() and not fileTile.data["hasProxy"]:
+                    mainPath = Path(fileTile.getDestMainPath()).resolve()
+                    proxyPath = Path(fileTile.getDestProxyFilepath()).resolve()
 
-        ##  Proxy Conflict
-        # tile = self.copyList[0]
-        # _debug_recursive_print(tile, "tile")
-        # _debug_recursive_print(tile.data, "tile data")
-        # _debug_recursive_print(self.resolvedProxyPaths, "self.resolvedProxyPaths")
+                    if mainPath == proxyPath:
+                        errors[f"{basename}: "] = "Main File and Proxy File have the Same File Path and will Conflict"
 
         hasErrors = True if len(errors) > 0 else False
 
@@ -2671,12 +2676,11 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         self.calculated_proxyMults = [] 
 
         #   If Override is NOT Selected Attempt to Get Resolved Path
-        resolved_proxyDir = None
+        self.resolved_proxyDir = None
         self.getResolvedProxyPaths()
 
         if self.resolvedProxyPaths:
-            resolved_proxyDir = next(iter(self.resolvedProxyPaths))
-            
+            self.resolved_proxyDir = next(iter(self.resolvedProxyPaths))
 
         #   Get Formatted Transfer Details
         popupData, hasErrors = self.generateTransferPopup()
@@ -2714,7 +2718,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 proxySettings = self.proxySettings.copy()
 
                 proxySettings.update({
-                    "resolved_proxyDir": resolved_proxyDir,
+                    "resolved_proxyDir": self.resolved_proxyDir,
                     "scale"            : self.proxySettings["proxyScale"],
                     "Global_Parameters" : preset["Global_Parameters"],
                     "Video_Parameters" : preset["Video_Parameters"],
