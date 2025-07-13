@@ -1201,8 +1201,6 @@ class SourceFileItem(BaseTileItem):
             
             self.fileType = self.data["fileType"]
             self.isSequence = False
-
-
             self.generateData()
 
         self.updateCallbacks = {
@@ -1422,7 +1420,6 @@ class SourceFileItem(BaseTileItem):
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Main File Duration:\n{e}")
-
 
 
 
@@ -2390,13 +2387,6 @@ class DestFileTile(BaseTileItem):
         self.proxyEnabled = proxyEnabled
         self.proxyMode = proxyMode
 
-        #   Create Transfer Dict for Use Later
-        self.transferData = {
-            "proxyEnabled": proxyEnabled,
-            "copyProxy": False,
-            "generateProxy": False
-        }
-
         #   Get Main Paths
         sourcePath = self.getSource_mainfilePath()
         destPath = self.getDestMainPath()
@@ -2418,14 +2408,16 @@ class DestFileTile(BaseTileItem):
 
                 transferList.append({"sourcePath": sourcePath,
                                      "destPath": destPath})
-
         else:
             transferList = [{"sourcePath": sourcePath,
                             "destPath": destPath}]
 
+        #   Create Transfer Dict
+        self.transferData = {"proxyEnabled": proxyEnabled,
+                             "proxyAction": None}
 
         ##  IF PROXY IS ENABLED ##
-        if proxyEnabled and self.isVideo():                                     #   TODO - HANDLE PROXY FOR NON-VIDEO
+        if proxyEnabled and self.isVideo() and self.isCodecSupported():                          #   TODO - HANDLE PROXY FOR NON-VIDEO
             proxySettings = options["proxySettings"]
             self.transferData["proxyMode"] = proxyMode
             self.transferData["proxySettings"] = proxySettings
@@ -2435,9 +2427,13 @@ class DestFileTile(BaseTileItem):
             isCopyMode = proxyMode == "copy"
             isGenerateMode = proxyMode == "generate"
             isMissingMode = proxyMode == "missing"
-            #   Set Copy and Generate Logic
-            self.transferData["copyProxy"] = hasProxy and (isCopyMode or isMissingMode)
-            self.transferData["generateProxy"] = isGenerateMode or (isMissingMode and not hasProxy)
+
+            if hasProxy and (isCopyMode or isMissingMode):
+                proxyAction = "copy"
+            elif isGenerateMode or (isMissingMode and not hasProxy):
+                proxyAction = "generate"
+
+            self.transferData["proxyAction"] = proxyAction
 
             #   Get Proxy Destination Path
             self.transferData["destProxy"] = self.getDestProxyFilepath()
@@ -2611,16 +2607,18 @@ class DestFileTile(BaseTileItem):
                 self.generateDestHashs()
             
             else:
-                errorMsg = "ERROR:  Transfer File(s) Does Not Exist"
-                logger.warning(f"Transfer failed: {destMainPath}")
-                self.data["mainFile_result"] = errorMsg
-                self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
+                errMsg = "Transfer File(s) Does Not Exist"
+                self.addTransferError(self.data["displayName"], errMsg)
+                logger.warning(f"ERROR: {self.data['displayName']} - {errMsg}")
+                self.data["mainFile_result"] = errMsg
+                self.setTransferStatus(progBar="transfer", status="Error", tooltip=errMsg)
 
         else:
-            errorMsg = "ERROR:  Transfer failed"
-            logger.warning(f"Transfer failed: {destMainPath}")
-            self.data["mainFile_result"] = errorMsg
-            self.setTransferStatus(progBar="transfer", status="Error", tooltip=errorMsg)
+            errMsg = "Transfer Failed"
+            self.addTransferError(self.data["displayName"], errMsg)
+            logger.warning(f"ERROR: {self.data['displayName']} - {errMsg}")
+            self.data["mainFile_result"] = errMsg
+            self.setTransferStatus(progBar="transfer", status="Error", tooltip=errMsg)
 
 
     #   Called After Hash Genertaion for UI Feedback
@@ -2671,14 +2669,15 @@ class DestFileTile(BaseTileItem):
 
         else:
             statusMsg = "ERROR:  Transfered Hash Incorrect"
+            self.addTransferWarning(self.data["displayName"], "Transfered Hash Incorrect")
             tile.data["mainFile_result"] = statusMsg
 
             status = "Warning"
             logger.warning(f"Transfered Hash Incorrect: {tile.getSource_mainfilePath()}")
 
             hashMsg = (f"Status: {statusMsg}\n\n"
-                    f"Source Hash:   {orig_hash}\n"
-                    f"Transfer Hash: {dest_hash}")
+                       f"Source Hash:   {orig_hash}\n"
+                       f"Transfer Hash: {dest_hash}")
 
             self.setTransferStatus(progBar="transfer", status=status, tooltip=hashMsg)
 
@@ -2709,12 +2708,12 @@ class DestFileTile(BaseTileItem):
                 self.setTransferStatus(progBar="proxy", status="Queued")
 
                 #   Copy Proxy if Applicable
-                if self.transferData["copyProxy"]:
+                if self.transferData["proxyAction"] == "copy":
                     self.setQuanityUI("copyProxy")
                     self.transferProxy()
 
                 #   Generate Proxy if Enabled
-                if self.transferData["generateProxy"]:
+                if self.transferData["proxyAction"] == "generate":
                     self.setQuanityUI("generate")
                     self.generateProxy()
 
@@ -2723,6 +2722,7 @@ class DestFileTile(BaseTileItem):
         #   Transfer Hash is Not Correct
         else:
             statusMsg = "ERROR:  Transfered Hash Incorrect"
+            self.addTransferWarning(self.data["displayName"], "Transfered Hash Incorrect")
             self.data["mainFile_result"] = statusMsg
 
             status = "Warning"
@@ -2776,6 +2776,9 @@ class DestFileTile(BaseTileItem):
         if success:
             self.proxyProgBar.setValue(100)
             if self.checkFilesExist("proxy"):
+                proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
+                self.data["dest_proxyFile_size"] = self.getFileSizeStr(proxySize)
+
                 status = "Generating Hash"
                 tip = "Proxy Transferred"
                 self.setQuanityUI("complete")
@@ -2784,14 +2787,18 @@ class DestFileTile(BaseTileItem):
                 self.setFileHash(self.data["dest_proxyFile_path"], self.onDestProxyHashReady, mode="proxy", mainTile=self)
 
             else:
+                errMsg = "Transfered Proxy Does Not Exist"
+                self.addTransferError(self.data["displayName"], errMsg)
+                logger.warning(f"ERROR: {self.data['displayName']} - {errMsg}")
                 status = "Error"
                 tip = "ERROR:  Proxy File Does Not Exist"
-                logger.warning(f"Transfered Proxy Does Not Exist: {self.data['dest_proxyFile_path']}")
 
         else:
+            errMsg = "Proxy Transfer Failed"
+            self.addTransferError(self.data["displayName"], errMsg)
+            logger.warning(f"ERROR: {self.data['displayName']} - {errMsg}")
             status = "Error"
-            tip = "ERROR:  Proxy Transfer failed"
-            logger.warning(f"Transfer failed: {self.data['dest_proxyFile_path']}")
+            tip = "ERROR:  Proxy Transfer Failed"
 
         self.setTransferStatus(progBar="proxy", status=status, tooltip=tip)
 
@@ -2822,21 +2829,32 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def proxyGenerate_complete(self, result):
         self.proxyProgBar.setValue(100)
-
+       
         if result == "success":
             if self.checkFilesExist("proxy"):
+                proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
+                self.data["dest_proxyFile_size"] = self.getFileSizeStr(proxySize)
                 status = "Complete"
                 tip = "Proxy Generated"
 
+                self.updateProxyPresetMultiplier()
+                logger.status(f"Transfer Generation Complete: {self.data['dest_proxyFile_path']}")
+
+            else:
+                status = "Error"
+                tip = "ERROR:  Generated Proxy Does Not Exist"
+                self.addTransferError(self.data["displayName"], "Generated Proxy Does Not Exist")
+                logger.warning(tip)
+
             self.setQuanityUI("complete")
-            self.updateProxyPresetMultiplier()
-            logger.status(f"Transfer Generation Complete: {self.data['dest_proxyFile_path']}")
         
         else:
             status = "Error"
-            tip = f"ERROR:  Proxy Generation failed:\n{result}"
+            tip = f"ERROR:  Proxy Generation failed: {result}"
+            self.addTransferError(self.data["displayName"], "Proxy Generation Failed")
             logger.warning(tip)
 
+        self.data["proxyFile_result"] = status
         self.setTransferStatus(progBar="proxy", status=status, tooltip=tip)
 
 
@@ -2845,3 +2863,12 @@ class DestFileTile(BaseTileItem):
     def getCopiedSize(self):
         return self.main_copiedSize + self.proxy_copiedSize
 
+
+    @err_catcher(name=__name__)
+    def addTransferError(self, fileName, error):
+        self.browser.transferErrors[fileName] = error
+
+
+    @err_catcher(name=__name__)
+    def addTransferWarning(self, fileName, warning):
+        self.browser.transferWarnings[fileName] = warning

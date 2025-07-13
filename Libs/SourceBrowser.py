@@ -2525,6 +2525,10 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         hasErrors = True if len(errors) > 0 else False
 
+        #   Set to Global Vars
+        self.transferErrors = errors.copy()
+        self.transferWarnings = warnings.copy()
+
         #   NO ERRORS
         if not errors:
             errors["None"] = ""
@@ -2963,6 +2967,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 except Exception as e:
                     logger.warning(f"ERROR: Failed to load icon: {e}")
 
+            #   Make Proxy Mode Text
+            if self.proxyEnabled:
+                presetName = self.proxySettings.get("proxyPreset", "")
+                match self.proxyMode:
+                    case "copy":
+                        proxy_str = "Transfer Proxys"
+                    case "generate":
+                        proxy_str = f"Generate Proxys ({presetName})"
+                    case "missing":
+                        proxy_str = f"Generate Missing Proxys ({presetName})"
+                    case _:
+                        proxy_str = "None"
+            else:
+                proxy_str = "Disabled"
+
             #   Add Title Line
             c.setFont("Helvetica-Bold", 16)
             c.drawString(icon_x + icon_size + 5, height - 45, "File Transfer Completion Report")
@@ -2980,6 +2999,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 ("User:",               user),
                 ("Transfer Result:",    result),
                 ("Number of Files:",    str(len(reportData))),
+                ("Proxy Mode:",         proxy_str),
                 ("Transfer Size:",      transferSize),
                 ("Transfer Time:",      transferTime)
             ]
@@ -2990,9 +3010,39 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 c.drawString(left_margin + col_spacing, header_y, value)
                 header_y -= header_line_height
 
-            ## --- Page 2 (and on): File info ---    ##
+            # leave a bit of extra space after the header block
+            header_y -= 20
+
+            # --- Errors Section ---
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(left_margin, header_y, "Errors:")
+            header_y -= header_line_height
+
+            if self.transferErrors:
+                c.setFont("Helvetica", 8)
+                for filename, message in self.transferErrors.items():
+                    line = f"- {filename}:  {message}"
+                    c.drawString(left_margin + 15, header_y, line)
+                    header_y -= header_line_height
+
+            # add extra space after section
+            header_y -= 20
+
+            # --- Warnings Section ---
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(left_margin, header_y, "Warnings:")
+            header_y -= header_line_height
+
+            if self.transferWarnings:
+                c.setFont("Helvetica", 8)
+                for filename, message in self.transferWarnings.items():
+                    line = f"- {filename}:  {message}"
+                    c.drawString(left_margin + 15, header_y, line)
+                    header_y -= header_line_height
+
 
             next_page()
+            ## --- Page 2 (and on): File info ---    ##
 
             #   Files Section Spacing
             y = height - 50
@@ -3016,29 +3066,43 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 #   File Data Items
                 for item in reportData:
                     if item.fileType == "Image Sequence":
+                        isSeq = True
                         baseName = item.data["displayName"]
                         mainFile_result = item.data["mainFile_result"]
                         seqNumber = len(item.data["sequenceItems"])
                         iData = item.data["sequenceItems"][0]["data"]
+                        hasProxy = False
+
                     else:
+                        isSeq = False
                         iData = item.data
                         baseName = iData["displayName"]
                         mainFile_result = iData["mainFile_result"]
+                        hasProxy = iData["hasProxy"]
 
+                    proxyAction = item.transferData["proxyAction"]
 
                     file_lines = [
-                        ("Filename:",           baseName),
+                        ("File Name:",          baseName),
                         ("File Type:",          item.fileType),
-                        ("Transfer Status:",    mainFile_result),
+                        ("Transfer Result",     mainFile_result),
+                        ("Proxy Action",        str(proxyAction).capitalize()),
                         ("Transfer Time:",      self.getFormattedTimeStr(item.data['transferTime'])),
                         ("Date:",               iData['source_mainFile_date']),
-                        ("Source:",             iData["source_mainFile_path"]),
-                        ("Destination:",        iData["dest_mainFile_path"]),
-                        ("Size:",               iData['source_mainFile_size']),
-                        *([("Sequence Files:",  str(seqNumber))] if item.fileType == "Image Sequence" else []),
-                        ("Hash (source):",      iData['source_mainFile_hash']),
-                        # ("Hash (dest):",      hash_dest),
-                        ("Proxy present:",      str(iData['hasProxy']))
+                        ("Main File:",          iData['mainFile_result']),
+                        ("    Source:",         iData['source_mainFile_path']),
+                        ("    Hash:",           iData['source_mainFile_hash']),
+                        ("    Destination:",    iData['dest_mainFile_path']),
+                        ("    Hash:",           iData['dest_mainFile_hash']),
+                        ("    Size:",           iData['source_mainFile_size']),
+                        ("    Proxy present:",  str(hasProxy)),
+                        *([("Proxy File:",      iData['proxyFile_result'])] if proxyAction else []),
+                        *([("    Source:",      iData.get('source_proxyFile_path', ''))] if (hasProxy and proxyAction) else []),
+                        *([("    Hash:",        iData.get('source_proxyFile_hash', ''))] if (hasProxy and proxyAction) else []),
+                        *([("    Destination:", iData.get("dest_proxyFile_path", ''))] if proxyAction else []),
+                        *([("    Hash:",        iData.get('dest_proxyFile_hash', ''))] if (hasProxy and proxyAction) else []),
+                        *([("    Size:",        iData.get('dest_proxyFile_size', ''))] if proxyAction else []),
+                        *([("Sequence Files:",  str(seqNumber))] if isSeq else [])
                     ]
 
                     #   Check if the Current File Block Can Fit on Page
