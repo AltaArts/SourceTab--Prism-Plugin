@@ -670,7 +670,6 @@ class BaseTileItem(QWidget):
         self.hashWatchdogTimer.start(30000)
 
 
-
     def setMainHash(self, error=None):
         if not self.isSequence and hasattr(self, "l_fileSize"):
             if not error:
@@ -2590,11 +2589,6 @@ class DestFileTile(BaseTileItem):
 
         if success:
             self.transferProgBar.setValue(100)
-
-            destMainPath = self.getDestMainPath()
-
-            #   Sets Destination FilePath ToolTip
-            # self.l_fileName.setToolTip(os.path.normpath(destMainPath))
 
             #   Check if all the Transferred Files Exist in Destination
             if self.checkFilesExist("main"):

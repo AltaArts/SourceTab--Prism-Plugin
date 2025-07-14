@@ -999,6 +999,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.dataOps_threadpool = QThreadPool()
             self.dataOps_threadpool.setMaxThreadCount(12)
 
+            self.cache_threadpool = QThreadPool()
+            self.cache_threadpool.setMaxThreadCount(6)
+
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Threadpools:\n{e}")
 
@@ -1038,6 +1041,28 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         logger.warning(f"ERROR:  Unable to Find ExifTool")
         return None
     
+
+    @err_catcher(name=__name__)
+    def getFallBackImage(self, filePath=None, extension=None):
+        if filePath:
+            _, extension = os.path.splitext(filePath)
+
+        if not extension:
+            # fallback to unknown.jpg immediately
+            return os.path.join(self.iconDir, "unknown.jpg")
+
+        extFallback = os.path.join(
+            self.core.projects.getFallbackFolder(),
+            "%s.jpg" % extension[1:].lower()
+        )
+
+        if os.path.isfile(extFallback):
+            return extFallback
+        else:
+            return os.path.join(self.iconDir, "unknown.jpg")
+
+
+
     
     #   Returns QIcon with Both Normal and Disabled Versions
     @err_catcher(name=__name__)
@@ -3096,7 +3121,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                         ("    Hash:",           iData['dest_mainFile_hash']),
                         ("    Size:",           iData['source_mainFile_size']),
                         ("    Proxy present:",  str(hasProxy)),
-                        *([("Proxy File:",      iData['proxyFile_result'])] if proxyAction else []),
+                        *([("Proxy File:",      iData.get('proxyFile_result', ""))] if proxyAction else []),
                         *([("    Source:",      iData.get('source_proxyFile_path', ''))] if (hasProxy and proxyAction) else []),
                         *([("    Hash:",        iData.get('source_proxyFile_hash', ''))] if (hasProxy and proxyAction) else []),
                         *([("    Destination:", iData.get("dest_proxyFile_path", ''))] if proxyAction else []),
