@@ -276,6 +276,13 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_customIcon.addWidget(projectSettings.le_customIconPath)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customIcon)
 
+        #   Libraries Import Popup
+        projectSettings.lo_useLibImport = QHBoxLayout()
+        projectSettings.lo_useLibImport.setContentsMargins(50, 0, 20, 0)
+        projectSettings.chb_useLibImport = QCheckBox("Use Libraries Popup for Destination Selection (if installed)", projectSettings.w_config)
+        projectSettings.lo_useLibImport.addWidget(projectSettings.chb_useLibImport)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_useLibImport)
+
         # #   View Lut                                                                      #   TODO - IMPLEMENT
         # projectSettings.lo_viewLut = QHBoxLayout()
         # projectSettings.chb_useViewLut = QCheckBox("Use View Lut Presets:", projectSettings.w_config)
@@ -354,7 +361,9 @@ class Prism_SourceTab_Functions(object):
         projectSettings.chb_useCustomIcon.setToolTip(tip)
         projectSettings.le_customIconPath.setToolTip(tip)
 
-
+        tip = ("If the Prism Libraries Plugin is Installed, this will Open a Custom\n"
+               "Libraries Dialogue to choose a Destination Path.")
+        projectSettings.chb_useLibImport.setToolTip(tip)
 
         #   CONNECTIONS
         projectSettings.chb_useCustomIcon.toggled.connect(lambda: self.configureSettingsUI(projectSettings))
@@ -412,6 +421,8 @@ class Prism_SourceTab_Functions(object):
                 if "customIconPath" in sData:
                     projectSettings.le_customIconPath.setText(sData["customIconPath"])
 
+                if "useLibImport" in sData:
+                    projectSettings.chb_useLibImport.setChecked(sData["useLibImport"])
 
             #####   UNUSED RIGHT NOW        #########################
                 # if "useViewLut" in sData:
@@ -449,6 +460,7 @@ class Prism_SourceTab_Functions(object):
                 "useTransferReport": origin.chb_useTransferReport.isChecked(),
                 "useCustomIcon": origin.chb_useCustomIcon.isChecked(),
                 "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
+                "useLibImport": origin.chb_useLibImport.isChecked(),
                 # "useViewLut": origin.chb_useViewLut.isChecked(),
                 # "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
                 # "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
@@ -553,7 +565,8 @@ class Prism_SourceTab_Functions(object):
                     "customIconPath": "", 
                     "useViewLut": False,
                     "useCustomThumbPath": False,
-                    "customThumbPath": ""
+                    "customThumbPath": "",
+                    "useLibImport": True
                 },
                 "tabSettings": {
                     "enable_frames": False,

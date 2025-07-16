@@ -803,19 +803,19 @@ class PreviewPlayer(QWidget):
         fallbackPath = self.sourceBrowser.getFallBackImage(filePath=path)
 
         try:
-            # Attempt to use videoReader (fast)
+            ###   Attempt to Use Prism's Native VideoReader
             vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
             if self.core.isStr(vidFile):
                 raise RuntimeError(vidFile)
 
-            # Success: read frame
+            #   Read Frame
             image = vidFile.get_data(imgNum)
             fileRes = vidFile._meta["size"]
             width = fileRes[0]
             height = fileRes[1]
             qimg = QImage(image, width, height, 3 * width, QImage.Format_RGB888)
 
-            # Resize
+            #   Resize
             origWidth = qimg.width()
             origHeight = qimg.height()
             thumbHeight = int(origHeight * (thumbWidth / origWidth))
@@ -828,14 +828,15 @@ class PreviewPlayer(QWidget):
         except Exception as e:
             logger.debug(f"[Thumbnail Worker] Prism Video Reader failed for {path}, falling back to ffmpeg:\n{e}")
 
-        # --- fallback: ffmpeg ---
+        ###   Fallback to FFmpeg (if Prism's VideoReader fails)
         try:
             creationflags = 0
             if sys.platform == "win32":
                 creationflags = subprocess.CREATE_NO_WINDOW
 
-            # Get FPS via ffprobe
-            fps = 24.0  # default fallback
+            #   Get FPS via ffprobe
+            #   Default fallback
+            fps = 24.0
             probe = subprocess.run(
                 [
                     self.ffprobePath,
@@ -850,19 +851,18 @@ class PreviewPlayer(QWidget):
                 text=True,
                 creationflags=creationflags,
             )
-            
+
             if probe.returncode == 0:
                 fps_str = probe.stdout.strip()
                 if "/" in fps_str:
                     num, denom = fps_str.split("/", 1)
                     fps = float(num) / float(denom) if float(denom) > 0 else fps
 
-            # compute seconds
+            #   Compute Seconds
             timestamp = imgNum / fps
 
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmpfile:
                 thumbTempPath = tmpfile.name
-
 
             cmd = [
                 self.ffmpegPath,

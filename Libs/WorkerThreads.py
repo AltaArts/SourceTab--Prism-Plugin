@@ -859,13 +859,6 @@ class ProxyGenerationWorker(QThread):
         self.last_emit_time = 0
 
 
-    # def pause(self):                                      #   Not Implemented
-    #     self.pause_flag = True
-
-    # def resume(self):                                      #   Not Implemented
-    #     self.pause_flag = False
-
-
     def cancel(self):
         logger.warning("[ProxyWorker] Cancel called!")
         self.cancel_flag = True

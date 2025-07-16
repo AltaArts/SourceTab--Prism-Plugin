@@ -235,6 +235,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.initialized = False
         self.closeParm = "closeafterload"
 
+        #   Time to Detect Stalled Worker Threads
+        self.stallInterval = 30
+        
         #   Controls the "Smoothness" of the Estmated Transfer Time Remaining
         #   (1st value is Min samples at the start, 2nd is the Max Samples at the end)
         # self.adaptiveProgUpdate = [5, 10]   #   Sensitive - for small files
@@ -288,11 +291,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     #   Resizes Splitter Panels to Equal Thirds
+    @err_catcher(name=__name__)
     def setSplitterToThirds(self):
         totalWidth = self.splitter.size().width()
         oneThird = totalWidth // 3
         self.splitter.setSizes([oneThird, oneThird, totalWidth - 2 * oneThird])
-
 
 
     @err_catcher(name=__name__)
@@ -546,7 +549,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         #   Destination Buttons
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
         self.le_destPath.returnPressed.connect(lambda: self.onPasteAddress("dest"))
-        self.b_browseDest.clicked.connect(lambda: self.explorer("dest"))
+        self.b_browseDest.clicked.connect(lambda: self.chooseDestLoc())
         self.b_refreshDest.clicked.connect(lambda: self.refreshDestItems())
         self.b_dest_sorting_sort.clicked.connect(lambda: self.showSortMenu("destination"))
         self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable(restoreSelection=True))
@@ -934,6 +937,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             self.useViewLuts = settingData["useViewLut"]
             self.useCustomThumbPath = settingData["useCustomThumbPath"]
             self.customThumbPath = settingData ["customThumbPath"]
+            self.useLibImport = settingData ["useLibImport"]
 
             #   Get OCIO View Presets
             lutPresetData = sData["viewLutPresets"]
@@ -1418,7 +1422,63 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         QTimer.singleShot(50, lambda: listWidget.verticalScrollBar().setValue(scrollPos))
 
 
+    @err_catcher(name=__name__)
+    def chooseDestLoc(self):
+        self.libPlugin = self.core.getPlugin("Libraries")
 
+        #   If Libraries Plugin is Installed and User Chooses Lib Option
+        if self.libPlugin and self.useLibImport:
+            #   Open Custom Lib Popup
+            self.getPathFromLib()
+        else:
+            #   Just Open File Explorer
+            self.explorer("dest")
+
+
+    #   Opens Custom Libraries Popup to Choose Dest Dir
+    @err_catcher(name=__name__)
+    def getPathFromLib(self):
+
+        #   Calls File Explorer Method
+        def _onExplorerFromLib():
+            self.dlg_lib.reject()
+            self.explorer("dest")
+            
+        #   Sets Dest Dir
+        def _onLibAssetSelected(origin, paths=None):
+            path = origin.getSelectedPath()
+            self.destDir = os.path.normpath(path)
+            self.dlg_lib.accept()
+            self.refreshDestItems()
+
+        #   Gets Texture Lib from Libraries
+        lib = self.libPlugin.getTextureLibrary(initialize=False)       
+        lib.showShotLib = False
+        lib.entered(navData=None)
+        lib.chb_flatten.setChecked(True)
+
+        #   Create Custom Library Popup
+        self.dlg_lib = QDialog()
+        lib.reject = self.dlg_lib.reject
+        self.dlg_lib.libDlg = lib
+        self.dlg_lib.setWindowTitle("Choose Destination Folder")
+        self.core.parentWindow(self.dlg_lib, parent=self)
+        self.lo_dlgLib = QVBoxLayout(self.dlg_lib)
+        self.lo_dlgLib.addWidget(lib)
+        #   Add Buttons
+        bb_main = QDialogButtonBox()
+        b_import = bb_main.addButton("Select Library Folder", QDialogButtonBox.AcceptRole)
+        b_import.clicked.connect(lambda: _onLibAssetSelected(lib))
+        b_productBrowser = bb_main.addButton("Open File Explorer", QDialogButtonBox.AcceptRole)
+        b_productBrowser.clicked.connect(_onExplorerFromLib)
+        b_cancel = bb_main.addButton("Cancel", QDialogButtonBox.RejectRole)
+        b_cancel.clicked.connect(self.dlg_lib.reject)
+
+        self.lo_dlgLib.addWidget(bb_main)
+        self.dlg_lib.exec_()
+
+
+    #   Open File Explorer to Choose Directory
     @err_catcher(name=__name__)
     def explorer(self, mode, dir=None):
         if not dir:
@@ -1427,21 +1487,14 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             elif mode == "dest" and hasattr(self, "destDir"):
                 dir = self.destDir
 
-        # self.launchLibBrowser()
-
-        # Create file dialog
+        #   Create Dir Select Dialog
         dialog = QFileDialog(None, f"Select {mode.capitalize()} Directory", dir or "")
-        
-        # Set mode to allow selecting both files and directories
-        dialog.setFileMode(QFileDialog.FileMode.AnyFile)
         dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
         dialog.setOption(QFileDialog.Option.DontUseNativeDialog, False)
-
-        # Add an option to select directories
         dialog.setOption(QFileDialog.Option.ReadOnly, True)
         dialog.setFileMode(QFileDialog.FileMode.Directory)
 
-        if dialog.exec():  # Open dialog and check if selection is made
+        if dialog.exec():
             selected_path = dialog.selectedFiles()[0]
 
             if os.path.isfile(selected_path):
@@ -1455,126 +1508,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 self.refreshDestItems()
 
             return selected_path
-
-
-#########   TESTING - TO GET LIBRARIES TAB TO OPEN AND SELECT DIRECTORY ##########
-#########   vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv ##########
-
-    #   Launch Libraries window and return selected Import Path(s)
-    # @err_catcher(name=__name__)
-    # def launchLibBrowser(self):
-    #     try:
-    #         #   Get Libraries Plugin
-    #         libs = self.core.getPlugin("Libraries")
-    #         if not libs:
-    #             raise Exception
-    #     except:
-    #         logger.warning("ERROR:  Libraries Plugin not installed.  Use the 'Open Explorer' button to choose Texture Set.")
-    #         self.core.popup("Libraries Plugin not installed.\n\n"
-    #                        "Use the 'Open Explorer' button to choose Texture Set.")
-    #         return None
-
-    #     # try:
-
-
-    #     #   Call Libraries popup and return selected file path(s)
-
-
-
-    #     self.list_props(libs)                                   #   TESTING
-    #     # self.list_props(entity.plugin)
-
-
-
-    #     self.deep_inspect(libs, max_depth=1)
-    #     self.find_line_edits_and_views(libs)
-
-
-    #     paths = libs.getAssetImportPaths()
-
-    #     if not paths:
-    #         logger.debug("Texture selection canceled.")
-    #         return None
-        
-    #     return paths
-            
-    #     # except Exception as e:
-    #     #     self.core.popup(f"ERROR: Failed  Texture Set: {e}")
-    #     #     logger.warning(f"ERROR: selecting Texture Set: {e}")
-    #     #     return None
-
-
-
-    # def find_line_edits_and_views(self, widget):
-    #     for child in widget.findChildren(QtWidgets.QWidget):
-    #         if isinstance(child, QtWidgets.QLineEdit):
-    #             print(f"QLineEdit: {child.objectName()} = {child.text()}")
-    #         elif isinstance(child, (QtWidgets.QTreeView, QtWidgets.QListView)):
-    #             print(f"{child.__class__.__name__}: {child.objectName()}")
-    #         elif hasattr(child, "currentIndex"):
-    #             try:
-    #                 idx = child.currentIndex()
-    #                 if hasattr(idx, "data"):
-    #                     print(f"{child.__class__.__name__}: {child.objectName()} currentIndex = {idx.data()}")
-    #             except Exception as e:
-    #                 print(f"Error reading currentIndex for {child.objectName()}: {e}")
-
-
-    # #   TEMP TESTING                                        #   TESTING
-    # def list_props(self, entity):
-    #     import inspect
-    #     print("########################")
-    #     print(f"{entity} > Type: {str(type(entity))}")
-    #     print("----")
-    #     methods = [func for func in dir(entity) if callable(getattr(entity, func)) and not func.startswith("__")]
-    #     for method in methods:
-    #         func = getattr(entity, method)
-    #         try:
-    #             sig = inspect.signature(func)
-    #             print(f"Method: {method}, Arguments: {sig}")
-    #         except:
-    #             print(f"Method: {method}")
-    #     for attribute_name, attribute in entity.__dict__.items():
-    #         print(f"Attribute: {attribute_name} | {str(type(attribute))}")
-    #     print("########################")
-
-
-    # def deep_inspect(self, obj, depth=0, max_depth=3, seen=None):
-    #     import inspect
-    #     indent = "  " * depth
-    #     seen = seen or set()
-    #     if id(obj) in seen or depth > max_depth:
-    #         return
-    #     seen.add(id(obj))
-
-    #     print(f"{indent}Inspecting: {obj} ({type(obj)})")
-    #     try:
-    #         methods = [m for m in dir(obj) if callable(getattr(obj, m)) and not m.startswith("__")]
-    #         for m in methods:
-    #             try:
-    #                 sig = inspect.signature(getattr(obj, m))
-    #                 print(f"{indent}  Method: {m}{sig}")
-    #             except Exception:
-    #                 print(f"{indent}  Method: {m} (signature not available)")
-    #     except Exception as e:
-    #         print(f"{indent}  Error inspecting methods: {e}")
-
-    #     try:
-    #         for attr in dir(obj):
-    #             if attr.startswith("__"):
-    #                 continue
-    #             try:
-    #                 val = getattr(obj, attr)
-    #                 print(f"{indent}  Attr: {attr} ({type(val)})")
-    #                 self.deep_inspect(val, depth+1, max_depth, seen)
-    #             except Exception as e:
-    #                 print(f"{indent}  Attr: {attr} (unreadable: {e})")
-    #     except Exception as e:
-    #         print(f"{indent}  Error accessing attributes: {e}")
-
-########    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    ###########
-#########   TESTING - TO GET LIBRARIES TAB TO OPEN AND SELECT DIRECTORY ##########
-
 
 
     #   Handles Addressbar Logic
@@ -2995,13 +2928,14 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             #   Make Proxy Mode Text
             if self.proxyEnabled:
                 presetName = self.proxySettings.get("proxyPreset", "")
+                scale = self.proxySettings.get("proxyScale", "")
                 match self.proxyMode:
                     case "copy":
                         proxy_str = "Transfer Proxys"
                     case "generate":
-                        proxy_str = f"Generate Proxys ({presetName})"
+                        proxy_str = f"Generate Proxys ({presetName} {scale})"
                     case "missing":
-                        proxy_str = f"Generate Missing Proxys ({presetName})"
+                        proxy_str = f"Generate Missing Proxys ({presetName} {scale})"
                     case _:
                         proxy_str = "None"
             else:

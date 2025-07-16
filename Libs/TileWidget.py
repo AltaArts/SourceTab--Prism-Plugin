@@ -55,7 +55,6 @@ import re
 from pathlib import Path
 
 
-
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
@@ -979,6 +978,9 @@ class BaseTileItem(QWidget):
         self.core.openFolder(path)
 
 
+
+
+
     #   Returns File MetaData
     @err_catcher(name=__name__)
     def getMetadata(self, filePath):
@@ -1002,10 +1004,6 @@ class BaseTileItem(QWidget):
         
     @err_catcher(name=__name__)
     def groupMetadata(self, metadata):
-        """
-        Groups metadata by the section tags (e.g., 'File', 'QuickTime', etc.)
-        Returns a dictionary with grouped metadata.
-        """
         grouped = {}
         
         for key, value in metadata.items():
@@ -1030,6 +1028,169 @@ class BaseTileItem(QWidget):
             DisplayPopup.display(grouped_metadata, title="File Metadata")
         else:
             logger.warning("No metadata to display.")
+
+
+    @err_catcher(name=__name__)
+    def getFFprobeMetadata(self, filePath):
+        import subprocess                   #   TODO move
+        import json
+
+        cmd = [
+            self.browser.getFFprobePath(),
+            "-v", "error",
+            "-show_format",
+            "-show_streams",
+            "-print_format", "json",
+            filePath
+        ]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            metadata_json = result.stdout
+            metadata = json.loads(metadata_json)
+
+            if metadata:
+                _debug_recursive_print(metadata, "ffprobe metadata")                        #   TESTING
+                
+                logger.debug(f"FFprobe metadata found for {filePath}")
+                return metadata
+            else:
+                logger.warning(f"FFprobe: No metadata found for {filePath}")
+                return {}
+
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"FFprobe failed for {filePath}: {e.stderr}")
+            return {}
+        except Exception as e:
+            logger.warning(f"Failed to get ffprobe metadata for {filePath}: {e}")
+            return {}
+
+
+    @err_catcher(name=__name__)
+    def groupFFprobeMetadata(self, metadata):
+        grouped = {}
+
+        if "format" in metadata:
+            grouped["format"] = {}
+            for k, v in metadata["format"].items():
+                if k == "tags" and isinstance(v, dict):
+                    # Unpack tags
+                    for tag_k, tag_v in v.items():
+                        grouped["format"][f"tag:{tag_k}"] = tag_v
+                else:
+                    grouped["format"][k] = v
+
+        if "streams" in metadata:
+            for idx, stream in enumerate(metadata["streams"]):
+                section_name = f"stream_{idx}"
+                grouped[section_name] = {}
+                for k, v in stream.items():
+                    if k == "tags" and isinstance(v, dict):
+                        # Unpack tags
+                        for tag_k, tag_v in v.items():
+                            grouped[section_name][f"tag:{tag_k}"] = tag_v
+                    else:
+                        grouped[section_name][k] = v
+
+        return grouped
+
+
+
+    @err_catcher(name=__name__)
+    def displayFFprobeMetadata(self, filePath):
+        metadata = self.getFFprobeMetadata(filePath)
+
+        if metadata:
+            grouped_metadata = self.groupFFprobeMetadata(metadata)
+            logger.debug("Showing FFprobe MetaData Popup")
+            DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)")
+        else:
+            logger.warning("No FFprobe metadata to display.")
+
+
+
+
+
+
+    @err_catcher(name=__name__)
+    def createSidecar(self, filePath):
+
+        from collections import defaultdict
+
+        def escape_xml(text):
+            if not text:
+                return ''
+            return (text.replace('&', '&amp;')
+                        .replace('<', '&lt;')
+                        .replace('>', '&gt;')
+                        .replace('"', '&quot;')
+                        .replace("'", '&apos;'))
+
+
+
+        metadata = self.getFFprobeMetadata(filePath)
+        if not metadata:
+            logger.warning(f"No metadata found for {filePath}, skipping XMP sidecar creation.")
+            return False
+
+        # Group tags by namespace (e.g. QuickTime, EXIF, XMP, etc.)
+        grouped = defaultdict(dict)
+        for key, value in metadata.items():
+            if ':' in key:
+                ns, tag = key.split(':', 1)
+            else:
+                ns, tag = 'Unknown', key
+            grouped[ns][tag] = value
+
+        # Build RDF description entries per namespace
+        rdf_descriptions = []
+        for ns, tags in grouped.items():
+            # Create a namespace URI for this group (simple guess)
+            ns_uri = f"http://ns.example.com/{ns.lower()}/"
+            # Start rdf:Description with namespace declaration
+            desc = [f'<rdf:Description rdf:about="" xmlns:{ns}="{ns_uri}">']
+
+            for tag, value in tags.items():
+                # Convert value to string, escape XML chars
+                val_str = escape_xml(str(value))
+                # Add element for this tag
+                desc.append(f'  <{ns}:{tag}>{val_str}</{ns}:{tag}>')
+
+            desc.append('</rdf:Description>')
+            rdf_descriptions.append('\n'.join(desc))
+
+        # Build full XMP packet
+        joined_descriptions = '\n    '.join(rdf_descriptions)
+
+        xmp_template = f'''<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
+    <x:xmpmeta xmlns:x='adobe:ns:meta/'>
+    <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
+        {joined_descriptions}
+    </rdf:RDF>
+    </x:xmpmeta>
+    <?xpacket end='w'?>'''
+
+        sidecar_path = os.path.splitext(filePath)[0] + '.xmp'
+        try:
+            with open(sidecar_path, 'w', encoding='utf-8') as f:
+                f.write(xmp_template)
+            logger.info(f"XMP sidecar created: {sidecar_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to write XMP sidecar for {filePath}: {e}")
+            return False
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     #   Get Media Player Enabled State
@@ -1660,6 +1821,20 @@ class SourceFileTile(BaseTileItem):
             mDataAct = QAction("Show All MetaData", self.browser)
             mDataAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataAct)
+
+            mDataFFprobeAct = QAction("Show All MetaData (ffprobe)", self.browser)
+            mDataFFprobeAct.triggered.connect(lambda: self.displayFFprobeMetadata(self.getSource_mainfilePath()))
+            rcmenu.addAction(mDataFFprobeAct)
+
+
+
+
+            sidecarAct = QAction("Create Sidecar", self.browser)
+            sidecarAct.triggered.connect(lambda: self.createSidecar(self.getSource_mainfilePath()))
+            rcmenu.addAction(sidecarAct)
+
+
+
 
             showDataAct = QAction("Show Data", self.browser)                         #   TESTING
             showDataAct.triggered.connect(self.TEST_SHOW_DATA)
@@ -2428,11 +2603,9 @@ class DestFileTile(BaseTileItem):
             isMissingMode = proxyMode == "missing"
 
             if hasProxy and (isCopyMode or isMissingMode):
-                proxyAction = "copy"
+                self.transferData["proxyAction"] = "copy"
             elif isGenerateMode or (isMissingMode and not hasProxy):
-                proxyAction = "generate"
-
-            self.transferData["proxyAction"] = proxyAction
+                self.transferData["proxyAction"] = "generate"
 
             #   Get Proxy Destination Path
             self.transferData["destProxy"] = self.getDestProxyFilepath()

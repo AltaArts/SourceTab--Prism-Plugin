@@ -69,6 +69,7 @@ from PrismUtils.Decorators import err_catcher
 from SourceFunctions_ui import Ui_w_sourceFunctions
 
 from PopupWindows import NamingPopup, ProxyPopup
+from MetadataEditor import MetadataEditor
 
 
 logger = logging.getLogger(__name__)
@@ -321,4 +322,8 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def configMetadata(self):
-        self.core.popup("Configureing Metadata Not Yet Implemented")
+        # self.core.popup("Configureing Metadata Not Yet Implemented")
+
+
+        self.metaEditor = MetadataEditor(self.core, self)
+        self.metaEditor.show()
