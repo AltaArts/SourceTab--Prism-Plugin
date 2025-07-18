@@ -382,7 +382,7 @@ def displayMetadata(filePath:str) -> None:
     if metadata:
         grouped_metadata = groupMetadata(metadata)
         logger.debug("Showing MetaData Popup")
-        DisplayPopup.display(grouped_metadata, title="File Metadata")
+        DisplayPopup.display(grouped_metadata, title="File Metadata", modal=False)
     else:
         logger.warning("No metadata to display.")
 
@@ -454,7 +454,7 @@ def displayFFprobeMetadata(filePath:str) -> None:
     if metadata:
         grouped_metadata = groupFFprobeMetadata(metadata)
         logger.debug("Showing FFprobe MetaData Popup")
-        DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)")
+        DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)", modal=False)
     else:
         logger.warning("No FFprobe metadata to display.")
 

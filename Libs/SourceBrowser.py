@@ -472,7 +472,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             return cheatSheet
         
         else:
-            DisplayPopup.display(cheatSheet, title="Help")
+            DisplayPopup.display(cheatSheet, title="Help", modal=False)
 
 
     @err_catcher(name=__name__)

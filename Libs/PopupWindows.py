@@ -122,8 +122,9 @@ class WaitPopup:
 
 
 class DisplayPopup(QDialog):
-    def __init__(self, data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None):
-        super().__init__()
+    def __init__(self, data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None, parent=None):
+        super().__init__(parent)
+
 
         self.result = None
         self.setWindowTitle(title)
@@ -175,20 +176,26 @@ class DisplayPopup(QDialog):
 
 
     @staticmethod
-    def display(data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None):
+    def display(data, title="Display Data", buttons=None,
+                xScale=2, yScale=2, xSize=None, ySize=None,
+                modal=True, parent=None):
+        
         try:
-            dialog = DisplayPopup(data, title=title, buttons=buttons, xScale=xScale, yScale=yScale, xSize=xSize, ySize=ySize)
-            dialog.exec_()
-            return dialog.result
+            dialog = DisplayPopup(data, title=title, buttons=buttons,
+                                xScale=xScale, yScale=yScale,
+                                xSize=xSize, ySize=ySize, parent=parent)
+            if modal:
+                dialog.exec_()
+                return dialog.result
+            else:
+                dialog.show()
+                return None
         
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Show DisplayPopup:\n{e}")
 
 
     def _add_recursive(self, layout, data, indent=0):
-        """
-        Recursively adds data into layout with indentation.
-        """
         if isinstance(data, dict):
             for key, value in data.items():
                 if isinstance(value, (dict, list)):
