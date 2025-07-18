@@ -1,0 +1,818 @@
+{
+    "metaMap": [
+        {
+            "MetaName": "File Name",
+            "Target": "File Name",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Description",
+            "Target": "Description",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Comments",
+            "Target": "Comments",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Keywords",
+            "Target": "Keywords",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Shot",
+            "Target": "Shot",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Scene",
+            "Target": "Scene",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Take",
+            "Target": "Take",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Angle",
+            "Target": "Angle",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Move",
+            "Target": "Move",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Day / Night",
+            "Target": "Day / Night",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Environment",
+            "Target": "Environment",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Shot Type",
+            "Target": "Shot Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Good Take",
+            "Target": "Good Take",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Shoot Day",
+            "Target": "Shoot Day",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Date Recorded",
+            "Target": "Date Recorded",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera #",
+            "Target": "Camera #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Roll Card #",
+            "Target": "Roll Card #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Reel Number",
+            "Target": "Reel Number",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Clip Number",
+            "Target": "Clip Number",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Program Name",
+            "Target": "Program Name",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Episode #",
+            "Target": "Episode #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Episode Name",
+            "Target": "Episode Name",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Shot During Ep",
+            "Target": "Shot During Ep",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Location",
+            "Target": "Location",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Unit Name",
+            "Target": "Unit Name",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Setup",
+            "Target": "Setup",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Type",
+            "Target": "Camera Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Manufacturer",
+            "Target": "Camera Manufacturer",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Serial #",
+            "Target": "Camera Serial #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera ID",
+            "Target": "Camera ID",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Notes",
+            "Target": "Camera Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Format",
+            "Target": "Camera Format",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Media Type",
+            "Target": "Media Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Time-lapse Interval",
+            "Target": "Time-lapse Interval",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera FPS",
+            "Target": "Camera FPS",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Shutter Type",
+            "Target": "Shutter Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Shutter Angle",
+            "Target": "Shutter Angle",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Shutter Speed",
+            "Target": "Shutter Speed",
+            "Alias": ""
+        },
+        {
+            "MetaName": "ISO",
+            "Target": "ISO",
+            "Alias": ""
+        },
+        {
+            "MetaName": "White Point (Kelvin)",
+            "Target": "White Point (Kelvin)",
+            "Alias": ""
+        },
+        {
+            "MetaName": "White Balance Tint",
+            "Target": "White Balance Tint",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera TC Type",
+            "Target": "Camera TC Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Sensor",
+            "Target": "Sensor",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Firmware",
+            "Target": "Camera Firmware",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Mon Color Space",
+            "Target": "Mon Color Space",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Monitor LUT",
+            "Target": "Monitor LUT",
+            "Alias": ""
+        },
+        {
+            "MetaName": "LUT Used",
+            "Target": "LUT Used",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Lens Type",
+            "Target": "Lens Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Lens Number",
+            "Target": "Lens Number",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Lens Notes",
+            "Target": "Lens Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Aperture Type",
+            "Target": "Camera Aperture Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Aperture",
+            "Target": "Camera Aperture",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Focal Point (mm)",
+            "Target": "Focal Point (mm)",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Distance",
+            "Target": "Distance",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Filter",
+            "Target": "Filter",
+            "Alias": ""
+        },
+        {
+            "MetaName": "ND Filter",
+            "Target": "ND Filter",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Compression Ratio",
+            "Target": "Compression Ratio",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Codec Bitrate",
+            "Target": "Codec Bitrate",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Sensor Area Captured",
+            "Target": "Sensor Area Captured",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Pan Angle",
+            "Target": "Camera Pan Angle",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Tilt Angle",
+            "Target": "Camera Tilt Angle",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Roll Angle",
+            "Target": "Camera Roll Angle",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Position",
+            "Target": "Camera Position",
+            "Alias": ""
+        },
+        {
+            "MetaName": "PAR Notes",
+            "Target": "PAR Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Safe Area",
+            "Target": "Safe Area",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Aspect Ratio Notes",
+            "Target": "Aspect Ratio Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Gamma Notes",
+            "Target": "Gamma Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Color Space Notes",
+            "Target": "Color Space Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "RAW",
+            "Target": "RAW",
+            "Alias": ""
+        },
+        {
+            "MetaName": "LUT Used On Set",
+            "Target": "LUT Used On Set",
+            "Alias": ""
+        },
+        {
+            "MetaName": "LUT 1",
+            "Target": "LUT 1",
+            "Alias": ""
+        },
+        {
+            "MetaName": "LUT 2",
+            "Target": "LUT 2",
+            "Alias": ""
+        },
+        {
+            "MetaName": "LUT 3",
+            "Target": "LUT 3",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Lab Roll #",
+            "Target": "Lab Roll #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Colorist Notes",
+            "Target": "Colorist Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio Recorder",
+            "Target": "Audio Recorder",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Deck Serial #",
+            "Target": "Deck Serial #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Deck Firmware",
+            "Target": "Deck Firmware",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio Notes",
+            "Target": "Audio Notes",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Embedded Audio",
+            "Target": "Embedded Audio",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio File Type",
+            "Target": "Audio File Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio Media",
+            "Target": "Audio Media",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Sound Roll #",
+            "Target": "Sound Roll #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio TC Type",
+            "Target": "Audio TC Type",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio Start TC",
+            "Target": "Audio Start TC",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio End TC",
+            "Target": "Audio End TC",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio Duration TC",
+            "Target": "Audio Duration TC",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Sample Rate (KHz)",
+            "Target": "Sample Rate (KHz)",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Tone",
+            "Target": "Tone",
+            "Alias": ""
+        },
+        {
+            "MetaName": "FSD",
+            "Target": "FSD",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Audio FPS",
+            "Target": "Audio FPS",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Bit Rate",
+            "Target": "Bit Rate",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Production Name",
+            "Target": "Production Name",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Series #",
+            "Target": "Series #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Genre",
+            "Target": "Genre",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Production Company",
+            "Target": "Production Company",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Producer",
+            "Target": "Producer",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Assistant Producer",
+            "Target": "Assistant Producer",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Line Producer",
+            "Target": "Line Producer",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Unit Manager",
+            "Target": "Unit Manager",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Post Producer",
+            "Target": "Post Producer",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Production Asst",
+            "Target": "Production Asst",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Editor",
+            "Target": "Editor",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Editing Assistant",
+            "Target": "Editing Assistant",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Data Wrangler",
+            "Target": "Data Wrangler",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Colorist",
+            "Target": "Colorist",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Colorist Assistant",
+            "Target": "Colorist Assistant",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Director",
+            "Target": "Director",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Assistant Director",
+            "Target": "Assistant Director",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Script Supervisor",
+            "Target": "Script Supervisor",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Continuity",
+            "Target": "Continuity",
+            "Alias": ""
+        },
+        {
+            "MetaName": "DOP",
+            "Target": "DOP",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Operator",
+            "Target": "Camera Operator",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Camera Assistant",
+            "Target": "Camera Assistant",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Focus Puller",
+            "Target": "Focus Puller",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Key Grip",
+            "Target": "Key Grip",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Sound Mixer",
+            "Target": "Sound Mixer",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Digital Technician",
+            "Target": "Digital Technician",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Dailies Colorist",
+            "Target": "Dailies Colorist",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Crew Comments",
+            "Target": "Crew Comments",
+            "Alias": ""
+        }
+    ],
+    "metaPresets": {
+        "zCam": [
+            {
+                "field": "File Name",
+                "enabled": true,
+                "sourceField": "format > filename",
+                "currentData": "C:\\Users\\Alta Arts\\Desktop\\SINGLE ITEM\\A006C0696_20630416013400_0001.MOV"
+            },
+            {
+                "field": "Description",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Test description"
+            },
+            {
+                "field": "Comments",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Test comment"
+            },
+            {
+                "field": "Keywords",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "test, clip, Rilo, dog, EXT"
+            },
+            {
+                "field": "Shot",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Wide"
+            },
+            {
+                "field": "Scene",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Rilo test"
+            },
+            {
+                "field": "Take",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "1"
+            },
+            {
+                "field": "Angle",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Wide"
+            },
+            {
+                "field": "Day / Night",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Day"
+            },
+            {
+                "field": "Environment",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Int"
+            },
+            {
+                "field": "Shot Type",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Handheld"
+            },
+            {
+                "field": "Camera #",
+                "enabled": true,
+                "sourceField": "format >   com.apple.proapps.cameraName",
+                "currentData": "A"
+            },
+            {
+                "field": "Reel Number",
+                "enabled": true,
+                "sourceField": "format >   com.apple.proapps.reel",
+                "currentData": "006"
+            },
+            {
+                "field": "Clip Number",
+                "enabled": true,
+                "sourceField": "format >   com.apple.proapps.clipID",
+                "currentData": "A006C0696_20630416013400_0001"
+            },
+            {
+                "field": "Location",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Grove"
+            },
+            {
+                "field": "Camera Type",
+                "enabled": true,
+                "sourceField": "format >   CameraModel",
+                "currentData": "E2-S6"
+            },
+            {
+                "field": "Camera Manufacturer",
+                "enabled": true,
+                "sourceField": "format >   CameraMaker",
+                "currentData": "Z CAM"
+            },
+            {
+                "field": "Camera Serial #",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.sn",
+                "currentData": "524D0070362"
+            },
+            {
+                "field": "Camera ID",
+                "enabled": true,
+                "sourceField": "format >   com.apple.proapps.cameraName",
+                "currentData": "A"
+            },
+            {
+                "field": "Camera Notes",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Shaky cam"
+            },
+            {
+                "field": "Camera Format",
+                "enabled": true,
+                "sourceField": "format > format_long_name",
+                "currentData": "QuickTime / MOV"
+            },
+            {
+                "field": "Media Type",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.storage",
+                "currentData": "Samsung Portable SSD T5"
+            },
+            {
+                "field": "Camera FPS",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.projectFps",
+                "currentData": "29.97"
+            },
+            {
+                "field": "Shutter Angle",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.shutterAngle",
+                "currentData": "180Â°"
+            },
+            {
+                "field": "ISO",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.iso",
+                "currentData": "1250"
+            },
+            {
+                "field": "White Point (Kelvin)",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.whiteBalanceKelvin",
+                "currentData": "5600K"
+            },
+            {
+                "field": "White Balance Tint",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.whiteBalanceTint",
+                "currentData": "0"
+            },
+            {
+                "field": "Camera Firmware",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.fw",
+                "currentData": "1.0.1"
+            },
+            {
+                "field": "Lens Type",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "Xeen"
+            },
+            {
+                "field": "ND Filter",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "None"
+            },
+            {
+                "field": "Gamma Notes",
+                "enabled": true,
+                "sourceField": "format >   com.zcam.camera.lut",
+                "currentData": "Z-Log2"
+            },
+            {
+                "field": "Color Space Notes",
+                "enabled": true,
+                "sourceField": "stream_0 > color_space",
+                "currentData": "bt709"
+            },
+            {
+                "field": "DOP",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "JRB"
+            },
+            {
+                "field": "Camera Operator",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "JRB"
+            },
+            {
+                "field": "Digital Technician",
+                "enabled": true,
+                "sourceField": "- CUSTOM -",
+                "currentData": "JRB"
+            }
+        ]
+    }
+}

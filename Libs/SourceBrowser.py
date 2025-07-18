@@ -63,10 +63,6 @@ import re
 from pathlib import Path
 
 
-##  FOR TESTING
-from functools import wraps
-
-
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
@@ -92,8 +88,6 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 
-import exiftool                                     #   TODO
-
 
 #   Prism Libs
 from PrismUtils import PrismWidgets
@@ -106,6 +100,7 @@ from SourceFunctions import SourceFunctions
 from PopupWindows import DisplayPopup, WaitPopup
 from ElapsedTimer import ElapsedTimer
 from PreviewPlayer import PreviewPlayer
+import SourceTab_Utils as Utils
 
 import SourceBrowser_ui                                                 #   TODO
 
@@ -129,57 +124,6 @@ logger = logging.getLogger(__name__)
 
 
 
-#########   TESTING FUNCTIONS   ############
-#   StopWatch Decorator
-def stopWatch(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        timer = QElapsedTimer()
-        timer.start()
-        
-        result = func(*args, **kwargs)
-        
-        elapsed_sec = round(timer.elapsed() / 1000.0, 2)
-        print(f"[STOPWATCH]: Method '{func.__name__}' took {elapsed_sec:.2f} seconds")
-        
-        return result
-    return wrapper
-
-def _debug_recursive_print(data: object, label: str = None) -> None:
-    """
-    Recursively print nested dictionaries and lists with indentation for debugging.
-
-    data:   object to inspect
-    label:  text name of object to display (optional)
-    """
-
-    def _print_nested(d, indent=0):
-        prefix = "    " * indent
-        if isinstance(d, dict):
-            for key, value in d.items():
-                if isinstance(value, (dict, list)):
-                    print(f"{prefix}{key}:")
-                    _print_nested(value, indent + 1)
-                else:
-                    print(f"{prefix}{key}: {value}")
-        elif isinstance(d, list):
-            for item in d:
-                _print_nested(item, indent)
-        else:
-            print(f"{prefix}{d}")
-
-    try:
-        print("\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
-        if label:
-            print(f"Object: '{label}':\n")
-        _print_nested(data)
-    finally:
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n")
-
-###########################################
-
-
-
 class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def __init__(self, origin, core, projectBrowser=None, refresh=True):
         QWidget.__init__(self)
@@ -187,6 +131,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.plugin = origin
         self.core = core
         self.projectBrowser = projectBrowser
+        self.pluginPath = pluginPath
         self.iconDir = iconDir
 
         logger.debug("Initializing Source Browser")
@@ -244,8 +189,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.adaptiveProgUpdate = [20, 60]  #   Medium - for normal files
         # self.adaptiveProgUpdate = [30, 100] #   Smoother - for large files
 
-        self.exifToolEXE = self.getExiftool()
-
         self.setupIcons()
 
         #   Load UI
@@ -270,6 +213,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         if refresh:
             self.entered()
+
+        self.TESTING_INIT()                             #   TESTING
+
+
+
+    def TESTING_INIT(self):
+        self.sourceDir = r"C:\Users\Alta Arts\Desktop\SINGLE ITEM"
+        # tiles = self.getAllSourceTiles()
+        # print(f"***  tiles:  {tiles}")								#	TESTING
+        self.refreshSourceItems()
+
+        
+        self.selectAll(checked=True, mode="source")
+        QTimer.singleShot(500, lambda: self.addSelected())
+
 
 
 
@@ -1010,7 +968,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR:  Failed to Set Threadpools:\n{e}")
 
 
-
     @err_catcher(name=__name__)
     def configureViewLut(self, presets=None):
         self.PreviewPlayer.container_viewLut.setVisible(self.useViewLuts)
@@ -1020,52 +977,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
             for preset in presets:
                 self.PreviewPlayer.cb_viewLut.addItem(preset["name"])
-
-
-    #   Returns FFprobe Path
-    @err_catcher(name=__name__)
-    def getFFprobePath(self):
-        return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
-
-
-    #   Returns ExitTool Path
-    @err_catcher(name=__name__)                                                     #   TODO - Remove once all is using FFmpeg/FFprobe
-    def getExiftool(self):
-        exifDir = os.path.join(pluginPath, "PythonLibs", "ExifTool")
-
-        possible_names = ["exiftool.exe", "exiftool(-k).exe"]
-
-        for root, dirs, files in os.walk(exifDir):
-            for file in files:
-                if file.lower() in [name.lower() for name in possible_names]:
-                    self.exifToolEXE = os.path.join(root, file)
-                    logger.debug(f"ExifTool found at: {self.exifToolEXE}")
-                    return
-
-        logger.warning(f"ERROR:  Unable to Find ExifTool")
-        return None
-    
-
-    @err_catcher(name=__name__)
-    def getFallBackImage(self, filePath=None, extension=None):
-        if filePath:
-            _, extension = os.path.splitext(filePath)
-
-        if not extension:
-            # fallback to unknown.jpg immediately
-            return os.path.join(self.iconDir, "unknown.jpg")
-
-        extFallback = os.path.join(
-            self.core.projects.getFallbackFolder(),
-            "%s.jpg" % extension[1:].lower()
-        )
-
-        if os.path.isfile(extFallback):
-            return extFallback
-        else:
-            return os.path.join(self.iconDir, "unknown.jpg")
-
-
 
     
     #   Returns QIcon with Both Normal and Disabled Versions
@@ -1114,47 +1025,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Create Icon:\n{e}")
     
-
-    #   Returns File Size Formatted String
-    @err_catcher(name=__name__)
-    def getFileSizeStr(self, size_bytes):
-        size_mb = size_bytes / 1024.0 / 1024.0
-
-        #   Set Size Unit
-        if size_mb < 1:
-            size_kb = size_bytes / 1024.0
-            size = size_kb
-            unit = "KB"
-        elif size_mb < 1024:
-            size = size_mb
-            unit = "MB"
-        else:
-            size = size_mb / 1024.0
-            unit = "GB"
-
-        #   Set Decimal Digits Based on Integer Digits
-        int_digits = len(str(int(size)))
-        if int_digits >= 3:
-            fmt = "%.0f"
-        elif int_digits == 2:
-            fmt = "%.1f"
-        else:
-            fmt = "%.2f"
-
-        sizeStr = f"{fmt % size} {unit}"
-        return sizeStr
-    
-
-    #   Returns Time Formatted String
-    @err_catcher(name=__name__)
-    def getFormattedTimeStr(self, seconds):
-        if seconds is None or seconds > 1e6:
-            return "Estimating..."
-        
-        minutes, sec = divmod(int(seconds), 60)
-
-        return f"{minutes:02}:{sec:02}"
-
 
     #   Configures the UI Buttons based on Transfer Status
     @err_catcher(name=__name__)
@@ -1330,33 +1200,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 return prismIcon
         except:
             logger.warning(f"ERROR:  Unable to get Icon")
-
-
-    #	Creates UUID
-    @err_catcher(name=__name__)
-    def createUUID(self, simple=False, length=8):
-        #	Creates simple Date/Time UID
-        if simple:
-            # Get the current date and time
-            now = datetime.now()
-            # Format as MMDDHHMM
-            uid = now.strftime("%m%d%H%M")
-
-            logger.debug(f"Created Simple UID: {uid}")
-        
-            return uid
-        
-        # Generate a 8 charactor UUID string
-        else:
-            uid = uuid.uuid4()
-            # Create a SHA-256 hash of the UUID
-            hashObject = hashlib.sha256(uid.bytes)
-            # Convert the hash to a hex string and truncate it to the desired length
-            shortUID = hashObject.hexdigest()[:length]
-
-            logger.debug(f"Created UID: {shortUID}")
-
-            return shortUID
 
 
     @err_catcher(name=__name__)
@@ -1549,19 +1392,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
 
     @err_catcher(name=__name__)
-    def openInExplorer(self, path):
-        if os.path.isdir(path):
-            dir = path
-        elif os.path.isfile(path):
-            dir = os.path.dirname(path)
-        else:
-            logger.warning(f"ERROR:  Unable to open {path} in File Explorer")
-            return
-
-        self.core.openFolder(dir)
-
-
-    @err_catcher(name=__name__)
     def goUpDir(self, mode):
         if mode == "source":
             attribute = "sourceDir"
@@ -1586,7 +1416,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def isSupportedFormat(self, path=None, ext=None):
         try:
             if path:
-                _, extension = os.path.splitext(os.path.basename(path))
+                _, extension = os.path.splitext(Utils.getBasename(path))
             elif ext:
                 extension = ext
             else:
@@ -1598,13 +1428,12 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR:  isSupportedFormat() Failed:\n{e}")
 
 
-
     #   Returns Bool if File in Prism Video Formats
     @err_catcher(name=__name__)
     def isVideo(self, path=None, ext=None):
         try:
             if path:
-                _, extension = os.path.splitext(os.path.basename(path))
+                _, extension = os.path.splitext(Utils.getBasename(path))
             elif ext:
                 extension = ext
             else:
@@ -1620,7 +1449,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     @err_catcher(name=__name__)
     def isAudio(self, path=None, ext=None):
         if path:
-            _, extension = os.path.splitext(os.path.basename(path))
+            _, extension = os.path.splitext(Utils.getBasename(path))
         elif ext:
             extension = ext
         else:
@@ -1735,7 +1564,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 if len(matched) > 1:
                     seen.update(matched)
                     padded = "#" * len(frame)
-                    display_name = os.path.basename(f"{base}{padded}{ext}")
+                    display_name = Utils.getBasename(f"{base}{padded}{ext}")
 
                     matchedItems = [filePath_to_item[f] for f in matched]
                     uuid_list = [item["data"]["uuid"] for item in matchedItems]
@@ -1955,7 +1784,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 else:
                     #   Get SeqData if Exists
                     if "sequenceItems" in data:
-                        uuid = data["uuid"] = self.createUUID()
+                        uuid = data["uuid"] = Utils.createUUID()
                         fileItem = TileWidget.SourceFileItem(self, passedData=data)
 
                     else:
@@ -2072,7 +1901,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                 uuid = data["uuid"]
 
                 if "sequenceItems" in data:
-                    uuid = data["uuid"] = self.createUUID()
+                    uuid = data["uuid"] = Utils.createUUID()
                     data["hasProxy"] = False
                     fileItem = TileWidget.DestFileItem(self, passedData=data)
 
@@ -2129,7 +1958,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             data["displayName"] = file
             data["tileType"] = tileType
             data["fileType"] = fileType
-            data["uuid"] = self.createUUID()
+            data["uuid"] = Utils.createUUID()
 
             if fileType == "Folders":
                 #    Create Folder Data Item
@@ -2227,7 +2056,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         try:
             #   Get Size Info
             self.total_transferSize = self.getTotalTransferSize()
-            copySize_str = self.getFileSizeStr(self.total_transferSize)
+            copySize_str = Utils.getFileSizeStr(self.total_transferSize)
             #   Default Tip
             totalSizeTip = "Total Transfer Size"
             #   If there will be Proxy Generation add the Asterisk and Note
@@ -2261,8 +2090,8 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         comd = []
 
-        fileName = os.path.basename(filePath)
-        baseName, extension = os.path.splitext(fileName)
+        # fileName = Utils.getBasename(filePath)
+        # baseName, extension = os.path.splitext(fileName)
 
         ##   Commented Out to Allow All Files to Open   ##
         # if extension.lower() in self.core.media.supportedFormats:
@@ -2405,16 +2234,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR:  Resolving Proxy Path Failed:\n{e}")
 
 
-    #   Get Storage Space Stats
-    @err_catcher(name=__name__)                                         #   TODO  Move
-    def getDriveSpace(self, path):
-        try:
-            total, used, free = shutil.disk_usage(path)   
-            return free 
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to get Drive Space Stats:\n{e}")
-    
-
     #   Return List of Checked Dest File Tiles
     @err_catcher(name=__name__)                                         #   TODO  Move
     def getCopyList(self):
@@ -2439,25 +2258,25 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         ##   Check Drive Space Available
         #   Get Stats
-        spaceAvail = self.getDriveSpace(os.path.normpath(self.destDir))
+        spaceAvail = Utils.getDriveSpace(os.path.normpath(self.destDir))
         transferSize = self.getTotalTransferSize()
 
         #   Not Enough Space
         if transferSize >= spaceAvail:
-            transSize_str = self.getFileSizeStr(transferSize)
-            spaceAvail_str = self.getFileSizeStr(spaceAvail)
+            transSize_str = Utils.getFileSizeStr(transferSize)
+            spaceAvail_str = Utils.getFileSizeStr(spaceAvail)
             errors["Not Enough Storage Space:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
 
         #   Low Space
         elif (spaceAvail - transferSize) < 100 * 1024 * 1024:  # 100 MB
-            transSize_str = self.getFileSizeStr(transferSize)
-            spaceAvail_str = self.getFileSizeStr(spaceAvail)
+            transSize_str = Utils.getFileSizeStr(transferSize)
+            spaceAvail_str = Utils.getFileSizeStr(spaceAvail)
             warnings["Storage Space Low:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
 
         ##  File Exists
         for fileTile in self.copyList:
             if fileTile.destFileExists():
-                basename = os.path.basename(fileTile.getDestMainPath())
+                basename = Utils.getBasename(fileTile.getDestMainPath())
                 if self.sourceFuncts.chb_overwrite.isChecked():
                     warnings[f"{basename}: "] = "File Exists in Destination"
                 else:
@@ -2466,7 +2285,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         ##  CODEC Not Supported and MainFile/Proxy Conflict
         if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
             for fileTile in (ft for ft in self.copyList if ft.isVideo()):
-                basename = os.path.basename(fileTile.getDestMainPath())
+                basename = Utils.getBasename(fileTile.getDestMainPath())
 
                 ##  UnSupported Format for Proxy Generation
                 if not fileTile.isCodecSupported():
@@ -2508,10 +2327,14 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def generateTransferPopup(self):
         try:
             ##  HEADER SECTION
+            availSpace = Utils.getDriveSpace(os.path.normpath(self.destDir))
+            availspace_str = Utils.getFileSizeStr(availSpace)
+
             header = {
                 "Destination Path": self.destDir,
+                "Available Drive Space": availspace_str,
                 "Number of Files": len(self.copyList),
-                "Total Transfer Size": self.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
+                "Total Transfer Size": Utils.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
                 "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
                 "": ""
@@ -2524,7 +2347,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             file_list = []
 
             for item in self.copyList:
-                filename = os.path.basename(item.getDestMainPath())
+                filename = Utils.getBasename(item.getDestMainPath())
                 
                 # Create a separate group for each file
                 group_box = QGroupBox(filename)
@@ -2763,17 +2586,17 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             # Get Transferred Amount from Every FileTile
             total_copied = sum(item.getCopiedSize() for item in self.copyList)
             #   Update Copied Size in the UI
-            totalSize_str = self.getFileSizeStr(total_copied)
+            totalSize_str = Utils.getFileSizeStr(total_copied)
             self.sourceFuncts.l_size_copied.setText(totalSize_str)
 
             #   Calculate the Time Elapsed
             self.timeElapsed = self.totalTransferTimer.elapsed()
-            self.sourceFuncts.l_time_elapsed.setText(self.getFormattedTimeStr(self.timeElapsed))
+            self.sourceFuncts.l_time_elapsed.setText(Utils.getFormattedTimeStr(self.timeElapsed))
 
             #   Calculate the Estimated Time Remaining
             timeRemaining = self.getTimeRemaining(total_copied, self.total_transferSize)
             #   Update Time Remaining in the UI
-            self.sourceFuncts.l_time_remain.setText(self.getFormattedTimeStr(timeRemaining))
+            self.sourceFuncts.l_time_remain.setText(Utils.getFormattedTimeStr(timeRemaining))
 
             #   Get Tranfer Status for Every FileTile
             overall_statusList = [transfer.transferState for transfer in self.copyList]
@@ -2860,7 +2683,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             result = self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
 
             if result == "Open in Explorer":
-                self.openInExplorer(os.path.normpath(self.destDir))
+                Utils.openInExplorer(self.core, os.path.normpath(self.destDir))
 
             elif result == "Open Report":
                 if not os.path.exists(self.transferReportPath):
@@ -2879,13 +2702,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             reportData = self.copyList
 
             #   Header Data Items
-            report_uuid     = self.createUUID()
+            report_uuid     = Utils.createUUID()
             timestamp_file  = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             timestamp_text  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             projectName     = self.core.projectName
             user            = self.core.username
-            transferSize    = self.getFileSizeStr(self.total_transferSize)
-            transferTime    = self.getFormattedTimeStr(self.timeElapsed)
+            transferSize    = Utils.getFileSizeStr(self.total_transferSize)
+            transferTime    = Utils.getFormattedTimeStr(self.timeElapsed)
 
             #   Creates Report Filename
             reportFilename = f"TransferReport_{timestamp_file}_{report_uuid}.pdf"
@@ -3046,7 +2869,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
                         ("File Type:",          item.fileType),
                         ("Transfer Result",     mainFile_result),
                         ("Proxy Action",        str(proxyAction).capitalize()),
-                        ("Transfer Time:",      self.getFormattedTimeStr(item.data['transferTime'])),
+                        ("Transfer Time:",      Utils.getFormattedTimeStr(item.data['transferTime'])),
                         ("Date:",               iData['source_mainFile_date']),
                         ("Main File:",          iData['mainFile_result']),
                         ("    Source:",         iData['source_mainFile_path']),

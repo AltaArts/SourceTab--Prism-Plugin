@@ -63,6 +63,8 @@ from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher
 
+import SourceTab_Utils as Utils
+
 # from WorkerThreads import PixmapCacheWorker           #   FAILED ATTEMPT
 
 logger = logging.getLogger(__name__)
@@ -85,7 +87,7 @@ class PreviewPlayer(QWidget):
         self.iconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
 
         self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
-        self.ffprobePath = self.sourceBrowser.getFFprobePath()
+        self.ffprobePath = Utils.getFFprobePath()
 
         self.renderResX = 300
         self.renderResY = 169
@@ -535,7 +537,7 @@ class PreviewPlayer(QWidget):
                 width,
                 height,
                 self.pformat,
-                os.path.basename(prvFile),
+                Utils.getBasename(prvFile),
             )
 
         elif ext in self.core.media.videoFormats:
@@ -546,14 +548,14 @@ class PreviewPlayer(QWidget):
                 duration = self.pduration
 
             if self.pwidth == "loading...":
-                infoStr = "\n" + os.path.basename(prvFile)
+                infoStr = "\n" + Utils.getBasename(prvFile)
             else:
                 infoStr = "%sx%s   %s %s\n%s" % (
                     width,
                     height,
                     duration,
                     frStr,
-                    os.path.basename(prvFile),
+                    Utils.getBasename(prvFile),
                 )
 
                 if self.core.isStr(duration) or duration <= 1:
@@ -566,7 +568,7 @@ class PreviewPlayer(QWidget):
             infoStr = "%sx%s\n%s" % (
                 width,
                 height,
-                os.path.basename(prvFile),
+                Utils.getBasename(prvFile),
             )
 
             self.sl_previewImage.setEnabled(False)
@@ -581,9 +583,9 @@ class PreviewPlayer(QWidget):
             size = 0
             for file in self.previewSeq:
                 if os.path.exists(file):
-                    size += float(os.stat(file).st_size / 1024.0 / 1024.0)
+                    size += Utils.getFileSize(file)
 
-            infoStr += " - %.2f mb" % size
+            infoStr += f" - {Utils.getFileSizeStr(size)}"
 
         if self.state == "disabled":
             infoStr += "\nPreview is disabled"
@@ -670,36 +672,36 @@ class PreviewPlayer(QWidget):
         self.l_info.setText("\n".join(lines))
 
 
-    @err_catcher(name=__name__)
-    def startCacheWorkers(self, path, total_frames, thumbWidth, num_workers=4):
-        frames_per_worker = total_frames // num_workers
-        remainder = total_frames % num_workers
+    # @err_catcher(name=__name__)
+    # def startCacheWorkers(self, path, total_frames, thumbWidth, num_workers=4):
+    #     frames_per_worker = total_frames // num_workers
+    #     remainder = total_frames % num_workers
 
-        frame_ranges = []
-        start = 0
-        for i in range(num_workers):
-            end = start + frames_per_worker - 1
-            if i < remainder:
-                end += 1
-            if start > total_frames - 1:
-                break
-            if end > total_frames - 1:
-                end = total_frames - 1
-            frame_ranges.append((start, end))
-            start = end + 1
+    #     frame_ranges = []
+    #     start = 0
+    #     for i in range(num_workers):
+    #         end = start + frames_per_worker - 1
+    #         if i < remainder:
+    #             end += 1
+    #         if start > total_frames - 1:
+    #             break
+    #         if end > total_frames - 1:
+    #             end = total_frames - 1
+    #         frame_ranges.append((start, end))
+    #         start = end + 1
         
-        for start_frame, end_frame in frame_ranges:
-            worker = PixmapCacheWorker(
-                parent=self,
-                path=path,
-                start_frame=start_frame,
-                end_frame=end_frame,
-                thumbWidth=thumbWidth
-            )
-            worker.setAutoDelete(True)
-            self.cache_threadpool.start(worker)
+    #     for start_frame, end_frame in frame_ranges:
+    #         worker = PixmapCacheWorker(
+    #             parent=self,
+    #             path=path,
+    #             start_frame=start_frame,
+    #             end_frame=end_frame,
+    #             thumbWidth=thumbWidth
+    #         )
+    #         worker.setAutoDelete(True)
+    #         self.cache_threadpool.start(worker)
 
-        logger.debug(f"[startCacheWorkers] Started {len(frame_ranges)} cache workers for {path}")
+    #     logger.debug(f"[startCacheWorkers] Started {len(frame_ranges)} cache workers for {path}")
 
 
     @err_catcher(name=__name__)
@@ -797,121 +799,6 @@ class PreviewPlayer(QWidget):
 
 
     @err_catcher(name=__name__)
-    def getPixmapFromVideoPath(
-        self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0):
-        
-        fallbackPath = self.sourceBrowser.getFallBackImage(filePath=path)
-
-        try:
-            ###   Attempt to Use Prism's Native VideoReader
-            vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
-            if self.core.isStr(vidFile):
-                raise RuntimeError(vidFile)
-
-            #   Read Frame
-            image = vidFile.get_data(imgNum)
-            fileRes = vidFile._meta["size"]
-            width = fileRes[0]
-            height = fileRes[1]
-            qimg = QImage(image, width, height, 3 * width, QImage.Format_RGB888)
-
-            #   Resize
-            origWidth = qimg.width()
-            origHeight = qimg.height()
-            thumbHeight = int(origHeight * (thumbWidth / origWidth))
-            thumbImage = qimg.scaled(
-                thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-
-            return QPixmap.fromImage(thumbImage)
-
-        except Exception as e:
-            logger.debug(f"[Thumbnail Worker] Prism Video Reader failed for {path}, falling back to ffmpeg:\n{e}")
-
-        ###   Fallback to FFmpeg (if Prism's VideoReader fails)
-        try:
-            creationflags = 0
-            if sys.platform == "win32":
-                creationflags = subprocess.CREATE_NO_WINDOW
-
-            #   Get FPS via ffprobe
-            #   Default fallback
-            fps = 24.0
-            probe = subprocess.run(
-                [
-                    self.ffprobePath,
-                    "-v", "error",
-                    "-select_streams", "v:0",
-                    "-show_entries", "stream=r_frame_rate",
-                    "-of", "default=noprint_wrappers=1:nokey=1",
-                    path,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                creationflags=creationflags,
-            )
-
-            if probe.returncode == 0:
-                fps_str = probe.stdout.strip()
-                if "/" in fps_str:
-                    num, denom = fps_str.split("/", 1)
-                    fps = float(num) / float(denom) if float(denom) > 0 else fps
-
-            #   Compute Seconds
-            timestamp = imgNum / fps
-
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmpfile:
-                thumbTempPath = tmpfile.name
-
-            cmd = [
-                self.ffmpegPath,
-                "-v", "error",
-                "-y",
-                "-ss", f"{timestamp:.3f}",
-                "-i", path,
-                "-frames:v", "1",
-                "-q:v", "2",
-                thumbTempPath,
-            ]
-
-            result = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                creationflags=creationflags,
-            )
-
-            if result.returncode != 0:
-                logger.debug(f"ERROR: FFmpeg thumbnail failed: {result.stderr}")
-                return QPixmap.fromImage(QImage(fallbackPath))
-
-            thumbImage = QImage(thumbTempPath)
-
-            if not thumbImage.isNull() and thumbWidth > 0:
-                origWidth = thumbImage.width()
-                origHeight = thumbImage.height()
-                thumbHeight = int(origHeight * (thumbWidth / origWidth))
-                thumbImage = thumbImage.scaled(
-                    thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-
-            return QPixmap.fromImage(thumbImage)
-
-        except Exception as e2:
-            logger.warning(f"ERROR: FFmpeg fallback failed for {path}: {e2}")
-            return QPixmap.fromImage(QImage(fallbackPath))
-
-        finally:
-            try:
-                os.remove(thumbTempPath)
-            except Exception:
-                pass
-
-
-
-    @err_catcher(name=__name__)
     def changeImg(self, frame=0, seq=None, thread=None, regenerateThumb=False):
         if seq is not None:
             if self.previewSeq != seq:
@@ -957,7 +844,7 @@ class PreviewPlayer(QWidget):
                                         )
                     if pm:
                         if pm.width() == 0 or pm.height() == 0:
-                            imgPath = self.sourceBrowser.getFallBackImage(filePath=fileName)
+                            imgPath = Utils.getFallBackImage(self.core, filePath=fileName)
                             pmsmall = self.core.media.getPixmapFromPath(imgPath)
                             pmsmall = self.core.media.scalePixmap(pmsmall,
                                                                   self.getThumbnailWidth(),
@@ -969,7 +856,7 @@ class PreviewPlayer(QWidget):
                         else:
                             pmsmall = pm.scaledToHeight(self.getThumbnailHeight())
                     else:
-                        pmsmall = self.sourceBrowser.getFallBackImage(extension=ext)
+                        pmsmall = Utils.getFallBackImage(self.core, extension=ext)
                         pmsmall = self.core.media.scalePixmap(pmsmall,
                                                               self.getThumbnailWidth(),
                                                               self.getThumbnailHeight()
@@ -1001,12 +888,14 @@ class PreviewPlayer(QWidget):
                                 else:
                                     self.updatePrvInfo(fileName, vidReader=vidFile, seq=seq)
 
-                        pm = self.getPixmapFromVideoPath(
+                        pm = Utils.getThumbFromVideoPath(
+                                self.core,
                                 fileName,
                                 thumbWidth=1280,
                                 videoReader=vidFile,
                                 imgNum=imgNum,
-                                regenerateThumb=regenerateThumb
+                                regenerateThumb=regenerateThumb,
+                                needPixMap=True
                             )
                         
                         #####   PRISM NATIVE METHOD     ########
@@ -1024,7 +913,7 @@ class PreviewPlayer(QWidget):
                         
                     except Exception as e:
                         logger.debug(traceback.format_exc())
-                        imgPath = self.sourceBrowser.getFallBackImage(extension=ext)
+                        imgPath = Utils.getFallBackImage(self.core, extension=ext)
                         pmsmall = self.core.media.getPixmapFromPath(imgPath)
                         pmsmall = self.core.media.scalePixmap(
                             pmsmall, self.getThumbnailWidth(), self.getThumbnailHeight()

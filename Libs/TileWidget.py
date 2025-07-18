@@ -78,10 +78,9 @@ sys.path.append(pluginRoot)
 sys.path.append(uiPath)
 
 
-import exiftool
 
+# from PopupWindows import DisplayPopup
 
-from PopupWindows import DisplayPopup
 from ElapsedTimer import ElapsedTimer
 
 from WorkerThreads import (ThumbnailWorker,
@@ -90,6 +89,9 @@ from WorkerThreads import (ThumbnailWorker,
                            FileCopyWorker,
                            ProxyGenerationWorker
                            )
+
+import SourceTab_Utils as Utils
+
 
 
 # from PrismUtils import PrismWidgets
@@ -104,60 +106,6 @@ COLOR_BLUE = "115, 175, 215"
 COLOR_ORANGE = "255, 140, 0"
 COLOR_RED = "200, 0, 0"
 COLOR_GREY = "100, 100, 100"
-
-
-
-#########   TESTING FUNCTIONS   ############
-#   StopWatch Decorator
-def stopWatch(func):
-    from functools import wraps
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        timer = QElapsedTimer()
-        timer.start()
-        
-        result = func(*args, **kwargs)
-        
-        elapsed_sec = round(timer.elapsed() / 1000.0, 2)
-        print(f"[STOPWATCH]: Method '{func.__name__}' took {elapsed_sec:.2f} seconds")
-        
-        return result
-    return wrapper
-
-def _debug_recursive_print(data: object, label: str = None) -> None:
-    """
-    Recursively print nested dictionaries and lists with indentation for debugging.
-
-    data:   object to inspect
-    label:  text name of object to display (optional)
-    """
-
-    def _print_nested(d, indent=0):
-        prefix = "    " * indent
-        if isinstance(d, dict):
-            for key, value in d.items():
-                if isinstance(value, (dict, list)):
-                    print(f"{prefix}{key}:")
-                    _print_nested(value, indent + 1)
-                else:
-                    print(f"{prefix}{key}: {value}")
-        elif isinstance(d, list):
-            for item in d:
-                _print_nested(item, indent)
-        else:
-            print(f"{prefix}{d}")
-
-    try:
-        print("\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv")
-        if label:
-            print(f"Object: '{label}':\n")
-        _print_nested(data)
-    finally:
-        print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n")
-
-###########################################
-
 
 
 
@@ -492,7 +440,7 @@ class BaseTileItem(QWidget):
             self.core.popup("No data to display or 'data' is not a dictionary.")
             return
         
-        _debug_recursive_print(self.data, label="ItemData")
+        Utils.debug_recursive_print(self.data, label="ItemData")
 
         lines = []
         for key, value in self.data.items():
@@ -509,13 +457,7 @@ class BaseTileItem(QWidget):
 
     ####    ^^^^^^^^^^^^^    ####
     
-
-
-    #   Returns the File Create Date from the OS
-    @err_catcher(name=__name__)
-    def getFileDate(self, filePath):
-        return os.path.getmtime(filePath)
-    
+  
 
     @err_catcher(name=__name__)
     def getSequenceItems(self):
@@ -525,18 +467,6 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def getFirstSeqData(self):
         return self.getSequenceItems()[0]["data"]
-    
-
-    #   Returns the File Size from the OS
-    @err_catcher(name=__name__)
-    def getFileSize(self, filePath):
-        return os.stat(filePath).st_size
-    
-
-    #   Returns File Size (can be slower)
-    @err_catcher(name=__name__)
-    def getFileSizeStr(self, size_bytes):
-        return self.browser.getFileSizeStr(size_bytes)
     
 
     #   Returns Total Size of Image Sequnce
@@ -551,15 +481,6 @@ class BaseTileItem(QWidget):
 
         return totalSize_raw
     
-
-    #   Returns Formatted FPS String (ie 24, 25, 29.97 etc)
-    @err_catcher(name=__name__)
-    def getFpsStr(self, fps):
-        if fps.is_integer():
-            return f"{int(fps)}"
-        else:
-            return f"{fps:.2f}"
-
 
     #   Returns the Filepath
     @err_catcher(name=__name__)
@@ -587,10 +508,10 @@ class BaseTileItem(QWidget):
     #   Gets Thumbnail Save Path
     @err_catcher(name=__name__)
     def getThumbnailPath(self, filepath):                                       #   TODO - USE CUSTOM PATH???
-        thumbBasename = os.path.basename(os.path.splitext(filepath)[0]) + ".jpg"
+        thumbBasename = Utils.getBasename(os.path.splitext(filepath)[0]) + ".jpg"
 
         if self.browser.useCustomThumbPath:
-            thumbDir = os.path.join(self.browser.customThumbPath, self.browser.createUUID(simple=True))
+            thumbDir = os.path.join(self.browser.customThumbPath, Utils.createUUID(simple=True))
             if not os.path.exists(thumbDir):
                 os.mkdir(thumbDir)
 
@@ -618,17 +539,17 @@ class BaseTileItem(QWidget):
 
         except KeyError:
             #   Fallback
-            total_size = self.getFileSize(self.getSource_mainfilePath())
+            total_size = Utils.getFileSize(self.getSource_mainfilePath())
 
         #   Add Proxy Size (or estimated) if this is a Video or Image Sequence
         if proxyEnabled and (self.isVideo() or self.isSequence):
             if proxyMode == "copy":
                 if self.getSource_proxyfilePath():
-                    total_size += self.getFileSize(self.getSource_proxyfilePath())
+                    total_size += Utils.getFileSize(self.getSource_proxyfilePath())
 
             elif proxyMode == "missing":
                 if self.getSource_proxyfilePath():
-                    total_size += self.getFileSize(self.getSource_proxyfilePath())
+                    total_size += Utils.getFileSize(self.getSource_proxyfilePath())
                 else:
                     total_size += self.getMultipliedProxySize(total=True)
 
@@ -646,10 +567,10 @@ class BaseTileItem(QWidget):
         self.dataOps_threadpool.start(worker_frames)
 
 
-     #   Returns the Filepath
-    @err_catcher(name=__name__)
-    def getBasename(self, filePath):
-        return os.path.basename(filePath)
+    #  #   Returns the Filepath
+    # @err_catcher(name=__name__)
+    # def getBasename(self, filePath):
+    #     return os.path.basename(filePath)
     
 
     #   Gets Custom Hash of File in Separate Thread
@@ -810,7 +731,7 @@ class BaseTileItem(QWidget):
                 f"Frames:        {frames}\n"
                 f"FPS:               {fps}\n"
                 f"Codec:          {codec}\n\n"
-                f"{self.formatMetadata(metadata)}"
+                f"{Utils.formatCodecMetadata(metadata)}"
                 )
             
             self.l_pxyIcon.setToolTip(tip)
@@ -885,44 +806,24 @@ class BaseTileItem(QWidget):
                     f"Frames:        {frames}\n"
                     f"FPS:              {fps}\n"
                     f"Codec:          {codec}\n\n"
-                    f"{self.formatMetadata(metadata)}"
+                    f"{Utils.formatCodecMetadata(metadata)}"
                 )
 
             self.l_icon.setToolTip(tip)
 
         if hasattr(self, "l_frames"):
             self.l_frames.setToolTip(tip)
-
-
-    @err_catcher(name=__name__)
-    def formatMetadata(self, metadata):
-        if not metadata:
-            return "Metadata:    None"
-        lines = ["Metadata:"]
-        for k, v in metadata.items():
-            lines.append(f"  {k}: {v}")
-        return "\n".join(lines)
-    
-
-    #   Returns File's Extension
-    @err_catcher(name=__name__)
-    def getFileExtension(self):
-        filePath = self.getSource_mainfilePath()
-        basefile = os.path.basename(filePath)
-        _, extension = os.path.splitext(basefile)
-
-        return extension
     
 
     #   Returns Bool if File in Prism Video Formats
     @err_catcher(name=__name__)
     def isVideo(self, path=None, ext=None):
         if path:
-            _, extension = os.path.splitext(os.path.basename(path))
+            _, extension = os.path.splitext(Utils.getBasename(path))
         elif ext:
             extension = ext
         else:
-            extension = self.getFileExtension()
+            extension = Utils.getFileExtension(filePath=self.getSource_mainfilePath())
         
         return  extension.lower() in self.core.media.videoFormats
     
@@ -971,214 +872,75 @@ class BaseTileItem(QWidget):
     def getIcon(self):
         if self.data.get("icon", ""):
             return self.data["icon"]
-        
+  
 
-    @err_catcher(name=__name__)
-    def openInExplorer(self, path):
-        self.core.openFolder(path)
+    # @err_catcher(name=__name__)
+    # def createSidecar(self, filePath):
 
+    #     from collections import defaultdict
 
-
-
-
-    #   Returns File MetaData
-    @err_catcher(name=__name__)
-    def getMetadata(self, filePath):
-        try:
-            with exiftool.ExifTool(self.browser.exifToolEXE) as et:
-                metadata_list = et.execute_json("-G", filePath)
-
-            if metadata_list:
-                metadata = metadata_list[0]
-                logger.debug(f"MetaData found for {filePath}")
-                return metadata
-            
-            else:
-                logger.warning(f"ERROR:  No metadata found for {filePath}")
-                return {}
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to get metadata for {filePath}: {e}")
-            return {}
-        
-        
-    @err_catcher(name=__name__)
-    def groupMetadata(self, metadata):
-        grouped = {}
-        
-        for key, value in metadata.items():
-            section = key.split(":")[0]
-            tag = key.split(":")[1] if len(key.split(":")) > 1 else key
-            
-            if section not in grouped:
-                grouped[section] = {}
-            
-            grouped[section][tag] = value
-        
-        return grouped
-
-
-    @err_catcher(name=__name__)
-    def displayMetadata(self, filePath):
-        metadata = self.getMetadata(filePath)
-
-        if metadata:
-            grouped_metadata = self.groupMetadata(metadata)
-            logger.debug("Showing MetaData Popup")
-            DisplayPopup.display(grouped_metadata, title="File Metadata")
-        else:
-            logger.warning("No metadata to display.")
-
-
-    @err_catcher(name=__name__)
-    def getFFprobeMetadata(self, filePath):
-        import subprocess                   #   TODO move
-        import json
-
-        cmd = [
-            self.browser.getFFprobePath(),
-            "-v", "error",
-            "-show_format",
-            "-show_streams",
-            "-print_format", "json",
-            filePath
-        ]
-
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            metadata_json = result.stdout
-            metadata = json.loads(metadata_json)
-
-            if metadata:
-                _debug_recursive_print(metadata, "ffprobe metadata")                        #   TESTING
-                
-                logger.debug(f"FFprobe metadata found for {filePath}")
-                return metadata
-            else:
-                logger.warning(f"FFprobe: No metadata found for {filePath}")
-                return {}
-
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"FFprobe failed for {filePath}: {e.stderr}")
-            return {}
-        except Exception as e:
-            logger.warning(f"Failed to get ffprobe metadata for {filePath}: {e}")
-            return {}
-
-
-    @err_catcher(name=__name__)
-    def groupFFprobeMetadata(self, metadata):
-        grouped = {}
-
-        if "format" in metadata:
-            grouped["format"] = {}
-            for k, v in metadata["format"].items():
-                if k == "tags" and isinstance(v, dict):
-                    # Unpack tags
-                    for tag_k, tag_v in v.items():
-                        grouped["format"][f"tag:{tag_k}"] = tag_v
-                else:
-                    grouped["format"][k] = v
-
-        if "streams" in metadata:
-            for idx, stream in enumerate(metadata["streams"]):
-                section_name = f"stream_{idx}"
-                grouped[section_name] = {}
-                for k, v in stream.items():
-                    if k == "tags" and isinstance(v, dict):
-                        # Unpack tags
-                        for tag_k, tag_v in v.items():
-                            grouped[section_name][f"tag:{tag_k}"] = tag_v
-                    else:
-                        grouped[section_name][k] = v
-
-        return grouped
+    #     def escape_xml(text):
+    #         if not text:
+    #             return ''
+    #         return (text.replace('&', '&amp;')
+    #                     .replace('<', '&lt;')
+    #                     .replace('>', '&gt;')
+    #                     .replace('"', '&quot;')
+    #                     .replace("'", '&apos;'))
 
 
 
-    @err_catcher(name=__name__)
-    def displayFFprobeMetadata(self, filePath):
-        metadata = self.getFFprobeMetadata(filePath)
+    #     metadata = self.getFFprobeMetadata(filePath)
+    #     if not metadata:
+    #         logger.warning(f"No metadata found for {filePath}, skipping XMP sidecar creation.")
+    #         return False
 
-        if metadata:
-            grouped_metadata = self.groupFFprobeMetadata(metadata)
-            logger.debug("Showing FFprobe MetaData Popup")
-            DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)")
-        else:
-            logger.warning("No FFprobe metadata to display.")
+    #     # Group tags by namespace (e.g. QuickTime, EXIF, XMP, etc.)
+    #     grouped = defaultdict(dict)
+    #     for key, value in metadata.items():
+    #         if ':' in key:
+    #             ns, tag = key.split(':', 1)
+    #         else:
+    #             ns, tag = 'Unknown', key
+    #         grouped[ns][tag] = value
 
+    #     # Build RDF description entries per namespace
+    #     rdf_descriptions = []
+    #     for ns, tags in grouped.items():
+    #         # Create a namespace URI for this group (simple guess)
+    #         ns_uri = f"http://ns.example.com/{ns.lower()}/"
+    #         # Start rdf:Description with namespace declaration
+    #         desc = [f'<rdf:Description rdf:about="" xmlns:{ns}="{ns_uri}">']
 
+    #         for tag, value in tags.items():
+    #             # Convert value to string, escape XML chars
+    #             val_str = escape_xml(str(value))
+    #             # Add element for this tag
+    #             desc.append(f'  <{ns}:{tag}>{val_str}</{ns}:{tag}>')
 
+    #         desc.append('</rdf:Description>')
+    #         rdf_descriptions.append('\n'.join(desc))
 
+    #     # Build full XMP packet
+    #     joined_descriptions = '\n    '.join(rdf_descriptions)
 
+    #     xmp_template = f'''<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
+    # <x:xmpmeta xmlns:x='adobe:ns:meta/'>
+    # <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
+    #     {joined_descriptions}
+    # </rdf:RDF>
+    # </x:xmpmeta>
+    # <?xpacket end='w'?>'''
 
-    @err_catcher(name=__name__)
-    def createSidecar(self, filePath):
-
-        from collections import defaultdict
-
-        def escape_xml(text):
-            if not text:
-                return ''
-            return (text.replace('&', '&amp;')
-                        .replace('<', '&lt;')
-                        .replace('>', '&gt;')
-                        .replace('"', '&quot;')
-                        .replace("'", '&apos;'))
-
-
-
-        metadata = self.getFFprobeMetadata(filePath)
-        if not metadata:
-            logger.warning(f"No metadata found for {filePath}, skipping XMP sidecar creation.")
-            return False
-
-        # Group tags by namespace (e.g. QuickTime, EXIF, XMP, etc.)
-        grouped = defaultdict(dict)
-        for key, value in metadata.items():
-            if ':' in key:
-                ns, tag = key.split(':', 1)
-            else:
-                ns, tag = 'Unknown', key
-            grouped[ns][tag] = value
-
-        # Build RDF description entries per namespace
-        rdf_descriptions = []
-        for ns, tags in grouped.items():
-            # Create a namespace URI for this group (simple guess)
-            ns_uri = f"http://ns.example.com/{ns.lower()}/"
-            # Start rdf:Description with namespace declaration
-            desc = [f'<rdf:Description rdf:about="" xmlns:{ns}="{ns_uri}">']
-
-            for tag, value in tags.items():
-                # Convert value to string, escape XML chars
-                val_str = escape_xml(str(value))
-                # Add element for this tag
-                desc.append(f'  <{ns}:{tag}>{val_str}</{ns}:{tag}>')
-
-            desc.append('</rdf:Description>')
-            rdf_descriptions.append('\n'.join(desc))
-
-        # Build full XMP packet
-        joined_descriptions = '\n    '.join(rdf_descriptions)
-
-        xmp_template = f'''<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
-    <x:xmpmeta xmlns:x='adobe:ns:meta/'>
-    <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
-        {joined_descriptions}
-    </rdf:RDF>
-    </x:xmpmeta>
-    <?xpacket end='w'?>'''
-
-        sidecar_path = os.path.splitext(filePath)[0] + '.xmp'
-        try:
-            with open(sidecar_path, 'w', encoding='utf-8') as f:
-                f.write(xmp_template)
-            logger.info(f"XMP sidecar created: {sidecar_path}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to write XMP sidecar for {filePath}: {e}")
-            return False
+    #     sidecar_path = os.path.splitext(filePath)[0] + '.xmp'
+    #     try:
+    #         with open(sidecar_path, 'w', encoding='utf-8') as f:
+    #             f.write(xmp_template)
+    #         logger.info(f"XMP sidecar created: {sidecar_path}")
+    #         return True
+    #     except Exception as e:
+    #         logger.error(f"Failed to write XMP sidecar for {filePath}: {e}")
+    #         return False
 
 
 
@@ -1319,7 +1081,7 @@ class FolderItem(BaseTileItem):
         self.l_icon.setPixmap(dir_icon.pixmap(32, 32))
 
         # Set the folder name (extract folder name from the path)
-        folder_name = os.path.basename(dir_path)
+        folder_name = Utils.getBasename(dir_path)
         self.l_fileName.setText(folder_name)
 
 
@@ -1338,7 +1100,7 @@ class FolderItem(BaseTileItem):
         rcmenu.addAction(showDataAct)
 
         expAct = QAction("Open in Explorer", self)
-        expAct.triggered.connect(lambda: self.openInExplorer(self.data["dirPath"]))
+        expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.data["dirPath"]))
         rcmenu.addAction(expAct)
 
         rcmenu.exec_(QCursor.pos())
@@ -1390,15 +1152,15 @@ class SourceFileItem(BaseTileItem):
         self.data["icon"] = icon
 
         #   Date
-        date_data = self.getFileDate(filePath)
+        date_data = Utils.getFileDate(filePath)
         self.data["source_mainFile_date_raw"] = date_data
         date_str = self.core.getFormattedDate(date_data)
         self.data["source_mainFile_date"] = date_str
 
         #   Size
-        mainSize_data = self.getFileSize(filePath)
+        mainSize_data = Utils.getFileSize(filePath)
         self.data["source_mainFile_size_raw"] = mainSize_data
-        mainSize_str = self.getFileSizeStr(mainSize_data)
+        mainSize_str = Utils.getFileSizeStr(mainSize_data)
         self.data["source_mainFile_size"] = mainSize_str
 
 
@@ -1432,9 +1194,9 @@ class SourceFileItem(BaseTileItem):
             self.data["source_mainFile_xRez"] = xRez
             self.data["source_mainFile_yRez"] = yRez
             self.data["source_mainFile_frames"] = frames
-            self.data["source_mainFile_fps"] = self.getFpsStr(fps)
+            self.data["source_mainFile_fps"] = Utils.getFpsStr(fps)
             self.data["source_mainFile_time_raw"] = time
-            self.data["source_mainFile_time"] = self.browser.getFormattedTimeStr(time)
+            self.data["source_mainFile_time"] = Utils.getFormattedTimeStr(time)
             self.data["source_mainFile_codec"] = codec
             self.data["source_mainFile_codecMetadata"] = codecMetatdata
 
@@ -1465,7 +1227,7 @@ class SourceFileItem(BaseTileItem):
             self.data["hasProxy"] = False
 
             #   Return if Not a Media File Type
-            ext = self.getFileExtension()
+            ext = Utils.getFileExtension(filePath=self.getSource_mainfilePath())
             if ext.lower() not in self.core.media.supportedFormats:
                 return
             
@@ -1479,13 +1241,13 @@ class SourceFileItem(BaseTileItem):
                 self.data["source_proxyFile_path"] = proxyFilepath
 
                 #   Set Source Proxy Date
-                date_data = self.getFileDate(proxyFilepath)
+                date_data = Utils.getFileDate(proxyFilepath)
                 date_str = self.core.getFormattedDate(date_data)
                 self.data["source_proxyFile_date"] = date_str
 
                 #   Set Source Proxy Filesize
-                mainSize_data = self.getFileSize(proxyFilepath)
-                mainSize_str = self.getFileSizeStr(mainSize_data)
+                mainSize_data = Utils.getFileSize(proxyFilepath)
+                mainSize_str = Utils.getFileSizeStr(mainSize_data)
                 self.data["source_proxyFile_size"] = mainSize_str
 
                 #   Set Source Proxy Hash
@@ -1509,7 +1271,7 @@ class SourceFileItem(BaseTileItem):
             #   Get Orig Names
             fullPath = self.getSource_mainfilePath()
             baseDir = os.path.dirname(fullPath)
-            baseName = os.path.basename(fullPath)
+            baseName = Utils.getBasename(fullPath)
             fileBase, _ = os.path.splitext(baseName)
 
             for pathTemplate in proxySearchList:
@@ -1520,7 +1282,7 @@ class SourceFileItem(BaseTileItem):
                 def replace_dirToken(match):
                     pre = match.group(1) or ""
                     post = match.group(2) or ""
-                    return os.path.join(os.path.dirname(baseDir), pre + os.path.basename(baseDir) + post)
+                    return os.path.join(os.path.dirname(baseDir), pre + Utils.getBasename(baseDir) + post)
 
                 #   Find any prefix/suffix on @MAINFILEDIR@
                 dir_pattern = re.compile(r"(.*?)@MAINFILEDIR@(.*?)")
@@ -1531,7 +1293,7 @@ class SourceFileItem(BaseTileItem):
 
                 #   Extract Info for Lookup
                 proxyDir = os.path.dirname(proxyPath)
-                targetFile = os.path.basename(proxyPath).lower()
+                targetFile = Utils.getBasename(proxyPath).lower()
                 targetFileBase, _ = os.path.splitext(targetFile)
 
                 #   Find Match in the Dir
@@ -1570,9 +1332,9 @@ class SourceFileItem(BaseTileItem):
             self.data["source_proxyFile_xRez"] = xRez
             self.data["source_proxyFile_yRez"] = yRez
             self.data["source_proxyFile_frames"] = frames
-            self.data["source_proxyFile_fps"] = self.getFpsStr(fps)
+            self.data["source_proxyFile_fps"] = Utils.getFpsStr(fps)
             self.data["source_proxyFile_time_raw"] = time
-            self.data["source_proxyFile_time"] = self.browser.getFormattedTimeStr(time)
+            self.data["source_proxyFile_time"] = Utils.getFormattedTimeStr(time)
             self.data["source_proxyFile_codec"] = codec
             self.data["source_proxyFile_codecMetadata"] = codecMetatdata
 
@@ -1733,7 +1495,7 @@ class SourceFileTile(BaseTileItem):
 
             # Display Name
             displayName = (
-                self.data["displayName"] if self.isSequence else self.getBasename(filePath)
+                self.data["displayName"] if self.isSequence else Utils.getBasename(filePath)
             )
             self.l_fileName.setText(displayName)
             self.l_fileName.setToolTip(f"FilePath: {filePath}")
@@ -1788,7 +1550,7 @@ class SourceFileTile(BaseTileItem):
     def setFileSize(self):
         if self.isSequence:
             totalSize_raw = self.getSequenceSize(self.data.get("sequenceItems", []))
-            totalSize_str = self.getFileSizeStr(totalSize_raw)
+            totalSize_str = Utils.getFileSizeStr(totalSize_raw)
         else:
             totalSize_str = self.data["source_mainFile_size"]
 
@@ -1819,19 +1581,19 @@ class SourceFileTile(BaseTileItem):
             rcmenu.addAction(refreshThumbAct)
 
             mDataAct = QAction("Show All MetaData", self.browser)
-            mDataAct.triggered.connect(lambda: self.displayMetadata(self.getSource_mainfilePath()))
+            mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataAct)
 
             mDataFFprobeAct = QAction("Show All MetaData (ffprobe)", self.browser)
-            mDataFFprobeAct.triggered.connect(lambda: self.displayFFprobeMetadata(self.getSource_mainfilePath()))
+            mDataFFprobeAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataFFprobeAct)
 
 
 
 
-            sidecarAct = QAction("Create Sidecar", self.browser)
-            sidecarAct.triggered.connect(lambda: self.createSidecar(self.getSource_mainfilePath()))
-            rcmenu.addAction(sidecarAct)
+            # sidecarAct = QAction("Create Sidecar", self.browser)
+            # sidecarAct.triggered.connect(lambda: self.createSidecar(self.getSource_mainfilePath()))
+            # rcmenu.addAction(sidecarAct)
 
 
 
@@ -1845,7 +1607,7 @@ class SourceFileTile(BaseTileItem):
             rcmenu.addAction(playerAct)
 
             expAct = QAction("Open in Explorer", self)
-            expAct.triggered.connect(lambda: self.openInExplorer(self.getSource_mainfilePath()))
+            expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getSource_mainfilePath()))
             rcmenu.addAction(expAct)
 
         rcmenu.exec_(QCursor.pos())
@@ -2106,7 +1868,7 @@ class DestFileTile(BaseTileItem):
                 displayName = self.data["displayName"]
             else:
                 source_mainFile_path = self.getSource_mainfilePath()
-                displayName = self.getBasename(source_mainFile_path)
+                displayName = Utils.getBasename(source_mainFile_path)
 
             #   Get Modified Name
             if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
@@ -2153,7 +1915,7 @@ class DestFileTile(BaseTileItem):
                 baseName = self.data["displayName"]
             else:
                 sourceMainPath = self.getSource_mainfilePath()
-                baseName = self.getBasename(sourceMainPath)
+                baseName = Utils.getBasename(sourceMainPath)
 
             #   Modifiy Name is Enabled
             if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
@@ -2189,7 +1951,7 @@ class DestFileTile(BaseTileItem):
             rel_proxyDir = os.path.relpath(source_proxyDir, source_mainDir)
 
             # Get just the proxy filename
-            proxy_fileName = os.path.basename(source_proxyFilePath)
+            proxy_fileName = Utils.getBasename(source_proxyFilePath)
 
             #   Modifiy Name is Enabled
             if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
@@ -2218,7 +1980,7 @@ class DestFileTile(BaseTileItem):
     def getMultipliedProxySize(self, frame=None, total=False):
         try:
             #   Get Main File Size
-            mainSize = self.getFileSize(self.getSource_mainfilePath())
+            mainSize = Utils.getFileSize(self.getSource_mainfilePath())
 
             if not mainSize:
                 return 0
@@ -2266,8 +2028,8 @@ class DestFileTile(BaseTileItem):
     def updateProxyPresetMultiplier(self):
         try:
             #   Get File Sizes
-            mainSize = self.getFileSize(self.data["dest_mainFile_path"])
-            proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
+            mainSize = Utils.getFileSize(self.data["dest_mainFile_path"])
+            proxySize = Utils.getFileSize(self.data["dest_proxyFile_path"])
 
             if mainSize <= 0 or proxySize <= 0:
                 logger.warning("Cannot update multiplier: one of the sizes is zero")
@@ -2358,7 +2120,7 @@ class DestFileTile(BaseTileItem):
         if self.isSequence:
             totalSize_raw = self.getSequenceSize(self.getSequenceItems())
             self.data["totalSeqSize"] = totalSize_raw
-            mainSize = self.getFileSizeStr(totalSize_raw)
+            mainSize = Utils.getFileSizeStr(totalSize_raw)
 
             duration = str(len(self.data["sequenceItems"]))
             self.data["seqDuration"] = duration
@@ -2426,11 +2188,11 @@ class DestFileTile(BaseTileItem):
             #   If Transferred Files Exists
             if os.path.exists(self.getDestMainPath()):
                 mDataAct = QAction("Show All MetaData", self.browser)
-                mDataAct.triggered.connect(lambda: self.displayMetadata(self.getDestMainPath()))
+                mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getDestMainPath()))
                 rcmenu.addAction(mDataAct)
 
                 expAct = QAction("Open Transferred File in Explorer", self)
-                expAct.triggered.connect(lambda: self.openInExplorer(self.getDestMainPath()))
+                expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getDestMainPath()))
                 rcmenu.addAction(expAct)
 
         rcmenu.exec_(QCursor.pos())
@@ -2476,7 +2238,7 @@ class DestFileTile(BaseTileItem):
         try:
             sourcePath = self.getSource_mainfilePath()
             #   Get Source Base Name and Modify if Enabled
-            source_baseFile = os.path.basename(sourcePath)
+            source_baseFile = Utils.getBasename(sourcePath)
             if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
                 source_baseFile = self.getModifiedName(source_baseFile)
 
@@ -2699,7 +2461,7 @@ class DestFileTile(BaseTileItem):
             self.setTransferStatus(progBar="transfer", status="Transferring")
 
             self.transferProgBar.setValue(value)
-            self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
+            self.l_amountCopied.setText(Utils.getFileSizeStr(copied_size))
             self.main_copiedSize = copied_size
 
 
@@ -2710,7 +2472,7 @@ class DestFileTile(BaseTileItem):
             self.setTransferStatus(progBar="proxy", status="Transferring Proxy")
 
             self.proxyProgBar.setValue(value)
-            self.l_amountCopied.setText(self.getFileSizeStr(copied_size))
+            self.l_amountCopied.setText(Utils.getFileSizeStr(copied_size))
             self.proxy_copiedSize = copied_size
 
 
@@ -2943,8 +2705,8 @@ class DestFileTile(BaseTileItem):
         if success:
             self.proxyProgBar.setValue(100)
             if self.checkFilesExist("proxy"):
-                proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
-                self.data["dest_proxyFile_size"] = self.getFileSizeStr(proxySize)
+                proxySize = Utils.getFileSize(self.data["dest_proxyFile_path"])
+                self.data["dest_proxyFile_size"] = Utils.getFileSizeStr(proxySize)
 
                 status = "Generating Hash"
                 tip = "Proxy Transferred"
@@ -2999,8 +2761,8 @@ class DestFileTile(BaseTileItem):
        
         if result == "success":
             if self.checkFilesExist("proxy"):
-                proxySize = self.getFileSize(self.data["dest_proxyFile_path"])
-                self.data["dest_proxyFile_size"] = self.getFileSizeStr(proxySize)
+                proxySize = Utils.getFileSize(self.data["dest_proxyFile_path"])
+                self.data["dest_proxyFile_size"] = Utils.getFileSizeStr(proxySize)
                 status = "Complete"
                 tip = "Proxy Generated"
 

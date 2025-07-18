@@ -147,33 +147,8 @@ class DisplayPopup(QDialog):
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
 
-        # Display content
-        if isinstance(data, dict):
-            for section, items in data.items():
-                if isinstance(items, dict):
-                    # Handle header section (Transfer info)
-                    dataGroup = QGroupBox(str(section))
-                    font = QFont()
-                    font.setBold(True)
-                    dataGroup.setFont(font)
-                    
-                    lo_form = QFormLayout()
-
-                    for key, value in items.items():
-                        lo_form.addRow(str(key), QLabel(str(value)))
-
-                    dataGroup.setLayout(lo_form)
-                    scroll_layout.addWidget(dataGroup)
-
-                elif isinstance(items, list):
-                    # Handle file list section (Files)
-                    for group_box in items:
-                        scroll_layout.addWidget(group_box)
-
-        else:
-            raw_label = QLabel(str(data))
-            raw_label.setWordWrap(True)
-            scroll_layout.addWidget(raw_label)
+        # Recursively display data
+        self._add_recursive(scroll_layout, data)
 
         scroll_layout.addStretch(1)
         scroll_area.setWidget(scroll_widget)
@@ -203,12 +178,52 @@ class DisplayPopup(QDialog):
     def display(data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None):
         try:
             dialog = DisplayPopup(data, title=title, buttons=buttons, xScale=xScale, yScale=yScale, xSize=xSize, ySize=ySize)
-            logger.debug(f"Showing DisplayPopup: {title}")
             dialog.exec_()
             return dialog.result
         
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Show DisplayPopup:\n{e}")
+
+
+    def _add_recursive(self, layout, data, indent=0):
+        """
+        Recursively adds data into layout with indentation.
+        """
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, (dict, list)):
+                    # Section header
+                    header = QLabel(" " * indent + str(key))
+                    font = header.font()
+                    font.setBold(True)
+                    header.setFont(font)
+                    layout.addWidget(header)
+
+                    self._add_recursive(layout, value, indent + 4)
+                else:
+                    # Simple key-value
+                    hlayout = QHBoxLayout()
+                    key_lbl = QLabel(" " * indent + str(key) + ":")
+                    val_lbl = QLabel(str(value))
+                    val_lbl.setWordWrap(True)
+                    hlayout.addWidget(key_lbl)
+                    hlayout.addWidget(val_lbl)
+                    layout.addLayout(hlayout)
+
+        elif isinstance(data, list):
+            for idx, item in enumerate(data):
+                header = QLabel(" " * indent + f"[{idx}]")
+                font = header.font()
+                font.setBold(True)
+                header.setFont(font)
+                layout.addWidget(header)
+                self._add_recursive(layout, item, indent + 4)
+        else:
+            # Raw value
+            lbl = QLabel(" " * indent + str(data))
+            lbl.setWordWrap(True)
+            layout.addWidget(lbl)
+
 
 
 

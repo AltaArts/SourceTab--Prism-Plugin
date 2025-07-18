@@ -56,7 +56,6 @@ import re
 import hashlib
 import subprocess
 import psutil
-import numpy
 import signal
 import platform
 import shlex
@@ -66,10 +65,10 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
-if sys.version[0] == "3":
-    pVersion = 3
-else:
-    pVersion = 2
+# if sys.version[0] == "3":
+#     pVersion = 3
+# else:
+#     pVersion = 2
 
 prismRoot = os.getenv("PRISM_ROOT")
 
@@ -84,7 +83,7 @@ sys.path.append(pluginRoot)
 sys.path.append(uiPath)
 
 
-from PrismUtils.Decorators import err_catcher
+import SourceTab_Utils as Utils
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +131,7 @@ class ThumbnailWorker(QObject, QRunnable):
 
             #   Get Thumbnail for Media Formats
             else:
-                thumbPath = self.getThumbnailPath(self.filePath)
+                thumbPath = Utils.getThumbnailPath(self.filePath)
                 if not self.regenerate and os.path.exists(thumbPath):
                 #   Use Saved Thumbnail in "_thumbs" if Exists
                     thumbImage = QImage(thumbPath)
@@ -155,296 +154,20 @@ class ThumbnailWorker(QObject, QRunnable):
             self.origin.thumb_semaphore.release()
 
 
-    def getThumbnailPath(self, path):
-        thumbPath = os.path.join(os.path.dirname(path), "_thumbs", os.path.basename(os.path.splitext(path)[0]) + ".jpg")
-        return thumbPath
-    
-
-    def getUseThumbnails(self):
-        return self.core.getConfig("globals", "useMediaThumbnails", dft=True)
-
-
-    @err_catcher(name=__name__)
     def getThumbImageFromPath(self, path, saveThumbWidth=None, colorAdjust=False):
         if not path:
             return
 
-        ext = os.path.splitext(path)[1].lower()
+        ext = Utils.getFileExtension(filePath=path)
 
         if ext in self.core.media.videoFormats:
-            thumbImage = self.getThumbImageFromVideoPath(path, thumbWidth=saveThumbWidth)
+            thumbImage = Utils.getThumbFromVideoPath(self.core, path, thumbWidth=saveThumbWidth)
         
         elif ext in [".exr", ".dpx", ".hdr"]:
-            thumbImage = self.getThumbImageFromExrPath(path, thumbWidth=saveThumbWidth)
+            thumbImage = Utils.getThumbImageFromExrPath(self.core, path, thumbWidth=saveThumbWidth)
 
         else:
-            thumbImage = self.getThumbFromImage(path, maxWidth=self.saveThumbWidth)                #   NEEDED???
-
-        return thumbImage
-
-
-    def getThumbImageFromVideoPath(
-        self, path, thumbWidth, allowThumb=True, regenerateThumb=False, videoReader=None, imgNum=0
-    ):
-
-        fallbackPath = self.origin.browser.getFallBackImage(filePath=path)
-
-        try:
-            #   Attempt to Use Prism Native VideoReader (fast)
-            vidFile = self.core.media.getVideoReader(path) if videoReader is None else videoReader
-            if self.core.isStr(vidFile):
-                raise RuntimeError(vidFile)
-
-            #   Success: Read Frame
-            image = vidFile.get_data(imgNum)
-            fileRes = vidFile._meta["size"]
-            width = fileRes[0]
-            height = fileRes[1]
-            qimg = QImage(image, width, height, 3 * width, QImage.Format_RGB888)
-
-            #   Resize
-            origWidth = qimg.width()
-            origHeight = qimg.height()
-            thumbHeight = int(origHeight * (thumbWidth / origWidth))
-            thumbImage = qimg.scaled(
-                thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                )
-
-            return thumbImage
-
-        except Exception as e:
-            logger.warning(f"[Thumbnail Worker] Prism Video Reader failed for {path}, falling back to ffmpeg:\n{e}")
-
-            #   Fallback to FFfmpeg
-            try:
-                import tempfile
-
-                ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
-
-                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmpfile:
-                    thumbTempPath = tmpfile.name
-
-                creationflags = 0
-                if sys.platform == "win32":
-                    creationflags = subprocess.CREATE_NO_WINDOW
-
-                cmd = [
-                    ffmpegPath,
-                    "-v", "error",
-                    "-y",
-                    "-ss", "00:00:01.000",
-                    "-i", path,
-                    "-frames:v", "1",
-                    "-q:v", "2",
-                    thumbTempPath,
-                ]
-
-                result = subprocess.run(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    creationflags=creationflags,
-                )
-
-                if result.returncode != 0:
-                    logger.warning(f"FFmpeg thumbnail failed: {result.stderr}")
-                    return QImage(fallbackPath)
-
-                thumbImage = QImage(thumbTempPath)
-
-                if not thumbImage.isNull() and thumbWidth > 0:
-                    origWidth = thumbImage.width()
-                    origHeight = thumbImage.height()
-                    thumbHeight = int(origHeight * (thumbWidth / origWidth))
-                    thumbImage = thumbImage.scaled(
-                        thumbWidth, thumbHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation
-                    )
-
-                return thumbImage
-
-            except Exception as e2:
-                logger.warning(f"FFmpeg fallback failed for {path}: {e2}")
-                return QImage(fallbackPath)
-
-            finally:
-                try:
-                    os.remove(thumbTempPath)
-                except Exception:
-                    pass
-
-
-
-    def getThumbImageFromExrPath(self, path, thumbWidth=None, channel=None, allowThumb=True, regenerateThumb=False):
-        oiio = self.core.media.getOIIO()
-        if not oiio:                                #   TODO - LOOK AT THIS
-            return self.getPixmapFromExrPathWithoutOIIO(path, width=None, height=None, channel=channel,
-                                                        allowThumb=allowThumb, regenerateThumb=regenerateThumb)
-
-        path = str(path)
-        imgInput = oiio.ImageInput.open(path)
-        if not imgInput:
-            logger.debug("failed to read media file: %s" % path)
-            return
-
-        chbegin = 0
-        chend = 3
-        numChannels = 3
-        subimage = 0
-
-        if channel:
-            # Custom channel logic (unchanged from yours)
-            while imgInput.seek_subimage(subimage, 0):
-                idx = imgInput.spec().channelindex(channel + ".R")
-                if idx == -1:
-                    for suffix in [".red", ".r", ".x", ".Z"]:
-                        idx = imgInput.spec().channelindex(channel + suffix)
-                        if idx != -1:
-                            if suffix == ".Z":
-                                numChannels = 1
-                            break
-                    if idx == -1 and channel in ["RGB", "RGBA"]:
-                        idx = imgInput.spec().channelindex("R")
-                if idx == -1:
-                    subimage += 1
-                else:
-                    chbegin = idx
-                    chend = chbegin + numChannels
-                    break
-        else:
-            # FAST: Try to get RGB, fallback to grayscale
-            while imgInput.seek_subimage(subimage, 0):
-                spec = imgInput.spec()
-                r = spec.channelindex("R")
-                g = spec.channelindex("G")
-                b = spec.channelindex("B")
-                y = spec.channelindex("Y")
-                z = spec.channelindex("Z")
-
-                if r != -1 and g != -1 and b != -1:
-                    chbegin = r
-                    chend = r + 3
-                    numChannels = 3
-                    break
-                elif y != -1:
-                    chbegin = y
-                    chend = y + 1
-                    numChannels = 1
-                    break
-                elif z != -1:
-                    chbegin = z
-                    chend = z + 1
-                    numChannels = 1
-                    break
-                else:
-                    # fallback: use first available channel if nothing else found
-                    chbegin = 0
-                    chend = 1
-                    numChannels = 1
-                    break
-
-                subimage += 1
-
-
-        try:
-            pixels = imgInput.read_image(subimage=subimage, miplevel=0, chbegin=chbegin, chend=chend)
-        except Exception as e:
-            logger.warning("failed to read image: %s - %s" % (path, e))
-            return
-
-        if pixels is None:
-            logger.warning("failed to read image (no pixels): %s" % (path))
-            return
-
-        spec = imgInput.spec()
-        imgWidth = spec.full_width
-        imgHeight = spec.full_height
-        if not imgWidth or not imgHeight:
-            return
-
-        rgbImgSrc = oiio.ImageBuf(
-            oiio.ImageSpec(imgWidth, imgHeight, numChannels, oiio.UINT16)
-        )
-        imgInput.close()
-
-        if "numpy" in globals():
-            rgbImgSrc.set_pixels(spec.roi, numpy.array(pixels))
-        else:
-            for h in range(imgHeight):
-                for w in range(imgWidth):
-                    color = [pixels[h][w][0], pixels[h][w][1], pixels[h][w][2]]
-                    rgbImgSrc.setpixel(w, h, 0, color)
-
-        # --- Thumbnail Size Calculation ---
-        if thumbWidth:
-            thumbHeight = int(imgHeight * (thumbWidth / float(imgWidth)))
-            newImgWidth = thumbWidth
-            newImgHeight = thumbHeight
-        else:
-            newImgWidth = imgWidth
-            newImgHeight = imgHeight
-
-        # --- Resize and gamma correct ---
-        imgDst = oiio.ImageBuf(
-            oiio.ImageSpec(int(newImgWidth), int(newImgHeight), numChannels, oiio.UINT16)
-        )
-        oiio.ImageBufAlgo.resample(imgDst, rgbImgSrc)
-        sRGBimg = oiio.ImageBuf()
-        oiio.ImageBufAlgo.pow(sRGBimg, imgDst, (1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2))
-        bckImg = oiio.ImageBuf(
-            oiio.ImageSpec(int(newImgWidth), int(newImgHeight), numChannels, oiio.UINT16)
-        )
-        oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
-        oiio.ImageBufAlgo.paste(bckImg, 0, 0, 0, 0, sRGBimg)
-
-        # --- Fast numpy-to-QImage conversion ---
-        try:
-            arr = bckImg.get_pixels(oiio.FLOAT)  # shape: (H, W, C)
-            arr = numpy.clip(arr * 255.0, 0, 255).astype(numpy.uint8)
-            height, width, channels = arr.shape
-
-            if channels >= 3:
-                fmt = QImage.Format_RGB888
-                arr = arr[:, :, :3]
-            else:
-                fmt = QImage.Format_Grayscale8
-
-            bytesPerLine = width * arr.shape[2]
-            thumbImage = QImage(arr.data, width, height, bytesPerLine, fmt).copy()
-
-        except Exception as e:
-            logger.debug(f"[Fallback] Slow pixel copy: {e}")
-            thumbImage = QImage(int(newImgWidth), int(newImgHeight), QImage.Format_RGB32)
-            for i in range(int(newImgWidth)):
-                for k in range(int(newImgHeight)):
-                    px = bckImg.getpixel(i, k)
-                    if numChannels == 3:
-                        rgb = qRgb(px[0] * 255, px[1] * 255, px[2] * 255)
-                    else:
-                        v = px[0] * 255
-                        rgb = qRgb(v, v, v)
-                    thumbImage.setPixel(i, k, rgb)
-
-        return thumbImage
-
-
-    def getThumbFromImage(self, path, maxWidth=320):
-        reader = QImageReader(path)
-        if not reader.canRead():
-            logger.warning(f"Cannot read image: {path}")
-            return None
-
-        thumbImage = reader.read()
-        if thumbImage.isNull():
-            logger.warning(f"Failed to load image: {path}")
-            return None
-
-        #   Scale by Width
-        origWidth = thumbImage.width()
-        origHeight = thumbImage.height()
-        if origWidth > maxWidth:
-            newHeight = int(origHeight * (maxWidth / origWidth))
-            thumbImage = thumbImage.scaled(maxWidth, newHeight, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            thumbImage = Utils.getThumbFromImage(path, maxWidth=self.saveThumbWidth)
 
         return thumbImage
 
@@ -492,8 +215,6 @@ class FileHashWorker(QObject, QRunnable):
 
 
 
-
-
 ###     File Info Worker Thread    ###
 class FileInfoWorker(QObject, QRunnable):
     finished = Signal(int, float, float, str, dict, int, int)
@@ -509,7 +230,7 @@ class FileInfoWorker(QObject, QRunnable):
     @Slot()
     def run(self):
         try:
-            extension = os.path.splitext(os.path.basename(self.filePath))[1].lower()
+            extension = os.path.splitext(Utils.getBasename(self.filePath))[1].lower()
 
             frames = 1
             fps = 0.0
@@ -523,7 +244,7 @@ class FileInfoWorker(QObject, QRunnable):
             fileType = self.origin.fileType
 
             if fileType in ("Videos", "Images", "Audio"):
-                ffprobePath = self.origin.browser.getFFprobePath()
+                ffprobePath = Utils.getFFprobePath()
 
                 kwargs = {
                     "stdout": subprocess.PIPE,
@@ -915,7 +636,7 @@ class ProxyGenerationWorker(QThread):
         #   Create Proxy Dir if Needed
         os.makedirs(os.path.dirname(self.outputPath), exist_ok=True)
 
-        # inputExt = os.path.splitext(os.path.basename(self.inputPath))[1].lower()
+        # inputExt = os.path.splitext(Utils.getBasename(self.inputPath))[1].lower()
         # videoInput = inputExt in self.core.media.videoFormats
         # startNum = 0 if videoInput else 0                                                #   NEEDED???
 

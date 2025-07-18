@@ -70,6 +70,7 @@ from SourceFunctions_ui import Ui_w_sourceFunctions
 
 from PopupWindows import NamingPopup, ProxyPopup
 from MetadataEditor import MetadataEditor
+import SourceTab_Utils as Utils
 
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        self.b_openDestDir.clicked.connect(lambda: self.openInExplorer(self.sourceBrowser.destDir))
+        self.b_openDestDir.clicked.connect(lambda: Utils.openInExplorer(self.core, self.sourceBrowser.destDir))
         self.b_ovr_config_proxy.clicked.connect(self.configProxy)
         self.b_ovr_config_fileNaming.clicked.connect(self.configFileNaming)
         self.b_ovr_config_metadata.clicked.connect(self.configMetadata)
@@ -240,10 +241,6 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             logger.warning(f"ERROR:  Failed to Update Functions Panel UI:\n{e}")
 
 
-    @err_catcher(name=__name__)
-    def openInExplorer(self, path):
-        self.sourceBrowser.openInExplorer(os.path.normpath(path))
-
 
     #   Opens File Naming Window to Configure
     @err_catcher(name=__name__)
@@ -261,7 +258,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             fileItem = self.sourceBrowser.lw_destination.itemWidget(listItem)
             
             filePath = fileItem.getSource_mainfilePath()
-            fileName = os.path.basename(filePath)
+            fileName = Utils.getBasename(filePath)
 
         #   Call Popup and pass Basename and Existing Modifiers
         namePopup = NamingPopup(self.core, fileName, mods=self.sourceBrowser.nameMods)
