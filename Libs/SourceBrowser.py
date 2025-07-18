@@ -1330,25 +1330,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             elif mode == "dest" and hasattr(self, "destDir"):
                 dir = self.destDir
 
-        #   Create Dir Select Dialog
-        dialog = QFileDialog(None, f"Select {mode.capitalize()} Directory", dir or "")
-        dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
-        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, False)
-        dialog.setOption(QFileDialog.Option.ReadOnly, True)
-        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        title = f"Select {mode.capitalize()} Directory"
+        selected_path = Utils.explorerDialogue(title=title, dir=dir, selDir=True)
 
-        if dialog.exec():
-            selected_path = dialog.selectedFiles()[0]
+        if not selected_path:
+            return
+        
+        if os.path.isfile(selected_path):
+            selected_path = os.path.dirname(selected_path)
 
-            if os.path.isfile(selected_path):
-                selected_path = os.path.dirname(selected_path)
-
-            if mode == "source":
-                self.sourceDir = os.path.normpath(selected_path)
-                self.refreshSourceItems()
-            elif mode == "dest":
-                self.destDir = os.path.normpath(selected_path)
-                self.refreshDestItems()
+        if mode == "source":
+            self.sourceDir = os.path.normpath(selected_path)
+            self.refreshSourceItems()
+        elif mode == "dest":
+            self.destDir = os.path.normpath(selected_path)
+            self.refreshDestItems()
 
             return selected_path
 

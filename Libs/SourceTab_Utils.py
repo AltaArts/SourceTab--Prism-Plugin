@@ -171,6 +171,26 @@ def createUUID(simple:bool=False, length:int=8) -> str:
         return shortUID
     
 
+def explorerDialogue(title:str=None, dir:str=None, selDir:bool=True) -> str:
+    """Show a File Dialog to Pick a Directory or File"""
+    dialog = QFileDialog(None, title or "Select Path", dir or "")
+
+    if selDir:
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
+    else:
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+
+    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, False)
+    dialog.setOption(QFileDialog.Option.ReadOnly, True)
+
+    if dialog.exec():
+        selected_path = dialog.selectedFiles()[0]
+        return selected_path
+
+    return None
+
+
 def openInExplorer(core, path:str) -> None:
     '''Opens Path in File Explorer'''
     if os.path.isdir(path):

@@ -60,13 +60,14 @@ from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
-pluginPath = os.path.dirname(os.path.dirname(__file__))                              #   NEEDED ???
+pluginPath = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(pluginPath)
 sys.path.append(os.path.join(pluginPath, "Libs"))
 
 
 import SourceBrowser as SourceBrowser
 from PopupWindows import OcioConfigPopup
+import SourceTab_Utils as Utils
 
 
 #   Custom Logging Level to Display when Prism Debug Mode is Off
@@ -272,8 +273,13 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_customIcon.setContentsMargins(50, 0, 20, 0)
         projectSettings.chb_useCustomIcon = QCheckBox("Custom Icon", projectSettings.w_config)
         projectSettings.le_customIconPath = QLineEdit(projectSettings.w_config)
+        projectSettings.b_customIconPath = QPushButton(projectSettings.w_config)
+        projectSettings.b_customIconPath.setFixedWidth(40)
+        dirIconPath = os.path.join(pluginPath, "Libs", "UserInterfaces", "Icons", "folder.png")
+        projectSettings.b_customIconPath.setIcon(QIcon(dirIconPath))
         projectSettings.lo_customIcon.addWidget(projectSettings.chb_useCustomIcon)
         projectSettings.lo_customIcon.addWidget(projectSettings.le_customIconPath)
+        projectSettings.lo_customIcon.addWidget(projectSettings.b_customIconPath)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customIcon)
 
         #   Libraries Import Popup
@@ -361,12 +367,16 @@ class Prism_SourceTab_Functions(object):
         projectSettings.chb_useCustomIcon.setToolTip(tip)
         projectSettings.le_customIconPath.setToolTip(tip)
 
+        tip = "Opens File Explorer to Choose Icon"
+        projectSettings.b_customIconPath.setToolTip(tip)
+
         tip = ("If the Prism Libraries Plugin is Installed, this will Open a Custom\n"
                "Libraries Dialogue to choose a Destination Path.")
         projectSettings.chb_useLibImport.setToolTip(tip)
 
         #   CONNECTIONS
         projectSettings.chb_useCustomIcon.toggled.connect(lambda: self.configureSettingsUI(projectSettings))
+        projectSettings.b_customIconPath.clicked.connect(lambda: self.selectCustomIconPath(projectSettings))
         # projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
 
         logger.debug("Added Settings UI to Prism Project Settings")
@@ -378,6 +388,29 @@ class Prism_SourceTab_Functions(object):
         checked = projectSettings.chb_useCustomIcon.isChecked()
         projectSettings.le_customIconPath.setEnabled(checked)
 
+
+    #   Opens File Explorer to Choose Custom Icon
+    @err_catcher(name=__name__)
+    def selectCustomIconPath(self, projectSettings):
+        title = f"Select Custom Icon"
+        selected_path = Utils.explorerDialogue(title=title, selDir=False)
+
+        if not selected_path:
+            return
+        
+        try:
+            if os.path.isfile(selected_path):
+                still_exts = [".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", ".tif", ".webp"]
+                ext = Utils.getFileExtension(filePath=selected_path)
+                if ext not in still_exts:
+                    self.core.popup("It appears that the Selected Image file is not a Still Image type,\n"
+                                    "and may not work correctly as an Icon.")
+                path = os.path.normpath(selected_path)
+                projectSettings.le_customIconPath.setText(path)
+                logger.debug("Changed Custom Icon Path")
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Set Custom Icon Path: {e}")
 
 
     #   Gets SourceTab Settings when Prism Project Settings Loads
