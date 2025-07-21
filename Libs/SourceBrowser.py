@@ -83,7 +83,6 @@ sys.path.append(uiPath)
 
 
 #   Python Libs
-import simpleaudio as sa
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
@@ -270,29 +269,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             setattr(self, f"icon_{name}", icon)
 
 
-    #   Plays Audio with Simple Audio
-    @err_catcher(name=__name__)
-    def playSound(self, path):
-        try:
-            wave_obj = sa.WaveObject.from_wave_file(path)
-            play_obj = wave_obj.play()
-            play_obj.wait_done()
-
-        except Exception:
-            QApplication.beep()
-
-
     @err_catcher(name=__name__)
     def loadLayout(self):
         #   Set Icons
-        upIcon = self.getIconFromPath(os.path.join(iconDir, "up.png"))
-        dirIcon = self.getIconFromPath(os.path.join(iconDir, "folder.png"))
-        refreshIcon = self.getIconFromPath(os.path.join(iconDir, "reset.png"))
-        tipIcon = self.getIconFromPath(os.path.join(iconDir, "help.png"))
-        sortIcon = self.getIconFromPath(os.path.join(iconDir, "sort.png"))
-        durationIcon = self.getIconFromPath(os.path.join(iconDir, "duration.png"))
-        filtersIcon = self.getIconFromPath(os.path.join(iconDir, "filters.png"))
-        sequenceIcon = self.getIconFromPath(os.path.join(iconDir, "sequence.png"))
+        upIcon = Utils.getIconFromPath(os.path.join(iconDir, "up.png"))
+        dirIcon = Utils.getIconFromPath(os.path.join(iconDir, "folder.png"))
+        refreshIcon = Utils.getIconFromPath(os.path.join(iconDir, "reset.png"))
+        tipIcon = Utils.getIconFromPath(os.path.join(iconDir, "help.png"))
+        sortIcon = Utils.getIconFromPath(os.path.join(iconDir, "sort.png"))
+        durationIcon = Utils.getIconFromPath(os.path.join(iconDir, "duration.png"))
+        filtersIcon = Utils.getIconFromPath(os.path.join(iconDir, "filters.png"))
+        sequenceIcon = Utils.getIconFromPath(os.path.join(iconDir, "sequence.png"))
 
         ##   Source Panel
         #   Set Button Icons
@@ -460,19 +447,47 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)                                                     #   TODO - FINISH
     def getCheatsheet(self, mode, tip=False):
 
-        cheatSheet = '''
-Up-Arror:  Go up one level in the Directory
-Folder:  Open Explorer to Choose Source Directory
-Double-Click Item:  Toogles the Item's Checkbox
-Double-Click Thumbnail:  Opens Media in External Player
-Double-Click PXY Icon:  Opens Proxy Media in External Player
+        cheatPath = os.path.join(uiPath, "Cheatsheet-Source.png")
+        cheatImage = QImage(cheatPath)
 
-'''
-        if tip:
-            return cheatSheet
+        target_width = 1000
+        target_height = cheatImage.height() * target_width // cheatImage.width()
+
+
+        scaled_image = cheatImage.scaled(
+            target_width,
+            target_height,
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+        pixMap = QPixmap.fromImage(scaled_image)
+
+        # Convert QPixmap to Base64
+        byte_array = QByteArray()
+        buffer = QBuffer(byte_array)
+        buffer.open(QIODevice.WriteOnly)
+        pixMap.save(buffer, "PNG")
+
+
+        base64_data = byte_array.toBase64().data().decode()
+        cheatTip = f'<img src="data:image/png;base64,{base64_data}" width="{target_width}"/>'
+
+        return cheatTip
+
+
+#         cheatSheet = '''
+# Up-Arror:  Go up one level in the Directory
+# Folder:  Open Explorer to Choose Source Directory
+# Double-Click Item:  Toogles the Item's Checkbox
+# Double-Click Thumbnail:  Opens Media in External Player
+# Double-Click PXY Icon:  Opens Proxy Media in External Player
+
+# '''
+#         if tip:
+#             return cheatSheet
         
-        else:
-            DisplayPopup.display(cheatSheet, title="Help", modal=False)
+        # else:
+        #     DisplayPopup.display(cheatSheet, title="Help", modal=False)
 
 
     @err_catcher(name=__name__)
@@ -546,7 +561,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             refreshAct = QAction("Refresh List", self)
             refreshAct.triggered.connect(self.refreshSourceItems)
             rcmenu.addAction(refreshAct)
-                # refresh = self.refreshSourceItems
 
         elif lw == self.lw_destination and not item:
             clearAct = QAction("Clear Transfer List", self)
@@ -564,6 +578,21 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
     def showSortMenu(self, table):
         cpos = QCursor.pos()
         sortMenu = QMenu(self)
+
+        def _applyAndClose():
+            self.sortOptions[table] = {
+                "groupTypes": cb_groupTypes.isChecked(),
+                "ascending": rb_asc.isChecked(),
+                "sortType": self._getSelectedSortType(radioButtons)
+            }
+            sortMenu.close()
+            self.plugin.saveSettings(key="sortOptions", data=self.sortOptions)
+
+            if table == "source":
+                self.refreshSourceTable(restoreSelection=True)
+            elif table == "destination":
+                self.refreshDestTable(restoreSelection=True)
+
 
         opts = self.sortOptions.get(table, {
             "groupTypes": True,
@@ -586,7 +615,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         #   Sort Type Radio Buttons
         sortTypeGroup = QButtonGroup(sortMenu)
-        # sortTypes = ["Name", "Date", "Size", "Duration"]                      #   TODO ADD DURATION SORTING
         sortTypes = ["Name", "Date", "Size"]
         radioButtons = {}
         for label in sortTypes:
@@ -618,22 +646,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         b_apply = QPushButton("Apply")
         b_apply.setFixedWidth(80)
         b_apply.setStyleSheet("font-weight: bold;")
-
-        def applyAndClose():
-            self.sortOptions[table] = {
-                "groupTypes": cb_groupTypes.isChecked(),
-                "ascending": rb_asc.isChecked(),
-                "sortType": self._getSelectedSortType(radioButtons)
-            }
-            sortMenu.close()
-            self.plugin.saveSettings(key="sortOptions", data=self.sortOptions)
-
-            if table == "source":
-                self.refreshSourceTable(restoreSelection=True)
-            elif table == "destination":
-                self.refreshDestTable(restoreSelection=True)
-
-        b_apply.clicked.connect(applyAndClose)
+        b_apply.clicked.connect(_applyAndClose)
         layout.addWidget(b_apply, alignment=Qt.AlignRight)
 
         wrapperAction = QWidgetAction(self)
@@ -641,6 +654,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         sortMenu.addAction(wrapperAction)
 
         sortMenu.exec_(cpos)
+
 
     #   Helper for Sort Menu
     @err_catcher(name=__name__)
@@ -662,6 +676,22 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             action = QWidgetAction(self)
             action.setDefaultWidget(widget)
             return action
+        
+        #   Helper for filtersRCL()
+        def _applyFilterStates(checkboxRefs, menu, table):
+            if table == "source":
+                for label, cb in checkboxRefs.items():
+                    self.filterStates_source[label] = cb.isChecked()
+
+                self.refreshSourceTable(restoreSelection=True)
+
+            elif table == "destination":
+                for label, cb in checkboxRefs.items():
+                    self.filterStates_dest[label] = cb.isChecked()
+
+                self.refreshDestTable(restoreSelection=True)
+
+            menu.close()
 
         #   Temporary State Dictionary
         if table == "source":
@@ -691,30 +721,13 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
         b_apply = QPushButton("Apply")
         b_apply.setFixedWidth(80)
         b_apply.setStyleSheet("font-weight: bold;")
-        b_apply.clicked.connect(lambda: self._applyFilterStates(checkboxRefs, rcmenu, table))
+        b_apply.clicked.connect(lambda: _applyFilterStates(checkboxRefs, rcmenu, table))
         rcmenu.addAction(_wrapWidget(b_apply))
 
         if rcmenu.isEmpty():
             return False
 
         rcmenu.exec_(cpos)
-
-
-    #   Helper for filtersRCL()
-    def _applyFilterStates(self, checkboxRefs, menu, table):
-        if table == "source":
-            for label, cb in checkboxRefs.items():
-                self.filterStates_source[label] = cb.isChecked()
-
-            self.refreshSourceTable(restoreSelection=True)
-
-        elif table == "destination":
-            for label, cb in checkboxRefs.items():
-                self.filterStates_dest[label] = cb.isChecked()
-
-            self.refreshDestTable(restoreSelection=True)
-
-        menu.close()
 
 
     #   Toggles Duration Display in Tiles
@@ -978,53 +991,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             for preset in presets:
                 self.PreviewPlayer.cb_viewLut.addItem(preset["name"])
 
-    
-    #   Returns QIcon with Both Normal and Disabled Versions
-    @err_catcher(name=__name__)
-    def getIconFromPath(self, imagePath, normalLevel=0.9, dimLevel=0.4):
-        try:
-            normal_pixmap = QPixmap(imagePath)
-            normal_image = normal_pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
-
-            #   Darken Normal Version Slightly (normalLevel)
-            darkened_normal_image = QImage(normal_image.size(), QImage.Format_ARGB32)
-
-            for y in range(normal_image.height()):
-                for x in range(normal_image.width()):
-                    color = normal_image.pixelColor(x, y)
-
-                    #   Reduce brightness to normalLevel
-                    dark = int(color.red() * normalLevel)
-                    color = QColor(dark, dark, dark, color.alpha())
-                    darkened_normal_image.setPixelColor(x, y, color)
-
-            darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
-
-            #   Darken Disbled Version More (dimLevel)
-            disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
-
-            for y in range(normal_image.height()):
-                for x in range(normal_image.width()):
-                    color = normal_image.pixelColor(x, y)
-
-                    # Reduce brightness to 40%
-                    dark = int(color.red() * dimLevel)
-                    color = QColor(dark, dark, dark, color.alpha())
-                    disabled_image.setPixelColor(x, y, color)
-
-            disabled_pixmap = QPixmap.fromImage(disabled_image)
-
-            #   Convert to QIcon
-            icon = QIcon()
-            icon.addPixmap(darkened_normal_pixmap, QIcon.Normal)
-            icon.addPixmap(disabled_pixmap, QIcon.Disabled)
-
-            logger.debug(f"Created Icon for {imagePath}")
-            return icon
-        
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Create Icon:\n{e}")
-    
 
     #   Configures the UI Buttons based on Transfer Status
     @err_catcher(name=__name__)
@@ -2425,8 +2391,7 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
             logger.warning(f"ERROR:  Failed to Set Transfer Status:\n{e}")
 
 
-
-    @err_catcher(name=__name__)                                         #   TODO  Move
+    @err_catcher(name=__name__)
     def startTransfer(self):
         self.copyList = self.getCopyList()
 
@@ -2663,9 +2628,9 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         if self.useCompleteSound:
             if transResult == "Complete":
-                self.playSound(SOUND_SUCCESS)
+                Utils.playSound(SOUND_SUCCESS)
             else:
-                self.playSound(SOUND_ERROR)
+                Utils.playSound(SOUND_ERROR)
 
         if self.useCompletePopup:
             text = "Transfer Complete"
@@ -2941,99 +2906,6 @@ Double-Click PXY Icon:  Opens Proxy Media in External Player
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Update Proxy Preset Multiplier:\n{e}")
-
-
-    # @err_catcher(name=__name__)
-    # def getSelectedContexts(self):
-    #     contexts = []
-    #     if len(self.lw_source.selectedItems()) > 1:
-    #         contexts = self.lw_source.selectedItems()
-    #     elif len(self.lw_destination.selectedItems()) > 1:
-    #         contexts = self.lw_destination.selectedItems()
-    #     else:
-    #         data = self.getCurrentFilelayer()
-    #         if not data:
-    #             data = self.getCurrentSource()
-    #             if not data:
-    #                 data = self.getCurrentAOV()
-    #                 if not data:
-    #                     items = self.lw_destination.selectedItems()
-    #                     if items:
-    #                         data = items[0].data(Qt.UserRole)
-
-    #         if data:
-    #             contexts = [data]
-
-    #     return contexts
-    
-
-    # @err_catcher(name=__name__)
-    # def taskClicked(self):
-    #     self.updateVersions()
-
-
-    # @err_catcher(name=__name__)
-    # def sourceClicked(self):
-    #     self.PreviewPlayer.updateLayers(restoreSelection=True)
-
-
-    # @err_catcher(name=__name__)
-    # def onVersionDoubleClicked(self, item):
-    #     mods = QApplication.keyboardModifiers()
-    #     if mods == Qt.ControlModifier:
-    #         for selItem in self.lw_destination.selectedItems():
-    #             self.core.openFolder(selItem.data(Qt.UserRole).get("path"))
-    #     else:
-    #         self.showVersionInfoForItem(item)
-
-
-    # @err_catcher(name=__name__)
-    # def mouseDrag(self, event, element):
-    #     if (
-    #         (event.buttons() != Qt.LeftButton and element != self.cb_layer)
-    #         or (
-    #             event.buttons() == Qt.LeftButton
-    #             and (event.modifiers() & Qt.ShiftModifier)
-    #         )
-    #     ):
-    #         element.mmEvent(event)
-    #         return
-    #     elif element == self.cb_layer and event.buttons() != Qt.MiddleButton:
-    #         element.mmEvent(event)
-    #         return
-
-    #     contexts = self.getCurRenders()
-    #     urlList = []
-    #     mods = QApplication.keyboardModifiers()
-    #     for context in contexts:
-    #         if element == self.cb_layer:
-    #             version = self.getCurrentSource()
-    #             aovs = self.core.mediaProducts.getAOVsFromVersion(version)
-    #             for aov in aovs:
-    #                 url = os.path.normpath(aov["path"])
-    #                 urlList.append(QUrl(url))
-    #             break
-    #         else:
-    #             if mods == Qt.ControlModifier:
-    #                 url = os.path.normpath(context["path"])
-    #                 urlList.append(url)
-    #             else:
-    #                 imgSrc = self.core.media.getImgSources(context["path"], sequencePattern=False)
-    #                 for k in imgSrc:
-    #                     url = os.path.normpath(k)
-    #                     urlList.append(url)
-
-    #     if len(urlList) == 0:
-    #         return
-
-    #     drag = QDrag(self)
-    #     mData = QMimeData()
-
-    #     urlData = [QUrl.fromLocalFile(urll) for urll in urlList]
-    #     mData.setUrls(urlData)
-    #     drag.setMimeData(mData)
-
-    #     drag.exec_(Qt.CopyAction | Qt.MoveAction)
 
 
     @err_catcher(name=__name__)

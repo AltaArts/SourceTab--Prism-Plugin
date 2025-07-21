@@ -78,9 +78,6 @@ sys.path.append(pluginRoot)
 sys.path.append(uiPath)
 
 
-
-# from PopupWindows import DisplayPopup
-
 from ElapsedTimer import ElapsedTimer
 
 from WorkerThreads import (ThumbnailWorker,
@@ -92,9 +89,6 @@ from WorkerThreads import (ThumbnailWorker,
 
 import SourceTab_Utils as Utils
 
-
-
-# from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 logger = logging.getLogger(__name__)
@@ -565,12 +559,6 @@ class BaseTileItem(QWidget):
         worker_frames = FileInfoWorker(self, self.core, filePath)
         worker_frames.finished.connect(callback)
         self.dataOps_threadpool.start(worker_frames)
-
-
-    #  #   Returns the Filepath
-    # @err_catcher(name=__name__)
-    # def getBasename(self, filePath):
-    #     return os.path.basename(filePath)
     
 
     #   Gets Custom Hash of File in Separate Thread
@@ -590,6 +578,7 @@ class BaseTileItem(QWidget):
         self.hashWatchdogTimer.start(30000)
 
 
+    @err_catcher(name=__name__)
     def setMainHash(self, error=None):
         if not self.isSequence and hasattr(self, "l_fileSize"):
             if not error:
@@ -944,17 +933,6 @@ class BaseTileItem(QWidget):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
     #   Get Media Player Enabled State
     @err_catcher(name=__name__)
     def isViewerEnabled(self):
@@ -1163,10 +1141,8 @@ class SourceFileItem(BaseTileItem):
         mainSize_str = Utils.getFileSizeStr(mainSize_data)
         self.data["source_mainFile_size"] = mainSize_str
 
-
         self.getThumbnail()
         self.setProxyFile()
-
 
 
     #   Attach a FileTile and Process Callbacks
@@ -1213,7 +1189,6 @@ class SourceFileItem(BaseTileItem):
 
         try:
             self.data["source_mainFile_hash"] = result_hash
-
             self._notify("hash")
 
         except Exception as e:
@@ -1320,7 +1295,7 @@ class SourceFileItem(BaseTileItem):
 
         try:
             self.data["source_proxyFile_hash"] = result_hash
-            # self.l_fileSize.setToolTip(f"Hash: {result_hash}")
+
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Proxy File Hash:\n{e}")
 
@@ -1464,7 +1439,6 @@ class SourceFileTile(BaseTileItem):
 
         #   Add Items to Bottom Layout
         self.lo_bottom.addWidget(self.l_icon, alignment=Qt.AlignVCenter)
-
         self.lo_bottom.addWidget(self.l_frames, alignment=Qt.AlignVCenter)
 
         self.lo_bottom.addStretch()
@@ -1588,15 +1562,9 @@ class SourceFileTile(BaseTileItem):
             mDataFFprobeAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataFFprobeAct)
 
-
-
-
             # sidecarAct = QAction("Create Sidecar", self.browser)
             # sidecarAct.triggered.connect(lambda: self.createSidecar(self.getSource_mainfilePath()))
             # rcmenu.addAction(sidecarAct)
-
-
-
 
             showDataAct = QAction("Show Data", self.browser)                         #   TESTING
             showDataAct.triggered.connect(self.TEST_SHOW_DATA)
@@ -1635,26 +1603,17 @@ class SourceFileTile(BaseTileItem):
 
 
 
-
-
-
-
 ##   FILE TILES ON THE DESTINATION SIDE (holds the Data)(Inherits from BaseTileItem)    ##
 class DestFileItem(BaseTileItem):
     def __init__(self, browser, data=None, passedData=None, parent=None):
         super(DestFileItem, self).__init__(browser, data, passedData, parent)
         self.tileType = "destItem"
 
-        if passedData:
-            self.data = passedData
-        else:
-            self.data = data
+        self.data = passedData if passedData else data
 
         self.fileType = self.data["fileType"]
 
-        logger.debug("Loaded Destination FileTile")                         #   TODO
-
-
+        logger.debug("Loaded Destination FileTile")
 
 
 
@@ -1682,7 +1641,6 @@ class DestFileTile(BaseTileItem):
         self.refreshUi()
 
         logger.debug("Loaded Destination FileTile")
-
 
 
     def mouseReleaseEvent(self, event):
@@ -1827,13 +1785,9 @@ class DestFileTile(BaseTileItem):
                 self.setIcon(self.data["icon"])
 
             self.setDuration()
-
             self.setThumbnail()
             self.setProxyIcon()
-
-            #   Set Quanity Details
             self.setQuanityUI("idle")
-
             self.toggleProxyProgbar()
 
         except Exception as e:
@@ -2250,7 +2204,7 @@ class DestFileTile(BaseTileItem):
                 presets = self.browser.ffmpegPresets
                 preset = presets[proxySettings["proxyPreset"]]
             except KeyError:
-                raise RuntimeError(f"Proxy preset {proxySettings['proxyPreset']} not found in settings")           #   TODO - DEAL WITH ERROR
+                raise RuntimeError(f"Proxy preset {proxySettings['proxyPreset']} not found in settings")
             
             #   Make Proxy Name
             source_baseName = os.path.splitext(source_baseFile)[0]
@@ -2353,7 +2307,7 @@ class DestFileTile(BaseTileItem):
                              "proxyAction": None}
 
         ##  IF PROXY IS ENABLED ##
-        if proxyEnabled and self.isVideo() and self.isCodecSupported():                          #   TODO - HANDLE PROXY FOR NON-VIDEO
+        if proxyEnabled and self.isVideo() and self.isCodecSupported():                #   TODO - HANDLE PROXY FOR NON-VIDEO
             proxySettings = options["proxySettings"]
             self.transferData["proxyMode"] = proxyMode
             self.transferData["proxySettings"] = proxySettings
@@ -2481,10 +2435,8 @@ class DestFileTile(BaseTileItem):
     def update_proxyGenerateProgress(self, value, frame):
         if self.transferState != "Cancelled":
             self.setTransferStatus(progBar="proxy", status="Generating Proxy")
-
             self.proxyProgBar.setValue(value)
             self.l_amountCopied.setText(str(frame))
-
             self.proxy_copiedSize = self.getMultipliedProxySize(frame=frame)
 
 

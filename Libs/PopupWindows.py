@@ -1977,11 +1977,10 @@ class ProxyPresetsEditor(QDialog):
 
 
 class MetaPresetsPopup(QDialog):
-    def __init__(self, core, origin, metaPresets):
-        super().__init__(origin)
+    def __init__(self, core, metaEditor):
+        super().__init__(metaEditor)
         self.core = core
-        self.origin = origin
-        self.metaPresets = metaPresets
+        self.metaEditor = metaEditor
 
         self.selectedPreset = None
 
@@ -1989,7 +1988,7 @@ class MetaPresetsPopup(QDialog):
 
         self.setupUI()
         self.connectEvents()
-        self.populateList(self.metaPresets)
+        self.refreshList()
 
         logger.debug("Loaded Metadata Presets Dialogue")
 
@@ -2015,60 +2014,40 @@ class MetaPresetsPopup(QDialog):
 
         #   Footer Buttons
         lo_buttons      = QHBoxLayout()
-        self.b_moveup   = QPushButton("Move Up")
+        self.b_moveUp   = QPushButton("Move Up")
         self.b_moveDn   = QPushButton("Move Down")
         self.b_load     = QPushButton("Load")
-        self.b_cancel   = QPushButton("Cancel")
+        self.b_close    = QPushButton("Close")
         
-        lo_buttons.addWidget(self.b_moveup)
+        lo_buttons.addWidget(self.b_moveUp)
         lo_buttons.addWidget(self.b_moveDn)
         lo_buttons.addStretch()
         lo_buttons.addWidget(self.b_load)
-        lo_buttons.addWidget(self.b_cancel)
+        lo_buttons.addWidget(self.b_close)
 
         #   Add to Main Layout
         lo_main.addWidget(self.lw_presetList)
         lo_main.addLayout(lo_buttons)
 
         #   ToolTips
-        tip = """
-        Proxy Search Templates that will be scanned to attempt to
-        find a Mainfile's associated Proxy.  This ignores the file-extension.
+        self.b_moveUp.setToolTip("Moves Selected Preset UP one Row")
+        self.b_moveDn.setToolTip("Moves Selected Preset DOWN one Row")
+        self.b_load.setToolTip("Loads Selected Preset in the Metatdata Editor and updates Fields")
+        self.b_close.setToolTip("Close the Preset Editor")
 
-        This uses relative paths based on the MainFile's directory,
-        and uses standard dot-notation for relative directories:
-        ./   - current directory
-        ../  - parent directory
-
-        The search also uses placeholders to allow the search to find Proxys
-        that have prefixes or suffixes:
-        @MAINFILEDIR@    @MAINFILENAME@
-
-        Examples:
-
-        @MAINFILEDIR@\\proxy\\@MAINFILENAME@      -- search in a subdir named "proxy" with same name as the mainfile
-        @MAINFILEDIR@\\@MAINFILENAME@_proxy      -- search in the same dir with the mainfile name with a "_proxy" suffix
-        @MAINFILEDIR@\\..\\proxy\\@MAINFILENAME@" -- search in dir named "proxy" that is at the same level as the main dir
-        """
-        # self.lw_searchList.setToolTip(tip)
-
-        # self.b_edit.setToolTip("Edit Selected Template")
-        # self.b_add.setToolTip("Add New Template")
-        # self.b_remove.setToolTip("Remove Selected Template")
-        # self.b_moveup.setToolTip("Move Selected Template Up One Row")
-        # self.b_moveDn.setToolTip("Move Selected Template Down One Row")
-        # self.b_reset.setToolTip("Reset All Templates to Factory Defaults")
-        # self.b_load.setToolTip("Save Changes and Close Window")
-        # self.b_cancel.setToolTip("Discard Changes and Close Window")
+        tip = ("List of Available Metadata Presets\n\n"
+               "   - Right-click Preset to Edit or Delete\n"
+               "   - Right-click Empty space to Add New Preset or Restore Defaults Presets")
+        self.lw_presetList.setToolTip(tip)
 
 
     def connectEvents(self):
         self.lw_presetList.customContextMenuRequested.connect(lambda x: self.rclList(x, self.lw_presetList))
 
-        self.b_moveup.clicked.connect(self._onMoveUp)
+        self.b_moveUp.clicked.connect(self._onMoveUp)
         self.b_moveDn.clicked.connect(self._onMoveDown) 
         self.b_load.clicked.connect(lambda: self._onLoadPreset())
-        self.b_cancel.clicked.connect(lambda: self._onCancel())
+        self.b_close.clicked.connect(lambda: self._onClose())
 
 
     def rclList(self, pos, lw):
@@ -2087,11 +2066,11 @@ class MetaPresetsPopup(QDialog):
             rcmenu.addAction(delAct)
 
         else:
-            addAct = QAction("Add Current as New Preset", self)
+            addAct = QAction("Create New Preset from Current", self)
             addAct.triggered.connect(self.addNewPreset)
             rcmenu.addAction(addAct)
 
-            restoreAct = QAction("Restore Factory Presets", self)
+            restoreAct = QAction("Restore Basic Preset Templates", self)
             restoreAct.triggered.connect(self.restoreFactoryPresets)
             rcmenu.addAction(restoreAct)
 
@@ -2102,39 +2081,62 @@ class MetaPresetsPopup(QDialog):
         rcmenu.exec_(cpos)
 
 
+    #   Adds Presets to List
+    def refreshList(self):
+        self.lw_presetList.clear()
+        self.lw_presetList.addItems(self.metaEditor.metaPresets)
+
+
+    #   Gets Current Metadata and displays Preset Editor
     def addNewPreset(self):
-        print("ADD NEW PRESET")
+        presetName = ""
+        currData = self.metaEditor.getCurrentData(filterNone=True)
 
-    def editPreset(self, item):
-        presetName = item.text()
-        pData = self.metaPresets[item.text()]
-
-        presetData = {
+        currPresetData = {
             "name": presetName,
-            "data": pData
+            "data": currData
         }
 
-        self.openPresetEditor(presetData)
+        resultData = self.openPresetEditor(currPresetData)
+
+        if resultData:
+            self.metaEditor.metaPresets[resultData["name"]] = resultData["data"]
+
+            self.metaEditor.savePresets()
+            self.refreshList()
+
+
+    #   Gets Selected Preset Data and displays Preset Editor
+    def editPreset(self, item):
+        presetName = item.text()
+        presetData = self.metaEditor.metaPresets[item.text()]
+
+        currPresetData = {
+            "name": presetName,
+            "data": presetData
+        }
+
+        resultData = self.openPresetEditor(currPresetData)
+
+        if resultData:
+            self.metaEditor.metaPresets[resultData["name"]] = resultData["data"]
+
+            self.metaEditor.savePresets()
+            self.refreshList()
 
 
     def openPresetEditor(self, presetData):
         presetEditor = MetaPresetsEditor(self.core, self, presetData)
 
         if presetEditor.exec() == QDialog.Accepted:
-            pass
-            # presetName = presetEditor.selectedPreset
+            return presetEditor.resultData
 
 
     def restoreFactoryPresets(self):
         print("RESTORE FACTORY")
 
 
-    def populateList(self, metaPresets):
-        self.lw_presetList.addItems(metaPresets)
-
-
-
-    #   Remove Selected Row
+    #   Remove Selected Preset
     def deletePreset(self):
         row = self.lw_presetList.currentRow()
 
@@ -2176,13 +2178,16 @@ class MetaPresetsPopup(QDialog):
         self.updateMetaPresetsOrder()
 
 
+    #   Replaces 'metaPresets' Dict with New Verion with new Ordering
     def updateMetaPresetsOrder(self):
         new_order = [self.lw_presetList.item(i).text() for i in range(self.lw_presetList.count())]
-        new_dict = {key: self.metaPresets[key] for key in new_order if key in self.metaPresets}
-        self.metaPresets.clear()
-        self.metaPresets.update(new_dict)
+        new_dict = {key: self.metaEditor.metaPresets[key] for key in new_order if key in self.metaEditor.metaPresets}
+        self.metaEditor.metaPresets.clear()
+        self.metaEditor.metaPresets.update(new_dict)
+        self.metaEditor.savePresets()
 
 
+    #   Stores Selected Preset Name for Main Code to Load
     def _onLoadPreset(self):
         item = self.lw_presetList.currentItem()
         if item:
@@ -2190,16 +2195,16 @@ class MetaPresetsPopup(QDialog):
         self.accept()
 
 
-    def _onCancel(self):
+    def _onClose(self):
         self.reject()
 
 
 
 class MetaPresetsEditor(QDialog):
-    def __init__(self, core, origin, presetData):
-        super().__init__(origin)
+    def __init__(self, core, metaPresetPopup, presetData):
+        super().__init__(metaPresetPopup)
         self.core = core
-        self.origin = origin
+        self.metaPresetPopup = metaPresetPopup
         self.presetData = presetData
 
         self.setWindowTitle("Metadata Preset Editor")
@@ -2209,7 +2214,6 @@ class MetaPresetsEditor(QDialog):
         self.loadData(presetData)
 
         logger.debug("Loaded Metadata Preset Editor")
-
 
         
     def setupUI(self):
@@ -2242,11 +2246,11 @@ class MetaPresetsEditor(QDialog):
 
         #   Footer Buttons
         lo_buttons      = QHBoxLayout()
-        self.b_load     = QPushButton("Save")
+        self.b_save     = QPushButton("Save")
         self.b_cancel   = QPushButton("Cancel")
         
         lo_buttons.addStretch()
-        lo_buttons.addWidget(self.b_load)
+        lo_buttons.addWidget(self.b_save)
         lo_buttons.addWidget(self.b_cancel)
 
         #   Add to Main Layout
@@ -2256,195 +2260,119 @@ class MetaPresetsEditor(QDialog):
         lo_main.addLayout(lo_buttons)
 
         #   ToolTips
-        tip = """
-        Proxy Search Templates that will be scanned to attempt to
-        find a Mainfile's associated Proxy.  This ignores the file-extension.
+        tip = ("Preset Name (will overwrite existing Preset with same name)\n\n"
+               "Must use Letters, Numbers, Normal Symbols, Spaces, and less than 20 charactors")
+        l_pName.setToolTip(tip)
+        self.le_pName.setToolTip(tip)
 
-        This uses relative paths based on the MainFile's directory,
-        and uses standard dot-notation for relative directories:
-        ./   - current directory
-        ../  - parent directory
+        tip = ("Preset Data\n\n"
+               "This must be a List of Dictionaries with:\n"
+               "   - 'field':                string\n"
+               "   - 'enabled':          bool\n"
+               "   - 'sourceField':    string\n"
+               "   - 'currentData':   string")
+        self.te_presetEditor.setToolTip(tip)
 
-        The search also uses placeholders to allow the search to find Proxys
-        that have prefixes or suffixes:
-        @MAINFILEDIR@    @MAINFILENAME@
-
-        Examples:
-
-        @MAINFILEDIR@\\proxy\\@MAINFILENAME@      -- search in a subdir named "proxy" with same name as the mainfile
-        @MAINFILEDIR@\\@MAINFILENAME@_proxy      -- search in the same dir with the mainfile name with a "_proxy" suffix
-        @MAINFILEDIR@\\..\\proxy\\@MAINFILENAME@" -- search in dir named "proxy" that is at the same level as the main dir
-        """
-        # self.lw_searchList.setToolTip(tip)
-
-        # self.b_edit.setToolTip("Edit Selected Template")
-        # self.b_add.setToolTip("Add New Template")
-        # self.b_remove.setToolTip("Remove Selected Template")
-        # self.b_moveup.setToolTip("Move Selected Template Up One Row")
-        # self.b_moveDn.setToolTip("Move Selected Template Down One Row")
-        # self.b_reset.setToolTip("Reset All Templates to Factory Defaults")
-        # self.b_load.setToolTip("Save Changes and Close Window")
-        # self.b_cancel.setToolTip("Discard Changes and Close Window")
-
+        self.b_save.setToolTip("Save current Preset to settings")
+        self.b_cancel.setToolTip("Cancel and Discard any Changes")
 
 
     def connectEvents(self):
-        self.b_load.clicked.connect(lambda: self._onLoadPreset())
+        self.le_pName.editingFinished.connect(self.validateName)
+        self.b_save.clicked.connect(lambda: self._onSavePreset())
         self.b_cancel.clicked.connect(lambda: self._onCancel())
 
 
-    def rclList(self, pos, lw):
-        cpos = QCursor.pos()
-        item = lw.itemAt(pos)
-
-        rcmenu = QMenu(self)
-
-        if item:
-            editAct = QAction("Edit Preset", self)
-            editAct.triggered.connect(self.editPreset)
-            rcmenu.addAction(editAct)
-
-            delAct = QAction("Delete Preset", self)
-            delAct.triggered.connect(self.deletePreset)
-            rcmenu.addAction(delAct)
-
-        else:
-            addAct = QAction("Add Current as New Preset", self)
-            addAct.triggered.connect(self.addNewPreset)
-            rcmenu.addAction(addAct)
-
-            restoreAct = QAction("Restore Factory Presets", self)
-            restoreAct.triggered.connect(self.restoreFactoryPresets)
-            rcmenu.addAction(restoreAct)
-
-
-        if rcmenu.isEmpty():
-            return False
-
-        rcmenu.exec_(cpos)
-
-
-    def addNewPreset(self):
-        print("ADD NEW PRESET")
-
-    def editPreset(self):
-        print("EDITPRESET")
-
-
-
-    def restoreFactoryPresets(self):
-        print("RESTORE FACTORY")
-
-
+    #   Loads Preset Data into Editor
     def loadData(self, pData):
-        self.le_pName.setText(pData["name"])
-        pretty_json = json.dumps(pData["data"], indent=4)
-        self.te_presetEditor.setPlainText(pretty_json)
+        try:
+            self.le_pName.setText(pData["name"])
+            pretty_json = json.dumps(pData["data"], indent=4)
+            self.te_presetEditor.setPlainText(pretty_json)
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Load Preset into Editor: {e}")
+
+        self.validateName()
 
 
-    #   Sets Row Editable
-    def _onEdit(self):
-        row = self.tw_searchList.currentRow()
-        if row < 0: 
-            return
+    #   Validates Name: Letters, Numbers, Normal Symbols, Spaces, < 20 charactors
+    def validateName(self):
+        name = self.le_pName.text().strip()
+
+        valid = True
+        msg = ""
+
+        #   RegEx Match String
+        valid_name_pattern = re.compile(
+            r'^[A-Za-z0-9 \-!@#$%^&*()_+]{1,20}$'
+        )
+
+        #   Check Blank
+        if not name:
+            valid = False
+            msg = ("Preset name cannot be blank.")
         
-        self.tw_searchList.setEditTriggers(QTableWidget.DoubleClicked | QTableWidget.SelectedClicked)
-        self.tw_searchList.editItem(self.tw_searchList.item(row, 0))
+        #   Check RegEx
+        elif not valid_name_pattern.match(name):
+            valid = False
+            msg = ("Preset name is not Valid:\n\n"
+                   f"'{name}'\n\n"
+                   "Use 1-20 characters: letters, numbers, dashes, and normal symbols.")
 
+        #   Color Border if Invalid
+        if not valid:
+            self.le_pName.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
+        else:
+            self.le_pName.setStyleSheet("")
 
-    #   Adds Empty Row
-    def _onAdd(self):
-        #   Insert Blank Row after Current
-        row = max(0, self.tw_searchList.currentRow() + 1)
-        self.tw_searchList.insertRow(row)
-
-        for col in range(self.tw_searchList.columnCount()):
-            self.tw_searchList.setItem(row, col, QTableWidgetItem(""))
-
-        self.tw_searchList.selectRow(row)
-
-
-    #   Remove Selected Row
-    def deletePreset(self):
-        row = self.lw_presetList.currentRow()
-
-        if row < 0:
-            return  # nothing selected
-
-        # Get selected preset name
-        preset_item = self.lw_presetList.item(row)
-        preset_name = preset_item.text() if preset_item else "Unknown"
-
-        # Confirmation dialog
-        title = "Remove Template"
-        text = f"Would you like to remove the Preset:\n\n{preset_name}?"
-        buttons = ["Remove", "Cancel"]
-        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
-
-        if result == "Remove":
-            self.lw_presetList.takeItem(row)
-            self.updateMetaPresetsOrder()
-
-
+        return valid, msg
     
 
-    #   Resets the Templates to Default Data from Prism_SourceTab_Functions.py
-    def _onReset(self):
-        #   Create Question
-        title = "Reset Templates to Default"
-        text = ("Would you like to Reset the Proxy Search\n"
-                "Templates to the Factory Defaults?\n\n"
-                "All Custom Templates will be lost.\n\n"
-                "This effects all Users in this Prism Project.")
-        buttons = ["Reset", "Cancel"]
-        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+    #   Validates Text Edit for Valid Json Array of Dicts
+    def validateData(self):
+        valid = True
+        msg = ""
 
-        if result == "Reset":
-            try:
-                #   Get Default Templates
-                sData = self.origin.sourceFuncts.sourceBrowser.plugin.getDefaultSettings(key="proxySearch")
-                #   Re-assign searchList
-                self.searchList = sData
-                #   Populate Table with Default Data
-                self.populateTable(sData)
+        try:
+            data = json.loads(self.te_presetEditor.toPlainText())
 
-                logger.debug("Reset Proxy Search Templates to Defaults")
+        except json.JSONDecodeError as e:
+            valid = False
+            msg = f"Preset data is not valid JSON:\n{e}"
+            return valid, msg
 
-            except Exception as e:
-                logger.warning(f"ERROR:  Failed to Reset Proxy Search Templates to Defaults:\n{e}")
+        if not isinstance(data, list):
+            valid = False
+            msg = "Preset data must be a JSON array (list)."
 
+        elif not all(isinstance(item, dict) for item in data):
+            valid = False
+            msg = "Each item in the list must be a JSON object (dictionary)."
 
-    def _onMoveUp(self):
-        row = self.lw_presetList.currentRow()
-        if row > 0:
-            item = self.lw_presetList.takeItem(row)
-            self.lw_presetList.insertItem(row - 1, item)
-            self.lw_presetList.setCurrentRow(row - 1)
-
-        self.updateMetaPresetsOrder()
-
-
-    def _onMoveDown(self):
-        row = self.lw_presetList.currentRow()
-        if row < self.lw_presetList.count() - 1 and row != -1:
-            item = self.lw_presetList.takeItem(row)
-            self.lw_presetList.insertItem(row + 1, item)
-            self.lw_presetList.setCurrentRow(row + 1)
+        return valid, msg
         
-        self.updateMetaPresetsOrder()
 
+    #   Validates and Saves Preset
+    def _onSavePreset(self):
+        
+        valid, msg = self.validateName()
 
-    def updateMetaPresetsOrder(self):
-        new_order = [self.lw_presetList.item(i).text() for i in range(self.lw_presetList.count())]
-        new_dict = {key: self.metaPresets[key] for key in new_order if key in self.metaPresets}
-        self.metaPresets.clear()
-        self.metaPresets.update(new_dict)
+        if not valid:
+            self.core.popup(msg)
+            return
 
+        valid, msg = self.validateData()
 
-    def _onLoadPreset(self):
-        item = self.lw_presetList.currentItem()
-        if item:
-            self.selectedPreset = item.text()
+        if not valid:
+            self.core.popup(msg, title="Invalid Data")
+            return       
+
+        # If everything passes
+        self.resultData = {
+            "name": self.le_pName.text().strip(),
+            "data": json.loads(self.te_presetEditor.toPlainText())
+        }
+
         self.accept()
 
 

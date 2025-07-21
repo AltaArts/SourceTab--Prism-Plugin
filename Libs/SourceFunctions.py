@@ -164,7 +164,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def configureUI(self):
-        configIcon = self.sourceBrowser.getIconFromPath(os.path.join(uiPath, "Icons", "configure.png"))
+        configIcon = Utils.getIconFromPath(os.path.join(uiPath, "Icons", "configure.png"))
 
         self.b_ovr_config_fileNaming.setIcon(configIcon)
         self.b_ovr_config_proxy.setIcon(configIcon)
@@ -319,8 +319,10 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def configMetadata(self):
-        # self.core.popup("Configureing Metadata Not Yet Implemented")
+        if hasattr(self, "metaEditor"):
+            self.metaEditor.refresh()
 
-
-        self.metaEditor = MetadataEditor(self.core, self)
+        else:
+            self.metaEditor = MetadataEditor(self.core, self)
+            
         self.metaEditor.show()

@@ -69,8 +69,13 @@ pluginPath = os.path.dirname(os.path.dirname(__file__))
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
 
+
 import exiftool
+import simpleaudio as sa
+
 from PopupWindows import DisplayPopup
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -131,7 +136,6 @@ def debug_recursive_print(data: object, label: str = None) -> None:
 
 def getBasename(filePath:str) -> str:
     '''Returns Basename from Path'''
-
     return os.path.basename(filePath)
 
 
@@ -147,23 +151,21 @@ def getFileExtension(filePath=None, fileName=None):
 def createUUID(simple:bool=False, length:int=8) -> str:
     '''Creates Custom UUID String'''
 
-    #	Creates simple Date/Time UID
+    #	Creates Simple Date/Time UID as MMDDHHMM
     if simple:
-        # Get the current date and time
         now = datetime.now()
-        # Format as MMDDHHMM
         uid = now.strftime("%m%d%H%M")
 
         logger.debug(f"Created Simple UID: {uid}")
     
         return uid
     
-    # Generate a 8 charactor UUID string
+    #   Generate 8 Charactor UUID String
     else:
         uid = uuid.uuid4()
-        # Create a SHA-256 hash of the UUID
+        #   Create a SHA-256 hash of the UUID
         hashObject = hashlib.sha256(uid.bytes)
-        # Convert the hash to a hex string and truncate it to the desired length
+        #   Convert Hash to Hex  and Truncate to Desired Length
         shortUID = hashObject.hexdigest()[:length]
 
         logger.debug(f"Created UID: {shortUID}")
@@ -173,6 +175,7 @@ def createUUID(simple:bool=False, length:int=8) -> str:
 
 def explorerDialogue(title:str=None, dir:str=None, selDir:bool=True) -> str:
     """Show a File Dialog to Pick a Directory or File"""
+
     dialog = QFileDialog(None, title or "Select Path", dir or "")
 
     if selDir:
@@ -214,7 +217,6 @@ def getDriveSpace(path:str) -> int:
         logger.warning(f"ERROR:  Failed to get Drive Space Stats:\n{e}")
 
 
-#   Returns the File Create Date from the OS
 def getFileDate(filePath:str) -> float:
     '''Returns the File Create Date from the OS'''
     return os.path.getmtime(filePath)
@@ -262,7 +264,6 @@ def getFormattedTimeStr(seconds:float) -> str:
         return "Estimating..."
     
     minutes, sec = divmod(int(seconds), 60)
-
     return f"{minutes:02}:{sec:02}"
 
 
@@ -274,6 +275,52 @@ def getFpsStr(fps:float) -> str:
         return f"{fps:.2f}"
 
 
+def getIconFromPath(imagePath:str, normalLevel:int=0.9, dimLevel:int=0.4) -> QIcon:
+    '''Returns QIcon with Both Normal and Disabled Versions'''
+
+    try:
+        normal_pixmap = QPixmap(imagePath)
+        normal_image = normal_pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
+
+        #   Darken Normal Version Slightly (normalLevel)
+        darkened_normal_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+
+        for y in range(normal_image.height()):
+            for x in range(normal_image.width()):
+                color = normal_image.pixelColor(x, y)
+
+                #   Reduce brightness to normalLevel
+                dark = int(color.red() * normalLevel)
+                color = QColor(dark, dark, dark, color.alpha())
+                darkened_normal_image.setPixelColor(x, y, color)
+
+        darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
+
+        #   Darken Disbled Version More (dimLevel)
+        disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
+
+        for y in range(normal_image.height()):
+            for x in range(normal_image.width()):
+                color = normal_image.pixelColor(x, y)
+
+                # Reduce brightness to 40%
+                dark = int(color.red() * dimLevel)
+                color = QColor(dark, dark, dark, color.alpha())
+                disabled_image.setPixelColor(x, y, color)
+
+        disabled_pixmap = QPixmap.fromImage(disabled_image)
+
+        #   Convert to QIcon
+        icon = QIcon()
+        icon.addPixmap(darkened_normal_pixmap, QIcon.Normal)
+        icon.addPixmap(disabled_pixmap, QIcon.Disabled)
+
+        logger.debug(f"Created Icon for {imagePath}")
+        return icon
+    
+    except Exception as e:
+        logger.warning(f"ERROR:  Failed to Create Icon:\n{e}")
+
 
 def getFallBackImage(core, filePath:str=None, extension:str=None) -> str:
     '''Returns Path to Fallback Image from Path or Extension'''
@@ -282,7 +329,6 @@ def getFallBackImage(core, filePath:str=None, extension:str=None) -> str:
         _, extension = os.path.splitext(filePath)
 
     if not extension:
-        # fallback to unknown.jpg immediately
         return os.path.join(iconDir, "unknown.jpg")
 
     extFallback = os.path.join(
@@ -307,11 +353,8 @@ def formatCodecMetadata(metadata:dict) -> str:
     return "\n".join(lines)
 
 
-
-
 def getFFprobePath() -> str:
     '''Returns File Path of ffprobe.exe'''
-
     return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
 
 
@@ -334,10 +377,8 @@ def getExiftool() -> str:
     return None
 
 
-
 def getMetadata(filePath:str) -> dict:
     '''Returns Dict of All Raw Metadata from ExifTool'''
-
     try:
         exifToolEXE = getExiftool()
         with exiftool.ExifTool(exifToolEXE) as et:
@@ -445,7 +486,6 @@ def groupFFprobeMetadata(metadata:dict) -> dict:
     return grouped
 
 
-
 def displayFFprobeMetadata(filePath:str) -> None:
     '''Displays Popup of Groupded Metadata from FFprobe'''
 
@@ -457,6 +497,18 @@ def displayFFprobeMetadata(filePath:str) -> None:
         DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)", modal=False)
     else:
         logger.warning("No FFprobe metadata to display.")
+
+
+def playSound(path:str) -> None:
+    '''Plays Audio with Simple Audio'''
+
+    try:
+        wave_obj = sa.WaveObject.from_wave_file(path)
+        play_obj = wave_obj.play()
+        play_obj.wait_done()
+
+    except Exception:
+        QApplication.beep()
 
 
 def getThumbnailPath(path:str) -> str:
@@ -607,8 +659,6 @@ def getThumbFromVideoPath(
                 pass
 
 
-
-
 def getThumbImageFromExrPath(core,
                              path:str,
                              thumbWidth:int=None,
@@ -636,7 +686,7 @@ def getThumbImageFromExrPath(core,
     subimage = 0
 
     if channel:
-        # Custom channel logic (unchanged from yours)
+        #   Channel Logic
         while imgInput.seek_subimage(subimage, 0):
             idx = imgInput.spec().channelindex(channel + ".R")
             if idx == -1:
@@ -655,7 +705,7 @@ def getThumbImageFromExrPath(core,
                 chend = chbegin + numChannels
                 break
     else:
-        # FAST: Try to get RGB, fallback to grayscale
+        #   Try to get RGB, fallback to Grayscale
         while imgInput.seek_subimage(subimage, 0):
             spec = imgInput.spec()
             r = spec.channelindex("R")
@@ -680,14 +730,13 @@ def getThumbImageFromExrPath(core,
                 numChannels = 1
                 break
             else:
-                # fallback: use first available channel if nothing else found
+                #   Fallback: Use First Available Channel
                 chbegin = 0
                 chend = 1
                 numChannels = 1
                 break
 
             subimage += 1
-
 
     try:
         pixels = imgInput.read_image(subimage=subimage, miplevel=0, chbegin=chbegin, chend=chend)
@@ -718,7 +767,7 @@ def getThumbImageFromExrPath(core,
                 color = [pixels[h][w][0], pixels[h][w][1], pixels[h][w][2]]
                 rgbImgSrc.setpixel(w, h, 0, color)
 
-    # --- Thumbnail Size Calculation ---
+    #   Thumbnail Size Calculation
     if thumbWidth:
         thumbHeight = int(imgHeight * (thumbWidth / float(imgWidth)))
         newImgWidth = thumbWidth
@@ -727,7 +776,7 @@ def getThumbImageFromExrPath(core,
         newImgWidth = imgWidth
         newImgHeight = imgHeight
 
-    # --- Resize and gamma correct ---
+    #   Resize and Gamma Correct
     imgDst = oiio.ImageBuf(
         oiio.ImageSpec(int(newImgWidth), int(newImgHeight), numChannels, oiio.UINT16)
     )
@@ -740,9 +789,9 @@ def getThumbImageFromExrPath(core,
     oiio.ImageBufAlgo.fill(bckImg, (0.5, 0.5, 0.5))
     oiio.ImageBufAlgo.paste(bckImg, 0, 0, 0, 0, sRGBimg)
 
-    # --- Fast numpy-to-QImage conversion ---
+    #   Numpy to QImage Conversion
     try:
-        arr = bckImg.get_pixels(oiio.FLOAT)  # shape: (H, W, C)
+        arr = bckImg.get_pixels(oiio.FLOAT)  # Shape: (H, W, C)
         arr = numpy.clip(arr * 255.0, 0, 255).astype(numpy.uint8)
         height, width, channels = arr.shape
 

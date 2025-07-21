@@ -814,428 +814,210 @@
                 "currentData": "JRB"
             }
         ],
-        "TEST": [
-            {
-                "field": "File Name",
-                "enabled": true,
-                "sourceField": "format > filename",
-                "currentData": "TEST"
-            },
+        "Test": [
             {
                 "field": "Description",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Comments",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Keywords",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST, TEST, TEST, TEST"
+                "currentData": "NEW TESTT"
             },
             {
                 "field": "Shot",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Scene",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Take",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Angle",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Day / Night",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Environment",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Shot Type",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Camera #",
                 "enabled": true,
                 "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Reel Number",
                 "enabled": true,
                 "sourceField": "format >   com.apple.proapps.reel",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Clip Number",
                 "enabled": true,
                 "sourceField": "format >   com.apple.proapps.clipID",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Location",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Camera Type",
                 "enabled": true,
                 "sourceField": "format >   CameraModel",
-                "currentData": "TEST"
+                "currentData": "NEW TEST"
             },
             {
                 "field": "Camera Manufacturer",
                 "enabled": true,
                 "sourceField": "format >   CameraMaker",
-                "currentData": "TEST"
+                "currentData": "Z CAM"
             },
             {
                 "field": "Camera Serial #",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.sn",
-                "currentData": "TEST"
+                "currentData": "524D0070362"
             },
             {
                 "field": "Camera ID",
                 "enabled": true,
                 "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": "TEST"
+                "currentData": "A"
             },
             {
                 "field": "Camera Notes",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "Shaky cam"
             },
             {
                 "field": "Camera Format",
                 "enabled": true,
                 "sourceField": "format > format_long_name",
-                "currentData": "TEST"
+                "currentData": "QuickTime / MOV"
             },
             {
                 "field": "Media Type",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.storage",
-                "currentData": "TEST"
+                "currentData": "Samsung Portable SSD T5"
             },
             {
                 "field": "Camera FPS",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.projectFps",
-                "currentData": "TEST"
+                "currentData": "29.97"
             },
             {
                 "field": "Shutter Angle",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.shutterAngle",
-                "currentData": "TEST"
+                "currentData": "180Â°"
             },
             {
                 "field": "ISO",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.iso",
-                "currentData": "TEST"
+                "currentData": "1250"
             },
             {
                 "field": "White Point (Kelvin)",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.whiteBalanceKelvin",
-                "currentData": "TEST"
+                "currentData": "5600K"
             },
             {
                 "field": "White Balance Tint",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.whiteBalanceTint",
-                "currentData": "TEST"
+                "currentData": "0"
             },
             {
                 "field": "Camera Firmware",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.fw",
-                "currentData": "TEST"
+                "currentData": "1.0.1"
             },
             {
                 "field": "Lens Type",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "Xeen"
             },
             {
                 "field": "ND Filter",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "None"
             },
             {
                 "field": "Gamma Notes",
                 "enabled": true,
                 "sourceField": "format >   com.zcam.camera.lut",
-                "currentData": "TEST"
+                "currentData": "Z-Log2"
             },
             {
                 "field": "Color Space Notes",
                 "enabled": true,
                 "sourceField": "stream_0 > color_space",
-                "currentData": "TEST"
+                "currentData": "bt709"
             },
             {
                 "field": "DOP",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "JRB"
             },
             {
                 "field": "Camera Operator",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "JRB"
             },
             {
                 "field": "Digital Technician",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            }
-        ],
-        "TEST2": [
-            {
-                "field": "File Name",
-                "enabled": true,
-                "sourceField": "format > filename",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Description",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Comments",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Keywords",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST, TEST, TEST, TEST"
-            },
-            {
-                "field": "Shot",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Scene",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Take",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Angle",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Day / Night",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Environment",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Shot Type",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera #",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Reel Number",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.reel",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Clip Number",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.clipID",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Location",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera Type",
-                "enabled": true,
-                "sourceField": "format >   CameraModel",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera Manufacturer",
-                "enabled": true,
-                "sourceField": "format >   CameraMaker",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera Serial #",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.sn",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera ID",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera Notes",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera Format",
-                "enabled": true,
-                "sourceField": "format > format_long_name",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Media Type",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.storage",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera FPS",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.projectFps",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Shutter Angle",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.shutterAngle",
-                "currentData": "TEST"
-            },
-            {
-                "field": "ISO",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.iso",
-                "currentData": "TEST"
-            },
-            {
-                "field": "White Point (Kelvin)",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceKelvin",
-                "currentData": "TEST"
-            },
-            {
-                "field": "White Balance Tint",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceTint",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera Firmware",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.fw",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Lens Type",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "ND Filter",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Gamma Notes",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.lut",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Color Space Notes",
-                "enabled": true,
-                "sourceField": "stream_0 > color_space",
-                "currentData": "TEST"
-            },
-            {
-                "field": "DOP",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Camera Operator",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Digital Technician",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "TEST"
+                "currentData": "JRB"
             }
         ]
     }

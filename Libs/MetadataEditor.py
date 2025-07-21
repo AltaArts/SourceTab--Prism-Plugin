@@ -68,7 +68,7 @@ sys.path.append(uiPath)
 from PrismUtils.Decorators import err_catcher
 
 import SourceTab_Utils as Utils
-from PopupWindows import DisplayPopup, MetaPresetsPopup
+from PopupWindows import DisplayPopup, MetaPresetsPopup, WaitPopup
 
 from MetadataEditor_ui import Ui_w_metadataEditor
 
@@ -81,6 +81,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     def __init__(self, core, origin, parent=None):
         super(MetadataEditor, self).__init__(parent)
 
+
         self.core = core
         self.sourceFunctions = origin
         self.sourceBrowser = self.sourceFunctions.sourceBrowser
@@ -92,20 +93,38 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         
         self.metaFieldItems = {}
 
+        WaitPopup.showPopup(parent=self.sourceBrowser.projectBrowser)
+
         #   Setup UI from Ui_w_metadataEditor
         self.setupUi(self)
 
         self.configureUI()
         self.loadData()
+
         self.loadFiles()
         self.populateFilesCombo()
         self.loadMetadata()
+
         self.createMetaFieldItems()
         self.populateEditor()
 
+        self.connectEvents()
+
         self.lockTable(setChecked=True)
 
+        WaitPopup.closePopup()
+
         logger.debug("Loaded Metadata Editor")
+
+
+    @err_catcher(name=__name__)
+    def refresh(self):
+        # self.loadData()
+        self.loadFiles()
+        self.populateFilesCombo()
+        self.loadMetadata()
+        self.populateEditor()
+
 
 
     @err_catcher(name=__name__)
@@ -131,9 +150,12 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         #   Icons
         icon_locked = QIcon(os.path.join(iconDir, "locked.png"))
-        Icon_filters = QIcon(os.path.join(iconDir, "sort.png"))
-        self.b_filters.setIcon(Icon_filters)
+        icon_filters = QIcon(os.path.join(iconDir, "sort.png"))
+        icon_reset = QIcon(os.path.join(iconDir, "reset.png"))
+
+        self.b_filters.setIcon(icon_filters)
         self.b_locked.setIcon(icon_locked)
+        self.b_reset.setIcon(icon_reset)
 
         #   Configure Table
         self.tw_metaEditor.setColumnCount(4)
@@ -161,7 +183,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         QTimer.singleShot(.1, self.setInitialColumnWidths)
         self.setToolTips()
-        self.connectEvents()
 
 
     #   Set Column Widths After Launch
@@ -195,6 +216,11 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                "prevent Accidental Changes.")
         self.b_locked.setToolTip(tip)
 
+        tip = ("Reset Editor\n\n"
+               "This will clear all existing data or changes loaded into the Editor.\n"
+               "This will not alter any metadata in the file itself.")
+        self.b_reset.setToolTip(tip)
+
         tip = "Opens Metadata Presets Menu"
         self.b_presets.setToolTip(tip)
 
@@ -222,9 +248,10 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     def connectEvents(self):
         self.b_locked.clicked.connect(self.lockTable)
         self.b_filters.clicked.connect(self.filterTable)
+        self.b_reset.clicked.connect(self.resetTable)
         self.b_presets.clicked.connect(self.showPresetsMenu)
         self.b_sidecar_save.clicked.connect(self.saveSidecar)
-        self.cb_fileList.currentIndexChanged.connect(lambda: self.loadMetadata())
+        self.cb_fileList.currentIndexChanged.connect(lambda: self.changeFile())
         self.b_showMetadataPopup.clicked.connect(lambda: self.showMetaDataPopup())
         self.b_close.clicked.connect(self.closeWindow)
         
@@ -312,6 +339,12 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 logger.warning(f"ERROR: Unable to Create MetaFieldItem: {e}")
     
 
+    @err_catcher(name=__name__)
+    def changeFile(self):
+        self.loadMetadata()
+        self.populateEditor()
+
+
     #   Loads MetaFieldItems into the Table
     @err_catcher(name=__name__)
     def populateEditor(self):
@@ -351,7 +384,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
                 self.metaFiles.addItem(filePath = file_path,
                                        fileName = file_name,
-                                       tile =tile)
+                                       tile = tile)
             except Exception as e:
                 logger.warning(f"ERROR: Unable to add FileTile '{tile}': {e}")
 
@@ -359,6 +392,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     #   Loads MetaFiles into Combo
     @err_catcher(name=__name__)
     def populateFilesCombo(self):
+        self.cb_fileList.clear()
         try:
             for file in self.metaFiles.allItems():
                 self.cb_fileList.addItem(file.fileName)
@@ -414,57 +448,81 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
 
     @err_catcher(name=__name__)
-    def savePreset(self):
-        presetName = "zCam"                                                 #   TESTING - HARDCODED
-
-        # Collect current editor state
-        presetData = [
-            metaFieldItem.getInfo()
-            for metaFieldItem in self.metaFieldItems.values()
-            if metaFieldItem.sourceField != "- NONE -" and metaFieldItem.isEnabled()
-            ]
-
-        # Load the current JSON file
+    def savePresets(self):
         with open(self.metaMapPath, "r", encoding="utf-8") as f:
-            pData = json.load(f)
+            mData = json.load(f)
 
-        # Ensure metaPresets exists and is a dict
-        if "metaPresets" not in pData or not isinstance(pData["metaPresets"], dict):
-            pData["metaPresets"] = {}
+        #   Add or Overwrite Preset
+        mData["metaPresets"] = self.metaPresets
 
-        # Save or overwrite this preset
-        pData["metaPresets"][presetName] = presetData
-
-        # Write back to the same file
+        #   Write Back to Disk
         with open(self.metaMapPath, "w", encoding="utf-8") as f:
-            json.dump(pData, f, indent=4, ensure_ascii=False)
+            json.dump(mData, f, indent=4, ensure_ascii=False)
 
-        logger.debug(f"Metadata Preset '{presetName}' saved.")
+        logger.debug(f"Metadata Presets Saved.")
 
 
     #   Displays Preset Popup
     @err_catcher(name=__name__)
     def showPresetsMenu(self):
-        presetPopup = MetaPresetsPopup(self.core, self, self.metaPresets)
+        presetPopup = MetaPresetsPopup(self.core, self)
 
         if presetPopup.exec() == QDialog.Accepted:
             presetName = presetPopup.selectedPreset
 
             #   If Preset is passed back, load it
             if presetName:
-                self.loadPreset(presetName)
-                logger.debug(f"Metadat Preset Selected: {presetName}")
+                self.loadPreset(presetName, onlyExisting=False)
+                logger.debug(f"Metadata Preset Selected: {presetName}")
 
 
     #   Loads Preset into the Table
     @err_catcher(name=__name__)
-    def loadPreset(self, presetName):
+    def loadPreset(self, presetName, onlyExisting=True):
         pData = self.metaPresets[presetName]
 
-        for row in pData:
-            field = row["field"]
-            if field in self.metaFieldItems:
-                self.metaFieldItems[field].setFromInfo(row)
+        # Build a quick lookup of fields in the preset
+        presetFields = {row["field"]: row for row in pData}
+
+        for fieldName, fieldItem in self.metaFieldItems.items():
+            if fieldName in presetFields:
+                # Update with data from preset
+                fieldItem.setFromInfo(presetFields[fieldName])
+            else:
+                if not onlyExisting:
+                    # Reset to "- NONE -" if not in preset
+                    fieldItem.reset()
+
+
+    #   Returns Currently Configured Metadata
+    @err_catcher(name=__name__)
+    def getCurrentData(self, filterNone=False):
+        mData = []
+
+        for metaItem in self.metaFieldItems.values():
+            if filterNone and metaItem.sourceField == "- NONE -":
+                continue
+            mData.append(metaItem.getInfo())
+
+        return mData
+
+
+    #   Resets Table to Default None's
+    @err_catcher(name=__name__)
+    def resetTable(self):
+        # Confirmation dialog
+        title = "Reset Metadata Table"
+
+        text = ("Would you like to clear all existing data or changes loaded into the Editor?\n\n"
+                "This will not alter any metadata in the file itself.")
+
+        buttons = ["Reset", "Cancel"]
+        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+
+        if result == "Reset":
+            for metaItem in self.metaFieldItems.values():
+                metaItem.reset()
+                logger.debug("Reset Metadata Editor")
 
 
     @err_catcher(name=__name__)                                                 #   TODO
@@ -646,6 +704,13 @@ class MetaFieldItem(QObject):
                 #   If Source not in Current Source, set to None
                 self.cb_sourceField.setCurrentText("- NONE -")
                 self.le_currentData.clear()
+
+
+    #   Resets the MetaItem
+    def reset(self):
+        self.chb_enabled.setChecked(False)
+        self.cb_sourceField.setCurrentIndex(0)
+        self.le_currentData.clear()
 
 
 #   Holds All the Destination Files Metadata

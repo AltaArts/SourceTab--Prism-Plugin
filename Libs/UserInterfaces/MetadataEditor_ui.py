@@ -71,6 +71,15 @@ class Ui_w_metadataEditor(object):
 
         self.lo_top.addItem(self.horizontalSpacer_2)
 
+        self.b_reset = QPushButton(w_metadataEditor)
+        self.b_reset.setObjectName(u"b_reset")
+
+        self.lo_top.addWidget(self.b_reset)
+
+        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
+
+        self.lo_top.addItem(self.horizontalSpacer_4)
+
         self.b_presets = QPushButton(w_metadataEditor)
         self.b_presets.setObjectName(u"b_presets")
 
@@ -122,6 +131,7 @@ class Ui_w_metadataEditor(object):
         self.b_showMetadataPopup.setText(QCoreApplication.translate("w_metadataEditor", u"View Metadata", None))
         self.b_filters.setText("")
         self.b_locked.setText("")
+        self.b_reset.setText("")
         self.b_presets.setText(QCoreApplication.translate("w_metadataEditor", u"Presets", None))
         self.b_sidecar_save.setText(QCoreApplication.translate("w_metadataEditor", u"Save Sidecar", None))
         self.b_save.setText(QCoreApplication.translate("w_metadataEditor", u"SAVE", None))
