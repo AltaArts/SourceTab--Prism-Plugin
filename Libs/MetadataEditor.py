@@ -93,7 +93,19 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         
         self.metaFieldItems = {}
 
-        WaitPopup.showPopup(parent=self.sourceBrowser.projectBrowser)
+        self.filterStates = {
+            "Hide Disabled": False,
+            "Hide Empty": False,
+            "----1": False,
+            "Shot/Scene": True,
+            "Camera": True,
+            "Audio": True,
+            "Crew/Production": True,
+            "----2": False
+        }
+
+
+
 
         #   Setup UI from Ui_w_metadataEditor
         self.setupUi(self)
@@ -101,9 +113,12 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.configureUI()
         self.loadData()
 
+
         self.loadFiles()
         self.populateFilesCombo()
         self.loadMetadata()
+
+        self.buildSourceFieldModel()
 
         self.createMetaFieldItems()
         self.populateEditor()
@@ -112,7 +127,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         self.lockTable(setChecked=True)
 
-        WaitPopup.closePopup()
 
         logger.debug("Loaded Metadata Editor")
 
@@ -247,7 +261,11 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     @err_catcher(name=__name__)
     def connectEvents(self):
         self.b_locked.clicked.connect(self.lockTable)
-        self.b_filters.clicked.connect(self.filterTable)
+
+        self.b_filters.clicked.connect(self.populateEditor)
+        self.b_filters.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.b_filters.customContextMenuRequested.connect(lambda: self.filtersRCL())
+
         self.b_reset.clicked.connect(self.resetTable)
         self.b_presets.clicked.connect(self.showPresetsMenu)
         self.b_sidecar_save.clicked.connect(self.saveSidecar)
@@ -307,10 +325,47 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             logger.warning(f"ERROR: Unable to Lock or Unlock Table: {e}")
 
 
+    #   Right Click List for Filters
+    @err_catcher(name=__name__)
+    def filtersRCL(self):
+        cpos = QCursor.pos()
+        rcmenu = QMenu(self)
 
-    @err_catcher(name=__name__)                                                 #   TODO
-    def filterTable(self):
-        pass
+        def _wrapWidget(widget):
+            action = QWidgetAction(self)
+            action.setDefaultWidget(widget)
+            return action
+
+        def _applyFilterStates(checkboxRefs, menu):
+            for label, cb in checkboxRefs.items():
+                self.filterStates[label] = cb.isChecked()
+            self.populateEditor()
+            menu.close()
+
+        checkboxRefs = {}
+
+        for label, checked in self.filterStates.items():
+            if label.startswith("----"):
+                rcmenu.addAction(_wrapWidget(QGroupBox()))
+                continue
+
+            cb = QCheckBox(label)
+            cb.setChecked(checked)
+            checkboxRefs[label] = cb
+            rcmenu.addAction(_wrapWidget(cb))
+
+        # Apply button
+        b_apply = QPushButton("Apply")
+        b_apply.setFixedWidth(80)
+        b_apply.setStyleSheet("font-weight: bold;")
+        b_apply.clicked.connect(lambda: _applyFilterStates(checkboxRefs, rcmenu))
+        rcmenu.addAction(_wrapWidget(b_apply))
+
+        if rcmenu.isEmpty():
+            return False
+
+        rcmenu.exec_(cpos)
+
 
 
     #   Loads Data from Saved MetaMap
@@ -328,15 +383,47 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         logger.debug("Loaded Data from 'MetaMap.json'")
 
 
+    #   Creates the Source Combobox Field Items
+    def buildSourceFieldModel(self):
+        model = QStandardItemModel()
+        combo_key_to_path = {}
+
+        model.appendRow(QStandardItem("- NONE -"))
+        model.appendRow(QStandardItem("- CUSTOM -"))
+
+        font_bold = QFont()
+        font_bold.setBold(True)
+
+        for section in self.sourceMetadata.get_sections():
+            header_item = QStandardItem(section.upper())
+            header_item.setFont(font_bold)
+            header_item.setEnabled(False)
+            model.appendRow(header_item)
+
+            keys = self.sourceMetadata.get_keys(section)
+            for path, display_name in keys:
+                indent = "  " * (len(path) - 1)
+                key_display = f"{section} > {indent}{display_name}"
+                key_item = QStandardItem(key_display)
+                model.appendRow(key_item)
+                combo_key_to_path[key_display.strip()] = (section, path)
+
+        self.sharedModel = model
+        self.sharedKeyMap = combo_key_to_path
+
+
     #   Creates MetaFieldItem Instances from saved MetaMap
+    @Utils.stopWatch
     @err_catcher(name=__name__)
     def createMetaFieldItems(self):
         for mData in self.metaMap:
-            try:
-                metaFieldItem = MetaFieldItem(self, mData)
-                self.metaFieldItems[metaFieldItem.field] = metaFieldItem
-            except Exception as e:
-                logger.warning(f"ERROR: Unable to Create MetaFieldItem: {e}")
+            # try:                                                          #   TODO
+
+            metaFieldItem = MetaFieldItem(self, mData)
+            self.metaFieldItems[metaFieldItem.field] = metaFieldItem
+
+            # except Exception as e:
+            #     logger.warning(f"ERROR: Unable to Create MetaFieldItem: {e}")
     
 
     @err_catcher(name=__name__)
@@ -346,29 +433,44 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
 
     #   Loads MetaFieldItems into the Table
+    @Utils.stopWatch
     @err_catcher(name=__name__)
     def populateEditor(self):
-        self.tw_metaEditor.setRowCount(len(self.metaMap))
+        WaitPopup.showPopup(parent=self)
 
-        for row, mData in enumerate(self.metaMap):
+        useFilters = self.b_filters.isChecked()
+
+        # Precompute the filtered list of metaMap rows
+        filteredMeta = []
+        for mData in self.metaMap:
+            category = mData.get("category", "Crew/Production")  # fallback just in case
+            if not useFilters or self.filterStates.get(category, True):
+                filteredMeta.append(mData)
+
+        self.tw_metaEditor.setRowCount(len(filteredMeta))
+
+        for row, mData in enumerate(filteredMeta):
             try:
                 field = mData["MetaName"]
                 metaFieldItem = self.metaFieldItems[field]
-
-                self.tw_metaEditor.setCellWidget(row, 0, metaFieldItem.chb_enabled_container)
-                self.tw_metaEditor.setCellWidget(row, 1, metaFieldItem.l_field)
-                self.tw_metaEditor.setCellWidget(row, 2, metaFieldItem.cb_sourceField)
-                self.tw_metaEditor.setCellWidget(row, 3, metaFieldItem.le_currentData)
+                self.tw_metaEditor.setCellWidget(row, 0, metaFieldItem.getWidget_cb_enabled())
+                self.tw_metaEditor.setCellWidget(row, 1, metaFieldItem.getWidget_l_field())
+                self.tw_metaEditor.setCellWidget(row, 2, metaFieldItem.getWidget_cb_sourcefield())
+                self.tw_metaEditor.setCellWidget(row, 3, metaFieldItem.getWidget_le_currentData())
 
             except Exception as e:
                 logger.warning(f"ERROR: Unable to add Meta Item to Table: {e}")
 
+        WaitPopup.closePopup()
+
 
     #   Loads Destination Files into MetaFiles
+    @Utils.stopWatch
     @err_catcher(name=__name__)
     def loadFiles(self):
         #   Instantiate Metafiles
-        self.metaFiles = MetaFileItems()
+        self.metaFilesModel = MetaFileItems()
+
         #   Get all Destination File Tiles
         try:
             tiles = self.sourceBrowser.getAllDestTiles()
@@ -382,7 +484,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 file_path = tile.data.get("source_mainFile_path", "")
                 file_name = Utils.getBasename(file_path)
 
-                self.metaFiles.addItem(filePath = file_path,
+                self.metaFilesModel.addItem(filePath = file_path,
                                        fileName = file_name,
                                        tile = tile)
             except Exception as e:
@@ -394,13 +496,14 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     def populateFilesCombo(self):
         self.cb_fileList.clear()
         try:
-            for file in self.metaFiles.allItems():
+            for file in self.metaFilesModel.allItems():
                 self.cb_fileList.addItem(file.fileName)
         except Exception as e:
             logger.warning(f"ERROR: Unable to Populate Files Combobox")
 
 
     #   Loads Metadata into MetadataModel
+    @Utils.stopWatch
     @err_catcher(name=__name__)
     def loadMetadata(self, filePath=None):
         if filePath:
@@ -408,7 +511,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         else:
             try:
                 fileName = self.cb_fileList.currentText()
-                fileItem = self.metaFiles.getByName(fileName)
+                fileItem = self.metaFilesModel.getByName(fileName)
                 path = fileItem.filePath
             except Exception as e:
                 logger.warning(f"ERROR: Unable to get Selected File's Tile Data: {e}")
@@ -432,7 +535,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Get Selected File from Combo
         else:
             fileName = self.cb_fileList.currentText()
-            fileItem = self.metaFiles.getByName(fileName)
+            fileItem = self.metaFilesModel.getByName(fileName)
             path = fileItem.filePath
             fileName = fileItem.fileName
 
@@ -495,6 +598,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
 
     #   Returns Currently Configured Metadata
+    @Utils.stopWatch
     @err_catcher(name=__name__)
     def getCurrentData(self, filterNone=False):
         mData = []
@@ -576,11 +680,14 @@ class MetaFieldItem(QObject):
         self.target = data.get("Target", "")
         self.alias = data.get("Alias", "")
 
-        self.setUp()
+        # self.setUp()
     
     @property
     def field(self):
-        return self.l_field.text()
+        if hasattr(self, "l_field"):
+            return self.l_field.text()
+        else:
+            return self.metaName
     
     @property
     def sourceField(self):
@@ -589,48 +696,26 @@ class MetaFieldItem(QObject):
     @property
     def currentData(self):
         return self.le_currentData.text()
-    
 
-    def setUp(self):
-        ##   Enabled Checkbox (centered)
-        chb = QCheckBox()
-        self.chb_enabled = chb
-        self.chb_enabled_container = self.centeredWidget(chb)
 
-        ##   Field Label
-        self.l_field = QLabel(self.metaName)
-        self.l_field.setStyleSheet("padding-left: 3px;")
+    # def setUp(self):
+    #     ## Enabled Checkbox
+    #     chb = QCheckBox()
+    #     self.chb_enabled = chb
+    #     self.chb_enabled_container = self.centeredWidget(chb)
 
-        self.cb_sourceField = QComboBox()
-        model = QStandardItemModel()
-        self.combo_key_to_path = {}
+    #     ## Field Label
+    #     self.l_field = QLabel(self.metaName)
+    #     self.l_field.setStyleSheet("padding-left: 3px;")
 
-        ##  Source Combobox 
-        model.appendRow(QStandardItem("- NONE -"))
-        model.appendRow(QStandardItem("- CUSTOM -"))
+    #     ## Source Combobox
+    #     self.cb_sourceField = QComboBox()
+    #     self.cb_sourceField.setModel(self.metaEditor.sharedModel)
+    #     self.cb_sourceField.currentTextChanged.connect(self.updateLineEdit)
 
-        font_bold = QFont()
-        font_bold.setBold(True)
+    #     ## Current LineEdit
+    #     self.le_currentData = QLineEdit()
 
-        for section in self.metaEditor.sourceMetadata.get_sections():
-            header_item = QStandardItem(section.upper())
-            header_item.setFont(font_bold)
-            header_item.setEnabled(False)
-            model.appendRow(header_item)
-
-            keys = self.metaEditor.sourceMetadata.get_keys(section)
-            for path, display_name in keys:
-                indent = "  " * (len(path) - 1)
-                key_display = f"{section} > {indent}{display_name}"
-                key_item = QStandardItem(key_display)
-                model.appendRow(key_item)
-                self.combo_key_to_path[key_display.strip()] = (section, path)
-
-        self.cb_sourceField.setModel(model)
-        self.cb_sourceField.currentTextChanged.connect(self.updateLineEdit)
-
-        ##  Current LineEdit
-        self.le_currentData = QLineEdit()
 
 
     #   Centers Checkbox in Container Widget
@@ -642,6 +727,30 @@ class MetaFieldItem(QObject):
         layout.addStretch()
         layout.setContentsMargins(0, 0, 0, 0)
         return container
+    
+
+    def getWidget_cb_enabled(self):
+        chb = QCheckBox()
+        self.chb_enabled = chb
+        self.chb_enabled_container = self.centeredWidget(chb)
+        return self.chb_enabled_container
+    
+
+    def getWidget_l_field(self):
+        self.l_field = QLabel(self.metaName)
+        self.l_field.setStyleSheet("padding-left: 3px;")
+        return self.l_field
+    
+    def getWidget_cb_sourcefield(self):
+        self.cb_sourceField = QComboBox()
+        self.cb_sourceField.setModel(self.metaEditor.sharedModel)
+        self.cb_sourceField.currentTextChanged.connect(self.updateLineEdit)
+        return self.cb_sourceField
+    
+    def getWidget_le_currentData(self):
+        self.le_currentData = QLineEdit()
+        return self.le_currentData
+
 
     
     #   Adds Text to Current LineEdit
@@ -651,7 +760,7 @@ class MetaFieldItem(QObject):
             self.le_currentData.setText("")
             return
 
-        path_info = self.combo_key_to_path.get(text)
+        path_info = self.metaEditor.sharedKeyMap.get(text)
         if not path_info:
             self.le_currentData.setText("")
             return
@@ -682,35 +791,41 @@ class MetaFieldItem(QObject):
 
     #   Sets Item's Data from Dict
     def setFromInfo(self, info: dict):
-        enabled = info.get("enabled", False)
-        sourceField = info.get("sourceField", "")
-        currentData = info.get("currentData", "")
+        try:
+            enabled = info.get("enabled", False)
+            sourceField = info.get("sourceField", "")
+            currentData = info.get("currentData", "")
 
-        self.chb_enabled.setChecked(enabled)
+            self.chb_enabled.setChecked(enabled)
 
-        #   Set Data if Custom
-        if sourceField == "- CUSTOM -":
-            self.cb_sourceField.setCurrentText("- CUSTOM -")
-            self.le_currentData.setText(currentData)
-        else:
-            #   Check if Source if in Current Metadata Sources
-            valid_keys = self.combo_key_to_path.keys()
-
-            if sourceField in valid_keys:
-                self.cb_sourceField.setCurrentText(sourceField)
-                
-                self.updateLineEdit(sourceField)
+            #   Set Data if Custom
+            if sourceField == "- CUSTOM -":
+                self.cb_sourceField.setCurrentText("- CUSTOM -")
+                self.le_currentData.setText(currentData)
             else:
-                #   If Source not in Current Source, set to None
-                self.cb_sourceField.setCurrentText("- NONE -")
-                self.le_currentData.clear()
+                #   Check if Source if in Current Metadata Sources
+                valid_keys = self.metaEditor.sharedKeyMap.keys()
+
+                if sourceField in valid_keys:
+                    self.cb_sourceField.setCurrentText(sourceField)
+                    
+                    self.updateLineEdit(sourceField)
+                else:
+                    #   If Source not in Current Source, set to None
+                    self.cb_sourceField.setCurrentText("- NONE -")
+                    self.le_currentData.clear()
+        except:
+            print(f"*** IN SETFROMINFO EXCEPT")                                              #    TESTING
 
 
     #   Resets the MetaItem
     def reset(self):
-        self.chb_enabled.setChecked(False)
-        self.cb_sourceField.setCurrentIndex(0)
-        self.le_currentData.clear()
+        try:
+            self.chb_enabled.setChecked(False)
+            self.cb_sourceField.setCurrentIndex(0)
+            self.le_currentData.clear()
+        except:
+            print(f"*** IN RESET EXCEPT")                                              #    TESTING
 
 
 #   Holds All the Destination Files Metadata

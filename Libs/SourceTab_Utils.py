@@ -428,7 +428,7 @@ def displayMetadata(filePath:str) -> None:
         logger.warning("No metadata to display.")
 
 
-def getFFprobeMetadata(filePath:str) -> dict:
+def getFFprobeMetadata(filePath: str) -> dict:
     '''Returns Dict of All Raw Metadata from FFprobe'''
 
     cmd = [
@@ -440,8 +440,19 @@ def getFFprobeMetadata(filePath:str) -> dict:
         filePath
     ]
 
+    #   Prepare kwargs for Subprocess
+    kwargs = {
+        "capture_output": True,
+        "text": True,
+        "check": True
+    }
+
+    #   Suppress Console Window
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, **kwargs)
         metadata_json = result.stdout
         metadata = json.loads(metadata_json)
 
