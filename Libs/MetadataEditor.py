@@ -165,7 +165,11 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Build Custom Table Model
         self.tableModel = MetadataTableModel(self.fieldsCollection, self.source_options)
         self.tw_metaEditor.setModel(self.tableModel)
-        self.tw_metaEditor.setItemDelegate(QStyledItemDelegate())
+
+        # Set your MiniHeaderDelegate as the default delegate               #   TODO
+        self.miniHeaderDelegate = MiniHeaderDelegate(self.tw_metaEditor)
+        self.tw_metaEditor.setItemDelegate(self.miniHeaderDelegate)
+
 
         #   Configure Table
         self.tw_metaEditor.verticalHeader().setVisible(False)
@@ -349,13 +353,26 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     #   Loads MetaFieldItems into the Table
     @err_catcher(name=__name__)
     def populateEditor(self):
-
-        useFilters = self.b_filters.isChecked()                                   #   TODO - FIX FILTERS
+        useFilters = self.b_filters.isChecked()
 
         filtered_fields = []
+        seen_categories = set()
+
         for mData in self.metaMap:
-            category = mData.get("category", "Crew/Production")
+            category = mData.get("category", "Crew/Production")                         #   TODO - FIX FILTERS
+
             if not useFilters or self.filterStates.get(category, True):
+                # insert header if we haven't yet
+                if category not in seen_categories:
+                    header_field = MetadataField(
+                        name=category,
+                        category=category,
+                        enabled=False,
+                        is_header=True
+                    )
+                    filtered_fields.append(header_field)
+                    seen_categories.add(category)
+
                 field_name = mData["MetaName"]
                 field = self.fieldsCollection.get_field_by_name(field_name)
                 if field:
@@ -366,6 +383,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         # tell the model/view to update
         self.tableModel.layoutChanged.emit()
+
 
 
 
@@ -429,7 +447,9 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.tableModel.source_options = self.source_options
         self.delegate = MetadataComboBoxDelegate(self.sourceMetadata, parent=self)
         self.tableModel.combo_delegate = self.delegate
+
         self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_SOURCE, self.delegate)
+
 
         #   Refresh Table
         self.tableModel.layoutChanged.emit()
@@ -597,29 +617,44 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
 
 
-    @err_catcher(name=__name__)                                                 #   TODO
+    @err_catcher(name=__name__)                                 #   TODO - FINISH SIDECAR CREATION
     def saveSidecar(self):
-        sourceFile = self.testImageFilepath
-        sourceBasename = Utils.getBasename(sourceFile)
-        savedir = os.path.dirname(sourceFile)
+        fileName = self.cb_fileList.currentText()
+        fileItem = self.metaFilesModel.getByName(fileName)
+        path = fileItem.filePath
+
+
+        sourceBasename = Utils.getBasename(path)
+        savedir = os.path.dirname(path)
         sideCarFilename = "TEST_Sidecar.csv"
         sidecarPath = os.path.join(savedir, sideCarFilename)
 
-        # build header dynamically from metaMap
+        # build header dynamically from metaMap (already sorted!)
         header_fields = [m["MetaName"] for m in self.metaMap]
 
         # start empty row
         row_data = {field: "" for field in header_fields}
 
-        # fill fields that are known directly
-        for metaFieldItem in self.metaFieldItems.values():
-            if metaFieldItem.isEnabled():
-                field_name = metaFieldItem.metaName
-                if field_name in row_data:
-                    if field_name == "File Name":
-                        row_data[field_name] = sourceBasename
-                    else:
-                        row_data[field_name] = metaFieldItem.currentData
+        # iterate through the table model rows
+        model = self.tableModel
+        for row in range(model.rowCount()):
+            field = model.collection.fields[row]
+            if getattr(field, "is_header", False):
+                continue  # skip header rows
+
+            meta_name = field.name
+            if meta_name not in row_data:
+                continue
+
+            # get value from the model (COL_VALUE column)
+            idx = model.index(row, model.COL_VALUE)
+            value = model.data(idx, Qt.EditRole)
+
+            # special case for File Name field
+            if meta_name == "File Name":
+                row_data[meta_name] = sourceBasename
+            else:
+                row_data[meta_name] = value
 
         # write CSV
         with open(sidecarPath, "w", encoding="utf-8", newline="") as csvfile:
@@ -628,6 +663,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             writer.writerow(row_data)
 
         logger.status(f"Sidecar CSV written: {sidecarPath}")
+
 
 
     #   Closes the MetaEditor
@@ -720,12 +756,14 @@ class MetadataModel:
     
 
 class MetadataField:
-    def __init__(self, name, category, enabled=True):
+    def __init__(self, name, category, enabled=True, is_header=False):
         self.name = name
         self.category = category
         self.enabled = enabled
         self.sourceField = ""      # e.g., "format > duration"
         self.currentValue = ""     # populated from file
+        self.is_header = is_header  # NEW
+
 
 
 class MetadataFieldCollection:
@@ -788,34 +826,60 @@ class MetadataTableModel(QAbstractTableModel):
         field = self.collection.fields[index.row()]
         col = index.column()
 
-        # ✅ Checkbox for enabled
+        # Mini-header row: special styling and no checkbox
+        if getattr(field, "is_header", False):
+            if role == Qt.DisplayRole:
+                # Show category text only in COL_NAME (second column)
+                if col == self.COL_NAME:
+                    return field.name  # category name stored in name for header
+                else:
+                    return ""  # other columns empty
+
+            if role == Qt.FontRole:
+                font = QFont()
+                font.setBold(True)
+                font.setPointSize(font.pointSize() + 1)
+                return font
+
+            if role == Qt.BackgroundRole:
+                return QColor("#44475a")  # custom background for header rows
+
+            # No checkbox on header rows
+            if role == Qt.CheckStateRole and col == self.COL_ENABLED:
+                return None
+
+            # Don't allow editing on headers
+            if role == Qt.ItemIsEnabled:
+                return False
+
+            return None
+
+        # Normal row behavior for enabled checkbox
         if role == Qt.CheckStateRole and col == self.COL_ENABLED:
             return Qt.Checked if field.enabled else Qt.Unchecked
 
-        # ✅ Display/Edit text
+        # Display/Edit text
         if role in (Qt.DisplayRole, Qt.EditRole):
             if col == self.COL_NAME:
                 return field.name
-            
             elif col == self.COL_SOURCE:
                 return field.sourceField if field.sourceField else "- None -"
-            
             elif col == self.COL_VALUE:
-                # Always resolve via delegate, passing currentValue as fallback
                 if hasattr(self, "combo_delegate"):
-                    return self.combo_delegate.getValueForField(
-                        field.sourceField,
-                        field.currentValue
-                    )
+                    return self.combo_delegate.getValueForField(field.sourceField, field.currentValue)
                 else:
-                    return field.currentValue  # fallback if no delegate
+                    return field.currentValue
 
-        # ✅ Gray out Current if source is NONE
+        # Gray out Current column if source is NONE
         if role == Qt.ForegroundRole and col == self.COL_VALUE:
             if not field.sourceField or field.sourceField == "- NONE -":
                 return QColor(Qt.gray)
 
         return None
+
+
+
+
 
 
     def setData(self, index, value, role=Qt.EditRole):
@@ -857,21 +921,56 @@ class MetadataTableModel(QAbstractTableModel):
 
 
     def flags(self, index):
-        col = index.column()
         field = self.collection.fields[index.row()]
 
+        if field.is_header:
+            return Qt.NoItemFlags
+            # return Qt.ItemIsEnabled
+
+        col = index.column()
         if col == self.COL_ENABLED:
             return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
-
         elif col == self.COL_SOURCE:
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
-
         elif col == self.COL_VALUE:
             if field.sourceField != "- CUSTOM -":
-                return Qt.ItemIsEnabled  # Not editable
+                return Qt.ItemIsEnabled
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
         return Qt.ItemIsEnabled
+
+
+class MiniHeaderDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        model = index.model()
+        field = model.collection.fields[index.row()]
+        col = index.column()
+
+        if getattr(field, "is_header", False):
+            # Draw custom background
+            painter.save()
+            painter.fillRect(option.rect, QColor("#44475a"))  # your chosen header background color
+            painter.restore()
+
+            # Make font bold and bigger
+            option.font.setBold(True)
+            option.font.setPointSize(option.font.pointSize() + 1)
+
+            # Draw text only in COL_NAME (second column)
+            if col == MetadataTableModel.COL_NAME:
+                text = field.name
+                # draw text with the modified font and default alignment
+                painter.setFont(option.font)
+                painter.setPen(QColor("#f8f8f2"))  # brighter text color
+                rect = option.rect.adjusted(4, 0, 0, 0)  # some left padding
+                painter.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, text)
+            else:
+                # For other columns in header row, draw empty (no checkbox etc)
+                pass
+            return  # skip normal painting for header rows
+
+        # For normal rows, use default painting (including checkbox)
+        super().paint(painter, option, index)
 
 
 
@@ -900,16 +999,49 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
                 idx += 1
 
 
+    def paint(self, painter, option, index):
+        model = index.model()
+        field = model.collection.fields[index.row()]
+
+        if getattr(field, "is_header", False):
+            painter.save()
+            painter.fillRect(option.rect, QColor("#44475a"))  # same header bg color
+            painter.restore()
+
+            # Bold font + slightly bigger
+            option.font.setBold(True)
+            option.font.setPointSize(option.font.pointSize() + 1)
+
+            # Draw text instead of combo box
+            text = field.name if index.column() == MetadataTableModel.COL_NAME else ""
+
+            painter.setFont(option.font)
+            painter.setPen(QColor("#f8f8f2"))  # brighter text color
+
+            rect = option.rect.adjusted(4, 0, 0, 0)  # left padding
+            painter.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, text)
+            return
+
+        # Otherwise use normal combo box painting
+        super().paint(painter, option, index)
+
+
     def createEditor(self, parent, option, index):
+        # Access your model's collection to get the field for this row
+        field = index.model().collection.fields[index.row()]
+
+        if getattr(field, "is_header", False):
+            # No editor for header rows
+            return None
+
+        # Otherwise create the combo box as usual
         combo = QComboBox(parent)
         combo.addItems(self.display_strings)
         combo.setStyleSheet("background-color: #28292d; color: #ccc;")
         combo.currentIndexChanged.connect(lambda: self.commitData.emit(combo))
 
-        if parent:
-            parent.update()
-
         return combo
+
 
 
     def setEditorData(self, editor, index):

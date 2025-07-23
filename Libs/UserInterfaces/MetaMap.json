@@ -1,540 +1,540 @@
 {
     "metaMap": [
-        {
-            "MetaName": "File Name",
-            "category": "Crew/Production",
-            "Target": "File Name",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Description",
-            "category": "Shot/Scene",
-            "Target": "Description",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Comments",
-            "category": "Shot/Scene",
-            "Target": "Comments",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Keywords",
-            "category": "Shot/Scene",
-            "Target": "Keywords",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Shot",
-            "category": "Shot/Scene",
-            "Target": "Shot",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Scene",
-            "category": "Shot/Scene",
-            "Target": "Scene",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Take",
-            "category": "Shot/Scene",
-            "Target": "Take",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Angle",
-            "category": "Shot/Scene",
-            "Target": "Angle",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Move",
-            "category": "Shot/Scene",
-            "Target": "Move",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Day / Night",
-            "category": "Shot/Scene",
-            "Target": "Day / Night",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Environment",
-            "category": "Shot/Scene",
-            "Target": "Environment",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Shot Type",
-            "category": "Shot/Scene",
-            "Target": "Shot Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Good Take",
-            "category": "Shot/Scene",
-            "Target": "Good Take",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Shoot Day",
-            "category": "Shot/Scene",
-            "Target": "Shoot Day",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Date Recorded",
-            "category": "Shot/Scene",
-            "Target": "Date Recorded",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera #",
-            "category": "Camera",
-            "Target": "Camera #",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Roll Card #",
-            "category": "Camera",
-            "Target": "Roll Card #",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Reel Number",
-            "category": "Crew/Production",
-            "Target": "Reel Number",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Clip Number",
-            "category": "Camera",
-            "Target": "Clip Number",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Program Name",
-            "category": "Shot/Scene",
-            "Target": "Program Name",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Episode #",
-            "category": "Shot/Scene",
-            "Target": "Episode #",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Episode Name",
-            "category": "Shot/Scene",
-            "Target": "Episode Name",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Shot During Ep",
-            "category": "Shot/Scene",
-            "Target": "Shot During Ep",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Location",
-            "category": "Shot/Scene",
-            "Target": "Location",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Unit Name",
-            "category": "Crew/Production",
-            "Target": "Unit Name",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Setup",
-            "category": "Shot/Scene",
-            "Target": "Setup",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Type",
-            "category": "Camera",
-            "Target": "Camera Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Manufacturer",
-            "category": "Camera",
-            "Target": "Camera Manufacturer",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Serial #",
-            "category": "Camera",
-            "Target": "Camera Serial #",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera ID",
-            "category": "Camera",
-            "Target": "Camera ID",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Notes",
-            "category": "Camera",
-            "Target": "Camera Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Format",
-            "category": "Camera",
-            "Target": "Camera Format",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Media Type",
-            "category": "Camera",
-            "Target": "Media Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Time-lapse Interval",
-            "category": "Camera",
-            "Target": "Time-lapse Interval",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera FPS",
-            "category": "Camera",
-            "Target": "Camera FPS",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Shutter Type",
-            "category": "Camera",
-            "Target": "Shutter Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Shutter Angle",
-            "category": "Camera",
-            "Target": "Shutter Angle",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Shutter Speed",
-            "category": "Camera",
-            "Target": "Shutter Speed",
-            "Alias": ""
-        },
-        {
-            "MetaName": "ISO",
-            "category": "Camera",
-            "Target": "ISO",
-            "Alias": ""
-        },
-        {
-            "MetaName": "White Point (Kelvin)",
-            "category": "Camera",
-            "Target": "White Point (Kelvin)",
-            "Alias": ""
-        },
-        {
-            "MetaName": "White Balance Tint",
-            "category": "Camera",
-            "Target": "White Balance Tint",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera TC Type",
-            "category": "Camera",
-            "Target": "Camera TC Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Sensor",
-            "category": "Camera",
-            "Target": "Sensor",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Firmware",
-            "category": "Camera",
-            "Target": "Camera Firmware",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Mon Color Space",
-            "category": "Camera",
-            "Target": "Mon Color Space",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Monitor LUT",
-            "category": "Camera",
-            "Target": "Monitor LUT",
-            "Alias": ""
-        },
-        {
-            "MetaName": "LUT Used",
-            "category": "Camera",
-            "Target": "LUT Used",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Lens Type",
-            "category": "Camera",
-            "Target": "Lens Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Lens Number",
-            "category": "Camera",
-            "Target": "Lens Number",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Lens Notes",
-            "category": "Camera",
-            "Target": "Lens Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Aperture Type",
-            "category": "Camera",
-            "Target": "Camera Aperture Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Aperture",
-            "category": "Camera",
-            "Target": "Camera Aperture",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Focal Point (mm)",
-            "category": "Camera",
-            "Target": "Focal Point (mm)",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Distance",
-            "category": "Camera",
-            "Target": "Distance",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Filter",
-            "category": "Camera",
-            "Target": "Filter",
-            "Alias": ""
-        },
-        {
-            "MetaName": "ND Filter",
-            "category": "Camera",
-            "Target": "ND Filter",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Compression Ratio",
-            "category": "Camera",
-            "Target": "Compression Ratio",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Codec Bitrate",
-            "category": "Camera",
-            "Target": "Codec Bitrate",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Sensor Area Captured",
-            "category": "Camera",
-            "Target": "Sensor Area Captured",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Pan Angle",
-            "category": "Camera",
-            "Target": "Camera Pan Angle",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Tilt Angle",
-            "category": "Camera",
-            "Target": "Camera Tilt Angle",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Roll Angle",
-            "category": "Camera",
-            "Target": "Camera Roll Angle",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Position",
-            "category": "Camera",
-            "Target": "Camera Position",
-            "Alias": ""
-        },
-        {
-            "MetaName": "PAR Notes",
-            "category": "Camera",
-            "Target": "PAR Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Safe Area",
-            "category": "Camera",
-            "Target": "Safe Area",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Aspect Ratio Notes",
-            "category": "Camera",
-            "Target": "Aspect Ratio Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Gamma Notes",
-            "category": "Camera",
-            "Target": "Gamma Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Color Space Notes",
-            "category": "Camera",
-            "Target": "Color Space Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "RAW",
-            "category": "Camera",
-            "Target": "RAW",
-            "Alias": ""
-        },
-        {
-            "MetaName": "LUT Used On Set",
-            "category": "Camera",
-            "Target": "LUT Used On Set",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Lab Roll #",
-            "category": "Camera",
-            "Target": "Lab Roll #",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Colorist Notes",
-            "category": "Camera",
-            "Target": "Colorist Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Audio Recorder",
-            "category": "Audio",
-            "Target": "Audio Recorder",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Audio Notes",
-            "category": "Audio",
-            "Target": "Audio Notes",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Embedded Audio",
-            "category": "Audio",
-            "Target": "Embedded Audio",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Audio File Type",
-            "category": "Audio",
-            "Target": "Audio File Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Audio Media",
-            "category": "Audio",
-            "Target": "Audio Media",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Sound Roll #",
-            "category": "Audio",
-            "Target": "Sound Roll #",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Audio TC Type",
-            "category": "Audio",
-            "Target": "Audio TC Type",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Production Name",
-            "category": "Crew/Production",
-            "Target": "Production Name",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Series #",
-            "category": "Crew/Production",
-            "Target": "Series #",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Genre",
-            "category": "Crew/Production",
-            "Target": "Genre",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Production Company",
-            "category": "Crew/Production",
-            "Target": "Production Company",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Producer",
-            "category": "Crew/Production",
-            "Target": "Producer",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Assistant Director",
-            "category": "Crew/Production",
-            "Target": "Assistant Director",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Script Supervisor",
-            "category": "Crew/Production",
-            "Target": "Script Supervisor",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Camera Operator",
-            "category": "Crew/Production",
-            "Target": "Camera Operator",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Sound Mixer",
-            "category": "Crew/Production",
-            "Target": "Sound Mixer",
-            "Alias": ""
-        },
-        {
-            "MetaName": "Crew Comments",
-            "category": "Crew/Production",
-            "Target": "Crew Comments",
-            "Alias": ""
-        }
-    ],
+    {
+        "MetaName": "File Name",
+        "category": "Crew/Production",
+        "Target": "File Name",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Reel Number",
+        "category": "Crew/Production",
+        "Target": "Reel Number",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Unit Name",
+        "category": "Crew/Production",
+        "Target": "Unit Name",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Production Name",
+        "category": "Crew/Production",
+        "Target": "Production Name",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Series #",
+        "category": "Crew/Production",
+        "Target": "Series #",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Genre",
+        "category": "Crew/Production",
+        "Target": "Genre",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Production Company",
+        "category": "Crew/Production",
+        "Target": "Production Company",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Producer",
+        "category": "Crew/Production",
+        "Target": "Producer",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Assistant Director",
+        "category": "Crew/Production",
+        "Target": "Assistant Director",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Script Supervisor",
+        "category": "Crew/Production",
+        "Target": "Script Supervisor",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Operator",
+        "category": "Crew/Production",
+        "Target": "Camera Operator",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Sound Mixer",
+        "category": "Crew/Production",
+        "Target": "Sound Mixer",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Crew Comments",
+        "category": "Crew/Production",
+        "Target": "Crew Comments",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Description",
+        "category": "Shot/Scene",
+        "Target": "Description",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Comments",
+        "category": "Shot/Scene",
+        "Target": "Comments",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Keywords",
+        "category": "Shot/Scene",
+        "Target": "Keywords",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Shot",
+        "category": "Shot/Scene",
+        "Target": "Shot",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Scene",
+        "category": "Shot/Scene",
+        "Target": "Scene",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Take",
+        "category": "Shot/Scene",
+        "Target": "Take",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Angle",
+        "category": "Shot/Scene",
+        "Target": "Angle",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Move",
+        "category": "Shot/Scene",
+        "Target": "Move",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Day / Night",
+        "category": "Shot/Scene",
+        "Target": "Day / Night",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Environment",
+        "category": "Shot/Scene",
+        "Target": "Environment",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Shot Type",
+        "category": "Shot/Scene",
+        "Target": "Shot Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Good Take",
+        "category": "Shot/Scene",
+        "Target": "Good Take",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Shoot Day",
+        "category": "Shot/Scene",
+        "Target": "Shoot Day",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Date Recorded",
+        "category": "Shot/Scene",
+        "Target": "Date Recorded",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Program Name",
+        "category": "Shot/Scene",
+        "Target": "Program Name",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Episode #",
+        "category": "Shot/Scene",
+        "Target": "Episode #",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Episode Name",
+        "category": "Shot/Scene",
+        "Target": "Episode Name",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Shot During Ep",
+        "category": "Shot/Scene",
+        "Target": "Shot During Ep",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Location",
+        "category": "Shot/Scene",
+        "Target": "Location",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Setup",
+        "category": "Shot/Scene",
+        "Target": "Setup",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera #",
+        "category": "Camera",
+        "Target": "Camera #",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Roll Card #",
+        "category": "Camera",
+        "Target": "Roll Card #",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Clip Number",
+        "category": "Camera",
+        "Target": "Clip Number",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Type",
+        "category": "Camera",
+        "Target": "Camera Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Manufacturer",
+        "category": "Camera",
+        "Target": "Camera Manufacturer",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Serial #",
+        "category": "Camera",
+        "Target": "Camera Serial #",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera ID",
+        "category": "Camera",
+        "Target": "Camera ID",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Notes",
+        "category": "Camera",
+        "Target": "Camera Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Format",
+        "category": "Camera",
+        "Target": "Camera Format",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Media Type",
+        "category": "Camera",
+        "Target": "Media Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Time-lapse Interval",
+        "category": "Camera",
+        "Target": "Time-lapse Interval",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera FPS",
+        "category": "Camera",
+        "Target": "Camera FPS",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Shutter Type",
+        "category": "Camera",
+        "Target": "Shutter Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Shutter Angle",
+        "category": "Camera",
+        "Target": "Shutter Angle",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Shutter Speed",
+        "category": "Camera",
+        "Target": "Shutter Speed",
+        "Alias": ""
+    },
+    {
+        "MetaName": "ISO",
+        "category": "Camera",
+        "Target": "ISO",
+        "Alias": ""
+    },
+    {
+        "MetaName": "White Point (Kelvin)",
+        "category": "Camera",
+        "Target": "White Point (Kelvin)",
+        "Alias": ""
+    },
+    {
+        "MetaName": "White Balance Tint",
+        "category": "Camera",
+        "Target": "White Balance Tint",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera TC Type",
+        "category": "Camera",
+        "Target": "Camera TC Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Sensor",
+        "category": "Camera",
+        "Target": "Sensor",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Firmware",
+        "category": "Camera",
+        "Target": "Camera Firmware",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Mon Color Space",
+        "category": "Camera",
+        "Target": "Mon Color Space",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Monitor LUT",
+        "category": "Camera",
+        "Target": "Monitor LUT",
+        "Alias": ""
+    },
+    {
+        "MetaName": "LUT Used",
+        "category": "Camera",
+        "Target": "LUT Used",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Lens Type",
+        "category": "Camera",
+        "Target": "Lens Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Lens Number",
+        "category": "Camera",
+        "Target": "Lens Number",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Lens Notes",
+        "category": "Camera",
+        "Target": "Lens Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Aperture Type",
+        "category": "Camera",
+        "Target": "Camera Aperture Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Aperture",
+        "category": "Camera",
+        "Target": "Camera Aperture",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Focal Point (mm)",
+        "category": "Camera",
+        "Target": "Focal Point (mm)",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Distance",
+        "category": "Camera",
+        "Target": "Distance",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Filter",
+        "category": "Camera",
+        "Target": "Filter",
+        "Alias": ""
+    },
+    {
+        "MetaName": "ND Filter",
+        "category": "Camera",
+        "Target": "ND Filter",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Compression Ratio",
+        "category": "Camera",
+        "Target": "Compression Ratio",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Codec Bitrate",
+        "category": "Camera",
+        "Target": "Codec Bitrate",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Sensor Area Captured",
+        "category": "Camera",
+        "Target": "Sensor Area Captured",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Pan Angle",
+        "category": "Camera",
+        "Target": "Camera Pan Angle",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Tilt Angle",
+        "category": "Camera",
+        "Target": "Camera Tilt Angle",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Roll Angle",
+        "category": "Camera",
+        "Target": "Camera Roll Angle",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Camera Position",
+        "category": "Camera",
+        "Target": "Camera Position",
+        "Alias": ""
+    },
+    {
+        "MetaName": "PAR Notes",
+        "category": "Camera",
+        "Target": "PAR Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Safe Area",
+        "category": "Camera",
+        "Target": "Safe Area",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Aspect Ratio Notes",
+        "category": "Camera",
+        "Target": "Aspect Ratio Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Gamma Notes",
+        "category": "Camera",
+        "Target": "Gamma Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Color Space Notes",
+        "category": "Camera",
+        "Target": "Color Space Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "RAW",
+        "category": "Camera",
+        "Target": "RAW",
+        "Alias": ""
+    },
+    {
+        "MetaName": "LUT Used On Set",
+        "category": "Camera",
+        "Target": "LUT Used On Set",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Lab Roll #",
+        "category": "Camera",
+        "Target": "Lab Roll #",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Colorist Notes",
+        "category": "Camera",
+        "Target": "Colorist Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Audio Recorder",
+        "category": "Audio",
+        "Target": "Audio Recorder",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Audio Notes",
+        "category": "Audio",
+        "Target": "Audio Notes",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Embedded Audio",
+        "category": "Audio",
+        "Target": "Embedded Audio",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Audio File Type",
+        "category": "Audio",
+        "Target": "Audio File Type",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Audio Media",
+        "category": "Audio",
+        "Target": "Audio Media",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Sound Roll #",
+        "category": "Audio",
+        "Target": "Sound Roll #",
+        "Alias": ""
+    },
+    {
+        "MetaName": "Audio TC Type",
+        "category": "Audio",
+        "Target": "Audio TC Type",
+        "Alias": ""
+    }
+],
     "metaPresets": {
         "zCam - ALL": [
             {
