@@ -56,6 +56,8 @@ import re
 import textwrap
 import logging
 import json
+import copy
+
 
 
 from qtpy.QtCore import *
@@ -1984,6 +1986,8 @@ class MetaPresetsPopup(QDialog):
 
         self.selectedPreset = None
 
+        self.metaPresets_copy = copy.deepcopy(self.metaEditor.metaPresets)
+
         self.setWindowTitle("MetaData Presets")
 
         self.setupUI()
@@ -2016,13 +2020,13 @@ class MetaPresetsPopup(QDialog):
         lo_buttons      = QHBoxLayout()
         self.b_moveUp   = QPushButton("Move Up")
         self.b_moveDn   = QPushButton("Move Down")
-        self.b_load     = QPushButton("Load")
+        self.b_save     = QPushButton("Save")
         self.b_close    = QPushButton("Close")
         
         lo_buttons.addWidget(self.b_moveUp)
         lo_buttons.addWidget(self.b_moveDn)
         lo_buttons.addStretch()
-        lo_buttons.addWidget(self.b_load)
+        lo_buttons.addWidget(self.b_save)
         lo_buttons.addWidget(self.b_close)
 
         #   Add to Main Layout
@@ -2032,7 +2036,7 @@ class MetaPresetsPopup(QDialog):
         #   ToolTips
         self.b_moveUp.setToolTip("Moves Selected Preset UP one Row")
         self.b_moveDn.setToolTip("Moves Selected Preset DOWN one Row")
-        self.b_load.setToolTip("Loads Selected Preset in the Metatdata Editor and updates Fields")
+        self.b_save.setToolTip("Saves Updates and Closes the Editor")
         self.b_close.setToolTip("Close the Preset Editor")
 
         tip = ("List of Available Metadata Presets\n\n"
@@ -2046,7 +2050,7 @@ class MetaPresetsPopup(QDialog):
 
         self.b_moveUp.clicked.connect(self._onMoveUp)
         self.b_moveDn.clicked.connect(self._onMoveDown) 
-        self.b_load.clicked.connect(lambda: self._onLoadPreset())
+        self.b_save.clicked.connect(lambda: self._onSave())
         self.b_close.clicked.connect(lambda: self._onClose())
 
 
@@ -2058,7 +2062,7 @@ class MetaPresetsPopup(QDialog):
 
         if item:
             editAct = QAction("Edit Preset", self)
-            editAct.triggered.connect(lambda: self.editPreset(item))
+            editAct.triggered.connect(lambda: self.editPreset(item=item))
             rcmenu.addAction(editAct)
 
             delAct = QAction("Delete Preset", self)
@@ -2067,7 +2071,7 @@ class MetaPresetsPopup(QDialog):
 
         else:
             addAct = QAction("Create New Preset from Current", self)
-            addAct.triggered.connect(self.addNewPreset)
+            addAct.triggered.connect(lambda: self.editPreset(addNew=True))
             rcmenu.addAction(addAct)
 
             restoreAct = QAction("Restore Basic Preset Templates", self)
@@ -2084,13 +2088,17 @@ class MetaPresetsPopup(QDialog):
     #   Adds Presets to List
     def refreshList(self):
         self.lw_presetList.clear()
-        self.lw_presetList.addItems(self.metaEditor.metaPresets)
+        self.lw_presetList.addItems(self.metaPresets_copy)
 
 
-    #   Gets Current Metadata and displays Preset Editor
-    def addNewPreset(self):
-        presetName = ""
-        currData = self.metaEditor.getCurrentData(filterNone=True)
+    #   Gets Selected Preset Data and displays Preset Editor
+    def editPreset(self, addNew=False, item=None):
+        if addNew:
+            presetName = ""
+            currData = self.metaEditor.getCurrentData(filterNone=True)
+        else:
+            presetName = item.text()
+            currData = self.metaPresets_copy[item.text()]
 
         currPresetData = {
             "name": presetName,
@@ -2100,28 +2108,7 @@ class MetaPresetsPopup(QDialog):
         resultData = self.openPresetEditor(currPresetData)
 
         if resultData:
-            self.metaEditor.metaPresets[resultData["name"]] = resultData["data"]
-
-            self.metaEditor.savePresets()
-            self.refreshList()
-
-
-    #   Gets Selected Preset Data and displays Preset Editor
-    def editPreset(self, item):
-        presetName = item.text()
-        presetData = self.metaEditor.metaPresets[item.text()]
-
-        currPresetData = {
-            "name": presetName,
-            "data": presetData
-        }
-
-        resultData = self.openPresetEditor(currPresetData)
-
-        if resultData:
-            self.metaEditor.metaPresets[resultData["name"]] = resultData["data"]
-
-            self.metaEditor.savePresets()
+            self.metaPresets_copy[resultData["name"]] = resultData["data"]
             self.refreshList()
 
 
@@ -2132,7 +2119,7 @@ class MetaPresetsPopup(QDialog):
             return presetEditor.resultData
 
 
-    def restoreFactoryPresets(self):
+    def restoreFactoryPresets(self):                                #   TODO - FINISH
         print("RESTORE FACTORY")
 
 
@@ -2181,17 +2168,15 @@ class MetaPresetsPopup(QDialog):
     #   Replaces 'metaPresets' Dict with New Verion with new Ordering
     def updateMetaPresetsOrder(self):
         new_order = [self.lw_presetList.item(i).text() for i in range(self.lw_presetList.count())]
-        new_dict = {key: self.metaEditor.metaPresets[key] for key in new_order if key in self.metaEditor.metaPresets}
-        self.metaEditor.metaPresets.clear()
-        self.metaEditor.metaPresets.update(new_dict)
-        self.metaEditor.savePresets()
+        new_dict = {key: self.metaPresets_copy[key] for key in new_order if key in self.metaPresets_copy}
+        self.metaPresets_copy.clear()
+        self.metaPresets_copy.update(new_dict)
 
 
     #   Stores Selected Preset Name for Main Code to Load
-    def _onLoadPreset(self):
-        item = self.lw_presetList.currentItem()
-        if item:
-            self.selectedPreset = item.text()
+    def _onSave(self):
+        self.updateMetaPresetsOrder()
+        self.metaEditor.metaPresets = self.metaPresets_copy
         self.accept()
 
 
@@ -2354,27 +2339,25 @@ class MetaPresetsEditor(QDialog):
 
     #   Validates and Saves Preset
     def _onSavePreset(self):
-        
+        #   Check Valid Name
         valid, msg = self.validateName()
-
         if not valid:
             self.core.popup(msg)
             return
 
+        #   Chack Valid Data
         valid, msg = self.validateData()
-
         if not valid:
             self.core.popup(msg, title="Invalid Data")
             return       
 
-        # If everything passes
+        #   If everything passes
         self.resultData = {
             "name": self.le_pName.text().strip(),
             "data": json.loads(self.te_presetEditor.toPlainText())
         }
 
         self.accept()
-
 
 
     def _onCancel(self):

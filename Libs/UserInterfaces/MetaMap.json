@@ -536,219 +536,7 @@
         }
     ],
     "metaPresets": {
-        "zCam - zLog2": [
-            {
-                "field": "File Name",
-                "enabled": true,
-                "sourceField": "format > filename",
-                "currentData": ""
-            },
-            {
-                "field": "Description",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Comments",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Keywords",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Shot",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Scene",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Take",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Angle",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Day / Night",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Environment",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Shot Type",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Camera #",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": ""
-            },
-            {
-                "field": "Reel Number",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.reel",
-                "currentData": ""
-            },
-            {
-                "field": "Clip Number",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.clipID",
-                "currentData": ""
-            },
-            {
-                "field": "Location",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Camera Type",
-                "enabled": true,
-                "sourceField": "format >   CameraModel",
-                "currentData": ""
-            },
-            {
-                "field": "Camera Manufacturer",
-                "enabled": true,
-                "sourceField": "format >   CameraMaker",
-                "currentData": ""
-            },
-            {
-                "field": "Camera Serial #",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.sn",
-                "currentData": ""
-            },
-            {
-                "field": "Camera ID",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": ""
-            },
-            {
-                "field": "Camera Notes",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Camera Format",
-                "enabled": true,
-                "sourceField": "format > format_long_name",
-                "currentData": ""
-            },
-            {
-                "field": "Media Type",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.storage",
-                "currentData": ""
-            },
-            {
-                "field": "Camera FPS",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.projectFps",
-                "currentData": ""
-            },
-            {
-                "field": "Shutter Angle",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.shutterAngle",
-                "currentData": ""
-            },
-            {
-                "field": "ISO",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.iso",
-                "currentData": ""
-            },
-            {
-                "field": "White Point (Kelvin)",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceKelvin",
-                "currentData": ""
-            },
-            {
-                "field": "White Balance Tint",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceTint",
-                "currentData": ""
-            },
-            {
-                "field": "Camera Firmware",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.fw",
-                "currentData": ""
-            },
-            {
-                "field": "Lens Type",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "ND Filter",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Gamma Notes",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.lut",
-                "currentData": "zLog2"
-            },
-            {
-                "field": "Color Space Notes",
-                "enabled": true,
-                "sourceField": "stream_0 > color_space",
-                "currentData": "Rec709"
-            },
-            {
-                "field": "DOP",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Camera Operator",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            },
-            {
-                "field": "Digital Technician",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": ""
-            }
-        ],
-        "zCam": [
+        "zCam - ALL": [
             {
                 "field": "File Name",
                 "enabled": true,
@@ -818,19 +606,19 @@
             {
                 "field": "Camera #",
                 "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
+                "sourceField": "format > tags > com.apple.proapps.cameraName",
                 "currentData": "A"
             },
             {
                 "field": "Reel Number",
                 "enabled": true,
-                "sourceField": "format >   com.apple.proapps.reel",
+                "sourceField": "format > tags > com.apple.proapps.reel",
                 "currentData": "006"
             },
             {
                 "field": "Clip Number",
                 "enabled": true,
-                "sourceField": "format >   com.apple.proapps.clipID",
+                "sourceField": "format > tags > com.apple.proapps.clipID",
                 "currentData": "A006C0696_20630416013400_0001"
             },
             {
@@ -842,25 +630,25 @@
             {
                 "field": "Camera Type",
                 "enabled": true,
-                "sourceField": "format >   CameraModel",
+                "sourceField": "format > tags > CameraModel",
                 "currentData": "E2-S6"
             },
             {
                 "field": "Camera Manufacturer",
                 "enabled": true,
-                "sourceField": "format >   CameraMaker",
+                "sourceField": "format > tags > CameraMaker",
                 "currentData": "Z CAM"
             },
             {
                 "field": "Camera Serial #",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.sn",
+                "sourceField": "format > tags > com.zcam.camera.sn",
                 "currentData": "524D0070362"
             },
             {
                 "field": "Camera ID",
                 "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
+                "sourceField": "format > tags > com.apple.proapps.cameraName",
                 "currentData": "A"
             },
             {
@@ -878,44 +666,50 @@
             {
                 "field": "Media Type",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.storage",
+                "sourceField": "format > tags > com.zcam.camera.storage",
                 "currentData": "Samsung Portable SSD T5"
             },
             {
                 "field": "Camera FPS",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.projectFps",
+                "sourceField": "format > tags > com.zcam.camera.projectFps",
                 "currentData": "29.97"
             },
             {
                 "field": "Shutter Angle",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.shutterAngle",
+                "sourceField": "format > tags > com.zcam.camera.shutterAngle",
                 "currentData": "180Â°"
             },
             {
                 "field": "ISO",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.iso",
+                "sourceField": "format > tags > com.zcam.camera.iso",
                 "currentData": "1250"
             },
             {
                 "field": "White Point (Kelvin)",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceKelvin",
+                "sourceField": "format > tags > com.zcam.camera.whiteBalanceKelvin",
                 "currentData": "5600K"
             },
             {
                 "field": "White Balance Tint",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceTint",
+                "sourceField": "format > tags > com.zcam.camera.whiteBalanceTint",
                 "currentData": "0"
             },
             {
                 "field": "Camera Firmware",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.fw",
+                "sourceField": "format > tags > com.zcam.camera.fw",
                 "currentData": "1.0.1"
+            },
+            {
+                "field": "Mon Color Space",
+                "enabled": false,
+                "sourceField": "stream_0 > color_space",
+                "currentData": "bt709"
             },
             {
                 "field": "Lens Type",
@@ -930,9 +724,15 @@
                 "currentData": "None"
             },
             {
+                "field": "Codec Bitrate",
+                "enabled": false,
+                "sourceField": "stream_0 > bits_per_raw_sample",
+                "currentData": "10"
+            },
+            {
                 "field": "Gamma Notes",
                 "enabled": true,
-                "sourceField": "format >   com.zcam.camera.lut",
+                "sourceField": "format > tags > com.zcam.camera.lut",
                 "currentData": "Z-Log2"
             },
             {
@@ -942,19 +742,7 @@
                 "currentData": "bt709"
             },
             {
-                "field": "DOP",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "JRB"
-            },
-            {
                 "field": "Camera Operator",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "JRB"
-            },
-            {
-                "field": "Digital Technician",
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
                 "currentData": "JRB"
@@ -1164,6 +952,152 @@
                 "enabled": true,
                 "sourceField": "- CUSTOM -",
                 "currentData": "JRB"
+            }
+        ],
+        "ARRI ProRes MOV": [
+            {
+                "field": "File Name",
+                "enabled": false,
+                "sourceField": "format > filename",
+                "currentData": "C:\\Users\\Alta Arts\\Desktop\\Alexa Footage\\AlexaMini-PR4444\\M001C007_161207_R00H.mov"
+            },
+            {
+                "field": "Shot",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.TakeName",
+                "currentData": ""
+            },
+            {
+                "field": "Scene",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.SceneName",
+                "currentData": ""
+            },
+            {
+                "field": "Camera #",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.CameraId",
+                "currentData": "R00H"
+            },
+            {
+                "field": "Reel Number",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ReelName",
+                "currentData": "M001R00H"
+            },
+            {
+                "field": "Clip Number",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.CameraClipName",
+                "currentData": "M001C007_161207_R00H.mov"
+            },
+            {
+                "field": "Program Name",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ProductionInfoProduction",
+                "currentData": "ARRI"
+            },
+            {
+                "field": "Camera Type",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.CameraModel",
+                "currentData": "ARRI ALEXA Mini"
+            },
+            {
+                "field": "Camera Manufacturer",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.CameraModel",
+                "currentData": "ARRI ALEXA Mini"
+            },
+            {
+                "field": "Camera Serial #",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.CameraSerialNumber",
+                "currentData": "20017"
+            },
+            {
+                "field": "Camera ID",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.CameraId",
+                "currentData": "R00H"
+            },
+            {
+                "field": "Camera Format",
+                "enabled": false,
+                "sourceField": "format > format_long_name",
+                "currentData": "QuickTime / MOV"
+            },
+            {
+                "field": "Camera FPS",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ProjectFps",
+                "currentData": "24000"
+            },
+            {
+                "field": "Shutter Angle",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ShutterAngle",
+                "currentData": "1728"
+            },
+            {
+                "field": "ISO",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ExposureIndexAsa",
+                "currentData": "800"
+            },
+            {
+                "field": "White Point (Kelvin)",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.WhiteBalanceKelvin",
+                "currentData": "5600"
+            },
+            {
+                "field": "White Balance Tint",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.WhiteBalanceTintCc",
+                "currentData": "0"
+            },
+            {
+                "field": "Monitor LUT",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.look.name",
+                "currentData": "ARRI 709.AML"
+            },
+            {
+                "field": "ND Filter",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.NdFilterDensity",
+                "currentData": "1200"
+            },
+            {
+                "field": "Aspect Ratio Notes",
+                "enabled": false,
+                "sourceField": "stream_0 > sample_aspect_ratio",
+                "currentData": "1:1"
+            },
+            {
+                "field": "Gamma Notes",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ColorGammaSxS",
+                "currentData": "LOG-C"
+            },
+            {
+                "field": "Color Space Notes",
+                "enabled": false,
+                "sourceField": "stream_0 > color_space",
+                "currentData": "bt709"
+            },
+            {
+                "field": "Production Company",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ProductionInfoCompany",
+                "currentData": "ARRITEST"
+            },
+            {
+                "field": "Camera Operator",
+                "enabled": false,
+                "sourceField": "format > tags > com.arri.camera.ProductionInfoOperator",
+                "currentData": "GHI"
             }
         ]
     }

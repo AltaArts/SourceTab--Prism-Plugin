@@ -57,26 +57,25 @@ class Ui_w_metadataEditor(object):
 
         self.lo_top.addWidget(self.b_filters)
 
-        self.b_locked = QPushButton(w_metadataEditor)
-        self.b_locked.setObjectName(u"b_locked")
-        sizePolicy1.setHeightForWidth(self.b_locked.sizePolicy().hasHeightForWidth())
-        self.b_locked.setSizePolicy(sizePolicy1)
-        self.b_locked.setMinimumSize(QSize(30, 0))
-        self.b_locked.setMaximumSize(QSize(30, 16777215))
-        self.b_locked.setCheckable(True)
+        self.b_reset = QPushButton(w_metadataEditor)
+        self.b_reset.setObjectName(u"b_reset")
+        sizePolicy1.setHeightForWidth(self.b_reset.sizePolicy().hasHeightForWidth())
+        self.b_reset.setSizePolicy(sizePolicy1)
+        self.b_reset.setMinimumSize(QSize(30, 0))
+        self.b_reset.setMaximumSize(QSize(30, 16777215))
 
-        self.lo_top.addWidget(self.b_locked)
+        self.lo_top.addWidget(self.b_reset)
 
         self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.lo_top.addItem(self.horizontalSpacer_2)
 
-        self.b_reset = QPushButton(w_metadataEditor)
-        self.b_reset.setObjectName(u"b_reset")
+        self.cb_presets = QComboBox(w_metadataEditor)
+        self.cb_presets.setObjectName(u"cb_presets")
 
-        self.lo_top.addWidget(self.b_reset)
+        self.lo_top.addWidget(self.cb_presets)
 
-        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
+        self.horizontalSpacer_4 = QSpacerItem(20, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
 
         self.lo_top.addItem(self.horizontalSpacer_4)
 
@@ -88,7 +87,7 @@ class Ui_w_metadataEditor(object):
 
         self.lo_main.addLayout(self.lo_top)
 
-        self.tw_metaEditor = QTableWidget(w_metadataEditor)
+        self.tw_metaEditor = QTableView(w_metadataEditor)
         self.tw_metaEditor.setObjectName(u"tw_metaEditor")
 
         self.lo_main.addWidget(self.tw_metaEditor)
@@ -130,9 +129,8 @@ class Ui_w_metadataEditor(object):
         w_metadataEditor.setWindowTitle(QCoreApplication.translate("w_metadataEditor", u"Metadata Editor", None))
         self.b_showMetadataPopup.setText(QCoreApplication.translate("w_metadataEditor", u"View Metadata", None))
         self.b_filters.setText("")
-        self.b_locked.setText("")
         self.b_reset.setText("")
-        self.b_presets.setText(QCoreApplication.translate("w_metadataEditor", u"Presets", None))
+        self.b_presets.setText(QCoreApplication.translate("w_metadataEditor", u"Edit", None))
         self.b_sidecar_save.setText(QCoreApplication.translate("w_metadataEditor", u"Save Sidecar", None))
         self.b_save.setText(QCoreApplication.translate("w_metadataEditor", u"SAVE", None))
         self.b_close.setText(QCoreApplication.translate("w_metadataEditor", u"CLOSE", None))

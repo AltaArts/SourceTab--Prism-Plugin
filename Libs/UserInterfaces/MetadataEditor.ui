@@ -91,7 +91,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="b_locked">
+        <widget class="QPushButton" name="b_reset">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -113,9 +113,6 @@
          <property name="text">
           <string/>
          </property>
-         <property name="checkable">
-          <bool>true</bool>
-         </property>
         </widget>
        </item>
        <item>
@@ -132,11 +129,7 @@
         </spacer>
        </item>
        <item>
-        <widget class="QPushButton" name="b_reset">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
+        <widget class="QComboBox" name="cb_presets"/>
        </item>
        <item>
         <spacer name="horizontalSpacer_4">
@@ -148,7 +141,7 @@
          </property>
          <property name="sizeHint" stdset="0">
           <size>
-           <width>40</width>
+           <width>20</width>
            <height>20</height>
           </size>
          </property>
@@ -157,14 +150,14 @@
        <item>
         <widget class="QPushButton" name="b_presets">
          <property name="text">
-          <string>Presets</string>
+          <string>Edit</string>
          </property>
         </widget>
        </item>
       </layout>
      </item>
      <item>
-      <widget class="QTableWidget" name="tw_metaEditor"/>
+      <widget class="QTableView" name="tw_metaEditor"/>
      </item>
      <item>
       <layout class="QHBoxLayout" name="lo_bottom">
