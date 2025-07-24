@@ -91,16 +91,16 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                                         "UserInterfaces",
                                         "MetaMap.json")
         
-        self.source_options = []
+        self.sourceOptions = []
 
         self.filterStates = {
             "Hide Disabled": False,
             "Hide Empty": False,
             "----1": False,
+            "Crew/Production": True,
             "Shot/Scene": True,
             "Camera": True,
             "Audio": True,
-            "Crew/Production": True,
             "----2": False
         }
 
@@ -116,7 +116,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.populatePresets()
         self.connectEvents()
 
-
         logger.debug("Loaded Metadata Editor")
 
 
@@ -124,7 +123,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     def refresh(self):
         self.loadFiles()
         self.populateEditor()
-
 
 
     @err_catcher(name=__name__)
@@ -154,6 +152,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         self.b_filters.setIcon(icon_filters)
         self.b_reset.setIcon(icon_reset)
+
         #   Set Width of Presets Combo
         self.cb_presets.setStyleSheet("""
             QComboBox#cb_presets {
@@ -161,15 +160,13 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             }
         """)
 
-
         #   Build Custom Table Model
-        self.tableModel = MetadataTableModel(self.fieldsCollection, self.source_options)
+        self.tableModel = MetadataTableModel(self.fieldsCollection, self.sourceOptions)
         self.tw_metaEditor.setModel(self.tableModel)
 
-        # Set your MiniHeaderDelegate as the default delegate               #   TODO
-        self.miniHeaderDelegate = MiniHeaderDelegate(self.tw_metaEditor)
-        self.tw_metaEditor.setItemDelegate(self.miniHeaderDelegate)
-
+        # Set Section Headers Delegate
+        self.sectionHeaderDelegate = SectionHeaderDelegate(self.tw_metaEditor)
+        self.tw_metaEditor.setItemDelegate(self.sectionHeaderDelegate)
 
         #   Configure Table
         self.tw_metaEditor.verticalHeader().setVisible(False)
@@ -180,7 +177,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.tw_metaEditor.setSelectionBehavior(QAbstractItemView.SelectItems)
         self.tw_metaEditor.setAutoFillBackground(True)
 
-        #   Makes It so Single-click will edit a cell
+        #   Makes It so Single-click will edit a cell                                 #   TODO
         self.tw_metaEditor.setEditTriggers(QAbstractItemView.SelectedClicked)
 
         self.tw_metaEditor.setStyleSheet("""
@@ -198,7 +195,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             }
         """)
 
-
         QTimer.singleShot(.1, self.setInitialColumnWidths)
         self.setToolTips()
 
@@ -215,7 +211,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             logger.warning(f"ERROR: Unable to resize Table Columns:{e}")
 
 
-
     @err_catcher(name=__name__)
     def setToolTips(self):
         tip = ("File Listing\n\n"
@@ -225,7 +220,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         tip = "Opens Metadata Display Window"
         self.b_showMetadataPopup.setToolTip(tip)
 
-        tip = ("Table Filters\n\n"
+        tip = ("Table Display Filters (will  not affect Saved Metadata\n\n"
                "    - Click to Enable/Disable Filters\n"
                "    - Right-click to Configure Filters")
         self.b_filters.setToolTip(tip)
@@ -314,7 +309,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         rcmenu.exec_(cpos)
 
 
-
     #   Loads Data from Saved MetaMap
     @err_catcher(name=__name__)
     def loadData(self):
@@ -326,11 +320,11 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             logger.warning("ERROR: MetaMap.json is not found")
             return
         
-        self.metaMap = mData["metaMap"]                     #   TODO - LOOK IF NEEDED
+        self.metaMap = mData["metaMap"]
         self.metaPresets = mData["metaPresets"]
         logger.debug("Loaded Data from 'MetaMap.json'")
 
-        # Build MetadataFieldCollection here
+        #   Build MetadataFieldCollection
         metadata_fields = []
         for item in self.metaMap:
             field = MetadataField(
@@ -343,6 +337,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.fieldsCollection = MetadataFieldCollection(metadata_fields)
 
 
+    #   Loads Presets into Combo
     @err_catcher(name=__name__)
     def populatePresets(self):
         self.cb_presets.clear()
@@ -354,38 +349,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     @err_catcher(name=__name__)
     def populateEditor(self):
         useFilters = self.b_filters.isChecked()
-
-        filtered_fields = []
-        seen_categories = set()
-
-        for mData in self.metaMap:
-            category = mData.get("category", "Crew/Production")                         #   TODO - FIX FILTERS
-
-            if not useFilters or self.filterStates.get(category, True):
-                # insert header if we haven't yet
-                if category not in seen_categories:
-                    header_field = MetadataField(
-                        name=category,
-                        category=category,
-                        enabled=False,
-                        is_header=True
-                    )
-                    filtered_fields.append(header_field)
-                    seen_categories.add(category)
-
-                field_name = mData["MetaName"]
-                field = self.fieldsCollection.get_field_by_name(field_name)
-                if field:
-                    filtered_fields.append(field)
-
-        # replace collection fields with filtered list
-        self.fieldsCollection.fields = filtered_fields
-
-        # tell the model/view to update
+        self.fieldsCollection.applyFilters(self.filterStates, useFilters, self.metaMap)
         self.tableModel.layoutChanged.emit()
-
-
-
 
 
     #   Loads Destination Files into MetaFiles
@@ -413,15 +378,13 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             except Exception as e:
                 logger.warning(f"ERROR: Unable to add FileTile '{tile}': {e}")
 
-
+        #   Clear and Populate File Combo
         self.cb_fileList.clear()
-
         try:
             for file in self.metaFilesModel.allItems():
                 self.cb_fileList.addItem(file.fileName)
         except Exception as e:
             logger.warning(f"ERROR: Unable to Populate Files Combobox")
-
 
         self.onFileChanged()
 
@@ -443,14 +406,19 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         metadata_raw = Utils.getFFprobeMetadata(path)
         self.sourceMetadata = MetadataModel(metadata_raw)
 
-        #   Update Table Model and Combo Delegate
-        self.tableModel.source_options = self.source_options
-        self.delegate = MetadataComboBoxDelegate(self.sourceMetadata, parent=self)
-        self.tableModel.combo_delegate = self.delegate
+        #   Update Table Model
+        self.tableModel.sourceOptions = self.sourceOptions
 
-        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_SOURCE, self.delegate)
+        #   Create Combox Delegate
+        self.comobDelegate = MetadataComboBoxDelegate(self.sourceMetadata, parent=self)
+        self.tableModel.combo_delegate = self.comobDelegate
+        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_SOURCE, self.comobDelegate)
 
-
+        #   Create Checkbox Delegate
+        self.checkboxDelegate = CheckboxDelegate()
+        self.tableModel.checkbox_delegate = self.checkboxDelegate
+        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_ENABLED, self.checkboxDelegate)
+        
         #   Refresh Table
         self.tableModel.layoutChanged.emit()
 
@@ -482,6 +450,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         DisplayPopup.display(metadata, title=f"Metadata: {fileName}", modal=False)
 
 
+    #   Saves Presets to Config
     @err_catcher(name=__name__)
     def savePresets(self):
         with open(self.metaMapPath, "r", encoding="utf-8") as f:
@@ -500,8 +469,10 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     #   Displays Preset Popup
     @err_catcher(name=__name__)
     def showPresetsMenu(self):
+        #   Display Meta Presets Popup
         presetPopup = MetaPresetsPopup(self.core, self)
 
+        #   If Saved Button Pressed
         if presetPopup.exec() == QDialog.Accepted:
            self.savePresets()
            self.populatePresets()
@@ -515,7 +486,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         try:
             pData = self.metaPresets[presetName]
-
         except KeyError:
             logger.debug(f"Preset Not Found: {presetName}")
             return
@@ -524,7 +494,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             logger.warning(f"ERROR: Unable to get Preset from Preset Name: {e}")
             return
         
-        # Build lookup from list
+        #   Build Lookup from List
         presetFields = {row["field"]: row for row in pData}
 
         for row, field in enumerate(self.fieldsCollection.fields):
@@ -534,24 +504,23 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 field.enabled = info.get("enabled", False)
                 field.sourceField = info.get("sourceField", "")
 
-                # If preset field explicitly says NONE
+                #   Preset field is NONE
                 if field.sourceField == "- NONE -":
                     field.currentValue = ""
 
-                # If preset field is CUSTOM
+                #   Preset Field is CUSTOM
                 elif field.sourceField == "- CUSTOM -":
-                    # use value provided in preset as currentValue
                     field.currentValue = info.get("currentData", "")
 
                 else:
-                    # Check if sourceField exists in metadata (via delegate)
-                    if field.sourceField not in self.delegate.display_strings:
-                        # Not present — fallback to NONE
+                    #   Check sourceField Exists in Metadata
+                    if field.sourceField not in self.comobDelegate.display_strings:
+                        #   Not present Fallback to NONE
                         field.sourceField = "- NONE -"
                         field.currentValue = ""
                     else:
-                        # Valid — resolve from metadata
-                        field.currentValue = self.delegate.getValueForField(field.sourceField)
+                        #   Exists Use Metadata
+                        field.currentValue = self.comobDelegate.getValueForField(field.sourceField)
 
             else:
                 if not onlyExisting:
@@ -559,12 +528,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                     field.sourceField = "- NONE -"
                     field.currentValue = ""
 
-            # Notify view of data change
-            top_left = self.tableModel.index(row, 0)
-            bottom_right = self.tableModel.index(row, self.tableModel.columnCount() - 1)
-            self.tableModel.dataChanged.emit(
-                top_left, bottom_right, [Qt.DisplayRole, Qt.EditRole]
-            )
+        #   Update Table
+        self.tableModel.layoutChanged.emit()
 
 
     #   Returns Currently Configured Metadata
@@ -589,7 +554,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     #   Resets Table to Default None's
     @err_catcher(name=__name__)
     def resetTable(self):
-        # Confirmation dialog
         title = "Reset Metadata Table"
         text = (
             "Would you like to clear all existing data or changes loaded into the Editor?\n\n"
@@ -606,12 +570,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 field.sourceField = "- NONE -"
                 field.currentValue = ""
 
-                # notify view row
-                top_left = self.tableModel.index(row, 0)
-                bottom_right = self.tableModel.index(row, self.tableModel.columnCount() - 1)
-                self.tableModel.dataChanged.emit(
-                    top_left, bottom_right, [Qt.DisplayRole, Qt.EditRole]
-                )
+            self.tableModel.layoutChanged.emit()
 
             logger.debug("Reset Metadata Editor")
 
@@ -692,10 +651,10 @@ class MetaFileItems:
         self._by_path[filePath] = item
         self._items.append(item)
 
-    def getByName(self, name) -> MetaFileItem | None:
+    def getByName(self, name):
         return self._by_name.get(name)
 
-    def getByPath(self, path) -> MetaFileItem | None:
+    def getByPath(self, path):
         return self._by_path.get(path)
 
     def allItems(self):
@@ -704,7 +663,7 @@ class MetaFileItems:
 
 #   Contains the Matadata Data
 class MetadataModel:
-    def __init__(self, raw_metadata: dict):
+    def __init__(self, raw_metadata):
         self.metadata = self.group_metadata(raw_metadata)
 
     @staticmethod
@@ -744,14 +703,18 @@ class MetadataModel:
                     recurse(v, path + [k])
                 else:
                     keys.append( (path + [k], k) )
+
         recurse(self.metadata.get(section, {}))
+
         return keys
 
 
-    def get_value(self, section, key_path: list):
+    def get_value(self, section, key_path):
         d = self.metadata.get(section, {})
+
         for k in key_path:
             d = d.get(k, {})
+
         return d if not isinstance(d, dict) else None
     
 
@@ -760,32 +723,87 @@ class MetadataField:
         self.name = name
         self.category = category
         self.enabled = enabled
-        self.sourceField = ""      # e.g., "format > duration"
-        self.currentValue = ""     # populated from file
-        self.is_header = is_header  # NEW
+        self.sourceField = None
+        self.currentValue = ""
+        self.is_header = is_header
 
 
 
 class MetadataFieldCollection:
-    def __init__(self, fields: list[MetadataField]):
-        self.fields = fields
+    def __init__(self, fields):
+        self.fields_all = fields[:]
+        self.fields = fields[:]
 
-    def apply_preset(self, preset_map: dict[str, str]):
-        for field in self.fields:
-            if field.name in preset_map:
-                field.sourceField = preset_map[field.name]
 
-    def update_from_file_metadata(self, file_metadata: dict):
-        for field in self.fields:
-            if field.sourceField:
-                # extract real value here
-                field.currentValue = file_metadata.get(field.sourceField, "")
-
-    def get_field_by_name(self, name: str) -> MetadataField | None:
-        for field in self.fields:
+    def get_fieldByName(self, name):
+        for field in self.fields_all:
             if field.name == name:
                 return field
         return None
+    
+    def applyFilters(self, filterStates, useFilters, metaMap):
+        fields_filtered = []
+        seenCategories = set()
+
+        #   Return All Fields if Filters are Disabled
+        if not useFilters:
+            for mData in metaMap:
+                category = mData.get("category", "Crew/Production")
+                fieldName = mData["MetaName"]
+                field = self.get_fieldByName(fieldName)
+                if not field:
+                    continue
+
+                #   Add Section Headers
+                if category not in seenCategories:
+                    headerField = MetadataField(
+                        name=category,
+                        category=category,
+                        enabled=False,
+                        is_header=True
+                    )
+                    fields_filtered.append(headerField)
+                    seenCategories.add(category)
+
+                fields_filtered.append(field)
+
+        #   If Filters Enabled
+        else:
+            hideDisabled = filterStates.get("Hide Disabled", False)
+            hideEmpty = filterStates.get("Hide Empty", False)
+
+            for mData in metaMap:
+                category = mData.get("category", "Crew/Production")
+                if not filterStates.get(category, True):
+                    continue
+
+                fieldName = mData["MetaName"]
+                field = self.get_fieldByName(fieldName)
+                if not field:
+                    continue
+
+                #   Apply Hide Disabled
+                if hideDisabled and not field.enabled:
+                    continue
+
+                #   Apply Hide Empty
+                if hideEmpty and field.sourceField is None:
+                    continue
+
+                #   Add Section Headers
+                if category not in seenCategories:
+                    headerField = MetadataField(
+                        name=category,
+                        category=category,
+                        enabled=False,
+                        is_header=True
+                    )
+                    fields_filtered.append(headerField)
+                    seenCategories.add(category)
+
+                fields_filtered.append(field)
+
+        self.fields = fields_filtered
 
 
 
@@ -796,10 +814,10 @@ class MetadataTableModel(QAbstractTableModel):
     COL_VALUE = 3
 
 
-    def __init__(self, collection: MetadataFieldCollection, source_options: list[str]):
+    def __init__(self, collection, sourceOptions):
         super().__init__()
         self.collection = collection
-        self.source_options = source_options  # list of strings for combobox
+        self.sourceOptions = sourceOptions
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.collection.fields)
@@ -826,14 +844,14 @@ class MetadataTableModel(QAbstractTableModel):
         field = self.collection.fields[index.row()]
         col = index.column()
 
-        # Mini-header row: special styling and no checkbox
+        #   Section Header Row
         if getattr(field, "is_header", False):
             if role == Qt.DisplayRole:
-                # Show category text only in COL_NAME (second column)
+                #   Display Section in Field Column
                 if col == self.COL_NAME:
-                    return field.name  # category name stored in name for header
+                    return field.name
                 else:
-                    return ""  # other columns empty
+                    return ""
 
             if role == Qt.FontRole:
                 font = QFont()
@@ -842,35 +860,35 @@ class MetadataTableModel(QAbstractTableModel):
                 return font
 
             if role == Qt.BackgroundRole:
-                return QColor("#44475a")  # custom background for header rows
+                return QColor("#44475a")
 
-            # No checkbox on header rows
+            #   No Checkbox on Section Header Rows
             if role == Qt.CheckStateRole and col == self.COL_ENABLED:
                 return None
 
-            # Don't allow editing on headers
+            #   Disable Editing on Section Header
             if role == Qt.ItemIsEnabled:
                 return False
 
             return None
 
-        # Normal row behavior for enabled checkbox
+        #   Normal Row Behavior for the Enabled Checkbox Cells
         if role == Qt.CheckStateRole and col == self.COL_ENABLED:
             return Qt.Checked if field.enabled else Qt.Unchecked
 
-        # Display/Edit text
+        #   Display/Edit Text
         if role in (Qt.DisplayRole, Qt.EditRole):
             if col == self.COL_NAME:
                 return field.name
             elif col == self.COL_SOURCE:
-                return field.sourceField if field.sourceField else "- None -"
+                return field.sourceField if field.sourceField is not None else "- None -"
             elif col == self.COL_VALUE:
                 if hasattr(self, "combo_delegate"):
                     return self.combo_delegate.getValueForField(field.sourceField, field.currentValue)
                 else:
                     return field.currentValue
 
-        # Gray out Current column if source is NONE
+        #   Gray-out Current Column if Source is NONE
         if role == Qt.ForegroundRole and col == self.COL_VALUE:
             if not field.sourceField or field.sourceField == "- NONE -":
                 return QColor(Qt.gray)
@@ -878,40 +896,36 @@ class MetadataTableModel(QAbstractTableModel):
         return None
 
 
-
-
-
-
     def setData(self, index, value, role=Qt.EditRole):
         field = self.collection.fields[index.row()]
         col = index.column()
 
-        if col == self.COL_ENABLED and role == Qt.CheckStateRole:
-            field.enabled = (value == Qt.Checked)
-            self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
+        if role == Qt.CheckStateRole and col == self.COL_ENABLED:
+            field.enabled = value == Qt.Checked
+            self.dataChanged.emit(index, index, [Qt.CheckStateRole])
             return True
 
         elif col == self.COL_SOURCE and role == Qt.EditRole:
             field.sourceField = value
 
-            # Update currentValue if source changed
+            #   Update currentValue if Source Changed
             if hasattr(self, "combo_delegate"):
                 field.currentValue = self.combo_delegate.getValueForField(
                     field.sourceField,
                     field.currentValue
                 )
             else:
-                # fallback: clear currentValue if unknown
+                #   Fallback: Clear currentValue if Unknown
                 field.currentValue = ""
 
-            # notify both columns changed
+            #   Notify Both Columns Changed to Refresh
             idx_current = self.index(index.row(), self.COL_VALUE)
             self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
             self.dataChanged.emit(idx_current, idx_current, [Qt.DisplayRole, Qt.EditRole])
             return True
 
+        #   User Manually Edited Value
         elif col == self.COL_VALUE and role == Qt.EditRole:
-            # user manually edited value → save as currentValue
             field.currentValue = value
             self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
             return True
@@ -919,71 +933,69 @@ class MetadataTableModel(QAbstractTableModel):
         return False
 
 
-
     def flags(self, index):
         field = self.collection.fields[index.row()]
 
         if field.is_header:
             return Qt.NoItemFlags
-            # return Qt.ItemIsEnabled
 
         col = index.column()
         if col == self.COL_ENABLED:
-            return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
+            return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsEditable
+        
         elif col == self.COL_SOURCE:
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
+        
         elif col == self.COL_VALUE:
             if field.sourceField != "- CUSTOM -":
                 return Qt.ItemIsEnabled
+            
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
         return Qt.ItemIsEnabled
 
 
-class MiniHeaderDelegate(QStyledItemDelegate):
+class SectionHeaderDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         model = index.model()
         field = model.collection.fields[index.row()]
         col = index.column()
 
         if getattr(field, "is_header", False):
-            # Draw custom background
+            #   Draw Custom Background
             painter.save()
-            painter.fillRect(option.rect, QColor("#44475a"))  # your chosen header background color
+            painter.fillRect(option.rect, QColor("#44475a"))
             painter.restore()
 
-            # Make font bold and bigger
+            #   Make Header Font Bold and Bigger
             option.font.setBold(True)
             option.font.setPointSize(option.font.pointSize() + 1)
 
-            # Draw text only in COL_NAME (second column)
+            #   Draw Text Only in COL_NAME
             if col == MetadataTableModel.COL_NAME:
                 text = field.name
-                # draw text with the modified font and default alignment
                 painter.setFont(option.font)
-                painter.setPen(QColor("#f8f8f2"))  # brighter text color
-                rect = option.rect.adjusted(4, 0, 0, 0)  # some left padding
+                painter.setPen(QColor("#f8f8f2"))
+                rect = option.rect.adjusted(4, 0, 0, 0)
                 painter.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, text)
             else:
-                # For other columns in header row, draw empty (no checkbox etc)
                 pass
-            return  # skip normal painting for header rows
+            return
 
-        # For normal rows, use default painting (including checkbox)
+        #   For Normal Rows, Use Default Painting
         super().paint(painter, option, index)
 
 
 
-
 class MetadataComboBoxDelegate(QStyledItemDelegate):
-    def __init__(self, metadata_model: MetadataModel, parent=None):
+    def __init__(self, metadata_model, parent=None):
         super().__init__(parent)
         self.metadata_model = metadata_model
 
         self.display_strings = []
         self.key_map = {}  # index → (section, path)
 
-        # Build combobox items & map
+        #   Build Combo Items & Map
         self.display_strings.append("- NONE -")
         self.key_map[0] = None
 
@@ -1005,36 +1017,36 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
 
         if getattr(field, "is_header", False):
             painter.save()
-            painter.fillRect(option.rect, QColor("#44475a"))  # same header bg color
+            painter.fillRect(option.rect, QColor("#44475a"))  # same header bg color            #   TODO - Colors CONST
             painter.restore()
 
-            # Bold font + slightly bigger
+            #   Bold Font and Slightly Bigger
             option.font.setBold(True)
             option.font.setPointSize(option.font.pointSize() + 1)
 
-            # Draw text instead of combo box
+            #   Draw Text Instead of Combobox
             text = field.name if index.column() == MetadataTableModel.COL_NAME else ""
 
             painter.setFont(option.font)
-            painter.setPen(QColor("#f8f8f2"))  # brighter text color
+            painter.setPen(QColor("#f8f8f2"))
 
-            rect = option.rect.adjusted(4, 0, 0, 0)  # left padding
+            rect = option.rect.adjusted(4, 0, 0, 0)
             painter.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, text)
             return
 
-        # Otherwise use normal combo box painting
+        #   Otherwise Use Normal Combo Painting
         super().paint(painter, option, index)
 
 
     def createEditor(self, parent, option, index):
-        # Access your model's collection to get the field for this row
+        #   Use Model's Collection to Get the Field for this Row
         field = index.model().collection.fields[index.row()]
 
         if getattr(field, "is_header", False):
-            # No editor for header rows
+            #   No Editor for Header Rows
             return None
 
-        # Otherwise create the combo box as usual
+        #   Otherwise Create the Combobox
         combo = QComboBox(parent)
         combo.addItems(self.display_strings)
         combo.setStyleSheet("background-color: #28292d; color: #ccc;")
@@ -1043,13 +1055,15 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         return combo
 
 
-
     def setEditorData(self, editor, index):
         currentValue = index.model().data(index, Qt.EditRole)
         try:
             idx = self.display_strings.index(currentValue)
+
         except ValueError:
-            idx = 0  # fallback to "- NONE -"
+            # fallback to "- NONE -"
+            idx = 0
+
         editor.setCurrentIndex(idx)
 
 
@@ -1057,7 +1071,7 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         idx = editor.currentIndex()
         display_str = self.display_strings[idx]
 
-        # Always update the Source column text
+        #   Always Update the Source Column
         model.setData(index, display_str, Qt.EditRole)
 
         current_index = index.siblingAtColumn(MetadataTableModel.COL_VALUE)
@@ -1065,32 +1079,24 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         if idx == 0:
             # "- NONE -" clears value
             value = ""
+
         elif idx == 1:
-            # "- CUSTOM -" leaves current value alone, user will edit manually
+            #   "- CUSTOM -"
             value = model.data(current_index, Qt.EditRole)
+
         else:
-            # regular metadata field
+            #   Regular Metadata Field
             section, path = self.key_map[idx]
             value = self.metadata_model.get_value(section, path)
 
         model.setData(current_index, value, Qt.EditRole)
 
 
-    def getValueForField(self, sourceField: str, currentValue: str = "") -> str:
-        """
-        Resolve the value to display in the 'Current' column.
-
-        Args:
-            sourceField (str): The source mapping string for the field.
-            currentValue (str): The currentValue already stored in the model, used if CUSTOM.
-
-        Returns:
-            str: The resolved value.
-        """
+    def getValueForField(self, sourceField, currentValue=""):
         try:
             idx = self.display_strings.index(sourceField)
         except ValueError:
-            # Unknown source → treat as NONE
+            #   Unknown Source Fallback to NONE
             return ""
 
         if idx == 0:  # "- NONE -"
@@ -1099,7 +1105,7 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         if idx == 1:  # "- CUSTOM -"
             return currentValue or ""
 
-        # Otherwise → fetch from metadata
+        #   Otherwise Get from Metadata
         value = self.key_map.get(idx)
         if not isinstance(value, tuple) or len(value) != 2:
             return ""
@@ -1108,3 +1114,36 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         return self.metadata_model.get_value(section, path) or ""
 
 
+class CheckboxDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        if not (index.flags() & Qt.ItemIsUserCheckable):
+            return  # ← skip painting if not checkable (like section headers)
+
+        checked = index.model().data(index, Qt.CheckStateRole) == Qt.Checked
+        style = QApplication.style()
+        opt = QStyleOptionButton()
+        opt.state |= QStyle.State_Enabled
+        opt.state |= QStyle.State_On if checked else QStyle.State_Off
+
+        checkbox_rect = style.subElementRect(QStyle.SE_CheckBoxIndicator, opt, None)
+        opt.rect = option.rect
+        opt.rect.setX(option.rect.x() + (option.rect.width() - checkbox_rect.width()) // 2)
+        opt.rect.setY(option.rect.y() + (option.rect.height() - checkbox_rect.height()) // 2)
+
+        style.drawControl(QStyle.CE_CheckBox, opt, painter)
+
+
+
+    def editorEvent(self, event, model, option, index):
+        if (
+            event.type() == QEvent.MouseButtonRelease
+            or event.type() == QEvent.MouseButtonDblClick
+        ):
+            if index.flags() & Qt.ItemIsEditable:
+                current = model.data(index, Qt.CheckStateRole)
+                new_value = Qt.Unchecked if current == Qt.Checked else Qt.Checked
+                model.setData(index, new_value, Qt.CheckStateRole)
+
+            return True
+        
+        return False
