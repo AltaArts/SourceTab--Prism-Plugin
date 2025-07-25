@@ -88,6 +88,8 @@ from WorkerThreads import (ThumbnailWorker,
                            )
 
 import SourceTab_Utils as Utils
+from MetadataEditor import MetadataEditor
+
 
 from PrismUtils.Decorators import err_catcher
 
@@ -863,77 +865,7 @@ class BaseTileItem(QWidget):
             return self.data["icon"]
   
 
-    # @err_catcher(name=__name__)
-    # def createSidecar(self, filePath):
-
-    #     from collections import defaultdict
-
-    #     def escape_xml(text):
-    #         if not text:
-    #             return ''
-    #         return (text.replace('&', '&amp;')
-    #                     .replace('<', '&lt;')
-    #                     .replace('>', '&gt;')
-    #                     .replace('"', '&quot;')
-    #                     .replace("'", '&apos;'))
-
-
-
-    #     metadata = self.getFFprobeMetadata(filePath)
-    #     if not metadata:
-    #         logger.warning(f"No metadata found for {filePath}, skipping XMP sidecar creation.")
-    #         return False
-
-    #     # Group tags by namespace (e.g. QuickTime, EXIF, XMP, etc.)
-    #     grouped = defaultdict(dict)
-    #     for key, value in metadata.items():
-    #         if ':' in key:
-    #             ns, tag = key.split(':', 1)
-    #         else:
-    #             ns, tag = 'Unknown', key
-    #         grouped[ns][tag] = value
-
-    #     # Build RDF description entries per namespace
-    #     rdf_descriptions = []
-    #     for ns, tags in grouped.items():
-    #         # Create a namespace URI for this group (simple guess)
-    #         ns_uri = f"http://ns.example.com/{ns.lower()}/"
-    #         # Start rdf:Description with namespace declaration
-    #         desc = [f'<rdf:Description rdf:about="" xmlns:{ns}="{ns_uri}">']
-
-    #         for tag, value in tags.items():
-    #             # Convert value to string, escape XML chars
-    #             val_str = escape_xml(str(value))
-    #             # Add element for this tag
-    #             desc.append(f'  <{ns}:{tag}>{val_str}</{ns}:{tag}>')
-
-    #         desc.append('</rdf:Description>')
-    #         rdf_descriptions.append('\n'.join(desc))
-
-    #     # Build full XMP packet
-    #     joined_descriptions = '\n    '.join(rdf_descriptions)
-
-    #     xmp_template = f'''<?xpacket begin='' id='W5M0MpCehiHzreSzNTczkc9d'?>
-    # <x:xmpmeta xmlns:x='adobe:ns:meta/'>
-    # <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
-    #     {joined_descriptions}
-    # </rdf:RDF>
-    # </x:xmpmeta>
-    # <?xpacket end='w'?>'''
-
-    #     sidecar_path = os.path.splitext(filePath)[0] + '.xmp'
-    #     try:
-    #         with open(sidecar_path, 'w', encoding='utf-8') as f:
-    #             f.write(xmp_template)
-    #         logger.info(f"XMP sidecar created: {sidecar_path}")
-    #         return True
-    #     except Exception as e:
-    #         logger.error(f"Failed to write XMP sidecar for {filePath}: {e}")
-    #         return False
-
-
-
-    #   Get Media Player Enabled State
+     #   Get Media Player Enabled State
     @err_catcher(name=__name__)
     def isViewerEnabled(self):
         return self.browser.chb_enablePlayer.isChecked()
@@ -995,6 +927,17 @@ class BaseTileItem(QWidget):
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Send Image(s) to Media Viewer:\n{e}")
+
+
+    @err_catcher(name=__name__)
+    def configMetadata(self, filePath=None):
+        if hasattr(self.browser, "metaEditor"):
+            self.browser.metaEditor.refresh(loadFilepath=filePath)
+
+        else:
+            self.browser.metaEditor = MetadataEditor(self.core, self.browser)
+            
+        self.browser.metaEditor.show()
 
 
 
@@ -2133,6 +2076,10 @@ class DestFileTile(BaseTileItem):
         unSelAct.triggered.connect(lambda: self.setChecked(False))
         rcmenu.addAction(unSelAct)
 
+        mEditAct = QAction("Show Source File in Metadata Editor", self)
+        mEditAct.triggered.connect(lambda: self.configMetadata(filePath=self.getSource_mainfilePath()))
+        rcmenu.addAction(mEditAct)
+
         #   Displayed if Single Selection
         if len(self.browser.selectedTiles) == 1:
             showDataAct = QAction("Show Data", self.browser)                         #   TESTING
@@ -2141,6 +2088,7 @@ class DestFileTile(BaseTileItem):
 
             #   If Transferred Files Exists
             if os.path.exists(self.getDestMainPath()):
+
                 mDataAct = QAction("Show All MetaData", self.browser)
                 mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getDestMainPath()))
                 rcmenu.addAction(mDataAct)

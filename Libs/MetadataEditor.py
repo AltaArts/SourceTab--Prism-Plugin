@@ -83,8 +83,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
 
         self.core = core
-        self.sourceFunctions = origin
-        self.sourceBrowser = self.sourceFunctions.sourceBrowser
+        self.sourceBrowser = origin
 
         self.metaMapPath = os.path.join(self.sourceBrowser.pluginPath,
                                         "Libs",
@@ -111,18 +110,18 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.setupUi(self)
 
         self.configureUI()
-        self.loadFiles()
-        self.populateEditor()
-        self.populatePresets()
+        self.refresh()
+
         self.connectEvents()
 
         logger.debug("Loaded Metadata Editor")
 
 
     @err_catcher(name=__name__)
-    def refresh(self):
-        self.loadFiles()
+    def refresh(self, loadFilepath=None):
+        self.loadFiles(loadFilepath)
         self.populateEditor()
+        self.populatePresets()
 
 
     @err_catcher(name=__name__)
@@ -149,24 +148,16 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Icons
         icon_filters = QIcon(os.path.join(iconDir, "sort.png"))
         icon_reset = QIcon(os.path.join(iconDir, "reset.png"))
-
         self.b_filters.setIcon(icon_filters)
         self.b_reset.setIcon(icon_reset)
 
-        #   Set Width of Presets Combo
-        self.cb_presets.setStyleSheet("""
-            QComboBox#cb_presets {
-                min-width: 200px;
-            }
-        """)
-
         #   Build Custom Table Model
-        self.tableModel = MetadataTableModel(self.fieldsCollection, self.sourceOptions)
-        self.tw_metaEditor.setModel(self.tableModel)
+        self.MetadataTableModel = MetadataTableModel(self.MetadataFieldCollection, self.sourceOptions)
+        self.tw_metaEditor.setModel(self.MetadataTableModel)
 
         # Set Section Headers Delegate
-        self.sectionHeaderDelegate = SectionHeaderDelegate(self.tw_metaEditor)
-        self.tw_metaEditor.setItemDelegate(self.sectionHeaderDelegate)
+        sectionHeaderDelegate = SectionHeaderDelegate(self.tw_metaEditor)
+        self.tw_metaEditor.setItemDelegate(sectionHeaderDelegate)
 
         #   Configure Table
         self.tw_metaEditor.verticalHeader().setVisible(False)
@@ -334,7 +325,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             )
             metadata_fields.append(field)
 
-        self.fieldsCollection = MetadataFieldCollection(metadata_fields)
+        self.MetadataFieldCollection = MetadataFieldCollection(metadata_fields)
 
 
     #   Loads Presets into Combo
@@ -344,47 +335,60 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.cb_presets.addItem("PRESETS")
         self.cb_presets.addItems(self.metaPresets)
 
-
-    #   Loads MetaFieldItems into the Table
-    @err_catcher(name=__name__)
-    def populateEditor(self):
-        useFilters = self.b_filters.isChecked()
-        self.fieldsCollection.applyFilters(self.filterStates, useFilters, self.metaMap)
-        self.tableModel.layoutChanged.emit()
+        self.cb_presets.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
 
     #   Loads Destination Files into MetaFiles
     @err_catcher(name=__name__)
-    def loadFiles(self):
+    def loadFiles(self, loadFilepath=None):
         #   Instantiate Metafiles
-        self.metaFilesModel = MetaFileItems()
+        self.MetaFileItems = MetaFileItems()
 
         #   Get all Destination File Tiles
         try:
-            tiles = self.sourceBrowser.getAllDestTiles()
+            fileTiles = self.sourceBrowser.getAllDestTiles(onlyChecked=True)
+
         except Exception as e:
             logger.warning(f"ERROR: Unable to get Destination FileTiles")
             return
 
         #   Get Data from Each Tile and add to MetaFiles
-        for tile in tiles:
+        for fileTile in fileTiles:
             try:
-                file_path = tile.data.get("source_mainFile_path", "")
-                file_name = Utils.getBasename(file_path)
+                filePath = fileTile.data.get("source_mainFile_path", "")
+                fileName = Utils.getBasename(filePath)
 
-                self.metaFilesModel.addItem(filePath = file_path,
-                                       fileName = file_name,
-                                       tile = tile)
+                #   Extract Metadata and add to Model Class
+                metadata_raw = Utils.getFFprobeMetadata(filePath)
+                metadata = MetadataModel(metadata_raw)
+
+                self.MetaFileItems.addItem(filePath = filePath,
+                                            fileName = fileName,
+                                            fileTile = fileTile,
+                                            metadata=metadata)
             except Exception as e:
-                logger.warning(f"ERROR: Unable to add FileTile '{tile}': {e}")
+                logger.warning(f"ERROR: Unable to add FileTile '{fileTile}': {e}")
 
         #   Clear and Populate File Combo
+        self.cb_fileList.blockSignals(True)
         self.cb_fileList.clear()
         try:
-            for file in self.metaFilesModel.allItems():
+            for file in self.MetaFileItems.allItems():
                 self.cb_fileList.addItem(file.fileName)
+
         except Exception as e:
             logger.warning(f"ERROR: Unable to Populate Files Combobox")
+
+        finally:
+            self.cb_fileList.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+            self.cb_fileList.blockSignals(False)
+
+        #   Select Passed File in Combobox
+        if loadFilepath:
+            fileName = Utils.getBasename(loadFilepath)
+            idx = self.cb_fileList.findText(fileName)
+            if idx != -1:
+                self.cb_fileList.setCurrentIndex(idx)
 
         self.onFileChanged()
 
@@ -396,31 +400,40 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         else:
             try:
                 fileName = self.cb_fileList.currentText()
-                fileItem = self.metaFilesModel.getByName(fileName)
+                fileItem = self.MetaFileItems.getByName(fileName)
                 path = fileItem.filePath
+
             except Exception as e:
-                logger.warning(f"ERROR: Unable to get FilePath from Selected File")
+                logger.warning(f"ERROR: Unable to get FilePath from Selected File: {e}")
                 return
 
         #   Extract Metadata and add to Model Class
         metadata_raw = Utils.getFFprobeMetadata(path)
-        self.sourceMetadata = MetadataModel(metadata_raw)
+        metadata = MetadataModel(metadata_raw)
 
         #   Update Table Model
-        self.tableModel.sourceOptions = self.sourceOptions
+        self.MetadataTableModel.sourceOptions = self.sourceOptions
 
         #   Create Combox Delegate
-        self.comobDelegate = MetadataComboBoxDelegate(self.sourceMetadata, parent=self)
-        self.tableModel.combo_delegate = self.comobDelegate
-        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_SOURCE, self.comobDelegate)
+        self.ComobDelegate = MetadataComboBoxDelegate(metadata, parent=self)
+        self.MetadataTableModel.combo_delegate = self.ComobDelegate
+        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_SOURCE, self.ComobDelegate)
 
         #   Create Checkbox Delegate
-        self.checkboxDelegate = CheckboxDelegate()
-        self.tableModel.checkbox_delegate = self.checkboxDelegate
-        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_ENABLED, self.checkboxDelegate)
+        self.CheckboxDelegate = CheckboxDelegate()
+        self.MetadataTableModel.checkbox_delegate = self.CheckboxDelegate
+        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_ENABLED, self.CheckboxDelegate)
         
         #   Refresh Table
-        self.tableModel.layoutChanged.emit()
+        self.MetadataTableModel.layoutChanged.emit()
+
+
+    #   Loads MetaFieldItems into the Table
+    @err_catcher(name=__name__)
+    def populateEditor(self):
+        useFilters = self.b_filters.isChecked()
+        self.MetadataFieldCollection.applyFilters(self.filterStates, useFilters, self.metaMap)
+        self.MetadataTableModel.layoutChanged.emit()
 
 
     #   Displays Popup with Selected File's Metadata
@@ -434,7 +447,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Get Selected File from Combo
         else:
             fileName = self.cb_fileList.currentText()
-            fileItem = self.metaFilesModel.getByName(fileName)
+            fileItem = self.MetaFileItems.getByName(fileName)
             path = fileItem.filePath
             fileName = fileItem.fileName
 
@@ -497,7 +510,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Build Lookup from List
         presetFields = {row["field"]: row for row in pData}
 
-        for row, field in enumerate(self.fieldsCollection.fields):
+        for row, field in enumerate(self.MetadataFieldCollection.fields):
             if field.name in presetFields:
                 info = presetFields[field.name]
 
@@ -514,13 +527,13 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
                 else:
                     #   Check sourceField Exists in Metadata
-                    if field.sourceField not in self.comobDelegate.display_strings:
+                    if field.sourceField not in self.ComobDelegate.display_strings:
                         #   Not present Fallback to NONE
                         field.sourceField = "- NONE -"
                         field.currentValue = ""
                     else:
                         #   Exists Use Metadata
-                        field.currentValue = self.comobDelegate.getValueForField(field.sourceField)
+                        field.currentValue = self.ComobDelegate.getValueForField(field.sourceField)
 
             else:
                 if not onlyExisting:
@@ -529,26 +542,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                     field.currentValue = ""
 
         #   Update Table
-        self.tableModel.layoutChanged.emit()
-
-
-    #   Returns Currently Configured Metadata
-    @err_catcher(name=__name__)
-    def getCurrentData(self, filterNone=False):
-        mData = []
-
-        for field in self.fieldsCollection.fields:
-            if filterNone and field.sourceField == "- NONE -":
-                continue
-
-            mData.append({
-                "field": field.name,
-                "enabled": field.enabled,
-                "sourceField": field.sourceField,
-                "currentData": field.currentValue
-            })
-
-        return mData
+        self.MetadataTableModel.layoutChanged.emit()
 
 
     #   Resets Table to Default None's
@@ -565,63 +559,67 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         if result == "Reset":
             self.cb_presets.setCurrentIndex(0)
 
-            for row, field in enumerate(self.fieldsCollection.fields):
+            for row, field in enumerate(self.MetadataFieldCollection.fields):
                 field.enabled = False
                 field.sourceField = "- NONE -"
                 field.currentValue = ""
 
-            self.tableModel.layoutChanged.emit()
+            self.MetadataTableModel.layoutChanged.emit()
 
             logger.debug("Reset Metadata Editor")
 
 
 
-    @err_catcher(name=__name__)                                 #   TODO - FINISH SIDECAR CREATION
+    @err_catcher(name=__name__)
     def saveSidecar(self):
-        fileName = self.cb_fileList.currentText()
-        fileItem = self.metaFilesModel.getByName(fileName)
-        path = fileItem.filePath
+        testFileName = self.cb_fileList.currentText()
+        fileItem = self.MetaFileItems.getByName(testFileName)
+        testPath = fileItem.filePath
 
-
-        sourceBasename = Utils.getBasename(path)
-        savedir = os.path.dirname(path)
+        savedir = os.path.dirname(testPath)
         sideCarFilename = "TEST_Sidecar.csv"
         sidecarPath = os.path.join(savedir, sideCarFilename)
 
-        # build header dynamically from metaMap (already sorted!)
-        header_fields = [m["MetaName"] for m in self.metaMap]
+        # Get all field names (excluding headers)
+        fieldNames = self.MetadataFieldCollection.get_allFieldNames()
 
-        # start empty row
-        row_data = {field: "" for field in header_fields}
+        with open(sidecarPath, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
 
-        # iterate through the table model rows
-        model = self.tableModel
-        for row in range(model.rowCount()):
-            field = model.collection.fields[row]
-            if getattr(field, "is_header", False):
-                continue  # skip header rows
+            # Write header row
+            writer.writerow(["File Name"] + fieldNames)
 
-            meta_name = field.name
-            if meta_name not in row_data:
-                continue
+            for fileItem in self.MetaFileItems.allItems():
 
-            # get value from the model (COL_VALUE column)
-            idx = model.index(row, model.COL_VALUE)
-            value = model.data(idx, Qt.EditRole)
+                print(f"***  metadata:  {fileItem.metadata}")								#	TESTING
+                row = []
 
-            # special case for File Name field
-            if meta_name == "File Name":
-                row_data[meta_name] = sourceBasename
-            else:
-                row_data[meta_name] = value
+                for fieldName in fieldNames:
+                    field = self.MetadataFieldCollection.get_fieldByName(fieldName)
 
-        # write CSV
-        with open(sidecarPath, "w", encoding="utf-8", newline="") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=header_fields)
-            writer.writeheader()
-            writer.writerow(row_data)
+                    print(f"***  field:  {field}")								#	TESTING
 
-        logger.status(f"Sidecar CSV written: {sidecarPath}")
+                    if not field:
+                        row.append("")
+                        continue
+
+                    sourceField = field.sourceField
+
+                    print(f"***  sourceField:  {sourceField}")								#	TESTING
+
+                    if not sourceField or sourceField.strip().upper() == "- NONE -":
+                        row.append("")
+
+                    # elif sourceField.strip().upper() == "- CUSTOM -":
+                    #     row.append(field.currentValue.strip())
+
+                    else:
+                        row.append(field.currentValue)
+
+                writer.writerow(row)
+
+        print(f"[MetadataEditor] Saved sidecar to: {sidecarPath}")
+
 
 
 
@@ -637,7 +635,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 class MetaFileItem:
     filePath: str
     fileName: str
-    tile: object
+    fileTile: object
+    metadata: dict
 
 class MetaFileItems:
     def __init__(self):
@@ -645,8 +644,8 @@ class MetaFileItems:
         self._by_path = {}
         self._items = []
 
-    def addItem(self, filePath, fileName, tile):
-        item = MetaFileItem(filePath=filePath, fileName=fileName, tile=tile)
+    def addItem(self, filePath, fileName, fileTile, metadata):
+        item = MetaFileItem(filePath=filePath, fileName=fileName, fileTile=fileTile, metadata=metadata)
         self._by_name[fileName] = item
         self._by_path[filePath] = item
         self._items.append(item)
@@ -659,6 +658,9 @@ class MetaFileItems:
 
     def allItems(self):
         return self._items
+    
+    def getMetadata(self, item):
+        return item.metadata
     
 
 #   Contains the Matadata Data
@@ -718,28 +720,28 @@ class MetadataModel:
         return d if not isinstance(d, dict) else None
     
 
+@dataclass
 class MetadataField:
-    def __init__(self, name, category, enabled=True, is_header=False):
-        self.name = name
-        self.category = category
-        self.enabled = enabled
-        self.sourceField = None
-        self.currentValue = ""
-        self.is_header = is_header
-
-
+    name: str
+    category: str
+    enabled: bool = True
+    is_header: bool = False
+    sourceField: str = None
+    currentValue: str = ""
 
 class MetadataFieldCollection:
     def __init__(self, fields):
         self.fields_all = fields[:]
         self.fields = fields[:]
 
-
     def get_fieldByName(self, name):
         for field in self.fields_all:
             if field.name == name:
                 return field
         return None
+    
+    def get_allFieldNames(self, include_headers=False):
+        return [f.name for f in self.fields_all if include_headers or not f.is_header]
     
     def applyFilters(self, filterStates, useFilters, metaMap):
         fields_filtered = []
@@ -1112,6 +1114,7 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
 
         section, path = value
         return self.metadata_model.get_value(section, path) or ""
+
 
 
 class CheckboxDelegate(QStyledItemDelegate):

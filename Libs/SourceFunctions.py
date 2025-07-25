@@ -319,10 +319,10 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def configMetadata(self):
-        if hasattr(self, "metaEditor"):
-            self.metaEditor.refresh()
+        if hasattr(self.sourceBrowser, "metaEditor"):
+            self.sourceBrowser.metaEditor.refresh()
 
         else:
-            self.metaEditor = MetadataEditor(self.core, self)
+            self.sourceBrowser.metaEditor = MetadataEditor(self.core, self.sourceBrowser)
             
-        self.metaEditor.show()
+        self.sourceBrowser.metaEditor.show()

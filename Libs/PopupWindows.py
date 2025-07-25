@@ -2246,7 +2246,7 @@ class MetaPresetsEditor(QDialog):
 
         #   ToolTips
         tip = ("Preset Name (will overwrite existing Preset with same name)\n\n"
-               "Must use Letters, Numbers, Normal Symbols, Spaces, and less than 20 charactors")
+               "Must use Letters, Numbers, Normal Symbols, Spaces, and less than 30 charactors")
         l_pName.setToolTip(tip)
         self.le_pName.setToolTip(tip)
 
@@ -2280,7 +2280,7 @@ class MetaPresetsEditor(QDialog):
         self.validateName()
 
 
-    #   Validates Name: Letters, Numbers, Normal Symbols, Spaces, < 20 charactors
+    #   Validates Name: Letters, Numbers, Normal Symbols, Spaces, < 30 charactors
     def validateName(self):
         name = self.le_pName.text().strip()
 
@@ -2289,7 +2289,7 @@ class MetaPresetsEditor(QDialog):
 
         #   RegEx Match String
         valid_name_pattern = re.compile(
-            r'^[A-Za-z0-9 \-!@#$%^&*()_+]{1,20}$'
+            r'^[A-Za-z0-9 \-!@#$%^&*()_+]{1,30}$'
         )
 
         #   Check Blank
@@ -2302,7 +2302,7 @@ class MetaPresetsEditor(QDialog):
             valid = False
             msg = ("Preset name is not Valid:\n\n"
                    f"'{name}'\n\n"
-                   "Use 1-20 characters: letters, numbers, dashes, and normal symbols.")
+                   "Use 1-30 characters: letters, numbers, dashes, and normal symbols.")
 
         #   Color Border if Invalid
         if not valid:
