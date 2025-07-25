@@ -521,8 +521,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 if field.sourceField == "- NONE -":
                     field.currentValue = ""
 
-                #   Preset Field is CUSTOM
-                elif field.sourceField == "- CUSTOM -":
+                #   Preset Field is GLOBAL
+                elif field.sourceField == "- GLOBAL -":
                     field.currentValue = info.get("currentData", "")
 
                 else:
@@ -568,6 +568,31 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
             logger.debug("Reset Metadata Editor")
 
+
+    #   Returns Current Data from Editor
+    @err_catcher(name=__name__)
+    def getCurrentData(self, filterNone=True):
+        fieldNames = self.MetadataFieldCollection.get_allFieldNames()
+        
+        currentData = []
+
+        for fieldName in fieldNames:
+            field = self.MetadataFieldCollection.get_fieldByName(fieldName)
+            sourceField = field.sourceField
+
+            if filterNone and (not sourceField or sourceField == "- NONE -"):
+                continue
+
+            fieldData = {
+                "field": field.name,
+                "enabled": field.enabled,
+                "sourceField": field.sourceField,
+                "currentData": field.currentValue
+                }
+
+            currentData.append(fieldData)
+
+        return currentData
 
 
     @err_catcher(name=__name__)
@@ -728,6 +753,8 @@ class MetadataField:
     is_header: bool = False
     sourceField: str = None
     currentValue: str = ""
+    # localValues: dict = field(default_factory=dict)  # new field for per-file values
+
 
 class MetadataFieldCollection:
     def __init__(self, fields):
@@ -949,7 +976,7 @@ class MetadataTableModel(QAbstractTableModel):
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
         
         elif col == self.COL_VALUE:
-            if field.sourceField != "- CUSTOM -":
+            if field.sourceField not in ["- GLOBAL -", "- LOCAL -"]:
                 return Qt.ItemIsEnabled
             
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
@@ -1001,10 +1028,14 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         self.display_strings.append("- NONE -")
         self.key_map[0] = None
 
-        self.display_strings.append("- CUSTOM -")
-        self.key_map[1] = "CUSTOM" 
+        self.display_strings.append("- GLOBAL -")
+        self.key_map[1] = "GLOBAL"
 
-        idx = 2
+        self.display_strings.append("- LOCAL -")
+        self.key_map[2] = "LOCAL"
+
+
+        idx = 3
         for section in metadata_model.get_sections():
             for path, _key in metadata_model.get_keys(section):
                 display = f"{section} > {' > '.join(path)}"
@@ -1078,16 +1109,17 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
 
         current_index = index.siblingAtColumn(MetadataTableModel.COL_VALUE)
 
-        if idx == 0:
-            # "- NONE -" clears value
+        if idx == 0:  # "- NONE -"
             value = ""
 
-        elif idx == 1:
-            #   "- CUSTOM -"
+        elif idx == 1:  # "- GLOBAL -"
+            value = model.data(current_index, Qt.EditRole)
+
+        elif idx == 2:  # "- LOCAL -"
             value = model.data(current_index, Qt.EditRole)
 
         else:
-            #   Regular Metadata Field
+            # Regular metadata
             section, path = self.key_map[idx]
             value = self.metadata_model.get_value(section, path)
 
@@ -1104,8 +1136,9 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         if idx == 0:  # "- NONE -"
             return ""
 
-        if idx == 1:  # "- CUSTOM -"
+        if idx in (1, 2):  # "- GLOBAL -" or "- LOCAL -"
             return currentValue or ""
+
 
         #   Otherwise Get from Metadata
         value = self.key_map.get(idx)

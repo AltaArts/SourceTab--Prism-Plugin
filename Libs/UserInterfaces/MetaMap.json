@@ -546,61 +546,61 @@
             {
                 "field": "Description",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "TEST"
             },
             {
                 "field": "Comments",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Test comment"
             },
             {
                 "field": "Keywords",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "test, clip, Rilo, dog, EXT"
             },
             {
                 "field": "Shot",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Wide"
             },
             {
                 "field": "Scene",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Rilo test"
             },
             {
                 "field": "Take",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "1"
             },
             {
                 "field": "Angle",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Wide"
             },
             {
                 "field": "Day / Night",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Day"
             },
             {
                 "field": "Environment",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Int"
             },
             {
                 "field": "Shot Type",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Handheld"
             },
             {
@@ -624,7 +624,7 @@
             {
                 "field": "Location",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Grove"
             },
             {
@@ -654,7 +654,7 @@
             {
                 "field": "Camera Notes",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Shaky cam"
             },
             {
@@ -714,13 +714,13 @@
             {
                 "field": "Lens Type",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "Xeen"
             },
             {
                 "field": "ND Filter",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "None"
             },
             {
@@ -744,213 +744,7 @@
             {
                 "field": "Camera Operator",
                 "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "JRB"
-            }
-        ],
-        "Test": [
-            {
-                "field": "Description",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Comments",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Keywords",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TESTT"
-            },
-            {
-                "field": "Shot",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Scene",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Take",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Angle",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Day / Night",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Environment",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Shot Type",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Camera #",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Reel Number",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.reel",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Clip Number",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.clipID",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Location",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Camera Type",
-                "enabled": true,
-                "sourceField": "format >   CameraModel",
-                "currentData": "NEW TEST"
-            },
-            {
-                "field": "Camera Manufacturer",
-                "enabled": true,
-                "sourceField": "format >   CameraMaker",
-                "currentData": "Z CAM"
-            },
-            {
-                "field": "Camera Serial #",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.sn",
-                "currentData": "524D0070362"
-            },
-            {
-                "field": "Camera ID",
-                "enabled": true,
-                "sourceField": "format >   com.apple.proapps.cameraName",
-                "currentData": "A"
-            },
-            {
-                "field": "Camera Notes",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "Shaky cam"
-            },
-            {
-                "field": "Camera Format",
-                "enabled": true,
-                "sourceField": "format > format_long_name",
-                "currentData": "QuickTime / MOV"
-            },
-            {
-                "field": "Media Type",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.storage",
-                "currentData": "Samsung Portable SSD T5"
-            },
-            {
-                "field": "Camera FPS",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.projectFps",
-                "currentData": "29.97"
-            },
-            {
-                "field": "Shutter Angle",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.shutterAngle",
-                "currentData": "180Â°"
-            },
-            {
-                "field": "ISO",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.iso",
-                "currentData": "1250"
-            },
-            {
-                "field": "White Point (Kelvin)",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceKelvin",
-                "currentData": "5600K"
-            },
-            {
-                "field": "White Balance Tint",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.whiteBalanceTint",
-                "currentData": "0"
-            },
-            {
-                "field": "Camera Firmware",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.fw",
-                "currentData": "1.0.1"
-            },
-            {
-                "field": "Lens Type",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "Xeen"
-            },
-            {
-                "field": "ND Filter",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "None"
-            },
-            {
-                "field": "Gamma Notes",
-                "enabled": true,
-                "sourceField": "format >   com.zcam.camera.lut",
-                "currentData": "Z-Log2"
-            },
-            {
-                "field": "Color Space Notes",
-                "enabled": true,
-                "sourceField": "stream_0 > color_space",
-                "currentData": "bt709"
-            },
-            {
-                "field": "DOP",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "JRB"
-            },
-            {
-                "field": "Camera Operator",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
-                "currentData": "JRB"
-            },
-            {
-                "field": "Digital Technician",
-                "enabled": true,
-                "sourceField": "- CUSTOM -",
+                "sourceField": "- GLOBAL -",
                 "currentData": "JRB"
             }
         ],
@@ -1098,6 +892,218 @@
                 "enabled": false,
                 "sourceField": "format > tags > com.arri.camera.ProductionInfoOperator",
                 "currentData": "GHI"
+            }
+        ],
+        "TEST": [
+            {
+                "field": "File Name",
+                "enabled": true,
+                "sourceField": "format > filename",
+                "currentData": "C:\\Users\\Joshua Breckeen\\Desktop\\SINGLE ITEM\\A006C0704_20630419010206_0001.MOV"
+            },
+            {
+                "field": "Reel Number",
+                "enabled": true,
+                "sourceField": "format > tags > com.apple.proapps.reel",
+                "currentData": "006"
+            },
+            {
+                "field": "Camera Operator",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "JRB"
+            },
+            {
+                "field": "Description",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "TEST"
+            },
+            {
+                "field": "Comments",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Test comment"
+            },
+            {
+                "field": "Keywords",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "test, clip, Rilo, dog, EXT"
+            },
+            {
+                "field": "Shot",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Wide"
+            },
+            {
+                "field": "Scene",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Rilo test"
+            },
+            {
+                "field": "Take",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "1"
+            },
+            {
+                "field": "Angle",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Wide"
+            },
+            {
+                "field": "Day / Night",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Day"
+            },
+            {
+                "field": "Environment",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Int"
+            },
+            {
+                "field": "Shot Type",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Handheld"
+            },
+            {
+                "field": "Location",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Grove"
+            },
+            {
+                "field": "Camera #",
+                "enabled": true,
+                "sourceField": "format > tags > com.apple.proapps.cameraName",
+                "currentData": "A"
+            },
+            {
+                "field": "Clip Number",
+                "enabled": true,
+                "sourceField": "format > tags > com.apple.proapps.clipID",
+                "currentData": "A006C0704_20630419010206_0001"
+            },
+            {
+                "field": "Camera Type",
+                "enabled": true,
+                "sourceField": "format > tags > CameraModel",
+                "currentData": "E2-S6"
+            },
+            {
+                "field": "Camera Manufacturer",
+                "enabled": true,
+                "sourceField": "format > tags > CameraMaker",
+                "currentData": "Z CAM"
+            },
+            {
+                "field": "Camera Serial #",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.sn",
+                "currentData": "524D0070362"
+            },
+            {
+                "field": "Camera ID",
+                "enabled": true,
+                "sourceField": "format > tags > com.apple.proapps.cameraName",
+                "currentData": "A"
+            },
+            {
+                "field": "Camera Notes",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Shaky cam"
+            },
+            {
+                "field": "Camera Format",
+                "enabled": true,
+                "sourceField": "format > format_long_name",
+                "currentData": "QuickTime / MOV"
+            },
+            {
+                "field": "Media Type",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.storage",
+                "currentData": "Samsung Portable SSD T5"
+            },
+            {
+                "field": "Camera FPS",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.projectFps",
+                "currentData": "29.97"
+            },
+            {
+                "field": "Shutter Angle",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.shutterAngle",
+                "currentData": "180Â°"
+            },
+            {
+                "field": "ISO",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.iso",
+                "currentData": "1250"
+            },
+            {
+                "field": "White Point (Kelvin)",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.whiteBalanceKelvin",
+                "currentData": "5600K"
+            },
+            {
+                "field": "White Balance Tint",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.whiteBalanceTint",
+                "currentData": "0"
+            },
+            {
+                "field": "Camera Firmware",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.fw",
+                "currentData": "1.0.1"
+            },
+            {
+                "field": "Mon Color Space",
+                "enabled": false,
+                "sourceField": "stream_0 > color_space",
+                "currentData": "bt709"
+            },
+            {
+                "field": "Lens Type",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "Xeen"
+            },
+            {
+                "field": "ND Filter",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "None"
+            },
+            {
+                "field": "Codec Bitrate",
+                "enabled": false,
+                "sourceField": "stream_0 > bits_per_raw_sample",
+                "currentData": "10"
+            },
+            {
+                "field": "Gamma Notes",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.lut",
+                "currentData": "Z-Log2"
+            },
+            {
+                "field": "Color Space Notes",
+                "enabled": true,
+                "sourceField": "stream_0 > color_space",
+                "currentData": "bt709"
             }
         ]
     }

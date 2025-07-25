@@ -213,22 +213,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if refresh:
             self.entered()
 
-        self.TESTING_INIT()                             #   TESTING
-
-
-
-    def TESTING_INIT(self):
-        self.sourceDir = r"C:\Users\Alta Arts\Desktop\SINGLE ITEM"
-        # tiles = self.getAllSourceTiles()
-        # print(f"***  tiles:  {tiles}")								#	TESTING
-        self.refreshSourceItems()
-
-        
-        self.selectAll(checked=True, mode="source")
-        QTimer.singleShot(500, lambda: self.addSelected())
-
-
-
 
     @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
     def getSelectedContext(self, *args, **kwargs):
