@@ -365,9 +365,10 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             try:
                 #   Get File Name and Check if it Exists in the MetaFileItems
                 filePath = fileTile.data.get("source_mainFile_path", "")
-                fileName = Utils.getBasename(filePath)
-                activeFiles.append(fileName)
-                existing_item = self.MetaFileItems.getByName(fileName)
+                fileName_orig = Utils.getBasename(filePath)
+                fileName_mod = fileTile.getModifiedName(fileName_orig)
+                activeFiles.append(fileName_orig)
+                existing_item = self.MetaFileItems.getByName(fileName_orig)
 
                 #   If it Exists, Refresh the fileTile Reference
                 if existing_item:
@@ -381,7 +382,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
                         self.MetaFileItems.addItem(
                             filePath=filePath,
-                            fileName=fileName,
+                            fileName=fileName_orig,
+                            fileName_mod = fileName_mod,
                             fileTile=fileTile,
                             metadata=metadata,
                         )
@@ -395,19 +397,19 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         try:
             self.cb_fileList.addItems(activeFiles)
 
+            #   Select Passed File
+            if loadFilepath:
+                fileName = Utils.getBasename(loadFilepath)
+                idx = self.cb_fileList.findText(fileName)
+                if idx != -1:
+                    self.cb_fileList.setCurrentIndex(idx)
+
         except Exception as e:
             logger.warning(f"ERROR: Unable to Populate Files Combobox")
 
         finally:
             self.cb_fileList.setSizeAdjustPolicy(QComboBox.AdjustToContents)
             self.cb_fileList.blockSignals(False)
-
-        #   Select Passed File
-        if loadFilepath:
-            fileName = Utils.getBasename(loadFilepath)
-            idx = self.cb_fileList.findText(fileName)
-            if idx != -1:
-                self.cb_fileList.setCurrentIndex(idx)
 
         self.onFileChanged()
 
@@ -454,6 +456,13 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.MetadataTableModel.checkbox_delegate = self.CheckboxDelegate
         self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_ENABLED, self.CheckboxDelegate)
         
+        #   Add File Names to Fixed Rows
+        for field in self.MetadataTableModel.collection.fields_all:
+            if field.name == "File Name":
+                field.currentValue = fileItem.fileName_mod
+            elif field.name == "Original File Name":
+                field.currentValue = fileItem.fileName
+
         #   Refresh Table
         self.MetadataTableModel.layoutChanged.emit()
 
@@ -647,17 +656,25 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             sideCarFilename = "TEST_Sidecar.csv"
             sidecarPath = os.path.join(savedir, sideCarFilename)
             
+        #   Create .CSV
+        self.saveSidecarCSV(sidecarPath)
 
-        # Get all field names
+
+    @err_catcher(name=__name__)
+    def saveSidecarCSV(self, sidecarPath):
+        #   Get All Field Names
         fieldNames = self.MetadataFieldCollection.get_allFieldNames()
 
+        print(f"***  self.MetaFileItems.allItems():  {self.MetaFileItems.allItems()}")								#	TESTING
+
+        #   Open CSV file to Write To
         with open(sidecarPath, mode="w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
 
-            # Write header
+            #   Write Header
             writer.writerow(fieldNames)
 
-            # Iterate over each file
+            #   Iterate Over each File
             for fileItem in self.MetaFileItems.allItems():
                 row = []
                 metadata = fileItem.metadata
@@ -665,18 +682,24 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 for fieldName in fieldNames:
                     field = self.MetadataFieldCollection.get_fieldByName(fieldName)
 
-                    # Skip if the field doesn't exist
+                    #   Skip if the Field Doesn't Exist
                     if not field:
                         row.append("")
                         continue
 
+                    #   Add File Name Fixed Cells
+                    if field.name == "File Name":
+                        row.append(fileItem.fileName_mod)
+                        continue
+                    if field.name == "Original File Name":
+                        row.append(fileItem.fileName)
+                        continue
+
+                    #   Get Currently Selected Source
                     sourceField = field.sourceField
 
-                    # Handle each type of source
-                    if field.name == "File Name":
-                        row.append(fileItem.fileName)
-
-                    elif not sourceField or sourceField == "- NONE -":
+                    #   Handle Each Type of Source
+                    if not sourceField or sourceField == "- NONE -":
                         row.append("")
 
                     elif sourceField == "- GLOBAL -":
@@ -686,8 +709,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                         value = self.MetaFileItems.get_uniqueValue(fileItem, field.name)
                         row.append(value)
 
+                    #   Normal Metadata Field
                     else:
-                        # Normal metadata field
                         row.append(metadata.get_valueFromSourcefield(sourceField))
 
                 writer.writerow(row)
@@ -715,6 +738,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 class MetaFileItem:
     filePath: str
     fileName: str
+    fileName_mod: str
     fileTile: "FileTile"
     metadata: "MetadataModel"
     uniqueValues: dict[str, str] = field(default_factory=dict)
@@ -726,11 +750,24 @@ class MetaFileItems:
         self._by_path: dict[str, MetaFileItem] = {}
         self._items: list[MetaFileItem] = []
 
-    def addItem(self, filePath: str, fileName: str, fileTile: "FileTile", metadata: "MetadataModel") -> None:
-        item = MetaFileItem(filePath=filePath, fileName=fileName, fileTile=fileTile, metadata=metadata)
+    def addItem(self,
+                filePath: str,
+                fileName: str,
+                fileName_mod: str,
+                fileTile: "FileTile",
+                metadata: "MetadataModel"
+                ) -> None:
+
+        item = MetaFileItem(filePath=filePath,
+                            fileName=fileName,
+                            fileName_mod=fileName_mod,
+                            fileTile=fileTile,
+                            metadata=metadata)
+
         self._by_name[fileName] = item
         self._by_path[filePath] = item
         self._items.append(item)
+
 
     def getByName(self, name: str) -> MetaFileItem | None:
         return self._by_name.get(name)
@@ -833,29 +870,52 @@ class MetadataFieldCollection:
         self.fields_all: list[MetadataField] = fields[:]
         self.fields: list[MetadataField] = fields[:]
 
+
     def get_fieldByName(self, name: str) -> MetadataField:
         for field in self.fields_all:
             if field.name == name:
                 return field
         return None
     
+
     def get_allFieldNames(self, include_headers: bool = False) -> list[str]:
         return [f.name for f in self.fields_all if include_headers or not f.is_header]
     
+
     def applyFilters(self, filterStates: dict[str, bool], useFilters: bool, metaMap: list[dict]) -> None:
         fields_filtered: list[MetadataField] = []
         seenCategories: set[str] = set()
 
-        #   Return All Fields if Filters are Disabled
-        if not useFilters:
-            for mData in metaMap:
+        # Separate File category from the rest
+        fileCategoryItems = [m for m in metaMap if m.get("category") == "File"]
+        otherItems = [m for m in metaMap if m.get("category") != "File"]
+
+        def add_items(items: list[dict], bypass_filters: bool = False):
+            for mData in items:
                 category = mData.get("category", "Crew/Production")
+
+                # Skip filter check for File category if bypass_filters=True
+                if not bypass_filters:
+                    # If filters enabled and this category is filtered out
+                    if useFilters and not filterStates.get(category, True):
+                        continue
+
                 fieldName = mData["MetaName"]
                 field = self.get_fieldByName(fieldName)
                 if not field:
                     continue
 
-                #   Add Section Headers
+                # Apply hideDisabled and hideEmpty only when filters are enabled
+                if not bypass_filters and useFilters:
+                    hideDisabled = filterStates.get("Hide Disabled", False)
+                    hideEmpty = filterStates.get("Hide Empty", False)
+
+                    if hideDisabled and not field.enabled:
+                        continue
+                    if hideEmpty and field.sourceField is None:
+                        continue
+
+                # Add header for new category
                 if category not in seenCategories:
                     headerField = MetadataField(
                         name=category,
@@ -868,43 +928,14 @@ class MetadataFieldCollection:
 
                 fields_filtered.append(field)
 
-        #   If Filters Enabled
-        else:
-            hideDisabled = filterStates.get("Hide Disabled", False)
-            hideEmpty = filterStates.get("Hide Empty", False)
-
-            for mData in metaMap:
-                category = mData.get("category", "Crew/Production")
-                if not filterStates.get(category, True):
-                    continue
-
-                fieldName = mData["MetaName"]
-                field = self.get_fieldByName(fieldName)
-                if not field:
-                    continue
-
-                #   Apply Hide Disabled
-                if hideDisabled and not field.enabled:
-                    continue
-
-                #   Apply Hide Empty
-                if hideEmpty and field.sourceField is None:
-                    continue
-
-                #   Add Section Headers
-                if category not in seenCategories:
-                    headerField = MetadataField(
-                        name=category,
-                        category=category,
-                        enabled=False,
-                        is_header=True
-                    )
-                    fields_filtered.append(headerField)
-                    seenCategories.add(category)
-
-                fields_filtered.append(field)
+        # Always add File category first, bypassing filters
+        add_items(fileCategoryItems, bypass_filters=True)
+        # Add remaining categories, normal filtering
+        add_items(otherItems, bypass_filters=False)
 
         self.fields = fields_filtered
+
+
 
 
 
@@ -1013,7 +1044,11 @@ class MetadataTableModel(QAbstractTableModel):
                 return field.sourceField if field.sourceField is not None else "- None -"
             
             elif col == self.COL_VALUE:
-                if hasattr(self, "combo_delegate"):
+                if field.name in ["File Name", "Original File Name"]:
+                    # Show currentValue directly for these special fields
+                    return field.currentValue
+                
+                elif hasattr(self, "combo_delegate"):
                     return self.combo_delegate.getValueForField(
                         field.sourceField,
                         field.currentValue,
@@ -1086,19 +1121,36 @@ class MetadataTableModel(QAbstractTableModel):
             return Qt.NoItemFlags
 
         col = index.column()
+
+        # Special case for File Name & Original File Name
+        if field.name in ["File Name", "Original File Name"]:
+            # if col == self.COL_ENABLED:
+            #     return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
+            # elif col == self.COL_SOURCE:
+            #     return Qt.NoItemFlags  # leave source blank
+            # elif col == self.COL_VALUE:
+            #     # Fully enabled and selectable (not greyed), but not editable
+            #     return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+            return Qt.ItemIsEnabled
+
+        # Normal rows
         if col == self.COL_ENABLED:
             return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsEditable
-        
+
         elif col == self.COL_SOURCE:
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
-        
+
         elif col == self.COL_VALUE:
             if field.sourceField not in ["- GLOBAL -", "- UNIQUE -"]:
-                return Qt.ItemIsEnabled
-            
+                # Make it normal looking, but not editable
+                return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
         return Qt.ItemIsEnabled
+
+
 
 
 class SectionHeaderDelegate(QStyledItemDelegate):
@@ -1165,6 +1217,11 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         model = index.model()
         field = model.collection.fields[index.row()]
 
+        # If it's File Name or Original File Name and we're in the Source column -> paint nothing
+        if field.name in ["File Name", "Original File Name"] and index.column() == MetadataTableModel.COL_SOURCE:
+            # Just leave the cell empty (no text, no combo)
+            return
+
         if getattr(field, "is_header", False):
             painter.save()
             painter.fillRect(option.rect, QColor("#44475a"))  # same header bg color            #   TODO - Colors CONST
@@ -1192,7 +1249,7 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
         #   Use Model's Collection to Get the Field for this Row
         field = index.model().collection.fields[index.row()]
 
-        if getattr(field, "is_header", False):
+        if getattr(field, "is_header", False) or field.name in ["File Name", "Original File Name"]:
             #   No Editor for Header Rows
             return None
 

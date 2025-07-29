@@ -1776,12 +1776,7 @@ class DestFileTile(BaseTileItem):
                 displayName = Utils.getBasename(source_mainFile_path)
 
             #   Get Modified Name
-            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-                name = self.getModifiedName(displayName)
-
-            #   Use Un-Modified Name
-            else:
-                name = displayName
+            name = self.getModifiedName(displayName)
 
             #    Set Name and Path
             self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
@@ -1797,7 +1792,10 @@ class DestFileTile(BaseTileItem):
         
     @err_catcher(name=__name__)
     def getModifiedName(self, orig_name):
-        return self.browser.applyMods(orig_name)
+        if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
+            return self.browser.applyMods(orig_name)
+        else:
+            return orig_name
        
 
     #   Returns Proxy Source Path
@@ -1822,11 +1820,10 @@ class DestFileTile(BaseTileItem):
                 sourceMainPath = self.getSource_mainfilePath()
                 baseName = Utils.getBasename(sourceMainPath)
 
-            #   Modifiy Name is Enabled
-            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-                baseName = self.getModifiedName(baseName)
-
             destPath = self.getDestPath()
+
+            #   Modifiy Name is Enabled
+            baseName = self.getModifiedName(baseName)
 
             return os.path.join(destPath, baseName)
         
@@ -1858,9 +1855,8 @@ class DestFileTile(BaseTileItem):
             # Get just the proxy filename
             proxy_fileName = Utils.getBasename(source_proxyFilePath)
 
-            #   Modifiy Name is Enabled
-            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-                proxy_fileName = self.getModifiedName(proxy_fileName)
+            #   Modifiy Name if Enabled
+            proxy_fileName = self.getModifiedName(proxy_fileName)
 
             # Apply the relative subdir to the dest main directory
             dest_mainDir = os.path.dirname(dest_MainFilePath)
@@ -2149,8 +2145,7 @@ class DestFileTile(BaseTileItem):
             sourcePath = self.getSource_mainfilePath()
             #   Get Source Base Name and Modify if Enabled
             source_baseFile = Utils.getBasename(sourcePath)
-            if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-                source_baseFile = self.getModifiedName(source_baseFile)
+            source_baseFile = self.getModifiedName(source_baseFile)
 
             #   Get Proxy Settings
             proxyMode = self.browser.proxyMode
@@ -2242,12 +2237,7 @@ class DestFileTile(BaseTileItem):
             transferList = []
             for item in self.data.get("sequenceItems", []):
                 iData = item["data"]
-
-                if self.browser.sourceFuncts.chb_ovr_fileNaming.isChecked():
-                    name = self.getModifiedName(iData["displayName"])
-                else:
-                    name = iData["displayName"]
-
+                name = self.getModifiedName(iData["displayName"])
                 sourcePath = iData["source_mainFile_path"]
                 destPath = os.path.join(self.getDestPath(), name)
                 iData["dest_mainFile_path"] = destPath

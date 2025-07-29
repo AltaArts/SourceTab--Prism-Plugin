@@ -2,8 +2,14 @@
     "metaMap": [
         {
             "MetaName": "File Name",
-            "category": "Crew/Production",
+            "category": "File",
             "Target": "File Name",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Original File Name",
+            "category": "File",
+            "Target": "Original File Name",
             "Alias": ""
         },
         {
@@ -537,12 +543,6 @@
     ],
     "metaPresets": {
         "zCam - zLog2": [
-            {
-                "field": "File Name",
-                "enabled": true,
-                "sourceField": "format > filename",
-                "currentData": "C:\\Users\\Joshua Breckeen\\Desktop\\TempImages\\A006C0695_20630416013229_0001.MOV"
-            },
             {
                 "field": "Reel Number",
                 "enabled": true,

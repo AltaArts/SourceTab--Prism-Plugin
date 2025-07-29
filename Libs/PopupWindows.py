@@ -199,17 +199,35 @@ class DisplayPopup(QDialog):
 
 
     def _add_recursive(self, layout, data, indent=0):
-        if isinstance(data, dict):
+        # If this is a QWidget (e.g., QGroupBox), add directly
+        if isinstance(data, QWidget):
+            layout.addWidget(data)
+
+        elif isinstance(data, dict):
             for key, value in data.items():
-                if isinstance(value, (dict, list)):
-                    # Section header
+                # If it's an empty filler row: add spacing instead of colon line
+                if key == "" and value == "":
+                    layout.addSpacing(10)   # Add vertical space
+                    continue
+
+                # Nested dict/list/widget -> header + recursive call
+                if isinstance(value, (dict, list, QWidget)):
                     header = QLabel(" " * indent + str(key))
                     font = header.font()
                     font.setBold(True)
+
+                    # Optional: colors for Errors/Warnings headers
+                    if str(key).lower().startswith("error"):
+                        header.setStyleSheet("color: red;")
+                    elif str(key).lower().startswith("warning"):
+                        header.setStyleSheet("color: orange;")
+
                     header.setFont(font)
                     layout.addWidget(header)
 
+                    # Recurse into children
                     self._add_recursive(layout, value, indent + 4)
+
                 else:
                     # Simple key-value
                     hlayout = QHBoxLayout()
@@ -221,18 +239,20 @@ class DisplayPopup(QDialog):
                     layout.addLayout(hlayout)
 
         elif isinstance(data, list):
-            for idx, item in enumerate(data):
-                header = QLabel(" " * indent + f"[{idx}]")
-                font = header.font()
-                font.setBold(True)
-                header.setFont(font)
-                layout.addWidget(header)
-                self._add_recursive(layout, item, indent + 4)
+            for item in data:
+                self._add_recursive(layout, item, indent)
+
         else:
-            # Raw value
+            # Simple value
+            if data == "":
+                layout.addSpacing(10)  # Add spacing for standalone empty strings
+                return
             lbl = QLabel(" " * indent + str(data))
             lbl.setWordWrap(True)
             layout.addWidget(lbl)
+
+
+
 
 
 

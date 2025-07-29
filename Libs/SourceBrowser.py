@@ -2293,7 +2293,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
                 "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
                 "File Name Mods:": "Disabled" if not self.sourceFuncts.chb_ovr_fileNaming.isChecked() else "Enabled",
-                "Sidecar Mode:": self.sourceFuncts.l_enabledMetaData.text(),
+                "Metadata Sidecar Mode:": self.sourceFuncts.l_enabledMetaData.text(),
                 "": ""
             }
 
