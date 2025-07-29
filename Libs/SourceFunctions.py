@@ -206,6 +206,10 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             self.l_proxyMode.setText(proxyDisplayStr)
             self.l_proxyMode.setEnabled(proxyEnabled)
 
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Update Functions Panel Proxy UI:\n{e}")
+
+        try:
             #   Configure File Name Mods UI
             fileNamingEnabled = self.chb_ovr_fileNaming.isChecked()
 
@@ -238,7 +242,23 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             self.l_enabledNameMods.setToolTip(nameTipStr)
 
         except Exception as e:
-            logger.warning(f"ERROR:  Failed to Update Functions Panel UI:\n{e}")
+            logger.warning(f"ERROR:  Failed to Update Functions Panel Naming UI:\n{e}")
+
+        try:
+            metadataEnabled = self.chb_ovr_metadata.isChecked()
+
+            if metadataEnabled:
+                nameTipStr = self.sourceBrowser.currMetaPreset
+
+            else:
+                nameTipStr = "DISABLED"
+
+            self.l_enabledMetaData.setText(nameTipStr)
+            self.l_enabledMetaData.setEnabled(metadataEnabled)
+            self.l_enabledMetaData.setToolTip(nameTipStr)
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Update Functions Panel Metadata UI:\n{e}")
 
 
 
@@ -326,3 +346,5 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             self.sourceBrowser.metaEditor = MetadataEditor(self.core, self.sourceBrowser)
             
         self.sourceBrowser.metaEditor.show()
+
+        

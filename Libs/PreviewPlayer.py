@@ -520,6 +520,8 @@ class PreviewPlayer(QWidget):
         width = self.pwidth if self.pwidth is not None else "?"
         height = self.pheight if self.pheight is not None else "?"
 
+        fileName = Utils.getBasename(prvFile)
+
         if self.prvIsSequence:
             infoStr = "%sx%s   %s   %s-%s (%s %s)" % (
                 width,
@@ -530,6 +532,7 @@ class PreviewPlayer(QWidget):
                 self.pduration,
                 frStr,
             )
+
 
         elif len(self.previewSeq) > 1:
             infoStr = "%s files %sx%s   %s\n%s" % (
@@ -547,17 +550,6 @@ class PreviewPlayer(QWidget):
             else:
                 duration = self.pduration
 
-            if self.pwidth == "loading...":
-                infoStr = "\n" + Utils.getBasename(prvFile)
-            else:
-                infoStr = "%sx%s   %s %s\n%s" % (
-                    width,
-                    height,
-                    duration,
-                    frStr,
-                    Utils.getBasename(prvFile),
-                )
-
                 if self.core.isStr(duration) or duration <= 1:
                     self.sl_previewImage.setEnabled(False)
                     self.l_start.setText("")
@@ -565,27 +557,23 @@ class PreviewPlayer(QWidget):
                     self.w_playerCtrls.setEnabled(False)
                     self.sp_current.setEnabled(False)
         else:
-            infoStr = "%sx%s\n%s" % (
-                width,
-                height,
-                Utils.getBasename(prvFile),
-            )
-
             self.sl_previewImage.setEnabled(False)
             self.l_start.setText("")
             self.l_end.setText("")
             self.w_playerCtrls.setEnabled(False)
             self.sp_current.setEnabled(False)
 
-        infoStr += "\n" + pdate
+        infoStr = (f"{fileName}\n"
+                   f"{width} x {height}   -   {self.pduration} {frStr}   -   {pdate}")
 
+        #   Add File Size if Enabled
         if self.core.getConfig("globals", "showFileSizes"):
             size = 0
             for file in self.previewSeq:
                 if os.path.exists(file):
                     size += Utils.getFileSize(file)
 
-            infoStr += f" - {Utils.getFileSizeStr(size)}"
+            infoStr += f"   -   {Utils.getFileSizeStr(size)}"
 
         if self.state == "disabled":
             infoStr += "\nPreview is disabled"

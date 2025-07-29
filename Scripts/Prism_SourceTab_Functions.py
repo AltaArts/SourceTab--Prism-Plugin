@@ -525,6 +525,7 @@ class Prism_SourceTab_Functions(object):
                 tData["enable_proxy"] = functs.chb_ovr_proxy.isChecked()
                 tData["enable_fileNaming"] = functs.chb_ovr_fileNaming.isChecked()
                 tData["enable_metadata"] = functs.chb_ovr_metadata.isChecked()
+                tData["currMetaPreset"] = self.sourceBrowser.currMetaPreset
                 tData["enable_overwrite"] = functs.chb_overwrite.isChecked()
 
                 self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
@@ -611,6 +612,7 @@ class Prism_SourceTab_Functions(object):
                     "proxyMode": "None",
                     "enable_fileNaming": False,
                     "enable_metadata": False,
+                    "currMetaPreset": "",
                     "enable_overwrite": False
                 },
                 "sortOptions": {

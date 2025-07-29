@@ -175,6 +175,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.ffmpegPresets = None
         self.calculated_proxyMults = []
         self.nameMods = []
+        self.currMetaPreset = None
         self.transferList = []
         self.initialized = False
         self.closeParm = "closeafterload"
@@ -281,11 +282,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_tips_source.setToolTip(sourceTip)
 
         destTip = self.getCheatsheet("dest", tip=True)
-        self.b_tips_dest.setToolTip(destTip)
+        # self.b_tips_dest.setToolTip(destTip)
 
         #   Set Cheatsheet Button Size
         self.b_tips_source.setFixedWidth(30)
-        self.b_tips_dest.setFixedWidth(30)
+        # self.b_tips_dest.setFixedWidth(30)
 
         #   Source Table setup
         self.lw_source.setObjectName("sourceTable")
@@ -304,7 +305,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_sorting_sort.setIcon(sortIcon)
         self.b_dest_sorting_filtersEnable.setIcon(filtersIcon)
         self.b_dest_sorting_combineSeqs.setIcon(sequenceIcon)
-        self.b_tips_dest.setIcon(tipIcon)
+        # self.b_tips_dest.setIcon(tipIcon)
 
         #   Destination Table setup
         self.lw_destination.setObjectName("destTable")
@@ -350,8 +351,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   Add Right Panel Container to the Splitter
         self.splitter.addWidget(self.w_rightPanelContainer)
-
-        self.setStyleSheet("QSplitter::handle{background-color: transparent}")
 
         self.setToolTips()
 
@@ -511,7 +510,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_sorting_sort.clicked.connect(lambda: self.showSortMenu("destination"))
         self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable(restoreSelection=True))
         self.b_dest_sorting_combineSeqs.toggled.connect(lambda: self.refreshDestItems())
-        self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
+        # self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
         self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
         self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
         self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
@@ -524,6 +523,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Functions Panel
         self.sourceFuncts.chb_ovr_proxy.toggled.connect(self.toggleProxy)
         self.sourceFuncts.chb_ovr_fileNaming.toggled.connect(lambda: self.modifyFileNames())
+        self.sourceFuncts.chb_ovr_metadata.toggled.connect(self.toggleMetadata)
+
         self.sourceFuncts.b_transfer_start.clicked.connect(self.startTransfer)
         self.sourceFuncts.b_transfer_pause.clicked.connect(self.pauseTransfer)
         self.sourceFuncts.b_transfer_resume.clicked.connect(self.resumeTransfer)
@@ -915,26 +916,27 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             preferProxies = tabData["preferProxies"]
             self.chb_preferProxies.setChecked(preferProxies)
             self.togglePreferProxies(preferProxies)
-
-            #   Options
+            
+            #   Proxy Options
             self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_proxy"])
-            self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
-            self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
-            self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
             self.proxyEnabled = tabData["enable_proxy"]
             self.proxyMode = tabData["proxyMode"]
-
-            #   Proxy Options
             if "proxySettings" in sData:
                 self.proxySettings = sData["proxySettings"]
-
-            #   Proxy Presets
             if "ffmpegPresets" in sData:
                 self.ffmpegPresets = sData["ffmpegPresets"]
 
             #   Name Mods
+            self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
             if "activeNameMods" in sData:
                 self.nameMods = sData["activeNameMods"]
+
+            #   Metadata Options
+            self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
+            self.currMetaPreset = tabData["currMetaPreset"]
+
+            #   Overwrite Option
+            self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
 
             self.sourceFuncts.updateUI()
 
@@ -1998,6 +2000,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
+    def toggleMetadata(self, checked):
+        self.metadataEnabled = checked
+        self.sourceFuncts.updateUI()
+
+
+
+    @err_catcher(name=__name__)
     def refreshTotalTransSize(self):
         try:
             #   Get Size Info
@@ -2283,6 +2292,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 "Total Transfer Size": Utils.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
                 "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
+                "File Name Mods:": "Disabled" if not self.sourceFuncts.chb_ovr_fileNaming.isChecked() else "Enabled",
+                "Sidecar Mode:": self.sourceFuncts.l_enabledMetaData.text(),
                 "": ""
             }
 
@@ -2603,8 +2614,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.configTransUI("complete")
 
+        #   Create Report ID Data
+        report_uuid     = Utils.createUUID()
+        timestamp  = datetime.now()
+
         if self.useTransferReport:
-            self.createTransferReport(transResult)
+            self.createTransferReport(transResult, report_uuid, timestamp)
+
+        if self.metadataEnabled:
+            self.handleMetadata(report_uuid, timestamp)
 
         if self.calculated_proxyMults:
             #   Updates Presets Multiplier
@@ -2639,7 +2657,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     #   Creates Transfer Report PDF
     @err_catcher(name=__name__)
-    def createTransferReport(self, result):
+    def createTransferReport(self, result, report_uuid, timestamp):
         try:
             #   Gets Destination Directory for Save Path
             saveDir = self.destDir
@@ -2647,9 +2665,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             reportData = self.copyList
 
             #   Header Data Items
-            report_uuid     = Utils.createUUID()
-            timestamp_file  = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-            timestamp_text  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            timestamp_file  = timestamp.strftime("%Y-%m-%d_%H%M%S")
+            timestamp_text  = timestamp.strftime("%Y-%m-%d %H:%M:%S")
             projectName     = self.core.projectName
             user            = self.core.username
             transferSize    = Utils.getFileSizeStr(self.total_transferSize)
@@ -2856,6 +2873,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR:  Failed to Create Transfer Report:\n{e}")
 
 
+    @err_catcher(name=__name__)
+    def handleMetadata(self, report_uuid, timestamp):
+        saveDir = self.destDir
+
+        timestamp_str  = timestamp.strftime("%Y-%m-%d_%H%M%S")
+
+        sidecarFilename = f"MetadataSidecar_{timestamp_str}_{report_uuid}.csv"
+        savePath = os.path.join(saveDir, sidecarFilename)   
+             
+        self.metaEditor.saveSidecar(savePath)
+
 
     @err_catcher(name=__name__)
     def updateProxyPresetMultipliers(self):
@@ -2899,5 +2927,4 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.core.entities.setEntityPreview(entity, pm)
         self.core.pb.sceneBrowser.refreshEntityInfo()
         self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
-
 

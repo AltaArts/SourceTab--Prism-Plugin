@@ -305,7 +305,7 @@
         <widget class="QGroupBox" name="gb_sourceFooter">
          <layout class="QHBoxLayout" name="lo_sourceFooter">
           <property name="leftMargin">
-           <number>20</number>
+           <number>0</number>
           </property>
           <property name="topMargin">
            <number>0</number>
@@ -691,47 +691,6 @@
           <property name="bottomMargin">
            <number>0</number>
           </property>
-          <item>
-           <widget class="QPushButton" name="b_tips_dest">
-            <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-              <horstretch>0</horstretch>
-              <verstretch>0</verstretch>
-             </sizepolicy>
-            </property>
-            <property name="minimumSize">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-            <property name="maximumSize">
-             <size>
-              <width>20</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer_3">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Fixed</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>30</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
           <item>
            <widget class="QPushButton" name="b_dest_checkAll">
             <property name="sizePolicy">

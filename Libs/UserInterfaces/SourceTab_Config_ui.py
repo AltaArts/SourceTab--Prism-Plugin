@@ -8,9 +8,17 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from qtpy.QtCore import *
-from qtpy.QtGui import *
-from qtpy.QtWidgets import *
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
+from PySide6.QtWidgets import (QAbstractButton, QApplication, QCheckBox, QDialogButtonBox,
+    QDoubleSpinBox, QHBoxLayout, QLabel, QLineEdit,
+    QPushButton, QSizePolicy, QSpacerItem, QSpinBox,
+    QSplitter, QVBoxLayout, QWidget)
 
 class Ui_w_sourceConfig(object):
     def setupUi(self, w_sourceConfig):

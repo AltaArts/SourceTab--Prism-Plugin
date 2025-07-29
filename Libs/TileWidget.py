@@ -914,6 +914,14 @@ class BaseTileItem(QWidget):
             elif self.fileType == "Audio":
                 self.core.popup("Audio not Supported in the Preview Viewer, yet")
                 return
+            
+            elif self.fileType == "Other":
+                logger.debug("Non-media File Types Not Supported in the Preview Player")
+                return
+            
+            else:
+                logger.warning(f"ERROR:  File Type Not Supported in the Preview Player")
+                return
 
             if self.isSequence:
                 metadata = self.getFirstSeqData()
@@ -2667,7 +2675,7 @@ class DestFileTile(BaseTileItem):
                 tip = "Proxy Generated"
 
                 self.updateProxyPresetMultiplier()
-                logger.status(f"Transfer Generation Complete: {self.data['dest_proxyFile_path']}")
+                logger.status(f"Proxy Generation Complete: {self.data['dest_proxyFile_path']}")
 
             else:
                 status = "Error"

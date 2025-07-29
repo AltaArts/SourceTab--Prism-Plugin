@@ -7,12 +7,6 @@
             "Alias": ""
         },
         {
-            "MetaName": "Reel Number",
-            "category": "Crew/Production",
-            "Target": "Reel Number",
-            "Alias": ""
-        },
-        {
             "MetaName": "Unit Name",
             "category": "Crew/Production",
             "Target": "Unit Name",
@@ -202,6 +196,12 @@
             "MetaName": "Camera #",
             "category": "Camera",
             "Target": "Camera #",
+            "Alias": ""
+        },
+        {
+            "MetaName": "Reel Number",
+            "category": "Camera",
+            "Target": "Reel Number",
             "Alias": ""
         },
         {
@@ -536,78 +536,12 @@
         }
     ],
     "metaPresets": {
-        "zCam - ALL": [
+        "zCam - zLog2": [
             {
                 "field": "File Name",
                 "enabled": true,
                 "sourceField": "format > filename",
-                "currentData": "C:\\Users\\Alta Arts\\Desktop\\SINGLE ITEM\\A006C0696_20630416013400_0001.MOV"
-            },
-            {
-                "field": "Description",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "TEST"
-            },
-            {
-                "field": "Comments",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "Test comment"
-            },
-            {
-                "field": "Keywords",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "test, clip, Rilo, dog, EXT"
-            },
-            {
-                "field": "Shot",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "Wide"
-            },
-            {
-                "field": "Scene",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "Rilo test"
-            },
-            {
-                "field": "Take",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "1"
-            },
-            {
-                "field": "Angle",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "Wide"
-            },
-            {
-                "field": "Day / Night",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "Day"
-            },
-            {
-                "field": "Environment",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "Int"
-            },
-            {
-                "field": "Shot Type",
-                "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "Handheld"
-            },
-            {
-                "field": "Camera #",
-                "enabled": true,
-                "sourceField": "format > tags > com.apple.proapps.cameraName",
-                "currentData": "A"
+                "currentData": "C:\\Users\\Joshua Breckeen\\Desktop\\TempImages\\A006C0695_20630416013229_0001.MOV"
             },
             {
                 "field": "Reel Number",
@@ -616,16 +550,106 @@
                 "currentData": "006"
             },
             {
-                "field": "Clip Number",
+                "field": "Production Name",
                 "enabled": true,
-                "sourceField": "format > tags > com.apple.proapps.clipID",
-                "currentData": "A006C0696_20630416013400_0001"
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Production Company",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Camera Operator",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": "JRB"
+            },
+            {
+                "field": "Crew Comments",
+                "enabled": false,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Description",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Comments",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Keywords",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Shot",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Scene",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Take",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Angle",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Day / Night",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Environment",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Date Recorded",
+                "enabled": true,
+                "sourceField": "format > tags > creation_time",
+                "currentData": "1993-03-10T23:05:44.000000Z"
             },
             {
                 "field": "Location",
                 "enabled": true,
                 "sourceField": "- GLOBAL -",
-                "currentData": "Grove"
+                "currentData": ""
+            },
+            {
+                "field": "Camera #",
+                "enabled": true,
+                "sourceField": "format > tags > com.apple.proapps.cameraName",
+                "currentData": "A"
+            },
+            {
+                "field": "Clip Number",
+                "enabled": true,
+                "sourceField": "format > tags > com.apple.proapps.clipID",
+                "currentData": "A006C0695_20630416013229_0001"
             },
             {
                 "field": "Camera Type",
@@ -655,7 +679,7 @@
                 "field": "Camera Notes",
                 "enabled": true,
                 "sourceField": "- GLOBAL -",
-                "currentData": "Shaky cam"
+                "currentData": ""
             },
             {
                 "field": "Camera Format",
@@ -700,6 +724,12 @@
                 "currentData": "0"
             },
             {
+                "field": "Camera TC Type",
+                "enabled": true,
+                "sourceField": "stream_2 > codec_tag_string",
+                "currentData": "tmcd"
+            },
+            {
                 "field": "Camera Firmware",
                 "enabled": true,
                 "sourceField": "format > tags > com.zcam.camera.fw",
@@ -712,22 +742,70 @@
                 "currentData": "bt709"
             },
             {
+                "field": "Monitor LUT",
+                "enabled": true,
+                "sourceField": "format > tags > com.zcam.camera.lut",
+                "currentData": "Z-Log2"
+            },
+            {
                 "field": "Lens Type",
                 "enabled": true,
                 "sourceField": "- GLOBAL -",
                 "currentData": "Xeen"
             },
             {
+                "field": "Lens Notes",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Camera Aperture",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Focal Point (mm)",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Distance",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Filter",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
                 "field": "ND Filter",
                 "enabled": true,
-                "sourceField": "- GLOBAL -",
-                "currentData": "None"
+                "sourceField": "format > tags > com.zcam.camera.nd",
+                "currentData": "clear"
+            },
+            {
+                "field": "Compression Ratio",
+                "enabled": true,
+                "sourceField": "stream_0 > profile",
+                "currentData": "HQ"
             },
             {
                 "field": "Codec Bitrate",
                 "enabled": false,
                 "sourceField": "stream_0 > bits_per_raw_sample",
                 "currentData": "10"
+            },
+            {
+                "field": "Aspect Ratio Notes",
+                "enabled": true,
+                "sourceField": "stream_0 > sample_aspect_ratio",
+                "currentData": "1:1"
             },
             {
                 "field": "Gamma Notes",
@@ -742,82 +820,136 @@
                 "currentData": "bt709"
             },
             {
-                "field": "Camera Operator",
+                "field": "Colorist Notes",
+                "enabled": true,
+                "sourceField": "- UNIQUE -",
+                "currentData": ""
+            },
+            {
+                "field": "Audio Recorder",
                 "enabled": true,
                 "sourceField": "- GLOBAL -",
-                "currentData": "JRB"
+                "currentData": ""
+            },
+            {
+                "field": "Audio Notes",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Embedded Audio",
+                "enabled": true,
+                "sourceField": "stream_1 > codec_long_name",
+                "currentData": "AAC (Advanced Audio Coding)"
+            },
+            {
+                "field": "Audio File Type",
+                "enabled": true,
+                "sourceField": "stream_1 > codec_tag_string",
+                "currentData": "mp4a"
+            },
+            {
+                "field": "Audio Media",
+                "enabled": true,
+                "sourceField": "stream_1 > channel_layout",
+                "currentData": "stereo"
+            },
+            {
+                "field": "Sound Roll #",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
+            },
+            {
+                "field": "Audio TC Type",
+                "enabled": true,
+                "sourceField": "- GLOBAL -",
+                "currentData": ""
             }
         ],
         "ARRI ProRes MOV": [
             {
                 "field": "File Name",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > filename",
-                "currentData": "C:\\Users\\Alta Arts\\Desktop\\Alexa Footage\\AlexaMini-PR4444\\M001C007_161207_R00H.mov"
+                "currentData": "C:\\Users\\Joshua Breckeen\\Desktop\\Alexa Footage\\Alexa Mini PR4444\\M001C001_161207_R00H.mov"
+            },
+            {
+                "field": "Reel Number",
+                "enabled": true,
+                "sourceField": "format > tags > com.arri.camera.ReelName",
+                "currentData": "M001R00H"
+            },
+            {
+                "field": "Production Company",
+                "enabled": true,
+                "sourceField": "format > tags > com.arri.camera.ProductionInfoCompany",
+                "currentData": "ARRITEST"
+            },
+            {
+                "field": "Camera Operator",
+                "enabled": true,
+                "sourceField": "format > tags > com.arri.camera.ProductionInfoOperator",
+                "currentData": "GHI"
             },
             {
                 "field": "Shot",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.TakeName",
                 "currentData": ""
             },
             {
                 "field": "Scene",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.SceneName",
                 "currentData": ""
             },
             {
-                "field": "Camera #",
-                "enabled": false,
-                "sourceField": "format > tags > com.arri.camera.CameraId",
-                "currentData": "R00H"
-            },
-            {
-                "field": "Reel Number",
-                "enabled": false,
-                "sourceField": "format > tags > com.arri.camera.ReelName",
-                "currentData": "M001R00H"
-            },
-            {
-                "field": "Clip Number",
-                "enabled": false,
-                "sourceField": "format > tags > com.arri.camera.CameraClipName",
-                "currentData": "M001C007_161207_R00H.mov"
-            },
-            {
                 "field": "Program Name",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.ProductionInfoProduction",
                 "currentData": "ARRI"
             },
             {
+                "field": "Camera #",
+                "enabled": true,
+                "sourceField": "format > tags > com.arri.camera.CameraId",
+                "currentData": "R00H"
+            },
+            {
+                "field": "Clip Number",
+                "enabled": true,
+                "sourceField": "format > tags > com.arri.camera.CameraClipName",
+                "currentData": "M001C001_161207_R00H.mov"
+            },
+            {
                 "field": "Camera Type",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.CameraModel",
                 "currentData": "ARRI ALEXA Mini"
             },
             {
                 "field": "Camera Manufacturer",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.CameraModel",
                 "currentData": "ARRI ALEXA Mini"
             },
             {
                 "field": "Camera Serial #",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.CameraSerialNumber",
                 "currentData": "20017"
             },
             {
                 "field": "Camera ID",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.CameraId",
                 "currentData": "R00H"
             },
             {
                 "field": "Camera Format",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > format_long_name",
                 "currentData": "QuickTime / MOV"
             },
@@ -829,69 +961,57 @@
             },
             {
                 "field": "Shutter Angle",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.ShutterAngle",
                 "currentData": "1728"
             },
             {
                 "field": "ISO",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.ExposureIndexAsa",
                 "currentData": "800"
             },
             {
                 "field": "White Point (Kelvin)",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.WhiteBalanceKelvin",
                 "currentData": "5600"
             },
             {
                 "field": "White Balance Tint",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.WhiteBalanceTintCc",
                 "currentData": "0"
             },
             {
                 "field": "Monitor LUT",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.look.name",
                 "currentData": "ARRI 709.AML"
             },
             {
                 "field": "ND Filter",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.NdFilterDensity",
                 "currentData": "1200"
             },
             {
                 "field": "Aspect Ratio Notes",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "stream_0 > sample_aspect_ratio",
                 "currentData": "1:1"
             },
             {
                 "field": "Gamma Notes",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "format > tags > com.arri.camera.ColorGammaSxS",
                 "currentData": "LOG-C"
             },
             {
                 "field": "Color Space Notes",
-                "enabled": false,
+                "enabled": true,
                 "sourceField": "stream_0 > color_space",
                 "currentData": "bt709"
-            },
-            {
-                "field": "Production Company",
-                "enabled": false,
-                "sourceField": "format > tags > com.arri.camera.ProductionInfoCompany",
-                "currentData": "ARRITEST"
-            },
-            {
-                "field": "Camera Operator",
-                "enabled": false,
-                "sourceField": "format > tags > com.arri.camera.ProductionInfoOperator",
-                "currentData": "GHI"
             }
         ],
         "TEST": [
