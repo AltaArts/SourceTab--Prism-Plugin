@@ -127,6 +127,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.populateEditor()
         self.populatePresets()
 
+        #   Set and Load Preset
         if self.sourceBrowser.currMetaPreset:
             idx = self.cb_presets.findText(self.sourceBrowser.currMetaPreset)
             if idx != -1:
@@ -186,7 +187,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.tw_metaEditor.setSelectionBehavior(QAbstractItemView.SelectItems)
         self.tw_metaEditor.setAutoFillBackground(True)
 
-        #   Makes It so Single-click will edit a cell                                 #   TODO
+        #   Makes It so Single-click Will Edit a Cell
         self.tw_metaEditor.setEditTriggers(QAbstractItemView.SelectedClicked)
 
         self.tw_metaEditor.setStyleSheet("""
@@ -287,6 +288,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         checkboxRefs = {}
 
+        #   Add Filter Checkboxes
         for label, checked in self.filterStates.items():
             if label.startswith("----"):
                 rcmenu.addAction(_wrapWidget(QGroupBox()))
@@ -297,7 +299,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             checkboxRefs[label] = cb
             rcmenu.addAction(_wrapWidget(cb))
 
-        # Apply button
+        #   Apply Button
         b_apply = QPushButton("Apply")
         b_apply.setFixedWidth(80)
         b_apply.setStyleSheet("font-weight: bold;")
@@ -348,6 +350,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.cb_presets.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
 
+    #   Loads Files into MetaFileItems an Combo
     @err_catcher(name=__name__)
     def loadFiles(self, loadFilepath=None):
         #   Get All Checked FileTiles in Dest List
@@ -372,6 +375,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
                 #   If it Exists, Refresh the fileTile Reference
                 if existing_item:
+                    existing_item.fileName=fileName_orig
+                    existing_item.fileName_mod = fileName_mod
                     existing_item.fileTile = fileTile
 
                 #   Or Add New MetaFileItem
@@ -390,6 +395,9 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
             except Exception as e:
                 logger.warning(f"ERROR: Unable to add FileTile '{fileTile}': {e}")
+
+        #   Update Active Files List
+        self.MetaFileItems.activeFiles = activeFiles
 
         #   Update the File List Combobox
         self.cb_fileList.blockSignals(True)
@@ -434,7 +442,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Bold Current Viewed File in Combo
         current_idx = self.cb_fileList.currentIndex()
         for i in range(self.cb_fileList.count()):
-            # Set font bold for current item
             font = self.cb_fileList.font()
             font.setBold(i == current_idx)
             self.cb_fileList.setItemData(i, font, Qt.FontRole)
@@ -553,7 +560,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             return
         
         for row, field in enumerate(self.MetadataFieldCollection.fields):
-            # Skip UNIQUE rows entirely before touching anything
+            #   Skip UNIQUE Rows
             if field.sourceField == "- UNIQUE -":
                 continue
 
@@ -582,7 +589,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                     else:
                         #   Exists Use Metadata
                         field.currentValue = self.ComobDelegate.getValueForField(field.sourceField)
-
             else:
                 if not onlyExisting:
                     field.enabled = False
@@ -613,7 +619,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 field.currentValue = ""
 
             self.MetadataTableModel.layoutChanged.emit()
-
             logger.debug("Reset Metadata Editor")
 
 
@@ -648,8 +653,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             sidecarPath = filePath
 
         else:
-            # Determine save path
-            testFileName = self.cb_fileList.currentText()                   # TODO - Change save location to dest path
+            ####   TEMP TESTING BUTTON     ####
+            testFileName = self.cb_fileList.currentText()
             fileItem = self.MetaFileItems.getByName(testFileName)
             testPath = fileItem.filePath
             savedir = os.path.dirname(testPath)
@@ -660,12 +665,11 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.saveSidecarCSV(sidecarPath)
 
 
+    #   Create Resolve Type .CSV
     @err_catcher(name=__name__)
     def saveSidecarCSV(self, sidecarPath):
         #   Get All Field Names
         fieldNames = self.MetadataFieldCollection.get_allFieldNames()
-
-        print(f"***  self.MetaFileItems.allItems():  {self.MetaFileItems.allItems()}")								#	TESTING
 
         #   Open CSV file to Write To
         with open(sidecarPath, mode="w", newline="", encoding="utf-8") as file:
@@ -675,7 +679,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             writer.writerow(fieldNames)
 
             #   Iterate Over each File
-            for fileItem in self.MetaFileItems.allItems():
+            for fileItem in self.MetaFileItems.allItems(active=True):
                 row = []
                 metadata = fileItem.metadata
 
@@ -718,7 +722,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         logger.status(f"Saved sidecar to: {sidecarPath}")
 
 
-    #   Closes the MetaEditor
+    #   Saves and Closes the MetaEditor
     @err_catcher(name=__name__)
     def _onSave(self):
         self.sourceBrowser.currMetaPreset = self.cb_presets.currentText()
@@ -743,12 +747,13 @@ class MetaFileItem:
     metadata: "MetadataModel"
     uniqueValues: dict[str, str] = field(default_factory=dict)
 
-
 class MetaFileItems:
     def __init__(self):
         self._by_name: dict[str, MetaFileItem] = {}
         self._by_path: dict[str, MetaFileItem] = {}
         self._items: list[MetaFileItem] = []
+        self.activeFiles: list[str] = []
+
 
     def addItem(self,
                 filePath: str,
@@ -771,18 +776,27 @@ class MetaFileItems:
 
     def getByName(self, name: str) -> MetaFileItem | None:
         return self._by_name.get(name)
+    
 
     def getByPath(self, path: str) -> MetaFileItem | None:
         return self._by_path.get(path)
+    
 
-    def allItems(self) -> list[MetaFileItem]:
-        return self._items
+    def allItems(self, active:bool=False) -> list[MetaFileItem]:
+        if active:
+            return [item for file in self.activeFiles if (item := self.getByName(file))]
+        
+        else:
+            return self._items
+        
     
     def getMetadata(self, fileItem: MetaFileItem) -> "MetadataModel":
         return fileItem.metadata
     
+    
     def set_uniqueValue(self, fileItem: MetaFileItem, fieldName: str, value: str):
         fileItem.uniqueValues[fieldName] = value
+
 
     def get_uniqueValue(self, fileItem: MetaFileItem, fieldName: str) -> str:
         return fileItem.uniqueValues.get(fieldName, "")
@@ -937,8 +951,6 @@ class MetadataFieldCollection:
 
 
 
-
-
 class MetadataTableModel(QAbstractTableModel):
     COL_ENABLED: int = 0
     COL_NAME: int = 1
@@ -961,8 +973,10 @@ class MetadataTableModel(QAbstractTableModel):
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return len(self.collection.fields)
 
+
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return 4
+
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.DisplayRole) -> str:
         #   Tooltip Role for Headers
@@ -993,7 +1007,6 @@ class MetadataTableModel(QAbstractTableModel):
                 return headers[section]
 
         return super().headerData(section, orientation, role)
-
 
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole) -> any:
@@ -1109,7 +1122,6 @@ class MetadataTableModel(QAbstractTableModel):
 
             self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
             return True
-                
 
         return False
 
@@ -1124,14 +1136,6 @@ class MetadataTableModel(QAbstractTableModel):
 
         # Special case for File Name & Original File Name
         if field.name in ["File Name", "Original File Name"]:
-            # if col == self.COL_ENABLED:
-            #     return Qt.ItemIsUserCheckable | Qt.ItemIsEnabled
-            # elif col == self.COL_SOURCE:
-            #     return Qt.NoItemFlags  # leave source blank
-            # elif col == self.COL_VALUE:
-            #     # Fully enabled and selectable (not greyed), but not editable
-            #     return Qt.ItemIsEnabled | Qt.ItemIsSelectable
-
             return Qt.ItemIsEnabled
 
         # Normal rows
@@ -1149,7 +1153,6 @@ class MetadataTableModel(QAbstractTableModel):
             return Qt.ItemIsEditable | Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
         return Qt.ItemIsEnabled
-
 
 
 
@@ -1202,7 +1205,6 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
 
         self.display_strings.append("- UNIQUE -")
         self.key_map[2] = "UNIQUE"
-
 
         idx = 3
         for section in metadata_model.get_sections():
@@ -1298,14 +1300,12 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
                 fileItem.uniqueValues[field.name] = unique_value
             value = unique_value
 
-
         else:
             # Regular metadata
             section, path = self.key_map[idx]
             value = self.metadata_model.get_value(section, path)
 
         model.setData(current_index, value, Qt.EditRole)
-
 
 
 
@@ -1330,7 +1330,6 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
                 
             return currentValue or ""
 
-
         # Regular metadata
         value = self.key_map.get(idx)
         if not isinstance(value, tuple) or len(value) != 2:
@@ -1338,8 +1337,6 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
 
         section, path = value
         return self.metadata_model.get_value(section, path) or ""
-
-
 
 
 
