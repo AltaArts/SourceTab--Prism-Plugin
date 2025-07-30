@@ -613,7 +613,12 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         if result == "Reset":
             self.cb_presets.setCurrentIndex(0)
 
-            for row, field in enumerate(self.MetadataFieldCollection.fields):
+            fieldNames = self.MetadataFieldCollection.get_allFieldNames()
+            for fieldName in fieldNames:
+                if fieldName in ["File Name", "Original File Name"]:
+                    continue
+
+                field = self.MetadataFieldCollection.get_fieldByName(fieldName)
                 field.enabled = False
                 field.sourceField = "- NONE -"
                 field.currentValue = ""
@@ -725,7 +730,11 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     #   Saves and Closes the MetaEditor
     @err_catcher(name=__name__)
     def _onSave(self):
-        self.sourceBrowser.currMetaPreset = self.cb_presets.currentText()
+        preset = self.cb_presets.currentText()
+        if preset == "PRESETS":
+            preset = ""
+            
+        self.sourceBrowser.currMetaPreset = preset
         self.sourceBrowser.sourceFuncts.updateUI()
         self.close()
 
