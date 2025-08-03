@@ -248,7 +248,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             metadataEnabled = self.chb_ovr_metadata.isChecked()
 
             if metadataEnabled:
-                nameTipStr = self.sourceBrowser.currMetaPreset
+                nameTipStr = self.sourceBrowser.metaPresets.currentPreset
 
             else:
                 nameTipStr = "DISABLED"

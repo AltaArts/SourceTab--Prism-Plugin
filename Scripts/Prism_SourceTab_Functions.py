@@ -78,8 +78,6 @@ def status(logger, message, *args, **kwargs):
         logger._log(STATUS_LEVEL_NUM, message, args, **kwargs)
 
 logging.Logger.status = status
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -538,15 +536,15 @@ class Prism_SourceTab_Functions(object):
             elif key == "proxySearch":
                 self.core.setConfig(cat="sourceTab", param="proxySearch", val=data, config="project")
 
-            elif key == "ffmpegPresets":
-                self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
+            # elif key == "ffmpegPresets":
+            #     self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
                 
             elif key == "nameMods":
                 nData = self.sourceBrowser.nameMods
                 self.core.setConfig(cat="sourceTab", param="activeNameMods", val=nData, config="project")
 
-            elif key == "metadataConfig":
-                self.core.setConfig(cat="sourceTab", param="metadataConfig", val=data, config="project")
+            elif key == "metadataSettings":
+                self.core.setConfig(cat="sourceTab", param="metadataSettings", val=data, config="project")
             
             logger.debug(f"Saved Settings for {key}")
 
@@ -561,7 +559,7 @@ class Prism_SourceTab_Functions(object):
             sData = self.core.getConfig("sourceTab", config="project") 
 
             if not sData or "globals" not in sData:
-                logger.status("ERROR:  Settings Not Found - Creating from Default Settings")
+                logger.status("SourceTab Settings Not Found - Creating from Default Settings")
                 self.copyPresets()
                 defaultData = {}
                 sData = self.getDefaultSettings()
@@ -584,13 +582,14 @@ class Prism_SourceTab_Functions(object):
             return {}
             
         
+    #   Copies Presets from Plugin to Project Dir
     @err_catcher(name=__name__)
     def copyPresets(self):
         projPipelineDir = self.core.projects.getPipelineFolder()
         presetPath_project = os.path.join(projPipelineDir, "SourceTab", "Presets")
         presetPath_local = os.path.join(PLUGINPATH, "Presets")
 
-        shutil.copytree(presetPath_local, presetPath_project)
+        shutil.copytree(presetPath_local, presetPath_project, dirs_exist_ok=True)
 
 
     #   Default Settings File Data
@@ -640,10 +639,12 @@ class Prism_SourceTab_Functions(object):
                 "proxySettings": {
                     "fallback_proxyDir": ".\\proxy",
                     "ovr_proxyDir": "",
+                    "currProxyPreset": None,
+                    "proxyPresetOrder": []
                 },
                 "activeNameMods":
                     [],
-                "metadataConfig": {
+                "metadataSettings": {
                     "currMetaPreset": None,
                     "metaPresetOrder": []
                 },
@@ -676,57 +677,7 @@ class Prism_SourceTab_Functions(object):
                     "transform_output": "Rec70924",
                     "look": "None"
                     },
-                ],
-                "ffmpegPresets": {
-                    "Fast H.264 Proxy": {
-                        "Description": "Quick and small proxy, good for review or offline editing",
-                        "Global_Parameters": "",
-                        "Video_Parameters": "-c:v libx264 -preset veryfast -crf 28 -pix_fmt yuv420p",
-                        "Audio_Parameters": "-c:a aac -b:a 128k",
-                        "Extension": ".mp4",
-                        "Multiplier": 0.1
-                    },
-                    "ProRes Proxy": {
-                        "Description": "Edit-friendly proxy for high-performance workflows (large size)",
-                        "Global_Parameters": "",
-                        "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
-                        "Audio_Parameters": "-c:a copy",
-                        "Extension": ".mov",
-                        "Multiplier": 0.2
-                    },
-                    "DNxHD 36M Proxy": {
-                        "Description": "Avid-style proxy with intra-frame compression (36 Mbps)",
-                        "Global_Parameters": "",
-                        "Video_Parameters": "-c:v dnxhd -b:v 36M -pix_fmt yuv422p",
-                        "Audio_Parameters": "-c:a pcm_s16le",
-                        "Extension": ".mov",
-                        "Multiplier": 0.3
-                    },
-                    "Ultra-Light Preview": {
-                        "Description": "Low-res H.264 preview for web or quick review",
-                        "Global_Parameters": "",
-                        "Video_Parameters": "-c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p",
-                        "Audio_Parameters": "-c:a aac -b:a 96k",
-                        "Extension": ".mp4",
-                        "Multiplier": 0.05
-                    },
-                    "Full-Res H.264": {
-                        "Description": "Full-resolution H.264 transcode, good quality balance",
-                        "Global_Parameters": "",
-                        "Video_Parameters": "-c:v libx264 -preset medium -crf 23 -pix_fmt yuv420p",
-                        "Audio_Parameters": "-c:a aac -b:a 192k",
-                        "Extension": ".mp4",
-                        "Multiplier": 0.01
-                    },
-                    "NVIDIA H.265 High Qual": {
-                        "Description": "GPU H.265 encode with good quality settings",
-                        "Global_Parameters": "",
-                        "Video_Parameters": "-c:v hevc_nvenc -preset medium -rc vbr -cq 19 -b:v 0 -pix_fmt yuv420p",
-                        "Audio_Parameters": "-c:a aac -b:a 192k",
-                        "Extension": ".mp4",
-                        "Multiplier": 0.02
-                    }
-                }
+                ]
             }
 
         #   Return Specific Key Default

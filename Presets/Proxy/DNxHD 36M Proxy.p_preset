@@ -1,0 +1,11 @@
+{
+    "name": "DNxHD 36M Proxy",
+    "data": {
+        "Description": "Avid-style proxy with intra-frame compression (36 Mbps)",
+        "Global_Parameters": "",
+        "Video_Parameters": "-c:v dnxhd -b:v 36M -pix_fmt yuv422p",
+        "Audio_Parameters": "-c:a pcm_s16le",
+        "Extension": ".mov",
+        "Multiplier": 0.3
+    }
+}

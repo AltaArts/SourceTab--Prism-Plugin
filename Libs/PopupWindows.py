@@ -2004,10 +2004,7 @@ class MetaPresetsPopup(QDialog):
         self.core = core
         self.metaEditor = metaEditor
         self.sourceBrowser = metaEditor.sourceBrowser
-
-        self.selectedPreset = None
-
-        self.metaPresets_copy = copy.deepcopy(self.metaEditor.metaPresets)
+        self.metaPresets = self.sourceBrowser.metaPresets
 
         self.presetExt = "m_preset"
 
@@ -2147,7 +2144,7 @@ class MetaPresetsPopup(QDialog):
     #   Adds Presets to List
     def refreshList(self):
         self.lw_presetList.clear()
-        self.lw_presetList.addItems(self.metaPresets_copy)
+        self.lw_presetList.addItems(self.metaPresets.getOrderedPresetNames())
 
 
     #   Import Preset from File
@@ -2193,7 +2190,7 @@ class MetaPresetsPopup(QDialog):
 
             #   Load Data and Add to Presets Dict
             importData = Utils.loadPreset(presetPath_dest)
-            self.metaPresets_copy[importData["name"]] = importData["data"]
+            self.metaPresets.addPreset(importData["name"], importData["data"])
 
             self.refreshList()
             self.updateMetaPresetsOrder()
@@ -2209,11 +2206,7 @@ class MetaPresetsPopup(QDialog):
         try:
             #   Get Preset Name and Data
             presetName = item.text()
-            currData = self.metaPresets_copy[item.text()]
-            currPresetData = {
-                "name": presetName,
-                "data": currData
-                }
+            currData = self.metaPresets.getPresetData(item.text())
 
         except Exception as e:
             logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
@@ -2237,8 +2230,11 @@ class MetaPresetsPopup(QDialog):
             if ext.lower() != f".{self.presetExt.lower()}":
                 presetPath = f"{root}.{self.presetExt}"
 
+            pData = {"name": presetName,
+                     "data": currData}
+
             #   Save Preset
-            Utils.savePreset(self.core, "metadata", presetName, currPresetData, path=presetPath)
+            Utils.savePreset(self.core, "metadata", presetName, pData, path=presetPath)
 
             logger.debug(f"Exported Preset {presetName}")
 
@@ -2253,7 +2249,7 @@ class MetaPresetsPopup(QDialog):
             currData = self.metaEditor.getCurrentData(filterNone=True)
         else:
             presetName = item.text()
-            currData = self.metaPresets_copy[item.text()]
+            currData = self.metaPresets.getPresetData(item.text())
 
         currPresetData = {
             "name": presetName,
@@ -2271,7 +2267,7 @@ class MetaPresetsPopup(QDialog):
             Utils.savePreset(self.core, "metadata", pName, pData, project=True)
 
             #   Update Presets Dict
-            self.metaPresets_copy[pName] = resultData["data"]
+            self.metaPresets.addPreset(pName, resultData["data"])
 
             self.refreshList()
             self.updateMetaPresetsOrder()
@@ -2299,12 +2295,10 @@ class MetaPresetsPopup(QDialog):
     def saveToLocal(self, item):
         try:
             pName = item.text()
-            currData = self.metaPresets_copy[item.text()]
+            currData = self.metaPresets.getPresetData(pName)
 
-            pData = {
-                "name": pName,
-                "data": currData
-                }
+            pData = {"name": pName,
+                     "data": currData}
 
         except Exception as e:
             logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
@@ -2320,18 +2314,20 @@ class MetaPresetsPopup(QDialog):
             return
 
         #   Get Selected Preset Name
-        preset_item = self.lw_presetList.item(row)
-        preset_name = preset_item.text() if preset_item else "Unknown"
+        presetItem = self.lw_presetList.item(row)
+        presetName = presetItem.text() if presetItem else "Unknown"
 
         #   Confirmation Dialogue
         title = "Remove Template"
-        text = f"Would you like to remove the Preset:\n\n{preset_name}?"
+        text = f"Would you like to remove the Preset:\n\n{presetName}?"
         buttons = ["Remove", "Cancel"]
         result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
 
         if result == "Remove":
             self.lw_presetList.takeItem(row)
-            Utils.deletePreset(self.core, "metadata", preset_name)
+            Utils.deletePreset(self.core, "metadata", presetName)
+            self.metaPresets.removePreset(presetName)
+
             self.updateMetaPresetsOrder()
 
    
@@ -2359,23 +2355,13 @@ class MetaPresetsPopup(QDialog):
     def updateMetaPresetsOrder(self):
         #   Get New Order from the List Widget
         new_order = [self.lw_presetList.item(i).text() for i in range(self.lw_presetList.count())]
-
-        #   Build Ordered Dict from New Order
-        ordered_presets = {
-            name: self.metaPresets_copy[name]
-            for name in new_order
-            if name in self.metaPresets_copy
-        }
-
-        #   Update Original Dict in place
-        self.metaPresets_copy.clear()
-        self.metaPresets_copy.update(ordered_presets)
+        self.metaPresets.presetOrder = new_order
 
 
     #   Stores Selected Preset Name for Main Code to Load
     def _onSave(self):
         self.updateMetaPresetsOrder()
-        self.metaEditor.metaPresets = self.metaPresets_copy
+        # self.metaEditor.metaPresets = self.metaPresets_copy
         self.accept()
 
 

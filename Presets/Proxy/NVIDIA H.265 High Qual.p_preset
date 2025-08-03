@@ -1,0 +1,11 @@
+{
+    "name": "NVIDIA H.265 High Qual",
+    "data": {
+        "Description": "GPU H.265 encode with good quality settings",
+        "Global_Parameters": "",
+        "Video_Parameters": "-c:v hevc_nvenc -preset medium -rc vbr -cq 19 -b:v 0 -pix_fmt yuv420p",
+        "Audio_Parameters": "-c:a aac -b:a 192k",
+        "Extension": ".mp4",
+        "Multiplier": 0.02
+    }
+}

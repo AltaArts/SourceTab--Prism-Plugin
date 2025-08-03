@@ -96,6 +96,7 @@ from SourceFunctions import SourceFunctions
 from PopupWindows import DisplayPopup, WaitPopup
 from ElapsedTimer import ElapsedTimer
 from PreviewPlayer import PreviewPlayer
+from SourceTab_Models import PresetModel, PresetsCollection
 import SourceTab_Utils as Utils
 
 import SourceBrowser_ui                                                 #   TODO
@@ -191,8 +192,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.reset_ProgBar()
         #   Signal Connections
         self.connectEvents()
+
+        self.loadAllPresets()
+
         #   Load Settings from Prism Project Settings
         self.loadSettings()
+
         #   Setup Worker Threadpools and Semephore Slots
         self.setupThreadpools()
 
@@ -870,6 +875,42 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         return self.plugin.loadSettings(key)
 
 
+    @err_catcher(name=__name__)
+    def loadAllPresets(self):
+
+        try:
+            self.metaPresets = PresetsCollection()
+            presetDir = Utils.getProjectPresetDir(self.core, "metadata")
+            self.loadPresets(presetDir, self.metaPresets, ".m_preset")
+            logger.debug("Loaded Metadata Presets")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Load Metadata Presets")
+
+        try:
+            self.proxyPresets = PresetsCollection()
+            presetDir = Utils.getProjectPresetDir(self.core, "proxy")
+            self.loadPresets(presetDir, self.proxyPresets, ".p_preset")
+            logger.debug("Loaded Proxy Presets")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Load Proxy Presets")
+
+
+    @err_catcher(name=__name__)
+    def loadPresets(self, dir, model, ext):
+        #   Collect Preset Files from Dir
+        presetFiles = {
+            os.path.splitext(pf)[0]: os.path.join(dir, pf)
+            for pf in os.listdir(dir)
+            if Utils.getFileExtension(fileName=pf) == ext
+        }
+
+        for name, path in presetFiles.items():
+            pData = Utils.loadPreset(path)
+            model.addPreset(name, pData["data"])
+
+
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
@@ -922,8 +963,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.proxyMode = tabData["proxyMode"]
             if "proxySettings" in sData:
                 self.proxySettings = sData["proxySettings"]
-            if "ffmpegPresets" in sData:
-                self.ffmpegPresets = sData["ffmpegPresets"]
+                self.proxyPresetOrder = self.proxySettings["proxyPresetOrder"]
+                self.currProxyPreset = self.proxySettings["currProxyPreset"]
 
             #   Name Mods
             self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
@@ -932,10 +973,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             #   Metadata Options
             self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
-            if "metadataConfig" in sData:
-                metadataConfig = sData["metadataConfig"]
-                self.metaPresetOrder = metadataConfig["metaPresetOrder"]
-                self.currMetaPreset = metadataConfig["currMetaPreset"]
+            if "metadataSettings" in sData:
+                metadataSettings = sData["metadataSettings"]
+                self.metaPresets.presetOrder = metadataSettings["metaPresetOrder"]
+                self.metaPresets.currentPreset = metadataSettings["currMetaPreset"]
 
             #   Overwrite Option
             self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])

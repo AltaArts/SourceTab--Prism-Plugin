@@ -1,0 +1,11 @@
+{
+    "name": "ProRes Proxy",
+    "data": {
+        "Description": "Edit-friendly proxy for high-performance workflows (large size)",
+        "Global_Parameters": "",
+        "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p10le",
+        "Audio_Parameters": "-c:a copy",
+        "Extension": ".mov",
+        "Multiplier": 0.2
+    }
+}

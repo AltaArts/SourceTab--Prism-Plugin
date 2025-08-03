@@ -1,0 +1,11 @@
+{
+    "name": "Ultra-Light Preview",
+    "data": {
+        "Description": "Low-res H.264 preview for web or quick review",
+        "Global_Parameters": "",
+        "Video_Parameters": "-c:v libx264 -preset ultrafast -crf 32 -pix_fmt yuv420p",
+        "Audio_Parameters": "-c:a aac -b:a 96k",
+        "Extension": ".mp4",
+        "Multiplier": 0.05
+    }
+}
