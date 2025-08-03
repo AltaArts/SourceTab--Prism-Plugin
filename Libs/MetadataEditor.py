@@ -65,6 +65,7 @@ uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
 sys.path.append(uiPath)
 
+
 from PrismUtils.Decorators import err_catcher
 
 import SourceTab_Utils as Utils
@@ -91,6 +92,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                                         "UserInterfaces",
                                         "MetaMap.json")
         
+        self.metaPresets = {}
         self.sourceOptions = []
 
         #   Instantiate Metafiles
@@ -279,6 +281,11 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             action = QWidgetAction(self)
             action.setDefaultWidget(widget)
             return action
+        
+        def _separator():
+            gb = QGroupBox()
+            gb.setFixedHeight(15)
+            return _wrapWidget(gb)
 
         def _applyFilterStates(checkboxRefs, menu):
             for label, cb in checkboxRefs.items():
@@ -291,7 +298,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Add Filter Checkboxes
         for label, checked in self.filterStates.items():
             if label.startswith("----"):
-                rcmenu.addAction(_wrapWidget(QGroupBox()))
+                rcmenu.addAction(_separator())
                 continue
 
             cb = QCheckBox(label)
@@ -312,40 +319,81 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         rcmenu.exec_(cpos)
 
 
-    #   Loads Data from Saved MetaMap
+    #   Builds MetadataFieldCollection from MetaMap.json
     @err_catcher(name=__name__)
     def loadData(self):
         try:
             with open(self.metaMapPath, "r", encoding="utf-8") as f:
                 mData = json.load(f)
 
+            self.metaMap = mData["metaMap"]
+
         except FileNotFoundError:
             logger.warning("ERROR: MetaMap.json is not found")
             return
         
-        self.metaMap = mData["metaMap"]
-        self.metaPresets = mData["metaPresets"]
-        logger.debug("Loaded Data from 'MetaMap.json'")
+        try:
+            #   Build MetadataFieldCollection
+            metadata_fields = []
+            for item in self.metaMap:
+                field = MetadataField(
+                    name=item.get("MetaName", ""),
+                    category=item.get("category", "Shot/Scene"),
+                    enabled=item.get("enabled", True)
+                )
+                metadata_fields.append(field)
 
-        #   Build MetadataFieldCollection
-        metadata_fields = []
-        for item in self.metaMap:
-            field = MetadataField(
-                name=item.get("MetaName", ""),
-                category=item.get("category", "Shot/Scene"),
-                enabled=item.get("enabled", True)
-            )
-            metadata_fields.append(field)
+            self.MetadataFieldCollection = MetadataFieldCollection(metadata_fields)
 
-        self.MetadataFieldCollection = MetadataFieldCollection(metadata_fields)
+            logger.debug("Built MetadataFieldCollection from 'MetaMap.json'")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Build MetadataFieldCollection: {e}")
 
 
-    #   Loads Presets into Combo
+    #   Loads Preset Data and Loads Presets into Combo
     @err_catcher(name=__name__)
     def populatePresets(self):
         self.cb_presets.clear()
         self.cb_presets.addItem("PRESETS")
-        self.cb_presets.addItems(self.metaPresets)
+        self.metaPresets.clear()
+
+        #   Get Project Preset Dir
+        projPresetDir = Utils.getProjectPresetDir(self.core, "metadata")
+
+        #   Collect Preset Files from Dir
+        presetFiles = {
+            os.path.splitext(pf)[0]: os.path.join(projPresetDir, pf)
+            for pf in os.listdir(projPresetDir)
+            if Utils.getFileExtension(fileName=pf) == ".m_preset"
+        }
+
+        availablePresetNames = set(presetFiles.keys())
+
+        #   Order List Starts with metaPresetOrder
+        orderedPresetNames = [
+            name for name in self.sourceBrowser.metaPresetOrder
+            if name in availablePresetNames
+            ]
+
+        #   Add Missing Presets at Bottom and Update metaPresetOrder
+        for name in sorted(availablePresetNames - set(orderedPresetNames)):
+            orderedPresetNames.append(name)
+            self.sourceBrowser.metaPresetOrder.append(name)
+
+        #   Load Data for Each Preset and Populate MetaPresets Dict
+        for name in orderedPresetNames:
+            presetPath = presetFiles[name]
+            pData = Utils.loadPreset(presetPath)
+            self.metaPresets[name] = pData["data"]
+
+        #   Populate combo box
+        for name in orderedPresetNames:
+            self.cb_presets.addItem(name)
+
+        idx = self.cb_presets.findText(self.sourceBrowser.currMetaPreset)
+        if idx != -1:
+            self.cb_presets.setCurrentIndex(idx)
 
         self.cb_presets.setSizeAdjustPolicy(QComboBox.AdjustToContents)
 
@@ -512,17 +560,15 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     #   Saves Presets to Config
     @err_catcher(name=__name__)
     def savePresets(self):
-        with open(self.metaMapPath, "r", encoding="utf-8") as f:
-            mData = json.load(f)
+        self.sourceBrowser.metaPresetOrder = list(self.metaPresets.keys())
 
-        #   Add or Overwrite Preset
-        mData["metaPresets"] = self.metaPresets
+        mData = {
+            "currMetaPreset": self.sourceBrowser.currMetaPreset,
+            "metaPresetOrder": self.sourceBrowser.metaPresetOrder
+            }
 
-        #   Write Back to Disk
-        with open(self.metaMapPath, "w", encoding="utf-8") as f:
-            json.dump(mData, f, indent=4, ensure_ascii=False)
-
-        logger.debug(f"Metadata Presets Saved.")
+        #   Save to Project Config
+        self.sourceBrowser.plugin.saveSettings(key="metadataConfig", data=mData)
 
 
     #   Displays Preset Popup
@@ -653,12 +699,12 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
 
     @err_catcher(name=__name__)
-    def saveSidecar(self, filePath=None):
+    def saveSidecar(self, filePath=None):               #   TODO - Implement UI for Selecting Sidecar type
         if filePath:
             sidecarPath = filePath
 
         else:
-            ####   TEMP TESTING BUTTON     ####
+            ####   TEMP TESTING BUTTON     ####                         #   TODO
             testFileName = self.cb_fileList.currentText()
             fileItem = self.MetaFileItems.getByName(testFileName)
             testPath = fileItem.filePath
@@ -735,6 +781,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             preset = ""
             
         self.sourceBrowser.currMetaPreset = preset
+
+        self.savePresets()
         self.sourceBrowser.sourceFuncts.updateUI()
         self.close()
 

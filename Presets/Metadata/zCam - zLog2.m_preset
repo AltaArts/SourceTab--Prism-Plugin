@@ -1,0 +1,329 @@
+{
+    "name": "zCam - zLog2",
+    "data": [
+        {
+            "field": "Reel Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.reel",
+            "currentData": "006"
+        },
+        {
+            "field": "Production Name",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Production Company",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Operator",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": "JRB"
+        },
+        {
+            "field": "Crew Comments",
+            "enabled": false,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Description",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Comments",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Keywords",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Shot",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Scene",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Take",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Angle",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Day / Night",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Environment",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Date Recorded",
+            "enabled": true,
+            "sourceField": "format > tags > creation_time",
+            "currentData": "1993-03-10T23:05:44.000000Z"
+        },
+        {
+            "field": "Location",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Camera #",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.cameraName",
+            "currentData": "A"
+        },
+        {
+            "field": "Clip Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.clipID",
+            "currentData": "A006C0695_20630416013229_0001"
+        },
+        {
+            "field": "Camera Type",
+            "enabled": true,
+            "sourceField": "format > tags > CameraModel",
+            "currentData": "E2-S6"
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": true,
+            "sourceField": "format > tags > CameraMaker",
+            "currentData": "Z CAM"
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.sn",
+            "currentData": "524D0070362"
+        },
+        {
+            "field": "Camera ID",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.cameraName",
+            "currentData": "A"
+        },
+        {
+            "field": "Camera Notes",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "format > format_long_name",
+            "currentData": "QuickTime / MOV"
+        },
+        {
+            "field": "Media Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.storage",
+            "currentData": "Samsung Portable SSD T5"
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.projectFps",
+            "currentData": "29.97"
+        },
+        {
+            "field": "Shutter Angle",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.shutterAngle",
+            "currentData": "180\u00c2\u00b0"
+        },
+        {
+            "field": "ISO",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.iso",
+            "currentData": "1250"
+        },
+        {
+            "field": "White Point (Kelvin)",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.whiteBalanceKelvin",
+            "currentData": "5600K"
+        },
+        {
+            "field": "White Balance Tint",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.whiteBalanceTint",
+            "currentData": "0"
+        },
+        {
+            "field": "Camera TC Type",
+            "enabled": true,
+            "sourceField": "stream_2 > codec_tag_string",
+            "currentData": "tmcd"
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.fw",
+            "currentData": "1.0.1"
+        },
+        {
+            "field": "Mon Color Space",
+            "enabled": false,
+            "sourceField": "stream_0 > color_space",
+            "currentData": "bt709"
+        },
+        {
+            "field": "Monitor LUT",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.lut",
+            "currentData": "Z-Log2"
+        },
+        {
+            "field": "Lens Type",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": "Xeen"
+        },
+        {
+            "field": "Lens Notes",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Aperture",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Focal Point (mm)",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Distance",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Filter",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "ND Filter",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.nd",
+            "currentData": "clear"
+        },
+        {
+            "field": "Compression Ratio",
+            "enabled": true,
+            "sourceField": "stream_0 > profile",
+            "currentData": "HQ"
+        },
+        {
+            "field": "Codec Bitrate",
+            "enabled": false,
+            "sourceField": "stream_0 > bits_per_raw_sample",
+            "currentData": "10"
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > sample_aspect_ratio",
+            "currentData": "1:1"
+        },
+        {
+            "field": "Gamma Notes",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.lut",
+            "currentData": "Z-Log2"
+        },
+        {
+            "field": "Color Space Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > color_space",
+            "currentData": "bt709"
+        },
+        {
+            "field": "Colorist Notes",
+            "enabled": true,
+            "sourceField": "- UNIQUE -",
+            "currentData": ""
+        },
+        {
+            "field": "Audio Recorder",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Audio Notes",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Embedded Audio",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_long_name",
+            "currentData": "AAC (Advanced Audio Coding)"
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_tag_string",
+            "currentData": "mp4a"
+        },
+        {
+            "field": "Audio Media",
+            "enabled": true,
+            "sourceField": "stream_1 > channel_layout",
+            "currentData": "stereo"
+        },
+        {
+            "field": "Sound Roll #",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        },
+        {
+            "field": "Audio TC Type",
+            "enabled": true,
+            "sourceField": "- GLOBAL -",
+            "currentData": ""
+        }
+    ]
+}

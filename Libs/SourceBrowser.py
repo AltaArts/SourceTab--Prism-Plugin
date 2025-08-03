@@ -53,9 +53,6 @@ import sys
 import subprocess
 import logging
 from collections import OrderedDict, deque
-import shutil
-import uuid
-import hashlib
 from datetime import datetime
 from time import time
 from functools import partial
@@ -161,9 +158,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self._sourceRowWidgets = []
         self._destinationRowWidgets = []
-
-
-        #   Initialize Variables
         self.sourceDir = ""
         self.destDir = ""
         self.selectedTiles = set()
@@ -175,7 +169,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.ffmpegPresets = None
         self.calculated_proxyMults = []
         self.nameMods = []
-        self.currMetaPreset = None
+
         self.transferList = []
         self.initialized = False
         self.closeParm = "closeafterload"
@@ -578,6 +572,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             elif table == "destination":
                 self.refreshDestTable(restoreSelection=True)
 
+        def _separator():
+            gb = QGroupBox()
+            gb.setFixedHeight(15)
+            return gb
+
 
         opts = self.sortOptions.get(table, {
             "groupTypes": True,
@@ -596,7 +595,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         layout.addWidget(cb_groupTypes)
 
         #   Separator
-        layout.addWidget(QGroupBox())
+        layout.addWidget(_separator())
 
         #   Sort Type Radio Buttons
         sortTypeGroup = QButtonGroup(sortMenu)
@@ -611,7 +610,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             layout.addWidget(rb)
 
         #   Separator
-        layout.addWidget(QGroupBox())
+        layout.addWidget(_separator())
 
         #   Ascending/Descending
         sortDirGroup = QButtonGroup(sortMenu)
@@ -625,7 +624,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         layout.addWidget(rb_desc)
 
         #   Separator
-        layout.addWidget(QGroupBox())
+        layout.addWidget(_separator())
 
         #   Apply Button
         b_apply = QPushButton("Apply")
@@ -661,7 +660,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             action = QWidgetAction(self)
             action.setDefaultWidget(widget)
             return action
-        
+                
         #   Helper for filtersRCL()
         def _applyFilterStates(checkboxRefs, menu, table):
             if table == "source":
@@ -933,7 +932,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             #   Metadata Options
             self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
-            self.currMetaPreset = tabData["currMetaPreset"]
+            if "metadataConfig" in sData:
+                metadataConfig = sData["metadataConfig"]
+                self.metaPresetOrder = metadataConfig["metaPresetOrder"]
+                self.currMetaPreset = metadataConfig["currMetaPreset"]
 
             #   Overwrite Option
             self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])

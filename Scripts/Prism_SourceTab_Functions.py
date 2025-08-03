@@ -51,8 +51,7 @@
 import os
 import sys
 import logging
-import time
-
+import shutil
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -60,9 +59,9 @@ from qtpy.QtWidgets import *
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
-pluginPath = os.path.dirname(os.path.dirname(__file__))
-sys.path.append(pluginPath)
-sys.path.append(os.path.join(pluginPath, "Libs"))
+PLUGINPATH = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(PLUGINPATH)
+sys.path.append(os.path.join(PLUGINPATH, "Libs"))
 
 
 import SourceBrowser as SourceBrowser
@@ -275,7 +274,7 @@ class Prism_SourceTab_Functions(object):
         projectSettings.le_customIconPath = QLineEdit(projectSettings.w_config)
         projectSettings.b_customIconPath = QPushButton(projectSettings.w_config)
         projectSettings.b_customIconPath.setFixedWidth(40)
-        dirIconPath = os.path.join(pluginPath, "Libs", "UserInterfaces", "Icons", "folder.png")
+        dirIconPath = os.path.join(PLUGINPATH, "Libs", "UserInterfaces", "Icons", "folder.png")
         projectSettings.b_customIconPath.setIcon(QIcon(dirIconPath))
         projectSettings.lo_customIcon.addWidget(projectSettings.chb_useCustomIcon)
         projectSettings.lo_customIcon.addWidget(projectSettings.le_customIconPath)
@@ -525,7 +524,6 @@ class Prism_SourceTab_Functions(object):
                 tData["enable_proxy"] = functs.chb_ovr_proxy.isChecked()
                 tData["enable_fileNaming"] = functs.chb_ovr_fileNaming.isChecked()
                 tData["enable_metadata"] = functs.chb_ovr_metadata.isChecked()
-                tData["currMetaPreset"] = self.sourceBrowser.currMetaPreset
                 tData["enable_overwrite"] = functs.chb_overwrite.isChecked()
 
                 self.core.setConfig(cat="sourceTab", param="tabSettings", val=tData, config="project")
@@ -546,6 +544,9 @@ class Prism_SourceTab_Functions(object):
             elif key == "nameMods":
                 nData = self.sourceBrowser.nameMods
                 self.core.setConfig(cat="sourceTab", param="activeNameMods", val=nData, config="project")
+
+            elif key == "metadataConfig":
+                self.core.setConfig(cat="sourceTab", param="metadataConfig", val=data, config="project")
             
             logger.debug(f"Saved Settings for {key}")
 
@@ -561,6 +562,7 @@ class Prism_SourceTab_Functions(object):
 
             if not sData or "globals" not in sData:
                 logger.status("ERROR:  Settings Not Found - Creating from Default Settings")
+                self.copyPresets()
                 defaultData = {}
                 sData = self.getDefaultSettings()
                 defaultData["sourceTab"] = sData
@@ -581,6 +583,15 @@ class Prism_SourceTab_Functions(object):
             logger.warning(f"ERROR:  Failed to Load Global Settings:\n{e}")
             return {}
             
+        
+    @err_catcher(name=__name__)
+    def copyPresets(self):
+        projPipelineDir = self.core.projects.getPipelineFolder()
+        presetPath_project = os.path.join(projPipelineDir, "SourceTab", "Presets")
+        presetPath_local = os.path.join(PLUGINPATH, "Presets")
+
+        shutil.copytree(presetPath_local, presetPath_project)
+
 
     #   Default Settings File Data
     @err_catcher(name=__name__)
@@ -612,7 +623,6 @@ class Prism_SourceTab_Functions(object):
                     "proxyMode": "None",
                     "enable_fileNaming": False,
                     "enable_metadata": False,
-                    "currMetaPreset": "",
                     "enable_overwrite": False
                 },
                 "sortOptions": {
@@ -632,7 +642,11 @@ class Prism_SourceTab_Functions(object):
                     "ovr_proxyDir": "",
                 },
                 "activeNameMods":
-                [],
+                    [],
+                "metadataConfig": {
+                    "currMetaPreset": None,
+                    "metaPresetOrder": []
+                },
                 "proxySearch": [
                     "@MAINFILEDIR@\\proxy\\@MAINFILENAME@",
                     "@MAINFILEDIR@\\pxy\\@MAINFILENAME@",

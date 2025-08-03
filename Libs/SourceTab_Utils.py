@@ -173,23 +173,37 @@ def createUUID(simple:bool=False, length:int=8) -> str:
         return shortUID
     
 
-def explorerDialogue(title:str=None, dir:str=None, selDir:bool=True) -> str:
-    """Show a File Dialog to Pick a Directory or File"""
-
-    dialog = QFileDialog(None, title or "Select Path", dir or "")
+def explorerDialogue(title: str = None,
+                     dir: str = None,
+                     selDir: bool = True,
+                     save: bool = False,
+                     filter: str = None
+                     ) -> str:
+    """Show a File Dialog to Pick a Directory, File, or Save As."""
+    
+    if save:
+        presetPath, _ = QFileDialog.getSaveFileName(
+            None, title or "Save File", dir or "", filter or ""
+        )
+        return presetPath
 
     if selDir:
+        # Directory selection
+        dialog = QFileDialog(None, title or "Select Path", dir or "")
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
     else:
+        # File selection
+        dialog = QFileDialog(None, title or "Select File", dir or "")
         dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        if filter:
+            dialog.setNameFilter(filter)
 
     dialog.setOption(QFileDialog.Option.DontUseNativeDialog, False)
     dialog.setOption(QFileDialog.Option.ReadOnly, True)
 
     if dialog.exec():
-        selected_path = dialog.selectedFiles()[0]
-        return selected_path
+        return dialog.selectedFiles()[0]
 
     return None
 
@@ -508,6 +522,107 @@ def displayFFprobeMetadata(filePath:str) -> None:
         DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)", modal=False)
     else:
         logger.warning("No FFprobe metadata to display.")
+
+
+def getProjectPresetDir(core, presetType:str) -> str:
+    '''Returns Projects Preset Dir by Type'''
+
+    projPipelineDir = core.projects.getPipelineFolder()
+    return os.path.join(projPipelineDir, "SourceTab", "Presets", presetType.capitalize())
+
+
+def getLocalPresetDir(presetType:str) -> str:
+    '''Returns Local Preset Dir by Type'''
+
+    pluginPath = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(pluginPath, "Presets", presetType.capitalize())
+
+
+def loadPreset(presetPath:str) -> dict:
+    '''Loads Preset Data from Preset File'''
+    with open(presetPath, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def savePreset(core, pType:str, pName:str, pData:dict, project:bool=True, path:str=None) -> None:
+    '''Saves Preset by Type to Either Project or Local Plugin Dir'''
+    if pType == "proxy":
+        ext = ".p_preset"
+
+    elif pType == "metadata":
+        ext = ".m_preset"
+    else:
+        return
+
+    #   Create Preset File Name with Extension
+    presetName = f"{pName}{ext}"
+
+    #   Saves to Project Presets Dir
+    if project:
+        projPipelineDir = getProjectPresetDir(core, pType)
+        presetPath = os.path.join(projPipelineDir, presetName)
+
+    #   Saves to Local Plugin Presets Dir
+    else:
+        localPresetDir = getLocalPresetDir(pType)
+        presetPath = os.path.join(localPresetDir, presetName)
+
+    #   Saves to Passed Path
+    if path:
+        presetPath = path
+
+    #   Popup Question if Exists
+    if os.path.exists(presetPath):
+        title = "Preset Exists!"
+        msg = ("A Preset already exists with the name:\n\n"
+                f"     {presetName}\n\n"
+                "Would you like to Overwrite the Preset?")
+        buttons = ["Overwrite", "Cancel"]
+        result = core.popupQuestion(text=msg, title=title, buttons=buttons)
+        if result != "Overwrite":
+            return
+
+    #   Write Preset to Applicable Presets Dir
+    try:
+        with open(presetPath, "w", encoding="utf-8") as f:
+            json.dump(pData, f, indent=4, ensure_ascii=False)
+
+        logger.debug(f"Preset'{presetName}' Saved.")
+
+    except Exception as e:
+        logger.warning(f"ERROR:  Failed to Save Preset: {e}")
+
+
+def deletePreset(core, pType:str, pName:str) -> None:
+    '''Delete Preset by Type from Project Preset Dir'''
+    if pType == "proxy":
+        ext = ".p_preset"
+
+    elif pType == "metadata":
+        ext = ".m_preset"
+    else:
+        return
+
+    #   Create Preset File Name with Extension
+    presetName = f"{pName}{ext}"
+
+    #   Generate Preset Path
+    projPipelineDir = getProjectPresetDir(core, pType)
+    presetPath = os.path.join(projPipelineDir, presetName)
+
+    #   Attempt to Delete Preset
+    if os.path.exists(presetPath):
+        try:
+            os.remove(presetPath)
+            logger.debug(f"Removed Preset: {presetName}")
+
+        except Exception as e:
+            msg = f"ERROR: Unable to Remove Preset: {e}"
+            logger.warning(msg)
+            core.popup(msg)
+
+    else:
+        logger.warning(f"ERROR: Preset '{presetName} Does Not Appear to Exist on the Project")
 
 
 def playSound(path:str) -> None:

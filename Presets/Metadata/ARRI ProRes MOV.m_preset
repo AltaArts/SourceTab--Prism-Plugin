@@ -1,0 +1,149 @@
+{
+    "name": "ARRI ProRes MOV",
+    "data": [
+        {
+            "field": "File Name",
+            "enabled": true,
+            "sourceField": "format > filename",
+            "currentData": "C:\\Users\\Joshua Breckeen\\Desktop\\Alexa Footage\\Alexa Mini PR4444\\M001C001_161207_R00H.mov"
+        },
+        {
+            "field": "Reel Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ReelName",
+            "currentData": "M001R00H"
+        },
+        {
+            "field": "Production Company",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ProductionInfoCompany",
+            "currentData": "ARRITEST"
+        },
+        {
+            "field": "Camera Operator",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ProductionInfoOperator",
+            "currentData": "GHI"
+        },
+        {
+            "field": "Shot",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.TakeName",
+            "currentData": ""
+        },
+        {
+            "field": "Scene",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.SceneName",
+            "currentData": ""
+        },
+        {
+            "field": "Program Name",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ProductionInfoProduction",
+            "currentData": "ARRI"
+        },
+        {
+            "field": "Camera #",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.CameraId",
+            "currentData": "R00H"
+        },
+        {
+            "field": "Clip Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.CameraClipName",
+            "currentData": "M001C001_161207_R00H.mov"
+        },
+        {
+            "field": "Camera Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.CameraModel",
+            "currentData": "ARRI ALEXA Mini"
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.CameraModel",
+            "currentData": "ARRI ALEXA Mini"
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.CameraSerialNumber",
+            "currentData": "20017"
+        },
+        {
+            "field": "Camera ID",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.CameraId",
+            "currentData": "R00H"
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "format > format_long_name",
+            "currentData": "QuickTime / MOV"
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": false,
+            "sourceField": "format > tags > com.arri.camera.ProjectFps",
+            "currentData": "24000"
+        },
+        {
+            "field": "Shutter Angle",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ShutterAngle",
+            "currentData": "1728"
+        },
+        {
+            "field": "ISO",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ExposureIndexAsa",
+            "currentData": "800"
+        },
+        {
+            "field": "White Point (Kelvin)",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.WhiteBalanceKelvin",
+            "currentData": "5600"
+        },
+        {
+            "field": "White Balance Tint",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.WhiteBalanceTintCc",
+            "currentData": "0"
+        },
+        {
+            "field": "Monitor LUT",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.look.name",
+            "currentData": "ARRI 709.AML"
+        },
+        {
+            "field": "ND Filter",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.NdFilterDensity",
+            "currentData": "1200"
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > sample_aspect_ratio",
+            "currentData": "1:1"
+        },
+        {
+            "field": "Gamma Notes",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ColorGammaSxS",
+            "currentData": "LOG-C"
+        },
+        {
+            "field": "Color Space Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > color_space",
+            "currentData": "bt709"
+        }
+    ]
+}

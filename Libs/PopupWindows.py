@@ -57,6 +57,7 @@ import textwrap
 import logging
 import json
 import copy
+import shutil
 
 
 
@@ -74,6 +75,8 @@ iconDir = os.path.join(uiPath, "Icons")
 from FileNameMods import getModifiers as GetMods
 from FileNameMods import getModClassByName as GetModByName
 from FileNameMods import createModifier as CreateMod
+
+import SourceTab_Utils as Utils
 
 logger = logging.getLogger(__name__)
 
@@ -250,9 +253,6 @@ class DisplayPopup(QDialog):
             lbl = QLabel(" " * indent + str(data))
             lbl.setWordWrap(True)
             layout.addWidget(lbl)
-
-
-
 
 
 
@@ -1351,10 +1351,10 @@ class ProxySearchStrEditor(QDialog):
 
         for label, passed, msg in results:
             if passed:
-                lines.append(f"✅ {label} — Passed")
+                lines.append(f"{label} — Passed")
                 lines.append("")
             else:
-                lines.append(f"❌ {label} — Failed: {msg}")
+                lines.append(f"{label} — Failed: {msg}")
                 lines.append("")
 
                 # all_passed = False
@@ -1801,10 +1801,10 @@ class ProxyPresetsEditor(QDialog):
 
         for label, passed, msg in results:
             if passed:
-                lines.append(f"✅ {label} — Passed")
+                lines.append(f"{label} — Passed")
                 lines.append("")
             else:
-                lines.append(f"❌ {label} — Failed: {msg}")
+                lines.append(f"{label} — Failed: {msg}")
                 lines.append("")
 
                 # all_passed = False
@@ -2003,10 +2003,13 @@ class MetaPresetsPopup(QDialog):
         super().__init__(metaEditor)
         self.core = core
         self.metaEditor = metaEditor
+        self.sourceBrowser = metaEditor.sourceBrowser
 
         self.selectedPreset = None
 
         self.metaPresets_copy = copy.deepcopy(self.metaEditor.metaPresets)
+
+        self.presetExt = "m_preset"
 
         self.setWindowTitle("MetaData Presets")
 
@@ -2080,10 +2083,31 @@ class MetaPresetsPopup(QDialog):
 
         rcmenu = QMenu(self)
 
+        #   Dummy Separator
+        def _separator():
+            gb = QGroupBox()
+            gb.setFlat(False)
+            gb.setFixedHeight(15)
+            action = QWidgetAction(self)
+            action.setDefaultWidget(gb)
+            return action
+
         if item:
             editAct = QAction("Edit Preset", self)
             editAct.triggered.connect(lambda: self.editPreset(item=item))
             rcmenu.addAction(editAct)
+
+            rcmenu.addAction(_separator())
+
+            exportFileAct = QAction("Export Preset to File", self)
+            exportFileAct.triggered.connect(lambda: self.exportPreset(item=item))
+            rcmenu.addAction(exportFileAct)
+
+            saveLocalAct = QAction("Save Preset to Local Machine", self)
+            saveLocalAct.triggered.connect(lambda: self.saveToLocal(item=item))
+            rcmenu.addAction(saveLocalAct)
+
+            rcmenu.addAction(_separator())
 
             delAct = QAction("Delete Preset", self)
             delAct.triggered.connect(self.deletePreset)
@@ -2094,10 +2118,25 @@ class MetaPresetsPopup(QDialog):
             addAct.triggered.connect(lambda: self.editPreset(addNew=True))
             rcmenu.addAction(addAct)
 
-            restoreAct = QAction("Restore Basic Preset Templates", self)
-            restoreAct.triggered.connect(self.restoreFactoryPresets)
-            rcmenu.addAction(restoreAct)
+            rcmenu.addAction(_separator())
 
+            openProjPresetDirAct = QAction("Open Project Presets Directory", self)
+            openProjPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=True))
+            rcmenu.addAction(openProjPresetDirAct)
+
+            openLocalPresetDirAct = QAction("Open Local Presets Directory", self)
+            openLocalPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=False))
+            rcmenu.addAction(openLocalPresetDirAct)
+
+            rcmenu.addAction(_separator())
+
+            importAct = QAction("Import Preset from File", self)
+            importAct.triggered.connect(lambda: self.importPreset())
+            rcmenu.addAction(importAct)
+
+            restoreAct = QAction("Import Preset from Local Directory", self)
+            restoreAct.triggered.connect(lambda: self.importPreset(local=True))
+            rcmenu.addAction(restoreAct)
 
         if rcmenu.isEmpty():
             return False
@@ -2111,7 +2150,103 @@ class MetaPresetsPopup(QDialog):
         self.lw_presetList.addItems(self.metaPresets_copy)
 
 
-    #   Gets Selected Preset Data and displays Preset Editor
+    #   Import Preset from File
+    def importPreset(self, local=False):
+        presetDir = None
+
+        if local:
+            #   Get Local Preset Dir for Explorer
+            presetDir = Utils.getLocalPresetDir("metadata")
+        
+        #   Call Explorer to Select Preset to Import
+        presetPath_source = Utils.explorerDialogue(
+                                "Select Preset File",
+                                dir = presetDir,
+                                selDir = False,
+                                filter = f"Preset Files (*.{self.presetExt})"
+                                )
+        
+        if not presetPath_source or not os.path.isfile(presetPath_source):
+            return
+        
+        try:
+            #   Get Preset File Name and Make Project Destination Path
+            _, presetName = os.path.split(presetPath_source)
+            presetPath_dest = os.path.join(Utils.getProjectPresetDir(self.core, "metadata"), presetName)
+
+            #   If Exists Already Ask for Overwrite
+            if os.path.exists(presetPath_dest):
+                title = "Overwrite Preset"
+                text = ("A Preset with the same name:\n\n"
+                        f"{presetName}\n\n"
+                        "exists in the Project Presets Directory.\n\n"
+                        "Would you like to Overwrite?")
+                buttons = ["Overwrite", "Cancel"]
+                result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+
+                #   Abort
+                if result != "Overwrite":
+                    return
+
+            #   Copy from Source to Project Presets Dir
+            shutil.copy(presetPath_source, presetPath_dest)
+
+            #   Load Data and Add to Presets Dict
+            importData = Utils.loadPreset(presetPath_dest)
+            self.metaPresets_copy[importData["name"]] = importData["data"]
+
+            self.refreshList()
+            self.updateMetaPresetsOrder()
+
+            logger.debug(f"Imported Preset '{presetName}'")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Import Preset: {e}")
+
+
+    #   Export Preset to Selected Location
+    def exportPreset(self, item=None):
+        try:
+            #   Get Preset Name and Data
+            presetName = item.text()
+            currData = self.metaPresets_copy[item.text()]
+            currPresetData = {
+                "name": presetName,
+                "data": currData
+                }
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
+            return
+
+        #   Open Explorer to Choose Destination Path
+        presetPath = Utils.explorerDialogue(
+                            "Save Preset File",
+                            dir = presetName,
+                            selDir = False,
+                            save = True,
+                            filter = f"Preset Files (*.{self.presetExt})"
+                        )
+
+        if not presetPath:
+            return
+
+        try:
+            #   Replace Any Extension with '.m_preset'
+            root, ext = os.path.splitext(presetPath)
+            if ext.lower() != f".{self.presetExt.lower()}":
+                presetPath = f"{root}.{self.presetExt}"
+
+            #   Save Preset
+            Utils.savePreset(self.core, "metadata", presetName, currPresetData, path=presetPath)
+
+            logger.debug(f"Exported Preset {presetName}")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Export Preset: {e}")
+
+
+    #   Gets Selected Preset Data and Displays Preset Editor
     def editPreset(self, addNew=False, item=None):
         if addNew:
             presetName = ""
@@ -2128,33 +2263,67 @@ class MetaPresetsPopup(QDialog):
         resultData = self.openPresetEditor(currPresetData)
 
         if resultData:
-            self.metaPresets_copy[resultData["name"]] = resultData["data"]
+            pName = resultData["name"]
+            pData = {"name": pName,
+                     "data": resultData["data"]}
+            
+            #   Save Preset to Project Preset Dir
+            Utils.savePreset(self.core, "metadata", pName, pData, project=True)
+
+            #   Update Presets Dict
+            self.metaPresets_copy[pName] = resultData["data"]
+
             self.refreshList()
+            self.updateMetaPresetsOrder()
 
 
+    #   Opens File Explorer to Preset Dir (Project or Local Plugin)
+    def openPresetsDir(self, project):
+        if project:
+            presetDir = Utils.getProjectPresetDir(self.core, "metadata")
+        else:
+            presetDir = Utils.getLocalPresetDir("metadata")
+
+        Utils.openInExplorer(self.core, presetDir)
+
+
+    #   Opens Preset Editor to Edit/Create Preset
     def openPresetEditor(self, presetData):
         presetEditor = MetaPresetsEditor(self.core, self, presetData)
 
         if presetEditor.exec() == QDialog.Accepted:
             return presetEditor.resultData
+        
 
+    #   Saves Preset to Local Plugin Dir (to be used for all Projects)
+    def saveToLocal(self, item):
+        try:
+            pName = item.text()
+            currData = self.metaPresets_copy[item.text()]
 
-    def restoreFactoryPresets(self):                                #   TODO - FINISH
-        print("RESTORE FACTORY")
+            pData = {
+                "name": pName,
+                "data": currData
+                }
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
+            return
+        
+        Utils.savePreset(self.core, "metadata", pName, pData, project=False)
 
 
     #   Remove Selected Preset
     def deletePreset(self):
         row = self.lw_presetList.currentRow()
-
         if row < 0:
-            return  # nothing selected
+            return
 
-        # Get selected preset name
+        #   Get Selected Preset Name
         preset_item = self.lw_presetList.item(row)
         preset_name = preset_item.text() if preset_item else "Unknown"
 
-        # Confirmation dialog
+        #   Confirmation Dialogue
         title = "Remove Template"
         text = f"Would you like to remove the Preset:\n\n{preset_name}?"
         buttons = ["Remove", "Cancel"]
@@ -2162,6 +2331,7 @@ class MetaPresetsPopup(QDialog):
 
         if result == "Remove":
             self.lw_presetList.takeItem(row)
+            Utils.deletePreset(self.core, "metadata", preset_name)
             self.updateMetaPresetsOrder()
 
    
@@ -2187,10 +2357,19 @@ class MetaPresetsPopup(QDialog):
 
     #   Replaces 'metaPresets' Dict with New Verion with new Ordering
     def updateMetaPresetsOrder(self):
+        #   Get New Order from the List Widget
         new_order = [self.lw_presetList.item(i).text() for i in range(self.lw_presetList.count())]
-        new_dict = {key: self.metaPresets_copy[key] for key in new_order if key in self.metaPresets_copy}
+
+        #   Build Ordered Dict from New Order
+        ordered_presets = {
+            name: self.metaPresets_copy[name]
+            for name in new_order
+            if name in self.metaPresets_copy
+        }
+
+        #   Update Original Dict in place
         self.metaPresets_copy.clear()
-        self.metaPresets_copy.update(new_dict)
+        self.metaPresets_copy.update(ordered_presets)
 
 
     #   Stores Selected Preset Name for Main Code to Load
@@ -2283,7 +2462,7 @@ class MetaPresetsEditor(QDialog):
 
 
     def connectEvents(self):
-        self.le_pName.editingFinished.connect(self.validateName)
+        self.le_pName.editingFinished.connect(lambda: self.validateName(self.le_pName.text()))
         self.b_save.clicked.connect(lambda: self._onSavePreset())
         self.b_cancel.clicked.connect(lambda: self._onCancel())
 
@@ -2297,13 +2476,9 @@ class MetaPresetsEditor(QDialog):
         except Exception as e:
             logger.warning(f"ERROR: Unable to Load Preset into Editor: {e}")
 
-        self.validateName()
-
 
     #   Validates Name: Letters, Numbers, Normal Symbols, Spaces, < 30 charactors
-    def validateName(self):
-        name = self.le_pName.text().strip()
-
+    def validateName(self, name):
         valid = True
         msg = ""
 
@@ -2334,17 +2509,18 @@ class MetaPresetsEditor(QDialog):
     
 
     #   Validates Text Edit for Valid Json Array of Dicts
-    def validateData(self):
+    def validateData(self, data):
         valid = True
         msg = ""
 
         try:
-            data = json.loads(self.te_presetEditor.toPlainText())
+            data = json.loads(data)
 
         except json.JSONDecodeError as e:
             valid = False
             msg = f"Preset data is not valid JSON:\n{e}"
-            return valid, msg
+            data = {}
+            return valid, msg, data
 
         if not isinstance(data, list):
             valid = False
@@ -2354,32 +2530,31 @@ class MetaPresetsEditor(QDialog):
             valid = False
             msg = "Each item in the list must be a JSON object (dictionary)."
 
-        return valid, msg
+        return valid, msg, data
         
 
     #   Validates and Saves Preset
     def _onSavePreset(self):
         #   Check Valid Name
-        valid, msg = self.validateName()
+        name = self.le_pName.text().strip()
+        valid, msg = self.validateName(name)
         if not valid:
             self.core.popup(msg)
             return
 
-        #   Chack Valid Data
-        valid, msg = self.validateData()
+        #   Check Valid Data
+        data = self.te_presetEditor.toPlainText()
+        valid, msg, data = self.validateData(data)
         if not valid:
             self.core.popup(msg, title="Invalid Data")
             return       
 
-        #   If everything passes
-        self.resultData = {
-            "name": self.le_pName.text().strip(),
-            "data": json.loads(self.te_presetEditor.toPlainText())
-        }
-
+        #   If Passes make pDataand Accept
+        self.resultData = {"name": name,
+                           "data": data}
+        
         self.accept()
 
 
     def _onCancel(self):
         self.reject()
-
