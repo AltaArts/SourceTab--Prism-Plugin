@@ -245,7 +245,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             logger.warning(f"ERROR:  Failed to Update Functions Panel Naming UI:\n{e}")
 
         try:
-            metadataEnabled = self.chb_ovr_metadata.isChecked()
+            metadataEnabled = self.sourceBrowser.metadataEnabled = self.chb_ovr_metadata.isChecked()
 
             if metadataEnabled:
                 nameTipStr = self.sourceBrowser.metaPresets.currentPreset

@@ -877,16 +877,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def loadAllPresets(self):
-
-        try:
-            self.metaPresets = PresetsCollection()
-            presetDir = Utils.getProjectPresetDir(self.core, "metadata")
-            self.loadPresets(presetDir, self.metaPresets, ".m_preset")
-            logger.debug("Loaded Metadata Presets")
-
-        except Exception as e:
-            logger.warning(f"ERROR: Failed to Load Metadata Presets")
-
+        #   Load Proxy Presets
         try:
             self.proxyPresets = PresetsCollection()
             presetDir = Utils.getProjectPresetDir(self.core, "proxy")
@@ -895,6 +886,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Load Proxy Presets")
+
+        #   Load Metadata Presets
+        try:
+            self.metaPresets = PresetsCollection()
+            presetDir = Utils.getProjectPresetDir(self.core, "metadata")
+            self.loadPresets(presetDir, self.metaPresets, ".m_preset")
+            logger.debug("Loaded Metadata Presets")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Load Metadata Presets")
 
 
     @err_catcher(name=__name__)
@@ -964,7 +965,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if "proxySettings" in sData:
                 self.proxySettings = sData["proxySettings"]
                 self.proxyPresets.presetOrder = self.proxySettings["proxyPresetOrder"]
-                # self.proxyPresets.currentPreset = self.proxySettings["currProxyPreset"]
 
             #   Name Mods
             self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
@@ -2494,8 +2494,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if self.proxyEnabled:
                 #   Get Proxy Preset Data
                 try:
-                    presets = self.ffmpegPresets
-                    preset = presets[self.proxySettings["proxyPreset"]]
+                    preset = self.proxyPresets.getPresetData(self.proxySettings["proxyPreset"])
+
                 except KeyError:
                     raise RuntimeError(f"Proxy preset {self.proxySettings['proxyPreset']} not found in settings")
 
@@ -2932,16 +2932,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def updateProxyPresetMultipliers(self):
         try:
             #   Get Preset Info
-            presetName = self.proxySettings.get("proxyPreset", "")
-            allPresets = self.getSettings(key="ffmpegPresets")
-            preset = allPresets.get(presetName)
+            pName = self.proxySettings.get("proxyPreset", "")
+            pData = self.proxyPresets.getPresetData(pName)
 
-            if not preset:
-                logger.warning(f"Preset '{presetName}' not found in ffmpegPresets.")
+            if not pData:
+                logger.warning(f"Preset '{pName}' not found in ffmpegPresets.")
                 return
 
             #   Get Saved Multiplier
-            old_mult = float(preset["Multiplier"])
+            old_mult = float(pData["Multiplier"])
 
             #   Make Copy of New Mults and add the Old Mult
             new_mults = [float(m) for m in self.calculated_proxyMults]
@@ -2954,10 +2953,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             new_averageMulti = round(max(0.01, min(new_averageMulti, 5.0)), 2)
 
             #   Save New Multiplier to Settings
-            preset["Multiplier"] = new_averageMulti
-            self.plugin.saveSettings(key="ffmpegPresets", data=allPresets)
+            pData["Multiplier"] = new_averageMulti
+            self.proxyPresets.addPreset(pName, pData)
 
-            logger.status(f"Updated Proxy Multiplier for preset '{presetName}': {new_averageMulti}")
+            logger.status(f"Updated Proxy Multiplier for preset '{pName}': {new_averageMulti}")
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Update Proxy Preset Multiplier:\n{e}")

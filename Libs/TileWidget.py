@@ -2151,8 +2151,8 @@ class DestFileTile(BaseTileItem):
             resolved_proxyDir = self.browser.resolved_proxyDir
             proxySettings = self.browser.proxySettings.copy()
             try:
-                presets = self.browser.ffmpegPresets
-                preset = presets[proxySettings["proxyPreset"]]
+                preset = self.browser.proxyPresets.getPresetData(proxySettings["proxyPreset"])
+
             except KeyError:
                 raise RuntimeError(f"Proxy preset {proxySettings['proxyPreset']} not found in settings")
             
