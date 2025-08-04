@@ -571,8 +571,8 @@ class Prism_SourceTab_Functions(object):
                     logger.debug(f"Loaded Settings for {key}")
                     return sData[key]
                 else:
-                    logger.warning(f"ERROR:  Key '{key} does not Exist in the Settings.  Returning Global Settings")
-                    return sData
+                    logger.warning(f"ERROR:  Key '{key}' does not Exist in the Settings.")
+                    return {}
             else:
                 logger.debug("Loaded Global Settings")
                 return sData

@@ -73,7 +73,7 @@ iconDir = os.path.join(uiPath, "Icons")
 import exiftool
 import simpleaudio as sa
 
-from PopupWindows import DisplayPopup
+from PopupWindows import DisplayPopup, PresetsEditor
 
 
 logger = logging.getLogger(__name__)
@@ -221,6 +221,21 @@ def openInExplorer(core, path:str) -> None:
     core.openFolder(dir)
 
 
+def playSound(path:str) -> None:
+    '''Plays Audio with Simple Audio'''
+
+    try:
+        wave_obj = sa.WaveObject.from_wave_file(path)
+        play_obj = wave_obj.play()
+        play_obj.wait_done()
+
+    except Exception:
+        QApplication.beep()
+
+##################################################
+##################  FORMATTING  ##################
+
+
 def getDriveSpace(path:str) -> int:
     '''Get Storage Space Stats'''
 
@@ -336,6 +351,16 @@ def getIconFromPath(imagePath:str, normalLevel:int=0.9, dimLevel:int=0.4) -> QIc
         logger.warning(f"ERROR:  Failed to Create Icon:\n{e}")
 
 
+def normalizeData(data: dict) -> dict:
+    """Ensures all values are stringified for comparison"""
+
+    return {k: str(v) for k, v in data.items()}
+
+
+#################################################
+#################    THUMBNAIL    ################
+
+
 def getFallBackImage(core, filePath:str=None, extension:str=None) -> str:
     '''Returns Path to Fallback Image from Path or Extension'''
 
@@ -354,287 +379,6 @@ def getFallBackImage(core, filePath:str=None, extension:str=None) -> str:
         return extFallback
     else:
         return os.path.join(iconDir, "unknown.jpg")
-
-
-def formatCodecMetadata(metadata:dict) -> str:
-    '''Returns String from Metadata Dict'''
-    if not metadata:
-        return "Metadata:    None"
-    lines = ["Metadata:"]
-    for k, v in metadata.items():
-        lines.append(f"  {k}: {v}")
-
-    return "\n".join(lines)
-
-
-def getFFprobePath() -> str:
-    '''Returns File Path of ffprobe.exe'''
-    return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
-
-
-def getExiftool() -> str:
-    '''Returns File Path of exitool.exe'''
-
-    exifDir = os.path.join(pluginPath, "PythonLibs", "ExifTool")
-
-    possible_names = ["exiftool.exe", "exiftool(-k).exe"]
-
-    for root, dirs, files in os.walk(exifDir):
-        for file in files:
-            if file.lower() in [name.lower() for name in possible_names]:
-                exifToolEXE = os.path.join(root, file)
-                logger.debug(f"ExifTool found at: {exifToolEXE}")
-
-                return exifToolEXE
-
-    logger.warning(f"ERROR:  Unable to Find ExifTool")
-    return None
-
-
-def getMetadata(filePath:str) -> dict:
-    '''Returns Dict of All Raw Metadata from ExifTool'''
-    try:
-        exifToolEXE = getExiftool()
-        with exiftool.ExifTool(exifToolEXE) as et:
-            metadata_list = et.execute_json("-G", filePath)
-
-        if metadata_list:
-            metadata = metadata_list[0]
-            logger.debug(f"MetaData found for {filePath}")
-            return metadata
-        
-        else:
-            logger.warning(f"ERROR:  No metadata found for {filePath}")
-            return {}
-
-    except Exception as e:
-        logger.warning(f"ERROR:  Failed to get metadata for {filePath}: {e}")
-        return {}
-    
-    
-def groupMetadata(metadata:dict) -> dict:
-    '''Groups Raw Metadata into Logical Groups'''
-
-    grouped = {}
-    
-    for key, value in metadata.items():
-        section = key.split(":")[0]
-        tag = key.split(":")[1] if len(key.split(":")) > 1 else key
-        
-        if section not in grouped:
-            grouped[section] = {}
-        
-        grouped[section][tag] = value
-    
-    return grouped
-
-
-def displayMetadata(filePath:str) -> None:
-    '''Displays Popup of Groupded Metadata from ExifTool'''
-
-    metadata = getMetadata(filePath)
-
-    if metadata:
-        grouped_metadata = groupMetadata(metadata)
-        logger.debug("Showing MetaData Popup")
-        DisplayPopup.display(grouped_metadata, title="File Metadata", modal=False)
-    else:
-        logger.warning("No metadata to display.")
-
-
-def getFFprobeMetadata(filePath: str) -> dict:
-    '''Returns Dict of All Raw Metadata from FFprobe'''
-
-    cmd = [
-        getFFprobePath(),
-        "-v", "error",
-        "-show_format",
-        "-show_streams",
-        "-print_format", "json",
-        filePath
-    ]
-
-    #   Prepare kwargs for Subprocess
-    kwargs = {
-        "capture_output": True,
-        "text": True,
-        "check": True
-    }
-
-    #   Suppress Console Window
-    if sys.platform == "win32":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-
-    try:
-        result = subprocess.run(cmd, **kwargs)
-        metadata_json = result.stdout
-        metadata = json.loads(metadata_json)
-
-        if metadata:
-            logger.debug(f"FFprobe metadata found for {filePath}")
-            return metadata
-        else:
-            logger.warning(f"FFprobe: No metadata found for {filePath}")
-            return {}
-
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"FFprobe failed for {filePath}: {e.stderr}")
-        return {}
-    except Exception as e:
-        logger.warning(f"Failed to get ffprobe metadata for {filePath}: {e}")
-        return {}
-
-
-def groupFFprobeMetadata(metadata:dict) -> dict:
-    '''Groups Raw Metadata into Logical Groups'''
-
-    grouped = {}
-
-    if "format" in metadata:
-        grouped["format"] = {}
-        for k, v in metadata["format"].items():
-            if k == "tags" and isinstance(v, dict):
-                grouped["format"]["tags"] = v.copy()
-            else:
-                grouped["format"][k] = v
-
-    if "streams" in metadata:
-        for idx, stream in enumerate(metadata["streams"]):
-            section_name = f"stream_{idx}"
-            grouped[section_name] = {}
-            for k, v in stream.items():
-                if k == "tags" and isinstance(v, dict):
-                    grouped[section_name]["tags"] = v.copy()
-                else:
-                    grouped[section_name][k] = v
-
-    return grouped
-
-
-def displayFFprobeMetadata(filePath:str) -> None:
-    '''Displays Popup of Groupded Metadata from FFprobe'''
-
-    metadata = getFFprobeMetadata(filePath)
-
-    if metadata:
-        grouped_metadata = groupFFprobeMetadata(metadata)
-        logger.debug("Showing FFprobe MetaData Popup")
-        DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)", modal=False)
-    else:
-        logger.warning("No FFprobe metadata to display.")
-
-
-def getProjectPresetDir(core, presetType:str) -> str:
-    '''Returns Projects Preset Dir by Type'''
-
-    projPipelineDir = core.projects.getPipelineFolder()
-    return os.path.join(projPipelineDir, "SourceTab", "Presets", presetType.capitalize())
-
-
-def getLocalPresetDir(presetType:str) -> str:
-    '''Returns Local Preset Dir by Type'''
-
-    pluginPath = os.path.dirname(os.path.dirname(__file__))
-    return os.path.join(pluginPath, "Presets", presetType.capitalize())
-
-
-def loadPreset(presetPath:str) -> dict:
-    '''Loads Preset Data from Preset File'''
-    with open(presetPath, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def savePreset(core, pType:str, pName:str, pData:dict, project:bool=True, path:str=None) -> None:
-    '''Saves Preset by Type to Either Project or Local Plugin Dir'''
-    if pType == "proxy":
-        ext = ".p_preset"
-
-    elif pType == "metadata":
-        ext = ".m_preset"
-    else:
-        return
-
-    #   Create Preset File Name with Extension
-    presetName = f"{pName}{ext}"
-
-    #   Saves to Project Presets Dir
-    if project:
-        projPipelineDir = getProjectPresetDir(core, pType)
-        presetPath = os.path.join(projPipelineDir, presetName)
-
-    #   Saves to Local Plugin Presets Dir
-    else:
-        localPresetDir = getLocalPresetDir(pType)
-        presetPath = os.path.join(localPresetDir, presetName)
-
-    #   Saves to Passed Path
-    if path:
-        presetPath = path
-
-    #   Popup Question if Exists
-    if os.path.exists(presetPath):
-        title = "Preset Exists!"
-        msg = ("A Preset already exists with the name:\n\n"
-                f"     {presetName}\n\n"
-                "Would you like to Overwrite the Preset?")
-        buttons = ["Overwrite", "Cancel"]
-        result = core.popupQuestion(text=msg, title=title, buttons=buttons)
-        if result != "Overwrite":
-            return
-
-    #   Write Preset to Applicable Presets Dir
-    try:
-        with open(presetPath, "w", encoding="utf-8") as f:
-            json.dump(pData, f, indent=4, ensure_ascii=False)
-
-        logger.debug(f"Preset'{presetName}' Saved.")
-
-    except Exception as e:
-        logger.warning(f"ERROR:  Failed to Save Preset: {e}")
-
-
-def deletePreset(core, pType:str, pName:str) -> None:
-    '''Delete Preset by Type from Project Preset Dir'''
-    if pType == "proxy":
-        ext = ".p_preset"
-
-    elif pType == "metadata":
-        ext = ".m_preset"
-    else:
-        return
-
-    #   Create Preset File Name with Extension
-    presetName = f"{pName}{ext}"
-
-    #   Generate Preset Path
-    projPipelineDir = getProjectPresetDir(core, pType)
-    presetPath = os.path.join(projPipelineDir, presetName)
-
-    #   Attempt to Delete Preset
-    if os.path.exists(presetPath):
-        try:
-            os.remove(presetPath)
-            logger.debug(f"Removed Preset: {presetName}")
-
-        except Exception as e:
-            msg = f"ERROR: Unable to Remove Preset: {e}"
-            logger.warning(msg)
-            core.popup(msg)
-
-    else:
-        logger.warning(f"ERROR: Preset '{presetName} Does Not Appear to Exist on the Project")
-
-
-def playSound(path:str) -> None:
-    '''Plays Audio with Simple Audio'''
-
-    try:
-        wave_obj = sa.WaveObject.from_wave_file(path)
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
-
-    except Exception:
-        QApplication.beep()
 
 
 def getThumbnailPath(path:str) -> str:
@@ -683,7 +427,6 @@ def getThumbFromVideoPath(
     - Uses Prism's VideoReader if available.
     - Falls back to ffmpeg (with fps-based timestamp) if needed.
     """
-
 
     fallbackPath = getFallBackImage(core, filePath=path)
 
@@ -944,3 +687,385 @@ def getThumbImageFromExrPath(core,
                 thumbImage.setPixel(i, k, rgb)
 
     return QPixmap.fromImage(thumbImage) if needPixMap else thumbImage
+
+
+#################################################
+#################    METADATA    ################
+
+
+def formatCodecMetadata(metadata:dict) -> str:
+    '''Returns String from Metadata Dict'''
+    if not metadata:
+        return "Metadata:    None"
+    lines = ["Metadata:"]
+    for k, v in metadata.items():
+        lines.append(f"  {k}: {v}")
+
+    return "\n".join(lines)
+
+
+def getFFprobePath() -> str:
+    '''Returns File Path of ffprobe.exe'''
+    return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
+
+
+def getExiftool() -> str:
+    '''Returns File Path of exitool.exe'''
+
+    exifDir = os.path.join(pluginPath, "PythonLibs", "ExifTool")
+
+    possible_names = ["exiftool.exe", "exiftool(-k).exe"]
+
+    for root, dirs, files in os.walk(exifDir):
+        for file in files:
+            if file.lower() in [name.lower() for name in possible_names]:
+                exifToolEXE = os.path.join(root, file)
+                logger.debug(f"ExifTool found at: {exifToolEXE}")
+
+                return exifToolEXE
+
+    logger.warning(f"ERROR:  Unable to Find ExifTool")
+    return None
+
+
+def getMetadata(filePath:str) -> dict:
+    '''Returns Dict of All Raw Metadata from ExifTool'''
+    try:
+        exifToolEXE = getExiftool()
+        with exiftool.ExifTool(exifToolEXE) as et:
+            metadata_list = et.execute_json("-G", filePath)
+
+        if metadata_list:
+            metadata = metadata_list[0]
+            logger.debug(f"MetaData found for {filePath}")
+            return metadata
+        
+        else:
+            logger.warning(f"ERROR:  No metadata found for {filePath}")
+            return {}
+
+    except Exception as e:
+        logger.warning(f"ERROR:  Failed to get metadata for {filePath}: {e}")
+        return {}
+    
+    
+def groupMetadata(metadata:dict) -> dict:
+    '''Groups Raw Metadata into Logical Groups'''
+
+    grouped = {}
+    
+    for key, value in metadata.items():
+        section = key.split(":")[0]
+        tag = key.split(":")[1] if len(key.split(":")) > 1 else key
+        
+        if section not in grouped:
+            grouped[section] = {}
+        
+        grouped[section][tag] = value
+    
+    return grouped
+
+
+def displayMetadata(filePath:str) -> None:
+    '''Displays Popup of Groupded Metadata from ExifTool'''
+
+    metadata = getMetadata(filePath)
+
+    if metadata:
+        grouped_metadata = groupMetadata(metadata)
+        logger.debug("Showing MetaData Popup")
+        DisplayPopup.display(grouped_metadata, title="File Metadata", modal=False)
+    else:
+        logger.warning("No metadata to display.")
+
+
+def getFFprobeMetadata(filePath: str) -> dict:
+    '''Returns Dict of All Raw Metadata from FFprobe'''
+
+    cmd = [
+        getFFprobePath(),
+        "-v", "error",
+        "-show_format",
+        "-show_streams",
+        "-print_format", "json",
+        filePath
+    ]
+
+    #   Prepare kwargs for Subprocess
+    kwargs = {
+        "capture_output": True,
+        "text": True,
+        "check": True
+    }
+
+    #   Suppress Console Window
+    if sys.platform == "win32":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    try:
+        result = subprocess.run(cmd, **kwargs)
+        metadata_json = result.stdout
+        metadata = json.loads(metadata_json)
+
+        if metadata:
+            logger.debug(f"FFprobe metadata found for {filePath}")
+            return metadata
+        else:
+            logger.warning(f"FFprobe: No metadata found for {filePath}")
+            return {}
+
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"FFprobe failed for {filePath}: {e.stderr}")
+        return {}
+    except Exception as e:
+        logger.warning(f"Failed to get ffprobe metadata for {filePath}: {e}")
+        return {}
+
+
+def groupFFprobeMetadata(metadata:dict) -> dict:
+    '''Groups Raw Metadata into Logical Groups'''
+
+    grouped = {}
+
+    if "format" in metadata:
+        grouped["format"] = {}
+        for k, v in metadata["format"].items():
+            if k == "tags" and isinstance(v, dict):
+                grouped["format"]["tags"] = v.copy()
+            else:
+                grouped["format"][k] = v
+
+    if "streams" in metadata:
+        for idx, stream in enumerate(metadata["streams"]):
+            section_name = f"stream_{idx}"
+            grouped[section_name] = {}
+            for k, v in stream.items():
+                if k == "tags" and isinstance(v, dict):
+                    grouped[section_name]["tags"] = v.copy()
+                else:
+                    grouped[section_name][k] = v
+
+    return grouped
+
+
+def displayFFprobeMetadata(filePath:str) -> None:
+    '''Displays Popup of Groupded Metadata from FFprobe'''
+
+    metadata = getFFprobeMetadata(filePath)
+
+    if metadata:
+        grouped_metadata = groupFFprobeMetadata(metadata)
+        logger.debug("Showing FFprobe MetaData Popup")
+        DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)", modal=False)
+    else:
+        logger.warning("No FFprobe metadata to display.")
+
+
+def getProjectPresetDir(core, presetType:str) -> str:
+    '''Returns Projects Preset Dir by Type'''
+
+    projPipelineDir = core.projects.getPipelineFolder()
+    return os.path.join(projPipelineDir, "SourceTab", "Presets", presetType.capitalize())
+
+
+def getLocalPresetDir(presetType:str) -> str:
+    '''Returns Local Preset Dir by Type'''
+
+    pluginPath = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(pluginPath, "Presets", presetType.capitalize())
+
+
+################################################
+#################    PRESETS    ################
+
+def getExtFromType(pType:str) -> str:
+    '''Returns Preset File Extension by Type'''
+
+    if pType == "proxy":
+        ext = ".p_preset"
+    elif pType == "metadata":
+        ext = ".m_preset"
+    else:
+        ext = ""
+
+    return ext
+
+
+def importPreset(core, pType:str, local:bool=False) -> dict | None:
+    '''Import Preset from File'''
+
+    presetDir = None
+    presetExt = getExtFromType(pType)
+
+    if local:
+        #   Get Local Preset Dir for Explorer
+        presetDir = getLocalPresetDir(pType)
+    
+    #   Call Explorer to Select Preset to Import
+    presetPath_source = explorerDialogue(
+                            "Select Preset File",
+                            dir = presetDir,
+                            selDir = False,
+                            filter = f"Preset Files (*{presetExt})"
+                            )
+    
+    if not presetPath_source or not os.path.isfile(presetPath_source):
+        return None
+    
+    try:
+        #   Get Preset File Name and Make Project Destination Path
+        _, presetName = os.path.split(presetPath_source)
+        presetPath_dest = os.path.join(getProjectPresetDir(core, pType), presetName)
+
+        #   If Exists Already Ask for Overwrite
+        if os.path.exists(presetPath_dest):
+            title = "Overwrite Preset"
+            text = ("A Preset with the same name:\n\n"
+                    f"{presetName}\n\n"
+                    "exists in the Project Presets Directory.\n\n"
+                    "Would you like to Overwrite?")
+            buttons = ["Overwrite", "Cancel"]
+            result = core.popupQuestion(text=text, title=title, buttons=buttons)
+
+            #   Abort
+            if result != "Overwrite":
+                return None
+
+        #   Copy from Source to Project Presets Dir
+        shutil.copy(presetPath_source, presetPath_dest)
+
+        #   Load Data and Add to Presets Dict
+        importData = loadPreset(presetPath_dest)
+
+        return importData
+
+    except Exception as e:
+        logger.warning(f"ERROR: Unable to Import Preset: {e}")
+
+
+
+def exportPreset(core, pType:str, pName:str, pData:dict) -> bool:
+    '''Export Preset to Selected Location'''
+
+    presetExt = getExtFromType(pType)
+    initialName = pName + presetExt   
+
+    #   Open Explorer to Choose Destination Path
+    presetPath = explorerDialogue(
+                        "Save Preset File",
+                        dir = initialName,
+                        selDir = False,
+                        save = True,
+                        filter = f"Preset Files (*{presetExt})"
+                    )
+
+    if not presetPath:
+        return False
+
+    try:
+        #   Replace Any Extension with '.*_preset'
+        root, ext = os.path.splitext(presetPath)
+        if ext.lower() != f"{presetExt.lower()}":
+            presetPath = f"{root}{presetExt}"
+
+        pData = {"name": pName,
+                 "data": pData}
+
+        #   Save Preset
+        savePreset(core, pType, pName, pData, path=presetPath)
+        return True
+
+    except Exception as e:
+        logger.warning(f"ERROR: Unable to Export Preset: {e}")
+        return False
+
+
+def loadPreset(presetPath:str) -> dict:
+    '''Loads Preset Data from Preset File'''
+
+    with open(presetPath, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def savePreset(core,
+               pType:str,
+               pName:str,
+               pData:dict,
+               project:bool=True,
+               path:str=None,
+               checkExists:bool=True
+               ) -> None:
+    
+    '''Saves Preset by Type to Either Project or Local Plugin Dir'''
+
+    presetExt = getExtFromType(pType)
+    if not presetExt or presetExt == "":
+        return
+
+    #   Create Preset File Name with Extension
+    presetName = f"{pName}{presetExt}"
+
+    #   Saves to Project Presets Dir
+    if project:
+        projPipelineDir = getProjectPresetDir(core, pType)
+        presetPath = os.path.join(projPipelineDir, presetName)
+
+    #   Saves to Local Plugin Presets Dir
+    else:
+        localPresetDir = getLocalPresetDir(pType)
+        presetPath = os.path.join(localPresetDir, presetName)
+
+    #   Saves to Passed Path
+    if path:
+        presetPath = path
+
+    #   Popup Question if Exists
+    if os.path.exists(presetPath) and checkExists:
+        title = "Preset Exists!"
+        msg = ("A Preset already exists with the name:\n\n"
+                f"     {presetName}\n\n"
+                "Would you like to Overwrite the Preset?")
+        buttons = ["Overwrite", "Cancel"]
+        result = core.popupQuestion(text=msg, title=title, buttons=buttons)
+        if result != "Overwrite":
+            return
+
+    #   Write Preset to Applicable Presets Dir
+    try:
+        with open(presetPath, "w", encoding="utf-8") as f:
+            json.dump(pData, f, indent=4, ensure_ascii=False)
+
+        logger.debug(f"Preset'{presetName}' Saved.")
+
+    except Exception as e:
+        logger.warning(f"ERROR:  Failed to Save Preset: {e}")
+
+
+def deletePreset(core, pType:str, pName:str) -> None:
+    '''Delete Preset by Type from Project Preset Dir'''
+
+    presetExt = getExtFromType(pType)
+    if not presetExt or presetExt == "":
+        return
+
+    #   Create Preset File Name with Extension
+    presetName = f"{pName}{presetExt}"
+
+    #   Generate Preset Path
+    projPipelineDir = getProjectPresetDir(core, pType)
+    presetPath = os.path.join(projPipelineDir, presetName)
+
+    #   Attempt to Delete Preset
+    if os.path.exists(presetPath):
+        try:
+            os.remove(presetPath)
+            logger.debug(f"Removed Preset: {presetName}")
+
+        except Exception as e:
+            msg = f"ERROR: Unable to Remove Preset: {e}"
+            logger.warning(msg)
+            core.popup(msg)
+
+    else:
+        logger.warning(f"ERROR: Preset '{presetName} does not appear to Exist in the Project")
+

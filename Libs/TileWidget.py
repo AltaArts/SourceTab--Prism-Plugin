@@ -88,7 +88,7 @@ from WorkerThreads import (ThumbnailWorker,
                            )
 
 import SourceTab_Utils as Utils
-from MetadataEditor import MetadataEditor
+from PopupWindows import MetadataEditor
 
 
 from PrismUtils.Decorators import err_catcher
@@ -1888,9 +1888,8 @@ class DestFileTile(BaseTileItem):
 
             #   Get Presets and Multiplier from Preset
             presetName = self.browser.proxySettings.get("proxyPreset", "")
-            presets = self.browser.ffmpegPresets
-            preset = presets.get(presetName, {})
-            mult = float(preset.get("Multiplier", 0.0))
+            pData = self.browser.proxyPresets.getPresetData(presetName)
+            mult = float(pData.get("Multiplier", 0.0))
 
             #   Get and Apply Proxy Scaling
             scale_str = self.browser.proxySettings.get("proxyScale", "100%")

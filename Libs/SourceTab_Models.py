@@ -86,18 +86,21 @@ class PresetsCollection:
 
     def clear(self):
         """Clears all presets"""
+
         self.metaPresets.clear()
         self.presetOrder.clear()
 
 
     def addPreset(self, name: str, data: dict):
         '''Creates PresetModel'''
+
         preset = PresetModel(name, data)
         self.metaPresets.append(preset)
 
 
     def addPreset(self, name: str, data: dict):
         '''Creates PresetModel'''
+
         #   Overwrite Data if Already Exists
         for preset in self.metaPresets:
             if preset.name == name:
@@ -109,6 +112,7 @@ class PresetsCollection:
         
     def removePreset(self, presetName: str) -> bool:
         """Removes a Preset by Name. Returns True if removed."""
+
         removed = [p for p in self.metaPresets if p.name != presetName]
         if len(removed) != len(self.metaPresets):
             self.metaPresets = removed
@@ -118,21 +122,36 @@ class PresetsCollection:
         return False
     
 
+    def getHeaders(self) -> list[str]:
+        '''Returns Table Headers: "Name" + keys from first preset data'''
+
+        if not self.metaPresets:
+            return ["Name"]
+        return ["Name"] + list(self.metaPresets[0].data.keys())
+    
+
+    def getNumberPresets(self) -> int:
+        '''Returns the Number of Presets'''
+
+        return len(self.getPresetNames())
+
+
     def getAllPresets(self) -> list[PresetModel]:
         '''Returns List of PresetModels'''
+
         return self.metaPresets
 
 
     def getOrderedPresets(self) -> list[PresetModel]:
         """Returns Presets in the Project Order"""
 
-        # Build a mapping for quick lookup
+        #   Build Map
         preset_map = {p.name: p for p in self.metaPresets}
 
-        # Ordered list from presetOrder (skip any names not found)
+        #   Ordered List from presetOrder
         ordered = [preset_map[name] for name in self.presetOrder if name in preset_map]
 
-        # Add any presets not yet in presetOrder, sorted alphabetically
+        #   Add Presets Not in presetOrder
         missing = sorted(set(preset_map.keys()) - set(self.presetOrder))
         for name in missing:
             ordered.append(preset_map[name])
@@ -143,24 +162,28 @@ class PresetsCollection:
 
     def getPresetNames(self) -> list[str]:
         '''Returns List of All Preset Names'''
+
         return [preset.name for preset in self.metaPresets]
     
     
     def getOrderedPresetNames(self) -> list[str]:
         '''Returns List of Ordered Preset Names'''
+        
         return [preset.name for preset in self.getOrderedPresets()]
     
 
-    def getPresetData(self, presetName: str) -> Optional[dict]:
+    def getPresetData(self, presetName: str) -> dict:
         """Returns Preset Data for a Preset Name"""
+
         for preset in self.metaPresets:
             if preset.name == presetName:
                 return preset.data
-        return None
+        return {}
 
 
     def setCurrPreset(self, presetName: str) -> None:
         '''Sets Current Preset'''
+
         if presetName in self.getPresetNames():
             self.currentPreset = presetName
         else:
@@ -169,6 +192,7 @@ class PresetsCollection:
 
     def getCurrPreset(self) -> Optional[str]:
         '''Returns Current Preset'''
+
         return self.currentPreset
 
 
@@ -214,16 +238,19 @@ class MetaFileItems:
 
     def getByName(self, name: str) -> MetaFileItem | None:
         '''Returns MetaFileItem by Name'''
+
         return self._by_name.get(name)
     
 
     def getByPath(self, path: str) -> MetaFileItem | None:
         '''Returns MeteFileItem by Path'''
+
         return self._by_path.get(path)
     
 
     def allItems(self, active:bool=False) -> list[MetaFileItem]:
         '''Retuns List of All MetaFileItem's'''
+
         if active:
             return [item for file in self.activeFiles if (item := self.getByName(file))]
         
@@ -233,16 +260,19 @@ class MetaFileItems:
     
     def getMetadata(self, fileItem: MetaFileItem) -> "MetadataModel":
         '''Returns MetaFileItem's MetadataModel'''
+
         return fileItem.metadata
     
     
     def set_uniqueValue(self, fileItem: MetaFileItem, fieldName: str, value: str):
         '''Sets the MetaFileItems Field's Unique Value'''
+
         fileItem.uniqueValues[fieldName] = value
 
 
     def get_uniqueValue(self, fileItem: MetaFileItem, fieldName: str) -> str:
         '''Gets the MetaFileItems Field's Unique Value'''
+
         return fileItem.uniqueValues.get(fieldName, "")
 
     
@@ -250,12 +280,14 @@ class MetaFileItems:
 #   Contains the Matadata Data
 class MetadataModel:
     '''Metadata Structured Data'''
+
     def __init__(self, raw_metadata):
         self.metadata: dict[str, dict] = self.group_metadata(raw_metadata)
 
     @staticmethod
     def group_metadata(metadata: dict[str, object]) -> dict[str, dict]:
         '''Groups Raw Metadata into Sections'''
+
         grouped = {}
 
         if "format" in metadata:
@@ -281,11 +313,13 @@ class MetadataModel:
 
     def get_sections(self) -> list[str]:
         '''Returns List of Metadata Sections'''
+
         return list(self.metadata.keys())
 
 
     def get_keys(self, section: str) -> list[tuple[list[str], str]]:
         '''Returns Section's Keys'''
+
         keys = []
         def recurse(d, path=[]):
             for k, v in d.items():
@@ -301,6 +335,7 @@ class MetadataModel:
 
     def get_value(self, section: str, key_path: list[str]) -> str | None:
         '''Returns Value for a Given Section and Field Path'''
+
         d = self.metadata.get(section, {})
 
         for k in key_path:
@@ -311,6 +346,7 @@ class MetadataModel:
     
     def get_valueFromSourcefield(self, sourceField: str) -> str | None:
         '''Returns Field's Value'''
+
         parts = [p.strip() for p in sourceField.split(">")]
         
         section = parts[0]
@@ -323,6 +359,7 @@ class MetadataModel:
 @dataclass
 class MetadataField:
     '''Dataclass to hold each Metadata Field'''
+
     name: str
     category: str
     enabled: bool = True
@@ -332,6 +369,7 @@ class MetadataField:
 
 class MetadataFieldCollection:
     '''Holds All Metadata Fields'''
+
     def __init__(self, fields: list[MetadataField]):
         self.fields_all: list[MetadataField] = fields[:]
         self.fields: list[MetadataField] = fields[:]
@@ -339,6 +377,7 @@ class MetadataFieldCollection:
 
     def get_fieldByName(self, name: str) -> MetadataField:
         '''Returns Field Model by Name'''
+
         for field in self.fields_all:
             if field.name == name:
                 return field
@@ -347,11 +386,13 @@ class MetadataFieldCollection:
 
     def get_allFieldNames(self, include_headers: bool = False) -> list[str]:
         '''Returns List of All Field Names'''
+
         return [f.name for f in self.fields_all if include_headers or not f.is_header]
     
 
     def applyFilters(self, filterStates: dict[str, bool], useFilters: bool, metaMap: list[dict]) -> None:
         '''Returns List of Filtered Field Names'''
+
         fields_filtered: list[MetadataField] = []
         seenCategories: set[str] = set()
 
@@ -409,6 +450,7 @@ class MetadataFieldCollection:
 
 class MetadataTableModel(QAbstractTableModel):
     '''Custom Table Model for Metadata Display'''
+
     COL_ENABLED: int = 0
     COL_NAME: int = 1
     COL_SOURCE: int = 2
@@ -615,6 +657,7 @@ class MetadataTableModel(QAbstractTableModel):
 
 class SectionHeaderDelegate(QStyledItemDelegate):
     '''Custom Table Header'''
+
     def paint(self, painter: QPainter, option: any, index: QModelIndex) -> None:
         model = index.model()
         field = model.collection.fields[index.row()]
@@ -648,6 +691,7 @@ class SectionHeaderDelegate(QStyledItemDelegate):
 
 class MetadataComboBoxDelegate(QStyledItemDelegate):
     '''Custom ComboBox'''
+
     def __init__(self, metadata_model: any, parent: QWidget = None) -> None:
         super().__init__(parent)
         self.metadata_model = metadata_model
@@ -801,6 +845,7 @@ class MetadataComboBoxDelegate(QStyledItemDelegate):
 
 class CheckboxDelegate(QStyledItemDelegate):
     '''Custom Checkbox'''
+    
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex) -> None:
         if not (index.flags() & Qt.ItemIsUserCheckable):
             return  # ← skip painting if not checkable (like section headers)

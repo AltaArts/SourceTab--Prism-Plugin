@@ -58,6 +58,7 @@ import logging
 import json
 import copy
 import shutil
+import csv
 
 
 
@@ -77,6 +78,17 @@ from FileNameMods import getModClassByName as GetModByName
 from FileNameMods import createModifier as CreateMod
 
 import SourceTab_Utils as Utils
+
+from SourceTab_Models import (MetaFileItems,
+                              MetadataModel,
+                              MetadataField,
+                              MetadataFieldCollection,
+                              MetadataTableModel,
+                              SectionHeaderDelegate,
+                              MetadataComboBoxDelegate,
+                              CheckboxDelegate)
+
+from MetadataEditor_ui import Ui_w_metadataEditor
 
 logger = logging.getLogger(__name__)
 
@@ -666,12 +678,14 @@ class NamingPopup(QDialog):
 
 
 class ProxyPopup(QDialog):
-    def __init__(self, core, sourceFuncts, settings):
+    def __init__(self, core, sourceFuncts):
         super().__init__()
 
         self.core = core
         self.sourceFuncts = sourceFuncts
-        self.settings = settings
+        self.sourceBrowser = sourceFuncts.sourceBrowser
+        self.proxyMode = self.sourceBrowser.proxyMode
+        self.proxyPresets = self.sourceBrowser.proxyPresets
 
         self.result = None
 
@@ -908,10 +922,8 @@ class ProxyPopup(QDialog):
     #   Populate UI from Passed Settings
     def loadUI(self):
         try:
-            #   Proxy Mode
-            proxyMode = self.settings.get("proxyMode", "none")
             #   Match Mode to Radio Button Label
-            label = self.sourceFuncts.proxyNameMap.get(proxyMode)
+            label = self.sourceFuncts.proxyNameMap.get(self.proxyMode)
             if label and label in self.radio_buttons:
                 self.radio_buttons[label].setChecked(True)
 
@@ -919,22 +931,21 @@ class ProxyPopup(QDialog):
             self.populatePresetCombo()
 
             #   Preset Settings
-            proxySettings = self.settings.get("proxySettings", {})
+            pSettings = self.sourceBrowser.proxySettings
+            if "fallback_proxyDir" in pSettings:
+                self.le_fallbackDir.setText(pSettings["fallback_proxyDir"])
 
-            if "fallback_proxyDir" in proxySettings:
-                self.le_fallbackDir.setText(proxySettings["fallback_proxyDir"])
+            if "ovr_proxyDir" in pSettings:
+                self.le_ovrProxyDir.setText(pSettings["ovr_proxyDir"])
 
-            if "ovr_proxyDir" in proxySettings:
-                self.le_ovrProxyDir.setText(proxySettings["ovr_proxyDir"])
-
-            if "proxyPreset" in proxySettings:
-                curPreset = proxySettings["proxyPreset"]
+            if "proxyPreset" in pSettings:
+                curPreset = pSettings["proxyPreset"]
                 idx = self.cb_proxyPresets.findText(curPreset)
                 if idx != -1:
                     self.cb_proxyPresets.setCurrentIndex(idx)
 
-            if "proxyScale" in proxySettings:
-                curScale = proxySettings["proxyScale"]
+            if "proxyScale" in pSettings:
+                curScale = pSettings["proxyScale"]
                 idx = self.cb_proxyScale.findText(curScale)
                 if idx != -1:
                     self.cb_proxyScale.setCurrentIndex(idx)
@@ -952,11 +963,6 @@ class ProxyPopup(QDialog):
         return self.sourceFuncts.sourceBrowser.getSettings(key="proxySearch")
     
 
-    #   Returns FFmpeg Preset Dict
-    def getFFmpegPresets(self):
-        return self.sourceFuncts.sourceBrowser.getSettings(key="ffmpegPresets")
-
-
     #   Populate Preset Combo with Presets
     def updateTemplateNumber(self):
         number = len(self.getProxySearchList())
@@ -967,10 +973,7 @@ class ProxyPopup(QDialog):
     def populatePresetCombo(self):
         try:
             self.cb_proxyPresets.clear()
-
-            for preset in self.getFFmpegPresets():
-                self.cb_proxyPresets.addItem(preset)
-
+            self.cb_proxyPresets.addItems(self.proxyPresets.getOrderedPresetNames())
             self.createPresetsTooltip()
 
         except Exception as e:
@@ -980,18 +983,16 @@ class ProxyPopup(QDialog):
     #   Creates and Adds Tooltip to Preset Combo
     def createPresetsTooltip(self):
         try:
-            presets = self.getFFmpegPresets()
-
             #   Start HTML with div wrapper
             tooltip_html = "<div style='min-width: 400px;'>"
             tooltip_html += "<table>"
 
             #   Make Separate Rows for each Preset
-            for name, data in presets.items():
-                desc = data.get("Description", "")
+            for preset in self.proxyPresets.getOrderedPresets():
+                desc = preset.data.get("Description", "")
                 tooltip_html += f"""
                     <tr>
-                        <td><b>{name}</b></td>
+                        <td><b>{preset.name}</b></td>
                         <td style='padding-left: 10px;'>{desc}</td>
                     </tr>
                     <tr><td colspan='2' style='height: 10px;'>&nbsp;</td></tr>  <!-- spacer row -->
@@ -1042,60 +1043,48 @@ class ProxyPopup(QDialog):
 
     #   Open Window to Edit Presets
     def _onEditPresetsClicked(self):
-        #   Get Existing Presets
-        pData = self.getFFmpegPresets()
-
-        #   Instanciate and Execute Window
-        editWindow = ProxyPresetsEditor(self.core, self, pData)
+        editWindow = ProxyPresetsEditor(self.core, self)
         logger.debug("Opening Proxy Presets Editor")
         editWindow.exec_()
 
         if editWindow.result() == "Save":
             try:
-                #   Get Updated Data
-                presetData = editWindow.getPresets()
-                #   Update FFmpeg List
-                self.sourceFuncts.sourceBrowser.ffmpegPresets = presetData
-                #   Save to Settings
-                self.sourceFuncts.sourceBrowser.plugin.saveSettings(key="ffmpegPresets", data=presetData)
-                #   Reload Combo
-                self.populatePresetCombo()
+                presetData, presetOrder = editWindow.getPresets()
 
+                # Detect newly added or modified presets
+                existingNames = set(self.proxyPresets.getPresetNames())
+
+                # Capture original data for comparison
+                originalDataMap = {
+                    name: Utils.normalizeData(self.proxyPresets.getPresetData(name))
+                    for name in existingNames
+                }
+
+                # Clear and re-add all presets
+                self.proxyPresets.clear()
+
+                for name in presetOrder:
+                    data = presetData.get(name, {})
+                    self.proxyPresets.addPreset(name, data)
+
+                    normalizedData = Utils.normalizeData(data)
+
+                    originalData = originalDataMap.get(name)
+
+                    # Save if new or modified
+                    if name not in existingNames or normalizedData != originalData:
+                        pData = {"name": name, "data": data}
+                        Utils.savePreset(self.core, "proxy", name, pData, project=True, checkExists=False)
+                        logger.debug(f"Saved preset '{name}' to project")
+
+                self.proxyPresets.presetOrder = presetOrder
+                self.populatePresetCombo()
                 logger.debug("Saved Proxy Presets")
 
             except Exception as e:
-                logger.warning(f"ERROR:  Failed to Save Proxy Presets:\n{e}")
+                logger.warning(f"ERROR: Failed to Save Proxy Presets:\n{e}")
 
 
-    def _onButtonClicked(self, text):
-        self.result = text
-        self.accept()
-
-
-    #   Return Selected Proxy Mode
-    def getProxyMode(self):
-        checkedButton = self.radio_group.checkedButton()
-        if checkedButton:
-            label = checkedButton.text()
-            for shortMode, uiLabel in self.sourceFuncts.proxyNameMap.items():
-                if uiLabel == label:
-                    return shortMode
-        
-        return "None"
-    
-
-    #   Return Selected Proxy Preset Name and Scale
-    def getProxySettings(self):
-        pData = {
-            "fallback_proxyDir":            self.le_fallbackDir.text(),
-            "ovr_proxyDir":                 self.le_ovrProxyDir.text(),
-            "proxyPreset":                  self.cb_proxyPresets.currentText(),
-            "proxyScale":                   self.cb_proxyScale.currentText()
-            }
-        
-        return pData
-        
-    
     #   Checks User Input for Errors
     def validatePathInput(self, lineEdit, allowEmpty=False):
         text = lineEdit.text().strip()
@@ -1150,6 +1139,36 @@ class ProxyPopup(QDialog):
         return valid
 
 
+    def _onButtonClicked(self, text):
+        self.result = text
+        self.accept()
+
+
+    #   Return Selected Proxy Mode
+    def getProxyMode(self):
+        checkedButton = self.radio_group.checkedButton()
+        if checkedButton:
+            label = checkedButton.text()
+            for shortMode, uiLabel in self.sourceFuncts.proxyNameMap.items():
+                if uiLabel == label:
+                    return shortMode
+        
+        return "None"
+    
+
+    #   Return Selected Proxy Preset Name and Scale
+    def getProxySettings(self):
+        pData = {
+            "fallback_proxyDir":            self.le_fallbackDir.text(),
+            "ovr_proxyDir":                 self.le_ovrProxyDir.text(),
+            "proxyPreset":                  self.cb_proxyPresets.currentText(),
+            "proxyScale":                   self.cb_proxyScale.currentText(),
+            "proxyPresetOrder":             self.proxyPresets.presetOrder,
+            }
+        
+        return pData
+        
+    
 
 class ProxySearchStrEditor(QDialog):
     def __init__(self, core, origin, searchList):
@@ -1510,19 +1529,20 @@ class ProxySearchStrEditor(QDialog):
 
 
 class ProxyPresetsEditor(QDialog):
-    def __init__(self, core, origin, presets):
+    def __init__(self, core, origin):
         super().__init__(origin)
         self.core = core
         self.origin = origin
 
-        self.presetData = presets.copy()
+        self.proxyPresets = self.origin.sourceBrowser.proxyPresets
+
         self._action = None
 
         self.setWindowTitle("FFMPEG Proxy Presets")
 
         self.setupUI()
         self.connectEvents()
-        self.populateTable(self.presetData)
+        self.populateTable()
 
         logger.debug("Loaded Proxy Presets Editor")
 
@@ -1542,9 +1562,11 @@ class ProxyPresetsEditor(QDialog):
         lo_main = QVBoxLayout(self)
 
         #   Create table
-        self.headers = ["Name"] + list(next(iter(self.presetData.values())).keys())
-        self.tw_presets = QTableWidget(len(self.presetData), len(self.headers), self)
+        self.headers = self.proxyPresets.getHeaders()
+        rows = self.proxyPresets.getNumberPresets()
+        self.tw_presets = QTableWidget(rows, len(self.headers), self)
         self.tw_presets.setHorizontalHeaderLabels(self.headers)
+        self.tw_presets.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tw_presets.setSelectionBehavior(QTableWidget.SelectRows)
         self.tw_presets.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tw_presets.setShowGrid(False)
@@ -1556,25 +1578,16 @@ class ProxyPresetsEditor(QDialog):
 
         #   Footer Buttons
         lo_buttonBox    = QHBoxLayout()
-        self.b_edit     = QPushButton("Edit")
-        self.b_add      = QPushButton("Add")
-        self.b_remove   = QPushButton("Remove")
-        self.b_test     = QPushButton("Validate Preset")
-        self.b_reset    = QPushButton("Reset to Defaults")
         self.b_moveup   = QPushButton("Move Up")
         self.b_moveDn   = QPushButton("Move Down")
+        self.b_test     = QPushButton("Validate Preset")
         self.b_save     = QPushButton("Save")
         self.b_cancel   = QPushButton("Cancel")
-        
-        lo_buttonBox.addWidget(self.b_edit)
-        lo_buttonBox.addWidget(self.b_add)
-        lo_buttonBox.addWidget(self.b_remove)
-        lo_buttonBox.addStretch()
-        lo_buttonBox.addWidget(self.b_test)
-        lo_buttonBox.addWidget(self.b_reset)
-        lo_buttonBox.addStretch()
+
         lo_buttonBox.addWidget(self.b_moveup)
         lo_buttonBox.addWidget(self.b_moveDn)
+        lo_buttonBox.addStretch()
+        lo_buttonBox.addWidget(self.b_test)
         lo_buttonBox.addStretch()
         lo_buttonBox.addWidget(self.b_save)
         lo_buttonBox.addWidget(self.b_cancel)
@@ -1652,27 +1665,91 @@ class ProxyPresetsEditor(QDialog):
         """
         self.b_test.setToolTip(tip)
 
-        self.b_edit.setToolTip("Edit Selected Preset")
-        self.b_add.setToolTip("Add New Preset")
-        self.b_remove.setToolTip("Remove Selected Preset")
         self.b_moveup.setToolTip("Move Selected Preset Up One Row")
         self.b_moveDn.setToolTip("Move Selected Preset Down One Row")
-        self.b_reset.setToolTip("Reset All Presets to Factory Defaults")
         self.b_save.setToolTip("Save Changes and Close Window")
         self.b_cancel.setToolTip("Discard Changes and Close Window")
 
 
     #   Make Signal Connections
     def connectEvents(self):
-        self.b_edit.clicked.connect(self._onEdit)
-        self.b_add.clicked.connect(self._onAdd)
-        self.b_remove.clicked.connect(self._onRemove)
+        self.tw_presets.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_presets))
+
         self.b_test.clicked.connect(self._onValidate)
-        self.b_reset.clicked.connect(self._onReset)
         self.b_moveup.clicked.connect(self._onMoveUp)
         self.b_moveDn.clicked.connect(self._onMoveDown)
         self.b_save.clicked.connect(lambda: self._onFinish("Save"))
         self.b_cancel.clicked.connect(lambda: self._onFinish("Cancel"))
+
+
+    def rclList(self, pos, lw):
+        cpos = QCursor.pos()
+        item = lw.itemAt(pos)
+
+        rcmenu = QMenu(self)
+
+        #   Dummy Separator
+        def _separator():
+            gb = QGroupBox()
+            gb.setFlat(False)
+            gb.setFixedHeight(15)
+            action = QWidgetAction(self)
+            action.setDefaultWidget(gb)
+            return action
+
+        if item:
+            row = item.row()
+            nameItem = self.tw_presets.item(row, 0)
+
+            editAct = QAction("Edit Preset", self)
+            editAct.triggered.connect(lambda: self.editPreset(item=nameItem))
+            rcmenu.addAction(editAct)
+
+            rcmenu.addAction(_separator())
+
+            exportFileAct = QAction("Export Preset to File", self)
+            exportFileAct.triggered.connect(lambda: self.exportPreset(item=nameItem))
+            rcmenu.addAction(exportFileAct)
+
+            saveLocalAct = QAction("Save Preset to Local Machine", self)
+            saveLocalAct.triggered.connect(lambda: self.saveToLocal(item=nameItem))
+            rcmenu.addAction(saveLocalAct)
+
+            rcmenu.addAction(_separator())
+
+            delAct = QAction("Delete Preset", self)
+            delAct.triggered.connect(lambda: self.deletePreset(item=nameItem))
+            rcmenu.addAction(delAct)
+
+        else:
+            addAct = QAction("Create New Preset", self)
+            addAct.triggered.connect(lambda: self.editPreset(addNew=True))
+            rcmenu.addAction(addAct)
+
+            rcmenu.addAction(_separator())
+
+            openProjPresetDirAct = QAction("Open Project Presets Directory", self)
+            openProjPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=True))
+            rcmenu.addAction(openProjPresetDirAct)
+
+            openLocalPresetDirAct = QAction("Open Local Presets Directory", self)
+            openLocalPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=False))
+            rcmenu.addAction(openLocalPresetDirAct)
+
+            rcmenu.addAction(_separator())
+
+            importAct = QAction("Import Preset from File", self)
+            importAct.triggered.connect(lambda: self.importPreset())
+            rcmenu.addAction(importAct)
+
+            restoreAct = QAction("Import Preset from Local Directory", self)
+            restoreAct.triggered.connect(lambda: self.importPreset(local=True))
+            rcmenu.addAction(restoreAct)
+
+        if rcmenu.isEmpty():
+            return False
+
+        rcmenu.exec_(cpos)
 
 
     #   Gets Called when Window is Displayed
@@ -1704,19 +1781,18 @@ class ProxyPresetsEditor(QDialog):
             self.tw_presets.setColumnWidth(col, col_width)
 
 
-    def populateTable(self, pData):
+    def populateTable(self):
         try:
             #   Clear Table
             self.tw_presets.setRowCount(0)
 
-            #   Create Row per Preset form Data
-            for name, fields in pData.items():
+            for preset in self.proxyPresets.getOrderedPresets():
                 row = self.tw_presets.rowCount()
                 self.tw_presets.insertRow(row)
-                self.tw_presets.setItem(row, 0, QTableWidgetItem(name))
+                self.tw_presets.setItem(row, 0, QTableWidgetItem(preset.name))
+
                 for col, key in enumerate(self.headers[1:], start=1):
-                    # self.tw_presets.setItem(row, col, QTableWidgetItem(fields.get(key, "")))
-                    value = fields.get(key, "")
+                    value = preset.data.get(key, "")
                     self.tw_presets.setItem(row, col, QTableWidgetItem(str(value)))
 
             #   Re-Apply Widths
@@ -1726,8 +1802,75 @@ class ProxyPresetsEditor(QDialog):
             logger.warning(f"ERROR:  Failed to Populate Proxy Presets Table:\n{e}")
 
 
-    #   Sets Row Editable
-    def _onEdit(self):
+    #   Opens File Explorer to Preset Dir (Project or Local Plugin)
+    def openPresetsDir(self, project):
+        if project:
+            presetDir = Utils.getProjectPresetDir(self.core, "proxy")
+        else:
+            presetDir = Utils.getLocalPresetDir("proxy")
+
+        Utils.openInExplorer(self.core, presetDir)
+
+
+    #   Import Preset from File
+    def importPreset(self, local=False):
+        try:
+            importData = Utils.importPreset(self.core, "proxy", local=local)
+
+            if importData:
+                presetName = importData["name"]
+                self.proxyPresets.addPreset(presetName, importData["data"])
+
+                self.populateTable()
+                logger.debug(f"Imported Preset '{presetName}'")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Import Preset: {e}")
+
+
+    #   Export Preset to Selected Location
+    def exportPreset(self, item):
+        try:
+            #   Get Preset Name and Data
+            pName = item.text()
+            pData = self.proxyPresets.getPresetData(item.text())
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
+            return
+
+        Utils.exportPreset(self.core, "proxy", pName, pData)
+        logger.debug(f"Exported Preset {pName}")
+
+
+    #   Saves Preset to Local Plugin Dir (to be used for all Projects)
+    def saveToLocal(self, item):
+        try:
+            pName = item.text()
+            currData = self.proxyPresets.getPresetData(pName)
+
+            pData = {"name": pName,
+                     "data": currData}
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
+            return
+        
+        Utils.savePreset(self.core, "proxy", pName, pData, project=False)
+
+
+    #   Gets Selected Preset Data and Displays Preset Editor
+    def editPreset(self, addNew=False, item=None):
+        if addNew:
+            #   Insert Blank Row after Current
+            row = max(0, self.tw_presets.currentRow() + 1)
+            self.tw_presets.insertRow(row)
+
+            for col in range(self.tw_presets.columnCount()):
+                self.tw_presets.setItem(row, col, QTableWidgetItem(""))
+
+            self.tw_presets.selectRow(row)
+
         row = self.tw_presets.currentRow()
         if row < 0: 
             return
@@ -1736,34 +1879,24 @@ class ProxyPresetsEditor(QDialog):
         self.tw_presets.editItem(self.tw_presets.item(row, 0))
 
 
-    #   Adds Empty Row
-    def _onAdd(self):
-        #   Insert Blank Row after Current
-        row = max(0, self.tw_presets.currentRow() + 1)
-        self.tw_presets.insertRow(row)
+    #   Remove Selected Preset
+    def deletePreset(self, item):
+        row = item.row()
 
-        for col in range(self.tw_presets.columnCount()):
-            self.tw_presets.setItem(row, col, QTableWidgetItem(""))
+        #   Get Selected Preset Name
+        presetItem = self.tw_presets.item(row, 0)
+        presetName = presetItem.text() if presetItem else "Unknown"
 
-        self.tw_presets.selectRow(row)
-
-
-    #   Remove Selected Row
-    def _onRemove(self):
-        row = self.tw_presets.currentRow()
-        #   Gets Item Info
-        preset_item = self.tw_presets.item(row, 0)
-        preset_name = preset_item.text() if preset_item else "Unknown"
-
-        #   Create Question
-        title = "Remove Preset"
-        text = f"Would you like to Remove:\n\n{preset_name}"
+        #   Confirmation Dialogue
+        title = "Delete Template"
+        text = f"Would you like to remove the Preset:\n\n{presetName}"
         buttons = ["Remove", "Cancel"]
         result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
-        #   Remove if Affirmed
+
         if result == "Remove":
-            if row >= 0:
-                self.tw_presets.removeRow(row)
+            self.tw_presets.removeRow(row)
+            Utils.deletePreset(self.core, "proxy", presetName)
+            self.proxyPresets.removePreset(presetName)
 
 
     #   Handle Tests for Preset
@@ -1797,7 +1930,6 @@ class ProxyPresetsEditor(QDialog):
 
         #   Format Output
         lines = [f"Preset '{name}' Validation Report:\n"]
-        # all_passed = True
 
         for label, passed, msg in results:
             if passed:
@@ -1806,8 +1938,6 @@ class ProxyPresetsEditor(QDialog):
             else:
                 lines.append(f"{label} — Failed: {msg}")
                 lines.append("")
-
-                # all_passed = False
 
         #   Show Popup
         title="Preset Validation Results"
@@ -1923,26 +2053,6 @@ class ProxyPresetsEditor(QDialog):
         return results
 
 
-    #   Resets the Presets to Default Data from Prism_SourceTab_Functions.py
-    def _onReset(self):
-        #   Create Question
-        title = "Reset Presets to Default"
-        text = ("Would you like to Resets the Proxy Presets to\n"
-                "the Factory Defaults?\n\n"
-                "All Custom Presets will be lost.\n\n"
-                "This effects all Users in this Prism Project.")
-        buttons = ["Reset", "Cancel"]
-        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
-
-        if result == "Reset":
-            #   Get Default Presets
-            fData = self.origin.sourceFuncts.sourceBrowser.plugin.getDefaultSettings(key="ffmpegPresets")
-            #   Re-assign presetData
-            self.presetData = fData
-            #   Populate Table with Default Data
-            self.populateTable(fData)
-
-
     def _onMoveUp(self):
         row = self.tw_presets.currentRow()
         if row > 0:
@@ -1969,22 +2079,30 @@ class ProxyPresetsEditor(QDialog):
         self._action = action
         if action == "Save":
             try:
-                newData = {}
+                self.presetData = {}
+                self.presetOrder = []
 
-                #   Re-assign self.presetData from UI data
+                data_keys = self.headers[1:]
+
                 for row in range(self.tw_presets.rowCount()):
-                    name = self.tw_presets.item(row, 0).text().strip()
-                    fields = {
-                        self.headers[c]: self.tw_presets.item(row, c).text().strip()
-                        for c in range(1, len(self.headers))
-                    }
-                    newData[name] = fields
-                self.presetData = newData
+                    name_item = self.tw_presets.item(row, 0)
+                    if not name_item:
+                        continue
 
-                logger.debug("Saved Proxy Presets")
+                    name = name_item.text().strip()
+                    self.presetOrder.append(name)
+
+                    data = {}
+                    for c, key in enumerate(data_keys, start=1):
+                        item = self.tw_presets.item(row, c)
+                        data[key] = item.text().strip() if item else ""
+
+                    self.presetData[name] = data
+
+                logger.debug("Proxy Presets data collected successfully.")
 
             except Exception as e:
-                logger.warning(f"ERROR:  Failed to Save Proxy Presets:\n{e}")
+                logger.warning(f"ERROR: Failed to Save Proxy Presets:\n{e}")
 
         self.accept()
 
@@ -1994,7 +2112,665 @@ class ProxyPresetsEditor(QDialog):
 
 
     def getPresets(self):
-        return self.presetData
+        return self.presetData, self.presetOrder
+
+
+
+class MetadataEditor(QWidget, Ui_w_metadataEditor):
+
+    def __init__(self, core, origin, parent=None):
+        super(MetadataEditor, self).__init__(parent)
+        self.core = core
+        self.sourceBrowser = origin
+        self.projectBrowser = origin.projectBrowser
+
+        self.metaMapPath = os.path.join(self.sourceBrowser.pluginPath,
+                                        "Libs",
+                                        "UserInterfaces",
+                                        "MetaMap.json")
+        
+        self.sourceOptions = []
+
+        #   Instantiate Metafiles
+        self.MetaFileItems = MetaFileItems()
+
+        self.filterStates = {
+            "Hide Disabled": False,
+            "Hide Empty": False,
+            "----1": False,
+            "Crew/Production": True,
+            "Shot/Scene": True,
+            "Camera": True,
+            "Audio": True,
+            "----2": False
+        }
+
+        self.loadMetamap()
+
+        #   Setup UI from Ui_w_metadataEditor
+        self.setupUi(self)
+
+        self.configureUI()
+        self.refresh()
+        self.connectEvents()
+
+        logger.debug("Loaded Metadata Editor")
+
+
+    def refresh(self, loadFilepath=None):
+        WaitPopup.showPopup(parent=self.projectBrowser)
+
+        self.populatePresets()
+        self.loadFiles(loadFilepath)
+        self.populateEditor()
+
+        WaitPopup.closePopup()
+
+
+    def configureUI(self):
+        #   Set up Sizing and Position
+        screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        calc_width = screen_geometry.width() // 1.5
+        width = max(1000, min(2000, calc_width))
+        calc_height = screen_geometry.height() // 1.2
+        height = max(900, min(2500, calc_height))
+        x_pos = (screen_geometry.width() - width) // 2
+        y_pos = (screen_geometry.height() - height) // 2
+        self.setGeometry(x_pos, y_pos, width, height)
+
+        #   Color MetadataEditor Background
+        self.setStyleSheet("""
+            #w_metadataEditor {
+                background-color: #323537;
+                color: #ccc;
+            }
+        """)
+
+        #   Icons
+        icon_filters = QIcon(os.path.join(iconDir, "sort.png"))
+        icon_reset = QIcon(os.path.join(iconDir, "reset.png"))
+        self.b_filters.setIcon(icon_filters)
+        self.b_reset.setIcon(icon_reset)
+
+        #   Build Custom Table Model
+        self.MetadataTableModel = MetadataTableModel(
+            self.MetadataFieldCollection,
+            self.sourceOptions,
+            parent=self
+        )
+
+        self.tw_metaEditor.setModel(self.MetadataTableModel)
+
+        # Set Section Headers Delegate
+        sectionHeaderDelegate = SectionHeaderDelegate(self.tw_metaEditor)
+        self.tw_metaEditor.setItemDelegate(sectionHeaderDelegate)
+
+        #   Configure Table
+        self.tw_metaEditor.verticalHeader().setVisible(False)
+        self.tw_metaEditor.setShowGrid(True)
+        self.tw_metaEditor.setGridStyle(Qt.SolidLine)
+        self.tw_metaEditor.setAlternatingRowColors(True)
+        self.tw_metaEditor.horizontalHeader().setHighlightSections(False)
+        self.tw_metaEditor.setSelectionBehavior(QAbstractItemView.SelectItems)
+        self.tw_metaEditor.setAutoFillBackground(True)
+
+        #   Makes It so Single-click Will Edit a Cell
+        self.tw_metaEditor.setEditTriggers(QAbstractItemView.SelectedClicked)
+
+        self.tw_metaEditor.setStyleSheet("""
+            QTableView {
+                background-color: #2f3136;
+                color: #ccc;
+                gridline-color: #555;
+                alternate-background-color: #313335;
+            }
+            QHeaderView::section {
+                background-color: #444;
+                color: #eee;
+                padding: 4px;
+                border: 1px solid #555;
+            }
+        """)
+
+        QTimer.singleShot(.1, self.setInitialColumnWidths)
+        self.setToolTips()
+
+
+    #   Set Column Widths After Launch
+    def setInitialColumnWidths(self):
+        try:
+            table_width = self.tw_metaEditor.viewport().width()
+            self.tw_metaEditor.setColumnWidth(0, int(table_width * 0.05))
+            self.tw_metaEditor.setColumnWidth(1, int(table_width * 0.20))
+            self.tw_metaEditor.setColumnWidth(2, int(table_width * 0.30))
+            self.tw_metaEditor.horizontalHeader().setStretchLastSection(True)
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to resize Table Columns:{e}")
+
+
+    def setToolTips(self):
+        tip = ("File Listing\n\n"
+               "Select File to View Metadata")
+        self.cb_fileList.setToolTip(tip)
+
+        tip = "Opens Metadata Display Window"
+        self.b_showMetadataPopup.setToolTip(tip)
+
+        tip = ("Table Display Filters (will  not affect Saved Metadata\n\n"
+               "    - Click to Enable/Disable Filters\n"
+               "    - Right-click to Configure Filters")
+        self.b_filters.setToolTip(tip)
+
+        tip = ("Reset Editor\n\n"
+               "This will clear all existing data or changes loaded into the Editor.\n"
+               "This will not alter any metadata in the file itself.")
+        self.b_reset.setToolTip(tip)
+
+        tip = "Select Metadata Configuration Preset"
+        self.cb_presets.setToolTip(tip)
+
+        tip = "Opens Metadata Presets Editor"
+        self.b_presets.setToolTip(tip)
+
+        tip = ("Saves the Current Configuration and\n"
+               "closes the Editor")
+        self.b_save.setToolTip(tip)
+
+        tip = "Closes the Editor without Saving"
+        self.b_close.setToolTip(tip)
+
+
+    def connectEvents(self):
+        self.cb_fileList.currentIndexChanged.connect(lambda: self.onFileChanged())
+        self.b_showMetadataPopup.clicked.connect(lambda: self.showMetaDataPopup())
+        self.b_filters.clicked.connect(self.populateEditor)
+        self.b_filters.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.b_filters.customContextMenuRequested.connect(lambda: self.filtersRCL())
+        self.b_reset.clicked.connect(self.resetTable)
+        self.cb_presets.currentIndexChanged.connect(lambda: self.loadPreset())
+        self.b_presets.clicked.connect(self.showPresetsMenu)
+        self.b_sidecar_save.clicked.connect(self.saveSidecar)
+        self.b_save.clicked.connect(self._onSave)
+        self.b_close.clicked.connect(self._onClose)
+        
+
+    #   Right Click List for Filters
+    def filtersRCL(self):
+        cpos = QCursor.pos()
+        rcmenu = QMenu(self)
+
+        def _wrapWidget(widget):
+            action = QWidgetAction(self)
+            action.setDefaultWidget(widget)
+            return action
+        
+        def _separator():
+            gb = QGroupBox()
+            gb.setFixedHeight(15)
+            return _wrapWidget(gb)
+
+        def _applyFilterStates(checkboxRefs, menu):
+            for label, cb in checkboxRefs.items():
+                self.filterStates[label] = cb.isChecked()
+            self.populateEditor()
+            menu.close()
+
+        checkboxRefs = {}
+
+        #   Add Filter Checkboxes
+        for label, checked in self.filterStates.items():
+            if label.startswith("----"):
+                rcmenu.addAction(_separator())
+                continue
+
+            cb = QCheckBox(label)
+            cb.setChecked(checked)
+            checkboxRefs[label] = cb
+            rcmenu.addAction(_wrapWidget(cb))
+
+        #   Apply Button
+        b_apply = QPushButton("Apply")
+        b_apply.setFixedWidth(80)
+        b_apply.setStyleSheet("font-weight: bold;")
+        b_apply.clicked.connect(lambda: _applyFilterStates(checkboxRefs, rcmenu))
+        rcmenu.addAction(_wrapWidget(b_apply))
+
+        if rcmenu.isEmpty():
+            return False
+
+        rcmenu.exec_(cpos)
+
+
+    #   Builds MetadataFieldCollection from MetaMap.json
+    def loadMetamap(self):
+        try:
+            with open(self.metaMapPath, "r", encoding="utf-8") as f:
+                mData = json.load(f)
+
+            self.metaMap = mData["metaMap"]
+
+        except FileNotFoundError:
+            logger.warning("ERROR: MetaMap.json is not found")
+            return
+        
+        try:
+            #   Build MetadataFieldCollection
+            metadata_fields = []
+            for item in self.metaMap:
+                field = MetadataField(
+                    name=item.get("MetaName", ""),
+                    category=item.get("category", "Shot/Scene"),
+                    enabled=item.get("enabled", True)
+                )
+                metadata_fields.append(field)
+
+            self.MetadataFieldCollection = MetadataFieldCollection(metadata_fields)
+
+            logger.debug("Built MetadataFieldCollection from 'MetaMap.json'")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Build MetadataFieldCollection: {e}")
+
+
+    #   Loads Preset Data and Loads Presets into Combo
+    def populatePresets(self):
+        self.cb_presets.clear()
+        self.cb_presets.addItem("PRESETS")
+
+        orderedPresetNames = self.sourceBrowser.metaPresets.getOrderedPresetNames()
+
+        #   Populate Combobox
+        for name in orderedPresetNames:
+            self.cb_presets.addItem(name)
+
+        idx = self.cb_presets.findText(self.sourceBrowser.metaPresets.currentPreset)
+        if idx != -1:
+            self.cb_presets.setCurrentIndex(idx)
+
+        self.cb_presets.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+
+
+    #   Loads Files into MetaFileItems an Combo
+    def loadFiles(self, loadFilepath=None):
+        #   Get All Checked FileTiles in Dest List
+        try:
+            fileTiles = self.sourceBrowser.getAllDestTiles(onlyChecked=True)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to get Destination FileTiles")
+            return
+
+        activeFiles = []
+
+        #   Itterate through Files
+        for fileTile in fileTiles:
+            try:
+                #   Get File Name and Check if it Exists in the MetaFileItems
+                filePath = fileTile.data.get("source_mainFile_path", "")
+                fileName_orig = Utils.getBasename(filePath)
+                fileName_mod = fileTile.getModifiedName(fileName_orig)
+                activeFiles.append(fileName_orig)
+                existing_item = self.MetaFileItems.getByName(fileName_orig)
+
+                #   If it Exists, Refresh the fileTile Reference
+                if existing_item:
+                    existing_item.fileName=fileName_orig
+                    existing_item.fileName_mod = fileName_mod
+                    existing_item.fileTile = fileTile
+
+                #   Or Add New MetaFileItem
+                else:
+                    if not existing_item:
+                        metadata_raw = Utils.getFFprobeMetadata(filePath)
+                        metadata = MetadataModel(metadata_raw)
+
+                        self.MetaFileItems.addItem(
+                            filePath=filePath,
+                            fileName=fileName_orig,
+                            fileName_mod = fileName_mod,
+                            fileTile=fileTile,
+                            metadata=metadata,
+                        )
+
+            except Exception as e:
+                logger.warning(f"ERROR: Unable to add FileTile '{fileTile}': {e}")
+
+        #   Update Active Files List
+        self.MetaFileItems.activeFiles = activeFiles
+
+        #   Update the File List Combobox
+        self.cb_fileList.blockSignals(True)
+        self.cb_fileList.clear()
+        try:
+            self.cb_fileList.addItems(activeFiles)
+
+            #   Select Passed File
+            if loadFilepath:
+                fileName = Utils.getBasename(loadFilepath)
+                idx = self.cb_fileList.findText(fileName)
+                if idx != -1:
+                    self.cb_fileList.setCurrentIndex(idx)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Populate Files Combobox")
+
+        finally:
+            self.cb_fileList.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+            self.cb_fileList.blockSignals(False)
+
+        self.onFileChanged()
+
+
+    def onFileChanged(self, filePath=None):
+        if filePath:
+            path = filePath
+        else:
+            if self.cb_fileList.count() < 1:
+                return
+            
+            try:
+                fileName = self.cb_fileList.currentText()
+                fileItem = self.MetaFileItems.getByName(fileName)
+                path = fileItem.filePath
+
+            except Exception as e:
+                logger.warning(f"ERROR: Unable to get FilePath from Selected File: {e}")
+                return
+            
+        #   Bold Current Viewed File in Combo
+        current_idx = self.cb_fileList.currentIndex()
+        for i in range(self.cb_fileList.count()):
+            font = self.cb_fileList.font()
+            font.setBold(i == current_idx)
+            self.cb_fileList.setItemData(i, font, Qt.FontRole)
+
+        #   Extract Metadata and add to Model Class
+        metadata_raw = Utils.getFFprobeMetadata(path)
+        metadata = MetadataModel(metadata_raw)
+
+        #   Update Table Model
+        self.MetadataTableModel.sourceOptions = self.sourceOptions
+
+        #   Create Combox Delegate
+        self.ComobDelegate = MetadataComboBoxDelegate(metadata, parent=self)
+        self.MetadataTableModel.combo_delegate = self.ComobDelegate
+        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_SOURCE, self.ComobDelegate)
+
+        #   Create Checkbox Delegate
+        self.CheckboxDelegate = CheckboxDelegate()
+        self.MetadataTableModel.checkbox_delegate = self.CheckboxDelegate
+        self.tw_metaEditor.setItemDelegateForColumn(MetadataTableModel.COL_ENABLED, self.CheckboxDelegate)
+        
+        #   Add File Names to Fixed Rows
+        for field in self.MetadataTableModel.collection.fields_all:
+            if field.name == "File Name":
+                field.currentValue = fileItem.fileName_mod
+            elif field.name == "Original File Name":
+                field.currentValue = fileItem.fileName
+
+        #   Refresh Table
+        self.MetadataTableModel.layoutChanged.emit()
+
+        self.loadPreset()
+
+
+    #   Loads MetaFieldItems into the Table
+    def populateEditor(self):
+        useFilters = self.b_filters.isChecked()
+        self.MetadataFieldCollection.applyFilters(self.filterStates, useFilters, self.metaMap)
+        self.MetadataTableModel.layoutChanged.emit()
+
+
+    #   Displays Popup with Selected File's Metadata
+    def showMetaDataPopup(self, filePath=None):
+        #   If passed
+        if filePath:
+            path = filePath
+            fileName = Utils.getBasenamefilePath()
+
+        #   Get Selected File from Combo
+        else:
+            fileName = self.cb_fileList.currentText()
+            fileItem = self.MetaFileItems.getByName(fileName)
+            path = fileItem.filePath
+            fileName = fileItem.fileName
+
+        #   Get and Format Metadata
+        try:
+            metadata_raw = Utils.getFFprobeMetadata(path)
+            metadata = Utils.groupFFprobeMetadata(metadata_raw)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to get Grouped Metadata: {e}")
+            return
+
+        DisplayPopup.display(metadata, title=f"Metadata: {fileName}", modal=False)
+
+
+    #   Saves Presets to Config
+    def savePresets(self):
+        mData = {
+            "currMetaPreset": self.sourceBrowser.metaPresets.currentPreset,
+            "metaPresetOrder": self.sourceBrowser.metaPresets.presetOrder
+            }
+
+        #   Save to Project Config
+        self.sourceBrowser.plugin.saveSettings(key="metadataSettings", data=mData)
+
+
+    #   Displays Preset Popup
+    def showPresetsMenu(self):
+        #   Display Meta Presets Popup
+        presetPopup = MetaPresetsPopup(self.core, self)
+
+        #   If Saved Button Pressed
+        if presetPopup.exec() == QDialog.Accepted:
+           self.savePresets()
+           self.populatePresets()
+
+
+    #   Loads Preset into the Table
+    def loadPreset(self, presetName=None, onlyExisting=True):
+        if not presetName:
+            presetName = self.cb_presets.currentText()
+
+        try:
+            pData = self.sourceBrowser.metaPresets.getPresetData(presetName)
+            if not pData:
+                logger.debug(f"Preset Not Found: {presetName}")
+                return
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to get Preset from Preset Name: {e}")
+            return
+        
+        #   Build Lookup from List
+        presetFields = {row["field"]: row for row in pData}
+
+        if len(self.MetaFileItems.allItems()) < 1:
+            return
+        
+        for row, field in enumerate(self.MetadataFieldCollection.fields):
+            #   Skip UNIQUE Rows
+            if field.sourceField == "- UNIQUE -":
+                continue
+
+            if field.name in presetFields:
+                info = presetFields[field.name]
+
+                field.enabled = info.get("enabled", False)
+                field.sourceField = info.get("sourceField", "")
+
+                #   Preset field is NONE
+                if field.sourceField == "- NONE -":
+                    field.currentValue = ""
+
+                #   Preset Field is GLOBAL
+                elif field.sourceField == "- GLOBAL -":
+                    globalValue = info.get("currentData", "")
+                    if globalValue:
+                        field.currentValue = globalValue
+
+                else:
+                    #   Check sourceField Exists in Metadata
+                    if field.sourceField not in self.ComobDelegate.display_strings:
+                        #   Not present Fallback to NONE
+                        field.sourceField = "- NONE -"
+                        field.currentValue = ""
+                    else:
+                        #   Exists Use Metadata
+                        field.currentValue = self.ComobDelegate.getValueForField(field.sourceField)
+            else:
+                if not onlyExisting:
+                    field.enabled = False
+                    field.sourceField = "- NONE -"
+                    field.currentValue = ""
+
+        #   Update Table
+        self.MetadataTableModel.layoutChanged.emit()
+
+
+    #   Resets Table to Default None's
+    def resetTable(self):
+        title = "Reset Metadata Table"
+        text = (
+            "Would you like to clear all existing data or changes loaded into the Editor?\n\n"
+            "This will not alter any metadata in the file itself."
+        )
+        buttons = ["Reset", "Cancel"]
+        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+
+        if result == "Reset":
+            self.cb_presets.setCurrentIndex(0)
+
+            fieldNames = self.MetadataFieldCollection.get_allFieldNames()
+            for fieldName in fieldNames:
+                if fieldName in ["File Name", "Original File Name"]:
+                    continue
+
+                field = self.MetadataFieldCollection.get_fieldByName(fieldName)
+                field.enabled = False
+                field.sourceField = "- NONE -"
+                field.currentValue = ""
+
+            self.MetadataTableModel.layoutChanged.emit()
+            logger.debug("Reset Metadata Editor")
+
+
+    #   Returns Current Data from Editor
+    def getCurrentData(self, filterNone=True):
+        currentData = []
+
+        fieldNames = self.MetadataFieldCollection.get_allFieldNames()
+        for fieldName in fieldNames:
+            field = self.MetadataFieldCollection.get_fieldByName(fieldName)
+            sourceField = field.sourceField
+
+            if filterNone and (not sourceField or sourceField == "- NONE -"):
+                continue
+
+            fieldData = {
+                "field": field.name,
+                "enabled": field.enabled,
+                "sourceField": field.sourceField,
+                "currentData": field.currentValue
+                }
+
+            currentData.append(fieldData)
+
+        return currentData
+
+
+    def saveSidecar(self, filePath=None):               #   TODO - Implement UI for Selecting Sidecar type
+        if filePath:
+            sidecarPath = filePath
+
+        else:
+            ####   TEMP TESTING BUTTON     ####                         #   TODO
+            testFileName = self.cb_fileList.currentText()
+            fileItem = self.MetaFileItems.getByName(testFileName)
+            testPath = fileItem.filePath
+            savedir = os.path.dirname(testPath)
+            sideCarFilename = "TEST_Sidecar.csv"
+            sidecarPath = os.path.join(savedir, sideCarFilename)
+            
+        #   Create .CSV
+        self.saveSidecarCSV(sidecarPath)
+
+
+    #   Create Resolve Type .CSV
+    def saveSidecarCSV(self, sidecarPath):
+        #   Get All Field Names
+        fieldNames = self.MetadataFieldCollection.get_allFieldNames()
+
+        #   Open CSV file to Write To
+        with open(sidecarPath, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+
+            #   Write Header
+            writer.writerow(fieldNames)
+
+            #   Iterate Over each File
+            for fileItem in self.MetaFileItems.allItems(active=True):
+                row = []
+                metadata = fileItem.metadata
+
+                for fieldName in fieldNames:
+                    field = self.MetadataFieldCollection.get_fieldByName(fieldName)
+
+                    #   Skip if the Field Doesn't Exist
+                    if not field:
+                        row.append("")
+                        continue
+
+                    #   Add File Name Fixed Cells
+                    if field.name == "File Name":
+                        row.append(fileItem.fileName_mod)
+                        continue
+                    if field.name == "Original File Name":
+                        row.append(fileItem.fileName)
+                        continue
+
+                    #   Get Currently Selected Source
+                    sourceField = field.sourceField
+
+                    #   Handle Each Type of Source
+                    if not sourceField or sourceField == "- NONE -":
+                        row.append("")
+
+                    elif sourceField == "- GLOBAL -":
+                        row.append(field.currentValue)
+
+                    elif sourceField == "- UNIQUE -":
+                        value = self.MetaFileItems.get_uniqueValue(fileItem, field.name)
+                        row.append(value)
+
+                    #   Normal Metadata Field
+                    else:
+                        row.append(metadata.get_valueFromSourcefield(sourceField))
+
+                writer.writerow(row)
+
+        logger.status(f"Saved sidecar to: {sidecarPath}")
+
+
+    #   Saves and Closes the MetaEditor
+    def _onSave(self):
+        preset = self.cb_presets.currentText()
+        if preset == "PRESETS":
+            preset = ""
+            
+        self.sourceBrowser.metaPresets.currentPreset = preset
+
+        self.savePresets()
+        self.sourceBrowser.sourceFuncts.updateUI()
+        self.close()
+
+
+    #   Closes the MetaEditor
+    def _onClose(self):
+        self.close()
 
 
 
@@ -2005,8 +2781,6 @@ class MetaPresetsPopup(QDialog):
         self.metaEditor = metaEditor
         self.sourceBrowser = metaEditor.sourceBrowser
         self.metaPresets = self.sourceBrowser.metaPresets
-
-        self.presetExt = "m_preset"
 
         self.setWindowTitle("MetaData Presets")
 
@@ -2149,97 +2923,36 @@ class MetaPresetsPopup(QDialog):
 
     #   Import Preset from File
     def importPreset(self, local=False):
-        presetDir = None
-
-        if local:
-            #   Get Local Preset Dir for Explorer
-            presetDir = Utils.getLocalPresetDir("metadata")
-        
-        #   Call Explorer to Select Preset to Import
-        presetPath_source = Utils.explorerDialogue(
-                                "Select Preset File",
-                                dir = presetDir,
-                                selDir = False,
-                                filter = f"Preset Files (*.{self.presetExt})"
-                                )
-        
-        if not presetPath_source or not os.path.isfile(presetPath_source):
-            return
-        
         try:
-            #   Get Preset File Name and Make Project Destination Path
-            _, presetName = os.path.split(presetPath_source)
-            presetPath_dest = os.path.join(Utils.getProjectPresetDir(self.core, "metadata"), presetName)
+            importData = Utils.importPreset(self.core, "metadata", local=local)
 
-            #   If Exists Already Ask for Overwrite
-            if os.path.exists(presetPath_dest):
-                title = "Overwrite Preset"
-                text = ("A Preset with the same name:\n\n"
-                        f"{presetName}\n\n"
-                        "exists in the Project Presets Directory.\n\n"
-                        "Would you like to Overwrite?")
-                buttons = ["Overwrite", "Cancel"]
-                result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+            if importData:
+                presetName = importData["name"]
+                self.metaPresets.addPreset(presetName, importData["data"])
 
-                #   Abort
-                if result != "Overwrite":
-                    return
+                self.refreshList()
+                self.updateMetaPresetsOrder()
 
-            #   Copy from Source to Project Presets Dir
-            shutil.copy(presetPath_source, presetPath_dest)
-
-            #   Load Data and Add to Presets Dict
-            importData = Utils.loadPreset(presetPath_dest)
-            self.metaPresets.addPreset(importData["name"], importData["data"])
-
-            self.refreshList()
-            self.updateMetaPresetsOrder()
-
-            logger.debug(f"Imported Preset '{presetName}'")
+                logger.debug(f"Imported Preset '{presetName}'")
 
         except Exception as e:
             logger.warning(f"ERROR: Unable to Import Preset: {e}")
 
 
     #   Export Preset to Selected Location
-    def exportPreset(self, item=None):
+    def exportPreset(self, item):
         try:
             #   Get Preset Name and Data
-            presetName = item.text()
-            currData = self.metaPresets.getPresetData(item.text())
+            pName = item.text()
+            pData = self.metaPresets.getPresetData(item.text())
 
         except Exception as e:
             logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
             return
 
-        #   Open Explorer to Choose Destination Path
-        presetPath = Utils.explorerDialogue(
-                            "Save Preset File",
-                            dir = presetName,
-                            selDir = False,
-                            save = True,
-                            filter = f"Preset Files (*.{self.presetExt})"
-                        )
+        Utils.exportPreset(self.core, "metadata", pName, pData)
+        logger.debug(f"Exported Preset {pName}")
 
-        if not presetPath:
-            return
-
-        try:
-            #   Replace Any Extension with '.m_preset'
-            root, ext = os.path.splitext(presetPath)
-            if ext.lower() != f".{self.presetExt.lower()}":
-                presetPath = f"{root}.{self.presetExt}"
-
-            pData = {"name": presetName,
-                     "data": currData}
-
-            #   Save Preset
-            Utils.savePreset(self.core, "metadata", presetName, pData, path=presetPath)
-
-            logger.debug(f"Exported Preset {presetName}")
-
-        except Exception as e:
-            logger.warning(f"ERROR: Unable to Export Preset: {e}")
 
 
     #   Gets Selected Preset Data and Displays Preset Editor
@@ -2285,7 +2998,7 @@ class MetaPresetsPopup(QDialog):
 
     #   Opens Preset Editor to Edit/Create Preset
     def openPresetEditor(self, presetData):
-        presetEditor = MetaPresetsEditor(self.core, self, presetData)
+        presetEditor = PresetsEditor(self.core, self, presetData)
 
         if presetEditor.exec() == QDialog.Accepted:
             return presetEditor.resultData
@@ -2318,8 +3031,8 @@ class MetaPresetsPopup(QDialog):
         presetName = presetItem.text() if presetItem else "Unknown"
 
         #   Confirmation Dialogue
-        title = "Remove Template"
-        text = f"Would you like to remove the Preset:\n\n{presetName}?"
+        title = "Delete Preset"
+        text = f"Would you like to remove the Preset:\n\n{presetName}"
         buttons = ["Remove", "Cancel"]
         result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
 
@@ -2370,7 +3083,7 @@ class MetaPresetsPopup(QDialog):
 
 
 
-class MetaPresetsEditor(QDialog):
+class PresetsEditor(QDialog):
     def __init__(self, core, metaPresetPopup, presetData):
         super().__init__(metaPresetPopup)
         self.core = core

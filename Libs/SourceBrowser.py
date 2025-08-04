@@ -166,7 +166,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.resolvedProxyPaths = None
         self.proxyEnabled = False
         self.proxyMode = None
-        self.proxySettings = None
+        # self.proxySettings = None
         self.ffmpegPresets = None
         self.calculated_proxyMults = []
         self.nameMods = []
@@ -963,8 +963,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.proxyMode = tabData["proxyMode"]
             if "proxySettings" in sData:
                 self.proxySettings = sData["proxySettings"]
-                self.proxyPresetOrder = self.proxySettings["proxyPresetOrder"]
-                self.currProxyPreset = self.proxySettings["currProxyPreset"]
+                self.proxyPresets.presetOrder = self.proxySettings["proxyPresetOrder"]
+                # self.proxyPresets.currentPreset = self.proxySettings["currProxyPreset"]
 
             #   Name Mods
             self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])

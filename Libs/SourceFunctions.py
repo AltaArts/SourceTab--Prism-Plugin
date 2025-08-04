@@ -68,8 +68,7 @@ from PrismUtils.Decorators import err_catcher
 
 from SourceFunctions_ui import Ui_w_sourceFunctions
 
-from PopupWindows import NamingPopup, ProxyPopup
-from MetadataEditor import MetadataEditor
+from PopupWindows import NamingPopup, ProxyPopup, MetadataEditor
 import SourceTab_Utils as Utils
 
 
@@ -91,6 +90,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
         #   Setup UI from Ui_w_sourceFunctions
         self.setupUi(self)
+        
         self.setToolTips()
         self.configureUI()
         self.connectEvents()
@@ -310,14 +310,8 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def configProxy(self):
-        #   Get Settings
-        pData = {
-            "proxyMode": self.sourceBrowser.proxyMode,
-            "proxySettings": self.sourceBrowser.proxySettings
-        }
-
         #   Call Popup
-        proxyPopup = ProxyPopup(self.core, self, pData)
+        proxyPopup = ProxyPopup(self.core, self)
         logger.debug("Opening Proxy Settings Window")
         proxyPopup.exec_()
 
