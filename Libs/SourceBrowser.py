@@ -154,8 +154,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   "Other": True,
                                   }
 
-        self._sourceRowWidgets = []
-        self._destinationRowWidgets = []
+        # self._sourceRowWidgets = []
+        # self._destinationRowWidgets = []
         self.sourceDir = ""
         self.destDir = ""
         self.selectedTiles = set()
@@ -163,7 +163,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.resolvedProxyPaths = None
         self.proxyEnabled = False
         self.proxyMode = None
-        # self.proxySettings = None
         self.calculated_proxyMults = []
         self.nameMods = []
         self.metaEditor = None
@@ -189,9 +188,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Signal Connections
         self.connectEvents()
 
-        self.loadAllPresets()
-
         #   Load Settings from Prism Project Settings
+        self.loadAllPresets()
         self.loadSettings()
 
         #   Setup Worker Threadpools and Semephore Slots
@@ -875,6 +873,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def loadAllPresets(self):
+        #   Check Project Presets Dir Exists, and Create if Needed
+        if not os.path.exists(Utils.getProjectPresetDir(self.core, "proxy")):
+            self.plugin.copyPresets()
+
         #   Load Proxy Presets
         try:
             self.proxyPresets = PresetsCollection()
