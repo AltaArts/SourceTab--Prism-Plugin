@@ -131,8 +131,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.pluginPath = pluginPath
         self.iconDir = iconDir
 
-        logger.debug("Initializing Source Browser")
-
         self.core.parentWindow(self)
 
         self.supportedCodecs = ["h264", "hevc", "mpeg4", "mpeg2video", "prores",
@@ -156,7 +154,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   "Other": True,
                                   }
 
-
         self._sourceRowWidgets = []
         self._destinationRowWidgets = []
         self.sourceDir = ""
@@ -167,10 +164,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.proxyEnabled = False
         self.proxyMode = None
         # self.proxySettings = None
-        self.ffmpegPresets = None
         self.calculated_proxyMults = []
         self.nameMods = []
-
+        self.metaEditor = None
         self.transferList = []
         self.initialized = False
         self.closeParm = "closeafterload"
@@ -212,6 +208,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         if refresh:
             self.entered()
+
+        logger.debug("Initializing Source Browser")
 
 
     @err_catcher(name=__name__)                                         #   TODO - GET RID OF THIS WITHOUT ERROR
@@ -2918,6 +2916,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def handleMetadata(self, report_uuid, timestamp):
+        self.sourceFuncts.configMetadata(showUI=False)
+        
         saveDir = self.destDir
 
         timestamp_str  = timestamp.strftime("%Y-%m-%d_%H%M%S")
@@ -2936,7 +2936,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             pData = self.proxyPresets.getPresetData(pName)
 
             if not pData:
-                logger.warning(f"Preset '{pName}' not found in ffmpegPresets.")
+                logger.warning(f"Preset '{pName}' not found.")
                 return
 
             #   Get Saved Multiplier
