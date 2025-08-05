@@ -2096,10 +2096,22 @@ class DestFileTile(BaseTileItem):
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
 
+        #   Dummy Separator
+        def _separator():
+            gb = QGroupBox()
+            gb.setFlat(False)
+            gb.setFixedHeight(15)
+            action = QWidgetAction(self)
+            action.setDefaultWidget(gb)
+            return action
+
+
         #   Displayed Always
         delAct = QAction("Remove from Transfer List", self.browser)
         delAct.triggered.connect(self.removeFromDestList)
         rcmenu.addAction(delAct)
+
+        rcmenu.addAction(_separator())
 
         selAct = QAction("Set Selected", self.browser)
         selAct.triggered.connect(lambda: self.setChecked(True))
@@ -2108,6 +2120,8 @@ class DestFileTile(BaseTileItem):
         unSelAct = QAction("Un-Select", self.browser)
         unSelAct.triggered.connect(lambda: self.setChecked(False))
         rcmenu.addAction(unSelAct)
+
+        rcmenu.addAction(_separator())
 
         mEditAct = QAction("Show Source File in Metadata Editor", self)
         mEditAct.triggered.connect(lambda: self.configMetadata(filePath=self.getSource_mainfilePath()))
@@ -2119,14 +2133,25 @@ class DestFileTile(BaseTileItem):
             showDataAct.triggered.connect(self.TEST_SHOW_DATA)
             rcmenu.addAction(showDataAct)
 
+            rcmenu.addAction(_separator())
+
+            playerAct = QAction("Show in Player (Source)", self.browser)
+            playerAct.triggered.connect(self.sendToViewer)
+            rcmenu.addAction(playerAct)
+
+            expAct = QAction("Open in Explorer (Source)", self)
+            expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getSource_mainfilePath()))
+            rcmenu.addAction(expAct)
+
             #   If Transferred Files Exists
             if os.path.exists(self.getDestMainPath()):
+                rcmenu.addAction(_separator())
 
-                mDataAct = QAction("Show All MetaData", self.browser)
+                mDataAct = QAction("Show MetaData (Transferred File)", self.browser)
                 mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getDestMainPath()))
                 rcmenu.addAction(mDataAct)
 
-                expAct = QAction("Open Transferred File in Explorer", self)
+                expAct = QAction("Open in Explorer (Transferred File)", self)
                 expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getDestMainPath()))
                 rcmenu.addAction(expAct)
 

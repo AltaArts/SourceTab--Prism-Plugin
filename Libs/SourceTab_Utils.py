@@ -210,15 +210,7 @@ def explorerDialogue(title: str = None,
 
 def openInExplorer(core, path:str) -> None:
     '''Opens Path in File Explorer'''
-    if os.path.isdir(path):
-        dir = path
-    elif os.path.isfile(path):
-        dir = os.path.dirname(path)
-    else:
-        logger.warning(f"ERROR:  Unable to open {path} in File Explorer")
-        return
-
-    core.openFolder(dir)
+    core.openFolder(path)
 
 
 def playSound(path:str) -> None:
