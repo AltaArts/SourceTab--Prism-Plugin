@@ -141,7 +141,8 @@ class ThumbnailWorker(QObject, QRunnable):
                     thumbImage = self.getThumbImageFromPath(
                         self.filePath,
                         saveThumbWidth=self.saveThumbWidth,
-                        colorAdjust=False
+                        colorAdjust=False,
+                        regenerateThumb=self.regenerate
                         )
                 
                 fitIntoBounds = False
@@ -154,14 +155,14 @@ class ThumbnailWorker(QObject, QRunnable):
             self.origin.thumb_semaphore.release()
 
 
-    def getThumbImageFromPath(self, path, saveThumbWidth=None, colorAdjust=False):
+    def getThumbImageFromPath(self, path, saveThumbWidth=None, colorAdjust=False, regenerateThumb=False):
         if not path:
             return
 
         ext = Utils.getFileExtension(filePath=path)
 
         if ext in self.core.media.videoFormats:
-            thumbImage = Utils.getThumbFromVideoPath(self.core, path, thumbWidth=saveThumbWidth)
+            thumbImage = Utils.getThumbFromVideoPath(self.core, path, thumbWidth=saveThumbWidth, regenerateThumb=regenerateThumb)
         
         elif ext in [".exr", ".dpx", ".hdr"]:
             thumbImage = Utils.getThumbImageFromExrPath(self.core, path, thumbWidth=saveThumbWidth)

@@ -48,7 +48,9 @@
 ####################################################
 
 
+from genericpath import exists
 import os
+import shutil
 import sys
 import logging
 import re
@@ -675,8 +677,12 @@ class BaseTileItem(QWidget):
                 )
 
         self.data["source_mainFile_thumbnail"] = scaledPixmap
+
         if self.tileType == "sourceItem":
             self._notify("thumbnail")
+
+        elif self.tileType == "sourceTile":
+            self.setThumbnail()
 
 
     #   Adds Thumbnail to FileTile Label
@@ -1111,6 +1117,7 @@ class SourceFileItem(BaseTileItem):
     def _notify(self, field):
         for callback in self.updateCallbacks[field]:
             callback(field)
+
         self.updateCallbacks[field].clear()
     
     
@@ -1486,10 +1493,22 @@ class SourceFileTile(BaseTileItem):
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
 
+        #   Dummy Separator
+        def _separator():
+            gb = QGroupBox()
+            gb.setFlat(False)
+            gb.setFixedHeight(15)
+            action = QWidgetAction(self)
+            action.setDefaultWidget(gb)
+            return action
+        
+
         #   Displayed Always
         addlAct = QAction("Add to Transfer List", self.browser)
         addlAct.triggered.connect(self.addToDestList)
         rcmenu.addAction(addlAct)
+
+        rcmenu.addAction(_separator())
 
         selAct = QAction("Set Selected", self.browser)
         selAct.triggered.connect(lambda: self.setChecked(True))
@@ -1501,17 +1520,26 @@ class SourceFileTile(BaseTileItem):
 
         #   Displayed if Single Selection
         if len(self.browser.selectedTiles) == 1:
+            rcmenu.addAction(_separator())
+
             refreshThumbAct = QAction("Regenerate Thumbnail", self.browser)
             refreshThumbAct.triggered.connect(lambda: self.getThumbnail(regenerate=True))
             rcmenu.addAction(refreshThumbAct)
 
-            mDataAct = QAction("Show All MetaData", self.browser)
-            mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getSource_mainfilePath()))
+            # mDataAct = QAction("Show All MetaData", self.browser)
+            # mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getSource_mainfilePath()))
+            # rcmenu.addAction(mDataAct)
+
+            rcmenu.addAction(_separator())
+
+            mDataAct = QAction("Show MetaData (Main File)", self.browser)
+            mDataAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataAct)
 
-            mDataFFprobeAct = QAction("Show All MetaData (ffprobe)", self.browser)
-            mDataFFprobeAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath()))
-            rcmenu.addAction(mDataFFprobeAct)
+            if self.getSource_proxyfilePath():
+                mDataAct = QAction("Show MetaData (Proxy)", self.browser)
+                mDataAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_proxyfilePath()))
+                rcmenu.addAction(mDataAct)         
 
             # sidecarAct = QAction("Create Sidecar", self.browser)
             # sidecarAct.triggered.connect(lambda: self.createSidecar(self.getSource_mainfilePath()))
@@ -1520,6 +1548,8 @@ class SourceFileTile(BaseTileItem):
             showDataAct = QAction("Show Data", self.browser)                         #   TESTING
             showDataAct.triggered.connect(self.TEST_SHOW_DATA)
             rcmenu.addAction(showDataAct)
+
+            rcmenu.addAction(_separator())
 
             playerAct = QAction("Show in Player", self.browser)
             playerAct.triggered.connect(self.sendToViewer)
