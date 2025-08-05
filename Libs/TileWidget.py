@@ -945,14 +945,12 @@ class BaseTileItem(QWidget):
 
     @err_catcher(name=__name__)
     def configMetadata(self, filePath=None):
-        if hasattr(self.browser, "metaEditor"):
+        if hasattr(self.browser, "metaEditor") and self.browser.metaEditor:
             self.browser.metaEditor.refresh(loadFilepath=filePath)
-
         else:
-            self.browser.metaEditor = MetadataEditor(self.core, self.browser)
+            self.browser.metaEditor = MetadataEditor(self.core, self.browser, loadFilepath=filePath)
             
         self.browser.metaEditor.show()
-
 
 
 ##   FOLDER TILES (Inherits from BaseTileItem)  ##

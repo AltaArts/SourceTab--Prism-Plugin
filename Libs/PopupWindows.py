@@ -2118,7 +2118,7 @@ class ProxyPresetsEditor(QDialog):
 
 class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
-    def __init__(self, core, origin, parent=None):
+    def __init__(self, core, origin, loadFilepath=None, parent=None):
         super(MetadataEditor, self).__init__(parent)
         self.core = core
         self.sourceBrowser = origin
@@ -2151,7 +2151,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.setupUi(self)
 
         self.configureUI()
-        self.refresh()
+        self.refresh(loadFilepath)
         self.connectEvents()
 
         logger.debug("Loaded Metadata Editor")
@@ -2395,7 +2395,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     def loadFiles(self, loadFilepath=None):
         #   Get All Checked FileTiles in Dest List
         try:
-            fileTiles = self.sourceBrowser.getAllDestTiles(onlyChecked=True)
+            # fileTiles = self.sourceBrowser.getAllDestTiles(onlyChecked=True)
+            fileTiles = self.sourceBrowser.getAllDestTiles(onlyChecked=False)
 
         except Exception as e:
             logger.warning(f"ERROR: Unable to get Destination FileTiles")
@@ -2713,6 +2714,10 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
             #   Iterate Over each File
             for fileItem in self.MetaFileItems.allItems(active=True):
+                #   Skip Unchecked File Tiles
+                if not fileItem.fileTile.isChecked():
+                    continue
+
                 row = []
                 metadata = fileItem.metadata
 
