@@ -89,6 +89,7 @@ class PreviewPlayer(QWidget):
         self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
         self.ffprobePath = Utils.getFFprobePath()
 
+        self.mediaFiles = []
         self.renderResX = 300
         self.renderResY = 169
         self.videoPlayers = {}
@@ -320,10 +321,11 @@ class PreviewPlayer(QWidget):
 
     #   Entry Point for Media to be Played
     @err_catcher(name=__name__)
-    def loadMedia(self, mediaFiles, metadata, isProxy):
+    def loadMedia(self, mediaFiles, metadata, isProxy, tile=None):
         self.mediaFiles = mediaFiles
         self.metadata = metadata
         self.isProxy = isProxy
+        self.tile = tile
 
         QPixmapCache.clear()
 
@@ -1015,54 +1017,104 @@ class PreviewPlayer(QWidget):
 
     @err_catcher(name=__name__)
     def getMediaPreviewMenu(self):
-        path = self.mediaFiles[0]
-
+        if len(self.mediaFiles) < 1:
+            return
+        
+        hasProxy = self.tile.data["hasProxy"]
         rcmenu = QMenu(self)
 
-        if len(self.mediaFiles) > 0:
+        #   Dummy Separator
+        def _separator():
+            gb = QGroupBox()
+            gb.setFlat(False)
+            gb.setFixedHeight(15)
+            action = QWidgetAction(self)
+            action.setDefaultWidget(gb)
+            return action
 
-            #   External Player
-            playMenu = QMenu("Play in", self)
-            iconPath = os.path.join(self.iconPath, "play.png")
-            icon = self.core.media.getColoredIcon(iconPath)
-            playMenu.setIcon(icon)
 
-            if self.mediaPlayerPath is not None:
-                pAct = QAction(self.mediaPlayerName, self)
-                pAct.triggered.connect(self.compare)
-                playMenu.addAction(pAct)
+        path = self.mediaFiles[0]
 
-            pAct = QAction("Default", self)
-            pAct.triggered.connect(
-                lambda: self.compare(prog="default")
-            )
+        #   External Player
+        playMenu = QMenu("Play in", self)
+        iconPath = os.path.join(self.iconPath, "play.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        playMenu.setIcon(icon)
+
+        if self.mediaPlayerPath is not None:
+            pAct = QAction(self.mediaPlayerName, self)
+            pAct.triggered.connect(self.compare)
             playMenu.addAction(pAct)
-            rcmenu.addMenu(playMenu)
 
-            #   Regenerate Thumb
-            if self.core.media.getUseThumbnails():
-                prvAct = QAction("Regenerate Thumbnail", self)
-                iconPath = os.path.join(self.iconPath, "refresh.png")
-                icon = self.core.media.getColoredIcon(iconPath)
-                prvAct.setIcon(icon)
-                prvAct.triggered.connect(self.regenerateThumbnail)
-                rcmenu.addAction(prvAct)
+        pAct = QAction("Default", self)
+        pAct.triggered.connect(
+            lambda: self.compare(prog="default")
+        )
+        playMenu.addAction(pAct)
+        rcmenu.addMenu(playMenu)
 
-            #   Open in Explorer
-            expAct = QAction("Open in Explorer", self)
-            iconPath = os.path.join(self.iconPath, "folder.png")
+        #   Regenerate Thumb
+        if self.core.media.getUseThumbnails():
+            prvAct = QAction("Regenerate Thumbnail", self)
+            iconPath = os.path.join(self.iconPath, "refresh.png")
             icon = self.core.media.getColoredIcon(iconPath)
-            expAct.setIcon(icon)
-            expAct.triggered.connect(lambda: self.core.openFolder(path))
-            rcmenu.addAction(expAct)
+            prvAct.setIcon(icon)
+            prvAct.triggered.connect(self.regenerateThumbnail)
+            rcmenu.addAction(prvAct)
 
-            #   Copy
-            copAct = QAction("Copy", self)
-            iconPath = os.path.join(self.iconPath, "copy.png")
-            icon = self.core.media.getColoredIcon(iconPath)
-            copAct.setIcon(icon)
-            copAct.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
-            rcmenu.addAction(copAct)
+        rcmenu.addAction(_separator())
+
+        #   Open in Explorer
+        expAct = QAction("Open in Explorer", self)
+        iconPath = os.path.join(self.iconPath, "folder.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        expAct.setIcon(icon)
+        expAct.triggered.connect(lambda: self.core.openFolder(path))
+        rcmenu.addAction(expAct)
+
+        #   Copy
+        copAct = QAction("Copy", self)
+        iconPath = os.path.join(self.iconPath, "copy.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        copAct.setIcon(icon)
+        copAct.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
+        rcmenu.addAction(copAct)
+
+        rcmenu.addAction(_separator())
+
+        #   Set Tile Checked
+        chkAct = QAction("Set File Checked", self)
+        chkAct.triggered.connect(lambda: self.tile.setChecked(True))
+        rcmenu.addAction(chkAct)
+
+        #   Set Tile UnChecked
+        unChkAct = QAction("Set File UnChecked", self)
+        unChkAct.triggered.connect(lambda: self.tile.setChecked(False))
+        rcmenu.addAction(unChkAct)
+
+        rcmenu.addAction(_separator())
+
+        #   Add Tile to Transfer List
+        addAct = QAction("Add to Transfer List", self)
+        addAct.triggered.connect(self.addToTransferList)
+        rcmenu.addAction(addAct)
+
+        #   Add Tile to Transfer List
+        removeAct = QAction("Remove from Transfer List", self)
+        removeAct.triggered.connect(self.removeFromTransferList)
+        rcmenu.addAction(removeAct)
+
+        rcmenu.addAction(_separator())
+
+        #   Show Metadata
+        mainMetaAct = QAction("Show Metadata (Main File)", self)
+        mainMetaAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.tile.getSource_mainfilePath()))
+        rcmenu.addAction(mainMetaAct)
+
+        pxyMetaAct = QAction("Show Metadata (Proxy File)", self)
+        pxyMetaAct.setEnabled(hasProxy)
+        pxyMetaAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.tile.getSource_proxyfilePath()))
+        rcmenu.addAction(pxyMetaAct)
 
         return rcmenu
 
@@ -1086,6 +1138,29 @@ class PreviewPlayer(QWidget):
             shutil.rmtree(thumbdir)
         except Exception as e:
             logger.warning("Failed to remove thumbnail: %s" % e)
+
+
+    @err_catcher(name=__name__)
+    def addToTransferList(self):
+        tileType = self.tile.tileType
+
+        if tileType == "sourceTile":
+            self.tile.addToDestList()
+
+        elif tileType == "destTile":
+            pass
+
+
+    @err_catcher(name=__name__)
+    def removeFromTransferList(self):
+        tileType = self.tile.tileType
+
+        if tileType == "sourceTile":
+            pass
+
+        elif tileType == "destTile":
+            self.tile.removeFromDestList()
+
 
 
     @err_catcher(name=__name__)

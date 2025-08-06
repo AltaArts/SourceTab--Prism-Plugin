@@ -937,7 +937,7 @@ class BaseTileItem(QWidget):
 
             logger.debug("Sending Image(s) to Media Viewer")
 
-            self.browser.PreviewPlayer.loadMedia(sendFiles, metadata, isProxy)
+            self.browser.PreviewPlayer.loadMedia(sendFiles, metadata, isProxy, tile=self)
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Send Image(s) to Media Viewer:\n{e}")
@@ -1045,6 +1045,8 @@ class SourceFileItem(BaseTileItem):
         super(SourceFileItem, self).__init__(browser, data, passedData, parent)
         self.tileType = "sourceItem"
 
+        self.tile = None
+
         if passedData:
             self.data = passedData
 
@@ -1103,6 +1105,8 @@ class SourceFileItem(BaseTileItem):
     #   Attach a FileTile and Process Callbacks
     @err_catcher(name=__name__)
     def registerTile(self, tile: "SourceFileTile"):
+        self.tile = tile
+
         for field in self.updateCallbacks:
             if self.data.get(f"source_mainFile_{field}") is not None:
                 tile.updateField(field)
@@ -1490,6 +1494,7 @@ class SourceFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
+        hasProxy = self.data["hasProxy"]
 
         #   Dummy Separator
         def _separator():
@@ -1534,10 +1539,10 @@ class SourceFileTile(BaseTileItem):
             mDataAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath()))
             rcmenu.addAction(mDataAct)
 
-            if self.getSource_proxyfilePath():
-                mDataAct = QAction("Show MetaData (Proxy)", self.browser)
-                mDataAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_proxyfilePath()))
-                rcmenu.addAction(mDataAct)         
+            mDataAct = QAction("Show MetaData (Proxy)", self.browser)
+            mDataAct.setEnabled(hasProxy)
+            mDataAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_proxyfilePath()))
+            rcmenu.addAction(mDataAct)
 
             # sidecarAct = QAction("Create Sidecar", self.browser)
             # sidecarAct.triggered.connect(lambda: self.createSidecar(self.getSource_mainfilePath()))
@@ -1588,11 +1593,18 @@ class DestFileItem(BaseTileItem):
         super(DestFileItem, self).__init__(browser, data, passedData, parent)
         self.tileType = "destItem"
 
+        self.tile = None
+
         self.data = passedData if passedData else data
 
         self.fileType = self.data["fileType"]
 
         logger.debug("Loaded Destination FileTile")
+
+
+    @err_catcher(name=__name__)
+    def registerTile(self, tile: "SourceFileTile"):
+        self.tile = tile
 
 
 
@@ -1618,6 +1630,13 @@ class DestFileTile(BaseTileItem):
 
         self.setupUi()
         self.refreshUi()
+
+        #   Register Tile (UI) to Item Callbacks
+        if self.isSequence:
+            seq_item = self.data["sequenceItems"][0]
+            seq_item["tile"].registerTile(self)
+        else:
+            self.item.registerTile(self)
 
         logger.debug("Loaded Destination FileTile")
 
@@ -2093,6 +2112,8 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
+        destExists =  os.path.exists(self.getDestMainPath())
+
 
         #   Dummy Separator
         def _separator():
@@ -2141,17 +2162,17 @@ class DestFileTile(BaseTileItem):
             expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getSource_mainfilePath()))
             rcmenu.addAction(expAct)
 
-            #   If Transferred Files Exists
-            if os.path.exists(self.getDestMainPath()):
-                rcmenu.addAction(_separator())
+            rcmenu.addAction(_separator())
 
-                mDataAct = QAction("Show MetaData (Transferred File)", self.browser)
-                mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getDestMainPath()))
-                rcmenu.addAction(mDataAct)
+            mDataAct = QAction("Show MetaData (Transferred File)", self.browser)
+            mDataAct.setEnabled(destExists)
+            mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getDestMainPath()))
+            rcmenu.addAction(mDataAct)
 
-                expAct = QAction("Open in Explorer (Transferred File)", self)
-                expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getDestMainPath()))
-                rcmenu.addAction(expAct)
+            expAct = QAction("Open in Explorer (Transferred File)", self)
+            expAct.setEnabled(destExists)
+            expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getDestMainPath()))
+            rcmenu.addAction(expAct)
 
         rcmenu.exec_(QCursor.pos())
 
