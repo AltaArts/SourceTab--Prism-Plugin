@@ -1106,6 +1106,7 @@ class SourceFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def registerTile(self, tile: "SourceFileTile"):
         self.tile = tile
+        self.data["sourceTile"] = tile
 
         for field in self.updateCallbacks:
             if self.data.get(f"source_mainFile_{field}") is not None:
@@ -1605,6 +1606,8 @@ class DestFileItem(BaseTileItem):
     @err_catcher(name=__name__)
     def registerTile(self, tile: "SourceFileTile"):
         self.tile = tile
+        self.data["destTile"] = tile
+        self.data["sourceTile"].data["destTile"] = tile
 
 
 

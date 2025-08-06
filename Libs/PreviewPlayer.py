@@ -1084,12 +1084,12 @@ class PreviewPlayer(QWidget):
 
         #   Set Tile Checked
         chkAct = QAction("Set File Checked", self)
-        chkAct.triggered.connect(lambda: self.tile.setChecked(True))
+        chkAct.triggered.connect(lambda: self.setTileChecked(True))
         rcmenu.addAction(chkAct)
 
         #   Set Tile UnChecked
         unChkAct = QAction("Set File UnChecked", self)
-        unChkAct.triggered.connect(lambda: self.tile.setChecked(False))
+        unChkAct.triggered.connect(lambda: self.setTileChecked(False))
         rcmenu.addAction(unChkAct)
 
         rcmenu.addAction(_separator())
@@ -1141,26 +1141,44 @@ class PreviewPlayer(QWidget):
 
 
     @err_catcher(name=__name__)
+    def tileExists(self, obj):
+        try:
+            if obj is None:
+                return False
+            
+            obj.objectName()
+            return True
+        
+        except RuntimeError:
+            return False
+
+
+    @err_catcher(name=__name__)
+    def setTileChecked(self, checked):
+        sourceTile = self.tile.data.get("sourceTile", None)
+        destTile = self.tile.data.get("destTile", None)
+
+        if self.tileExists(sourceTile):
+            sourceTile.setChecked(checked)
+
+        if self.tileExists(destTile):
+            destTile.setChecked(checked)
+
+
+    @err_catcher(name=__name__)
     def addToTransferList(self):
-        tileType = self.tile.tileType
+        sourceTile = self.tile.data.get("sourceTile", None)
 
-        if tileType == "sourceTile":
-            self.tile.addToDestList()
-
-        elif tileType == "destTile":
-            pass
+        if self.tileExists(sourceTile):
+            sourceTile.addToDestList()
 
 
     @err_catcher(name=__name__)
     def removeFromTransferList(self):
-        tileType = self.tile.tileType
+        destTile = self.tile.data.get("destTile", None)
 
-        if tileType == "sourceTile":
-            pass
-
-        elif tileType == "destTile":
-            self.tile.removeFromDestList()
-
+        if self.tileExists(destTile):
+            destTile.removeFromDestList()
 
 
     @err_catcher(name=__name__)
