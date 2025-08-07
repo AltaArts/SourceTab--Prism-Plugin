@@ -1110,6 +1110,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             for item in lockItems:
                 item.setEnabled(enabled)
 
+            for fileTile in self.getAllDestTiles():
+                fileTile.tileLocked = not enabled
+
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Configure Transfer UI:\n{e}")
 
@@ -2520,14 +2523,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.status("Transfer Started")
 
             #   Start Transfer for Every Item
-            for item in self.copyList:
-                item.start_transfer(self, options, self.proxyEnabled, self.proxyMode)
+            for fileItem in self.copyList:
+                fileItem.start_transfer(self, options, self.proxyEnabled, self.proxyMode)
 
 
     @err_catcher(name=__name__)
     def pauseTransfer(self):
-        for item in self.copyList:
-            item.pause_transfer(self)
+        for fileItem in self.copyList:
+            fileItem.pause_transfer(self)
 
         self.progressTimer.stop()
         self.totalTransferTimer.pause()
@@ -2542,8 +2545,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Initialize Time Remaining Calc
         self.speedSamples = deque(maxlen=10)
 
-        for item in self.copyList:
-            item.resume_transfer(self)
+        for fileItem in self.copyList:
+            fileItem.resume_transfer(self)
 
         self.progressTimer.start()
         self.totalTransferTimer.start()
@@ -2555,8 +2558,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def cancelTransfer(self):
-        for item in self.copyList:
-            item.cancel_transfer(self)
+        for fileItem in self.copyList:
+            fileItem.cancel_transfer(self)
 
         self.progressTimer.stop()
         self.totalTransferTimer.stop()

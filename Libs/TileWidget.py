@@ -150,6 +150,7 @@ class BaseTileItem(QWidget):
         self.browser = browser
 
         self.state = "deselected"
+        self.tileLocked = False
 
         self.setMouseTracking(True)
 
@@ -302,6 +303,10 @@ class BaseTileItem(QWidget):
     #   Sets the Checkbox and sets the State
     @err_catcher(name=__name__)
     def setChecked(self, checked, refresh=True):
+        if self.tileLocked:
+            logger.debug("Tile is Locked: Checked is disabled.")
+            return
+        
         if len(self.browser.selectedTiles) > 1:
             for tile in list(self.browser.selectedTiles):
                 tile.chb_selected.setChecked(checked)
@@ -316,6 +321,10 @@ class BaseTileItem(QWidget):
     #   Toggles the Checkbox
     @err_catcher(name=__name__)
     def toggleChecked(self):
+        if self.tileLocked:
+            logger.debug("Tile is Locked: Checked is disabled.")
+            return
+        
         currentState = self.isChecked()
         self.setChecked(not currentState)
 
@@ -1776,6 +1785,9 @@ class DestFileTile(BaseTileItem):
 
     @err_catcher(name=__name__)
     def refreshUi(self):
+        if self.tileLocked:
+            logger.debug("Tile is Locked: Aborting refreshUI.")
+            return
         try:
             self.setModifiedName()
 
@@ -2114,6 +2126,10 @@ class DestFileTile(BaseTileItem):
 
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
+        if self.tileLocked:
+            logger.debug("Tile is Locked: Aborting Right-click Menu.")
+            return
+        
         rcmenu = QMenu(self.browser)
         destExists =  os.path.exists(self.getDestMainPath())
 
@@ -2182,6 +2198,9 @@ class DestFileTile(BaseTileItem):
 
     @err_catcher(name=__name__)
     def removeFromDestList(self):
+        if self.tileLocked:
+            logger.debug("Tile is Locked: Aborting removeFromDestList.")
+            return
         try:
             if len(self.browser.selectedTiles) > 1:
                 for tile in list(self.browser.selectedTiles):
