@@ -52,6 +52,7 @@
 import os
 import sys
 import logging
+import re
 
 
 from qtpy.QtCore import *
@@ -177,8 +178,9 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def updateUI(self):
+
+        #   Configure Proxy UI
         try:
-            #   Configure Proxy UI
             proxyEnabled = self.sourceBrowser.proxyEnabled
 
             #   If Proxy Enabled, Add Mode and Settings to UI
@@ -201,7 +203,7 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
             #   Add Disabled to UI
             else:
-                proxyDisplayStr = proxyTipStr = "DISABLED"
+                proxyDisplayStr = "DISABLED"
 
             self.l_proxyMode.setText(proxyDisplayStr)
             self.l_proxyMode.setEnabled(proxyEnabled)
@@ -209,8 +211,8 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Update Functions Panel Proxy UI:\n{e}")
 
+        #   Configure File Name Mods UI
         try:
-            #   Configure File Name Mods UI
             fileNamingEnabled = self.chb_ovr_fileNaming.isChecked()
 
             #   If Enabled, Add to UI
@@ -244,12 +246,21 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Update Functions Panel Naming UI:\n{e}")
 
+        #   Configure Metadata UI
         try:
             metadataEnabled = self.sourceBrowser.metadataEnabled = self.chb_ovr_metadata.isChecked()
 
             if metadataEnabled:
-                nameTipStr = self.sourceBrowser.metaPresets.currentPreset
+                #   Collect all Enabled Sidecar Extensions (or None)
+                enabled_sidecars = [
+                    re.search(r"\((.*?)\)", sc).group(1)
+                    for sc, state in self.sourceBrowser.sidecarStates.items()
+                    if state and re.search(r"\((.*?)\)", sc)
+                ]
+                sc_str = ", ".join(enabled_sidecars) if enabled_sidecars else "None"
 
+                presetName = self.sourceBrowser.metaPresets.currentPreset
+                nameTipStr = f"{sc_str}    ({presetName})"
             else:
                 nameTipStr = "DISABLED"
 

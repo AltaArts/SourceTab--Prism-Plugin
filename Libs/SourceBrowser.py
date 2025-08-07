@@ -2330,13 +2330,28 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             availSpace = Utils.getDriveSpace(os.path.normpath(self.destDir))
             availspace_str = Utils.getFileSizeStr(availSpace)
 
+            if self.proxyEnabled:
+                presetName = self.proxySettings.get("proxyPreset", "")
+                scale = self.proxySettings.get("proxyScale", "")
+                match self.proxyMode:
+                    case "copy":
+                        proxy_str = "Transfer Proxys"
+                    case "generate":
+                        proxy_str = f"Generate Proxys ({presetName} {scale})"
+                    case "missing":
+                        proxy_str = f"Generate Missing Proxys ({presetName} {scale})"
+                    case _:
+                        proxy_str = "None"
+            else:
+                proxy_str = "Disabled"
+
             header = {
                 "Destination Path": self.destDir,
                 "Available Drive Space": availspace_str,
                 "Number of Files": len(self.copyList),
                 "Total Transfer Size": Utils.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
-                "Proxy Mode": "Disabled" if not self.proxyEnabled else self.proxyMode,
+                "Proxy Mode": proxy_str,
                 "File Name Mods": "Disabled" if not self.sourceFuncts.chb_ovr_fileNaming.isChecked() else "Enabled",
                 "Metadata Sidecar Mode": self.sourceFuncts.l_enabledMetaData.text(),
                 "": ""
@@ -2688,7 +2703,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             else:
                 buttons = ["Open in Explorer", "Close"]
 
-            result = self.core.popupQuestion(text, title=title, buttons=buttons, doExec=True)
+            result = self.core.popupQuestion(text, title=title, buttons=buttons, parent=self, doExec=True)
 
             if result == "Open in Explorer":
                 Utils.openInExplorer(self.core, os.path.normpath(self.destDir))
@@ -2714,6 +2729,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             timestamp_text  = timestamp.strftime("%Y-%m-%d %H:%M:%S")
             projectName     = self.core.projectName
             user            = self.core.username
+            sidecar_str     = self.sourceFuncts.l_enabledMetaData.text()
             transferSize    = Utils.getFileSizeStr(self.total_transferSize)
             transferTime    = Utils.getFormattedTimeStr(self.timeElapsed)
 
@@ -2733,9 +2749,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             #   Margin and Spacing
             left_margin = 50
-            col_spacing = 80
+            header_colSpacing = 120
+            files_colSpacing = 80
 
-            #   Page number helper
+            #   Page Helpers
             def draw_page_number():
                 page_num = c.getPageNumber()
                 c.setFont("Helvetica", 9)
@@ -2748,7 +2765,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             ## --- Page 1: Header info ---  ##
 
-            #   Add Prims Icon to Left of Title Line
+            #   Add Icon to Left of Title Line
             if os.path.exists(icon):
                 try:
                     c.drawImage(icon, icon_x, icon_y, width=icon_size, height=icon_size, mask='auto')
@@ -2789,17 +2806,18 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 ("Transfer Result:",    result),
                 ("Number of Files:",    str(len(reportData))),
                 ("Proxy Mode:",         proxy_str),
+                ("Metadata Sidecar:",   sidecar_str),
                 ("Transfer Size:",      transferSize),
                 ("Transfer Time:",      transferTime)
             ]
 
-            #   Add Each Data Item
+            #   Add Each Header Items
             for label, value in header_data:
                 c.drawString(left_margin, header_y, label)
-                c.drawString(left_margin + col_spacing, header_y, value)
+                c.drawString(left_margin + header_colSpacing, header_y, value)
                 header_y -= header_line_height
 
-            # leave a bit of extra space after the header block
+            #   Add Space Below Header
             header_y -= 20
 
             # --- Errors Section ---
@@ -2814,7 +2832,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     c.drawString(left_margin + 15, header_y, line)
                     header_y -= header_line_height
 
-            # add extra space after section
+            #   Add Space Below Errors Section
             header_y -= 20
 
             # --- Warnings Section ---
@@ -2829,8 +2847,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     c.drawString(left_margin + 15, header_y, line)
                     header_y -= header_line_height
 
-
             next_page()
+
             ## --- Page 2 (and on): File info ---    ##
 
             #   Files Section Spacing
@@ -2904,7 +2922,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     #   Create File Block
                     for label, value in file_lines:
                         c.drawString(left_margin, y, label)
-                        c.drawString(left_margin + col_spacing, y, value)
+                        c.drawString(left_margin + files_colSpacing, y, value)
                         y -= line_height
 
                     y -= block_spacing
