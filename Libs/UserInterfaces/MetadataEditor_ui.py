@@ -8,23 +8,16 @@
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
-    QMetaObject, QObject, QPoint, QRect,
-    QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
-    QFont, QFontDatabase, QGradient, QIcon,
-    QImage, QKeySequence, QLinearGradient, QPainter,
-    QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QHeaderView,
-    QPushButton, QSizePolicy, QSpacerItem, QTableView,
-    QVBoxLayout, QWidget)
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
 
 class Ui_w_metadataEditor(object):
     def setupUi(self, w_metadataEditor):
         if not w_metadataEditor.objectName():
             w_metadataEditor.setObjectName(u"w_metadataEditor")
         w_metadataEditor.resize(1000, 900)
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(w_metadataEditor.sizePolicy().hasHeightForWidth())
@@ -47,13 +40,13 @@ class Ui_w_metadataEditor(object):
 
         self.lo_top.addWidget(self.b_showMetadataPopup)
 
-        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_3 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.lo_top.addItem(self.horizontalSpacer_3)
 
         self.b_filters = QPushButton(w_metadataEditor)
         self.b_filters.setObjectName(u"b_filters")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.b_filters.sizePolicy().hasHeightForWidth())
@@ -73,7 +66,7 @@ class Ui_w_metadataEditor(object):
 
         self.lo_top.addWidget(self.b_reset)
 
-        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.lo_top.addItem(self.horizontalSpacer_2)
 
@@ -82,7 +75,7 @@ class Ui_w_metadataEditor(object):
 
         self.lo_top.addWidget(self.cb_presets)
 
-        self.horizontalSpacer_4 = QSpacerItem(20, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer_4 = QSpacerItem(20, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
 
         self.lo_top.addItem(self.horizontalSpacer_4)
 
@@ -101,12 +94,21 @@ class Ui_w_metadataEditor(object):
 
         self.lo_bottom = QHBoxLayout()
         self.lo_bottom.setObjectName(u"lo_bottom")
+        self.b_sidecarMenu = QPushButton(w_metadataEditor)
+        self.b_sidecarMenu.setObjectName(u"b_sidecarMenu")
+
+        self.lo_bottom.addWidget(self.b_sidecarMenu)
+
+        self.horizontalSpacer_5 = QSpacerItem(40, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
+
+        self.lo_bottom.addItem(self.horizontalSpacer_5)
+
         self.b_sidecar_save = QPushButton(w_metadataEditor)
         self.b_sidecar_save.setObjectName(u"b_sidecar_save")
 
         self.lo_bottom.addWidget(self.b_sidecar_save)
 
-        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.lo_bottom.addItem(self.horizontalSpacer)
 
@@ -138,7 +140,8 @@ class Ui_w_metadataEditor(object):
         self.b_filters.setText("")
         self.b_reset.setText("")
         self.b_presets.setText(QCoreApplication.translate("w_metadataEditor", u"Edit", None))
-        self.b_sidecar_save.setText(QCoreApplication.translate("w_metadataEditor", u"Save Sidecar", None))
+        self.b_sidecarMenu.setText(QCoreApplication.translate("w_metadataEditor", u"Metadata Sidecar Types", None))
+        self.b_sidecar_save.setText(QCoreApplication.translate("w_metadataEditor", u"Generate Sidecar Now", None))
         self.b_save.setText(QCoreApplication.translate("w_metadataEditor", u"SAVE", None))
         self.b_close.setText(QCoreApplication.translate("w_metadataEditor", u"CLOSE", None))
     # retranslateUi

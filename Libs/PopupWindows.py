@@ -56,9 +56,9 @@ import re
 import textwrap
 import logging
 import json
-import copy
-import shutil
 import csv
+from datetime import datetime
+
 
 
 
@@ -2273,6 +2273,14 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         tip = "Opens Metadata Presets Editor"
         self.b_presets.setToolTip(tip)
 
+        tip = ("Select which types of Metadata Sidecar Files are Generated")
+        self.b_sidecarMenu.setToolTip(tip)
+
+        tip = ("Generate Selected Metadata Sidecar Files now.\n"
+               "These files will be saved in the selected Destination Directory\n\n"
+               "(note: this does not affect the automatic sidecar generation during a transfer)")
+        self.b_sidecar_save.setToolTip(tip)
+
         tip = ("Saves the Current Configuration and\n"
                "closes the Editor")
         self.b_save.setToolTip(tip)
@@ -2290,7 +2298,10 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         self.b_reset.clicked.connect(self.resetTable)
         self.cb_presets.currentIndexChanged.connect(lambda: self.loadPreset())
         self.b_presets.clicked.connect(self.showPresetsMenu)
-        self.b_sidecar_save.clicked.connect(self.saveSidecar)
+        
+        self.b_sidecarMenu.clicked.connect(self.sidecarTypeMenu)
+
+        self.b_sidecar_save.clicked.connect(lambda: self.saveSidecar(popup=True))
         self.b_save.clicked.connect(self._onSave)
         self.b_close.clicked.connect(self._onClose)
         
@@ -2340,6 +2351,58 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             return False
 
         rcmenu.exec_(cpos)
+
+
+
+    #   Sidecar Selction Menu
+    def sidecarTypeMenu(self):
+        cpos = QCursor.pos()
+        rcmenu = QMenu(self)
+
+        #   Helper to Wrap Action in Widget
+        def _wrapWidget( widget):
+            action = QWidgetAction(self)
+            action.setDefaultWidget(widget)
+            return action
+                
+        #   Helper for filtersRCL()
+        def _applyFilterStates(checkboxRefs, menu):
+            for label, cb in checkboxRefs.items():
+                self.sourceBrowser.sidecarStates[label] = cb.isChecked()
+
+            menu.close()
+
+
+        #   Temporary State Dictionary
+        tempStates = self.sourceBrowser.sidecarStates.copy()
+        
+
+        checkboxRefs = {}
+
+        #   Checkboxes
+        for label, checked in tempStates.items():
+            cb = QCheckBox(label)
+            cb.setChecked(checked)
+            checkboxRefs[label] = cb
+            rcmenu.addAction(_wrapWidget(cb))
+
+        #   Vert Dummy Spacer
+        spacer = QLabel(" ")
+        rcmenu.addAction(_wrapWidget(spacer))
+
+        #   Apply Button
+        b_apply = QPushButton("Apply")
+        b_apply.setFixedWidth(80)
+        b_apply.setStyleSheet("font-weight: bold;")
+        b_apply.clicked.connect(lambda: _applyFilterStates(checkboxRefs, rcmenu))
+        rcmenu.addAction(_wrapWidget(b_apply))
+
+        if rcmenu.isEmpty():
+            return False
+
+        rcmenu.exec_(cpos)
+
+
 
 
     #   Builds MetadataFieldCollection from MetaMap.json
@@ -2553,7 +2616,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     def savePresets(self):
         mData = {
             "currMetaPreset": self.sourceBrowser.metaPresets.currentPreset,
-            "metaPresetOrder": self.sourceBrowser.metaPresets.presetOrder
+            "metaPresetOrder": self.sourceBrowser.metaPresets.presetOrder,
+            "sidecarStates": self.sourceBrowser.sidecarStates
             }
 
         #   Save to Project Config
@@ -2683,25 +2747,44 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         return currentData
 
 
-    def saveSidecar(self, filePath=None):               #   TODO - Implement UI for Selecting Sidecar type
-        if filePath:
-            sidecarPath = filePath
+    #   Saves Selected Metadata Sidecar Files
+    def saveSidecar(self, basePath=None, popup=False):
+        #   Use Passed Path
+        if basePath:
+            sidecarPath_base = basePath
 
+        #   Or Save to Destination Path
         else:
-            ####   TEMP TESTING BUTTON     ####                         #   TODO
-            testFileName = self.cb_fileList.currentText()
-            fileItem = self.MetaFileItems.getByName(testFileName)
-            testPath = fileItem.filePath
-            savedir = os.path.dirname(testPath)
-            sideCarFilename = "TEST_Sidecar.csv"
-            sidecarPath = os.path.join(savedir, sideCarFilename)
+            if not os.path.exists(self.sourceBrowser.destDir):
+                self.core.popup("There is no Destination Directory Selected.\n\n"
+                                "Aborting Sidecar Generation.")
+                return
             
+            report_uuid = Utils.createUUID()
+            timestamp  = datetime.now()
+            timestamp_str  = timestamp.strftime("%Y-%m-%d_%H%M%S")
+            sideCarFilename = f"MetadataSidecar_{timestamp_str}_{report_uuid}"
+            sidecarPath_base = os.path.join(self.sourceBrowser.destDir, sideCarFilename)
+            
+
         #   Create .CSV
-        self.saveSidecarCSV(sidecarPath)
+        if self.sourceBrowser.sidecarStates["Resolve (.csv)"]:
+            self.saveSidecarCSV(sidecarPath_base)
+
+        #   Create .ALE
+        if self.sourceBrowser.sidecarStates["Avid (.ale)"]:
+            self.saveSidecarALE(sidecarPath_base)
+
+        if popup:
+            self.core.popup(f"Created Sidecar Files ({sidecarPath_base})")
+        
+
 
 
     #   Create Resolve Type .CSV
-    def saveSidecarCSV(self, sidecarPath):
+    def saveSidecarCSV(self, sidecarPath_base):
+        sidecarPath = sidecarPath_base + ".csv"
+
         #   Get All Field Names
         fieldNames = self.MetadataFieldCollection.get_allFieldNames()
 
@@ -2718,46 +2801,111 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 if not fileItem.fileTile.isChecked():
                     continue
 
-                row = []
-                metadata = fileItem.metadata
+                try:
+                    row = []
+                    metadata = fileItem.metadata
 
-                for fieldName in fieldNames:
-                    field = self.MetadataFieldCollection.get_fieldByName(fieldName)
+                    for fieldName in fieldNames:
+                        field = self.MetadataFieldCollection.get_fieldByName(fieldName)
 
-                    #   Skip if the Field Doesn't Exist
-                    if not field:
-                        row.append("")
-                        continue
+                        #   Skip if the Field Doesn't Exist
+                        if not field:
+                            row.append("")
+                            continue
 
-                    #   Add File Name Fixed Cells
-                    if field.name == "File Name":
-                        row.append(fileItem.fileName_mod)
-                        continue
-                    if field.name == "Original File Name":
-                        row.append(fileItem.fileName)
-                        continue
+                        #   Add File Name Fixed Cells
+                        if field.name == "File Name":
+                            row.append(fileItem.fileName_mod)
+                            continue
+                        if field.name == "Original File Name":
+                            row.append(fileItem.fileName)
+                            continue
 
-                    #   Get Currently Selected Source
-                    sourceField = field.sourceField
+                        #   Get Currently Selected Source
+                        sourceField = field.sourceField
 
-                    #   Handle Each Type of Source
-                    if not sourceField or sourceField == "- NONE -":
-                        row.append("")
+                        #   Handle Each Type of Source
+                        if not sourceField or sourceField == "- NONE -":
+                            row.append("")
 
-                    elif sourceField == "- GLOBAL -":
-                        row.append(field.currentValue)
+                        elif sourceField == "- GLOBAL -":
+                            row.append(field.currentValue)
 
-                    elif sourceField == "- UNIQUE -":
-                        value = self.MetaFileItems.get_uniqueValue(fileItem, field.name)
-                        row.append(value)
+                        elif sourceField == "- UNIQUE -":
+                            value = self.MetaFileItems.get_uniqueValue(fileItem, field.name)
+                            row.append(value)
 
-                    #   Normal Metadata Field
-                    else:
-                        row.append(metadata.get_valueFromSourcefield(sourceField))
+                        #   Normal Metadata Field
+                        else:
+                            row.append(metadata.get_valueFromSourcefield(sourceField))
 
-                writer.writerow(row)
+                    writer.writerow(row)
 
-        logger.status(f"Saved sidecar to: {sidecarPath}")
+                except Exception as e:
+                    logger.warning(f"Failed to Generate Metadata File Row in the .CSV file: {e}")
+
+        logger.status(f"Saved .CSV sidecar to: {sidecarPath}")
+
+
+    def saveSidecarALE(self, sidecarPath_base):
+        sidecarPath = sidecarPath_base + ".ale"
+
+        fieldNames = self.MetadataFieldCollection.get_allFieldNames()
+        
+        with open(sidecarPath, "w", newline="", encoding="utf-8") as file:
+            # --- Heading Section ---
+            file.write("Heading\n")
+            file.write("FIELD_DELIM\tTABS\n")                               #   TODO - MAKE THESE HEADER GET DATA
+            file.write("VIDEO_FORMAT\tCUSTOM\n")
+            file.write("AUDIO_FORMAT\t48kHz\n")
+            file.write("FPS\t24\n\n")
+
+            # --- Column Section ---
+            file.write("Column\n")
+            file.write("\t".join(fieldNames) + "\n\n")
+
+            # --- Data Section ---
+            file.write("Data\n")
+
+            for fileItem in self.MetaFileItems.allItems(active=True):
+                if not fileItem.fileTile.isChecked():
+                    continue
+
+                try:
+                    row = []
+                    metadata = fileItem.metadata
+
+                    for fieldName in fieldNames:
+                        field = self.MetadataFieldCollection.get_fieldByName(fieldName)
+
+                        if not field:
+                            row.append("")
+                            continue
+
+                        if field.name == "File Name":
+                            row.append(fileItem.fileName_mod)
+                            continue
+                        if field.name == "Original File Name":
+                            row.append(fileItem.fileName)
+                            continue
+
+                        sourceField = field.sourceField
+                        if not sourceField or sourceField == "- NONE -":
+                            row.append("")
+                        elif sourceField == "- GLOBAL -":
+                            row.append(field.currentValue)
+                        elif sourceField == "- UNIQUE -":
+                            row.append(self.MetaFileItems.get_uniqueValue(fileItem, field.name))
+                        else:
+                            row.append(metadata.get_valueFromSourcefield(sourceField))
+
+                    file.write("\t".join(row) + "\n")
+
+                except Exception as e:
+                    logger.warning(f"Failed to Generate Metadata File Row in the .ALE file: {e}")
+
+        logger.status(f"Saved .ALE sidecar to: {sidecarPath}")
+
 
 
     #   Saves and Closes the MetaEditor

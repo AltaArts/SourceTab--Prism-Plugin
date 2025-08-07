@@ -153,9 +153,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   "Audio": True,
                                   "Other": True,
                                   }
-
-        # self._sourceRowWidgets = []
-        # self._destinationRowWidgets = []
+        
         self.sourceDir = ""
         self.destDir = ""
         self.selectedTiles = set()
@@ -977,6 +975,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 metadataSettings = sData["metadataSettings"]
                 self.metaPresets.presetOrder = metadataSettings["metaPresetOrder"]
                 self.metaPresets.currentPreset = metadataSettings["currMetaPreset"]
+                self.sidecarStates = metadataSettings["sidecarStates"]
 
             #   Overwrite Option
             self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
@@ -2337,9 +2336,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 "Number of Files": len(self.copyList),
                 "Total Transfer Size": Utils.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
-                "Proxy Mode:": "Disabled" if not self.proxyEnabled else self.proxyMode,
-                "File Name Mods:": "Disabled" if not self.sourceFuncts.chb_ovr_fileNaming.isChecked() else "Enabled",
-                "Metadata Sidecar Mode:": self.sourceFuncts.l_enabledMetaData.text(),
+                "Proxy Mode": "Disabled" if not self.proxyEnabled else self.proxyMode,
+                "File Name Mods": "Disabled" if not self.sourceFuncts.chb_ovr_fileNaming.isChecked() else "Enabled",
+                "Metadata Sidecar Mode": self.sourceFuncts.l_enabledMetaData.text(),
                 "": ""
             }
 
@@ -2921,14 +2920,18 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def handleMetadata(self, report_uuid, timestamp):
+        #   Refresh Metadata
         self.sourceFuncts.configMetadata(showUI=False)
         
+        #   Get Destination Dir
         saveDir = self.destDir
 
+        #   Format Timestamp
         timestamp_str  = timestamp.strftime("%Y-%m-%d_%H%M%S")
 
-        sidecarFilename = f"MetadataSidecar_{timestamp_str}_{report_uuid}.csv"
-        savePath = os.path.join(saveDir, sidecarFilename)   
+        #   Create Save Path without Extension
+        savePath_base = f"MetadataSidecar_{timestamp_str}_{report_uuid}"
+        savePath = os.path.join(saveDir, savePath_base)   
              
         self.metaEditor.saveSidecar(savePath)
 
