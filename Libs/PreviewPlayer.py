@@ -53,7 +53,6 @@ import subprocess
 import logging
 import traceback
 import shutil
-import tempfile
 
 
 from qtpy.QtCore import *
@@ -64,8 +63,6 @@ from qtpy.QtWidgets import *
 from PrismUtils.Decorators import err_catcher
 
 import SourceTab_Utils as Utils
-
-# from WorkerThreads import PixmapCacheWorker           #   FAILED ATTEMPT
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +86,8 @@ class PreviewPlayer(QWidget):
         self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
         self.ffprobePath = Utils.getFFprobePath()
 
+        self.externalMediaPlayers = None
+
         self.mediaFiles = []
         self.renderResX = 300
         self.renderResY = 169
@@ -107,7 +106,7 @@ class PreviewPlayer(QWidget):
         self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
         self.previewEnabled = True
         self.state = "enabled"
-        self.updateExternalMediaPlayer()
+        self.updateExternalMediaPlayers()
         self.setupUi()
         self.connectEvents()
 
@@ -246,7 +245,7 @@ class PreviewPlayer(QWidget):
         self.l_previewImage.resizeEventOrig = self.l_previewImage.resizeEvent
         self.l_previewImage.resizeEvent = self.previewResizeEvent
         self.l_previewImage.customContextMenuRequested.connect(self.rclPreview)
-        self.l_previewImage.mouseMoveEvent = lambda x: self.mouseDrag(x, self.l_previewImage)
+        # self.l_previewImage.mouseMoveEvent = lambda x: self.mouseDrag(x, self.l_previewImage)
 
         self.sl_previewImage.valueChanged.connect(self.sliderChanged)
         self.sl_previewImage.sliderPressed.connect(self.sliderClk)
@@ -1041,10 +1040,11 @@ class PreviewPlayer(QWidget):
         icon = self.core.media.getColoredIcon(iconPath)
         playMenu.setIcon(icon)
 
-        if self.mediaPlayerPath is not None:
-            pAct = QAction(self.mediaPlayerName, self)
-            pAct.triggered.connect(self.compare)
-            playMenu.addAction(pAct)
+        if self.externalMediaPlayers is not None:
+            for player in self.externalMediaPlayers:
+                pAct = QAction(player.get("name", ""), self)
+                pAct.triggered.connect(lambda x=None, name=player.get("name", ""): self.compare(name))
+                playMenu.addAction(pAct)
 
         pAct = QAction("Default", self)
         pAct.triggered.connect(
@@ -1245,7 +1245,19 @@ class PreviewPlayer(QWidget):
         if prog == "default":
             progPath = ""
         else:
-            progPath = self.mediaPlayerPath or ""
+            mediaPlayer = None
+            if prog and self.externalMediaPlayers:
+                matchingPlayers = [player for player in self.externalMediaPlayers if player.get("name") == prog]
+                if matchingPlayers:
+                    mediaPlayer = matchingPlayers[0]
+                else:
+                    self.core.popup("Can't find media player: %s" % prog)
+                    return
+
+            if not mediaPlayer:
+                mediaPlayer = self.externalMediaPlayers[0] if self.externalMediaPlayers else None
+
+            progPath = (mediaPlayer.get("path") or "") if mediaPlayer else ""
 
         comd = []
         filePath = self.mediaFiles[0]
@@ -1267,9 +1279,12 @@ class PreviewPlayer(QWidget):
 
 
     @err_catcher(name=__name__)
-    def updateExternalMediaPlayer(self):
-        player = self.core.media.getExternalMediaPlayer()
-        self.mediaPlayerPath = player.get("path", None)
-        self.mediaPlayerName = player.get("name", None)
-        self.mediaPlayerPattern = player.get("framePattern", None)
+    def updateExternalMediaPlayers(self):
+        #   For Prism 2.0.18+
+        if hasattr(self.core.media, "getExternalMediaPlayers"):
+            self.externalMediaPlayers = self.core.media.getExternalMediaPlayers()
 
+        #   For Before Prism 2.0.18
+        else:
+            player = self.core.media.getExternalMediaPlayer()
+            self.externalMediaPlayers = [player]
