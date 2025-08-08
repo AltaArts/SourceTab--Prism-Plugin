@@ -178,7 +178,6 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
     @err_catcher(name=__name__)
     def updateUI(self):
-
         #   Configure Proxy UI
         try:
             proxyEnabled = self.sourceBrowser.proxyEnabled

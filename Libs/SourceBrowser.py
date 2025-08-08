@@ -154,6 +154,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   "Other": True,
                                   }
         
+        self.sidecarStates = {}
+        
         self.sourceDir = ""
         self.destDir = ""
         self.selectedTiles = set()
