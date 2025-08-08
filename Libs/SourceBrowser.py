@@ -284,6 +284,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Source Table setup
         self.lw_source.setObjectName("sourceTable")
 
+
+        self.lw_source.setDragEnabled(True)
+        self.lw_source.setDefaultDropAction(Qt.CopyAction)
+
         self.lw_source.setAcceptDrops(True)
         self.lw_source.dragEnterEvent = partial(self.onDragEnterEvent)
         self.lw_source.dragMoveEvent = partial(self.onDragMoveEvent, self.lw_source, "sourceTable")
@@ -302,6 +306,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   Destination Table setup
         self.lw_destination.setObjectName("destTable")
+
+        self.lw_destination.setDragEnabled(True)
+        self.lw_destination.setDragDropMode(QAbstractItemView.DropOnly)
 
         self.lw_destination.setAcceptDrops(True)
         self.lw_destination.dragEnterEvent = partial(self.onDragEnterEvent)
@@ -725,8 +732,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Checks if Dragged Object has a Path
     @err_catcher(name=__name__)
     def onDragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
+        if e.mimeData().hasUrls() or e.mimeData().hasFormat("application/x-fileTile"):
+            e.acceptProposedAction()
         else:
             e.ignore()
 
@@ -734,8 +741,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Adds Dashed Outline to Table During Drag
     @err_catcher(name=__name__)
     def onDragMoveEvent(self, widget, objName, e):
-        if e.mimeData().hasUrls():
-            e.accept()
+        if e.mimeData().hasUrls() or e.mimeData().hasFormat("application/x-fileTile"):
+            e.acceptProposedAction()
             widget.setStyleSheet(
                 f"QListWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
             )
@@ -779,24 +786,30 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             else:
                 self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
 
-        # elif e.mimeData().hasFormat("application/x-sourcefileitem"):
-        #     ##  This is your custom item!
-        #     e.acceptProposedAction()
 
-        #     dataBytes = e.mimeData().data("application/x-sourcefileitem")
-        #     dataString = bytes(dataBytes).decode('utf-8')
+        elif e.mimeData().hasFormat("application/x-fileTile"):
+            e.acceptProposedAction()
 
-        #     fileItem = self.createDestFileTile(dataString)
+            dataBytes = e.mimeData().data("application/x-fileTile")
+            dataString = bytes(dataBytes).decode('utf-8')
 
-        #     # Insert into QListWidget
-        #     listItem = QListWidgetItem()
-        #     listItem.setSizeHint(fileItem.sizeHint())  # Optional, if sizing matters
+            Utils.debug_recursive_print(dataString)                                              #    TESTING
 
-        #     self.lw_destination.addItem(listItem)
-        #     self.lw_destination.setItemWidget(listItem, fileItem)
+
+            # Create your destination FileTile widget from the serialized data
+            # fileItem = self.createDestFileTile(dataString)
+
+            # Create QListWidgetItem container
+            # listItem = QListWidgetItem()
+            # listItem.setSizeHint(fileItem.sizeHint())  # Optional for layout
+
+            # Add to your destination QListWidget
+            # widget.addItem(listItem)
+            # widget.setItemWidget(listItem, fileItem)
 
         else:
             e.ignore()
+
 
 
     @err_catcher(name=__name__)
@@ -804,13 +817,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if event.buttons() != Qt.LeftButton:
             return
 
+        global_pos = self.mapToGlobal(event.pos())
+        child = QApplication.widgetAt(global_pos)
+
+        allowed_widgets = [self.lw_source, self.lw_destination]
+
+        if child not in allowed_widgets:
+            return
+        
         drag = QDrag(self)
         mimeData = QMimeData()
 
         #   Serialize the Item Data
         dataString = self.serializeData()
 
-        mimeData.setData("application/x-sourcefileitem", dataString.encode('utf-8'))
+        mimeData.setData("application/x-fileTile", dataString.encode('utf-8'))
         drag.setMimeData(mimeData)
 
         drag.exec_(Qt.CopyAction)

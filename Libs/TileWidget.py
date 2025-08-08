@@ -48,12 +48,11 @@
 ####################################################
 
 
-from genericpath import exists
 import os
-import shutil
 import sys
 import logging
 import re
+import json
 from pathlib import Path
 
 
@@ -165,37 +164,120 @@ class BaseTileItem(QWidget):
     #   Launches the Single-click File Action
     @err_catcher(name=__name__)
     def mousePressEvent(self, event):
-        modifiers = QApplication.keyboardModifiers()
-
         if event.button() == Qt.LeftButton:
-            self.setSelected()  # Already handles Ctrl/Shift logic
+            self.dragStartPosition = event.pos()
+            self._pressModifiers = QApplication.keyboardModifiers()
+            self._wasSelectedOnPress = self.isSelected()
             return
 
         elif event.button() == Qt.RightButton:
-            #   If this item is already selected, keep the current selection
             if self in self.browser.selectedTiles:
-                # Just update lastClickedTile for consistency
                 self.browser.lastClickedTile = self
-                return
-
-            #   Otherwise, no modifiers -> reset selection to just this tile
-            for tile in list(self.browser.selectedTiles):
-                tile.deselect()
-            self.browser.selectedTiles.clear()
-
-            self.state = "selected"
-            self.applyStyle(self.state)
-            self.browser.selectedTiles.add(self)
-            self.browser.lastClickedTile = self
+            else:
+                for tile in list(self.browser.selectedTiles):
+                    tile.deselect()
+                self.browser.selectedTiles.clear()
+                self.state = "selected"
+                self.applyStyle(self.state)
+                self.browser.selectedTiles.add(self)
+                self.browser.lastClickedTile = self
             return
 
         super().mousePressEvent(event)
 
 
     @err_catcher(name=__name__)
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            dragDistance = (event.pos() - self.dragStartPosition).manhattanLength()
+            if dragDistance < QApplication.startDragDistance():
+                self.setSelected(modifiers=self._pressModifiers)
+        super().mouseReleaseEvent(event)
 
+
+
+    @err_catcher(name=__name__)
+    def mouseMoveEvent(self, event):
+        if not (event.buttons() & Qt.LeftButton):
+            return
+        
+        if self.tileType not in ["sourceTile", "destTile"]:
+            return
+        
+        # Only allow drag if at least one selected item exists
+        selectedTiles = self.browser.selectedTiles
+
+        for tile in selectedTiles:                              #   TESTING
+            print(tile.data["displayName"])
+
+        if not selectedTiles:
+            return
+        
+        dragDistance = (event.pos() - self.dragStartPosition).manhattanLength()
+        if dragDistance < QApplication.startDragDistance():
+            return
+
+        drag = QDrag(self)
+        drag.setHotSpot(QPoint(10, 10))
+
+        if len(selectedTiles) == 1:
+            drag.setPixmap(self.grab())
+
+        else:
+            # Optional: set a drag icon
+            dragIcon = self.createStackedDragPixmap(selectedTiles)
+            drag.setPixmap(dragIcon)
+
+        mimeData = QMimeData()
+
+        serialized_items = [tile.serializeData() for tile in selectedTiles]
+        dataString = json.dumps(serialized_items)
+
+        # Custom data payload — you must have a serializeData method
+        mimeData.setData("application/x-fileTile", dataString.encode('utf-8'))
+
+        drag.setMimeData(mimeData)
+
+
+        drag.exec_(Qt.CopyAction)
+
+    
+    
+    def createStackedDragPixmap(self, widgets):
+        # Settings for overlap
+        x_offset = 10  # Pixels to offset each tile horizontally
+        y_offset = 40  # Pixels to offset each tile vertically
+
+        # Calculate final pixmap size
+        tile_pixmaps = [w.grab() for w in widgets]
+        if not tile_pixmaps:
+            return QPixmap()
+
+        tile_width = max(p.width() for p in tile_pixmaps)
+        tile_height = max(p.height() for p in tile_pixmaps)
+        
+        total_width = tile_width + x_offset * (len(tile_pixmaps) - 1)
+        total_height = tile_height + y_offset * (len(tile_pixmaps) - 1)
+
+        result = QPixmap(total_width, total_height)
+        result.fill(Qt.transparent)
+        
+        painter = QPainter(result)
+        for i, pixmap in enumerate(tile_pixmaps):
+            x = i * x_offset
+            y = i * y_offset
+            painter.fillRect(x, y, pixmap.width(), pixmap.height(), QColor(30, 30, 30, 200))
+
+            painter.drawPixmap(x, y, pixmap)
+        painter.end()
+
+        return result
+
+
+    @err_catcher(name=__name__)
+    def serializeData(self):
+        return self.data["uuid"]
+    
 
     #   Launches the Double-click File Action
     @err_catcher(name=__name__)
@@ -230,10 +312,11 @@ class BaseTileItem(QWidget):
 
     #   Sets the State Selected based on the Checkbox
     @err_catcher(name=__name__)
-    def setSelected(self, checked=None):
+    def setSelected(self, checked=None, modifiers=None):
         try:
-            modifiers = QApplication.keyboardModifiers()
-
+            if modifiers is None:
+                modifiers = QApplication.keyboardModifiers()
+                
             #   SHIFT: Select range from lastClickedTile to this one
             if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
                 self._selectRange()
@@ -973,11 +1056,7 @@ class FolderItem(BaseTileItem):
         self.setupUi()
         self.refreshUi()
 
-
-    def mouseReleaseEvent(self, event):
-        super(FolderItem, self).mouseReleaseEvent(event)
-        self.signalReleased.emit(self)
-        event.accept()
+        logger.debug("Loaded Source FolderTile")
 
 
     @err_catcher(name=__name__)
@@ -1076,7 +1155,7 @@ class SourceFileItem(BaseTileItem):
             "proxy": []
         }
 
-        logger.debug("Loaded Source FileTile")                          #   TODO - LOGGIN FOR SEPARATE CLASSES
+        logger.debug("Loaded SourceFileItem")
 
 
     @err_catcher(name=__name__)
@@ -1312,11 +1391,7 @@ class SourceFileTile(BaseTileItem):
         else:
             self.item.registerTile(self)
 
-
-    def mouseReleaseEvent(self, event):
-        super(SourceFileTile, self).mouseReleaseEvent(event)
-        self.signalReleased.emit(self)
-        event.accept()
+        logger.debug("Loaded SourceFileTile")
 
 
     @err_catcher(name=__name__)
@@ -1609,7 +1684,7 @@ class DestFileItem(BaseTileItem):
 
         self.fileType = self.data["fileType"]
 
-        logger.debug("Loaded Destination FileTile")
+        logger.debug("Loaded DestFileItem")
 
 
     @err_catcher(name=__name__)
@@ -1650,13 +1725,7 @@ class DestFileTile(BaseTileItem):
         else:
             self.item.registerTile(self)
 
-        logger.debug("Loaded Destination FileTile")
-
-
-    def mouseReleaseEvent(self, event):
-        super(DestFileTile, self).mouseReleaseEvent(event)
-        self.signalReleased.emit(self)
-        event.accept()
+        logger.debug("Loaded DestFileTile")
 
 
     @err_catcher(name=__name__)

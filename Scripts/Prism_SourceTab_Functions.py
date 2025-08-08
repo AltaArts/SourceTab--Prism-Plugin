@@ -105,13 +105,11 @@ class Prism_SourceTab_Functions(object):
 
             logger.debug("Registered callbacks")
 
-            #   Add .mxf format to Supported Formats
-            self.core.media.supportedFormats.append(".mxf")
-            self.core.media.videoFormats.append(".mxf")
-            logger.status("Added '.mxf' format to Prism Supported Formats")
-
         except Exception as e:
             logger.warning(f"ERROR: Registering callbacks failed:\n {e}")
+
+        #   Add .MXF File Type for Prior to Prism 2.0.18
+        self.checkMXF()
 
 
 
@@ -119,6 +117,16 @@ class Prism_SourceTab_Functions(object):
     @err_catcher(name=__name__)
     def isActive(self):
         return True
+
+
+    #   Checks and Adds .MXF for verions Prior to Prism 2.0.18
+    @err_catcher(name=__name__)
+    def checkMXF(self):
+        if ".mxf" not in self.core.media.supportedFormats:
+            #   Add .mxf format to Supported Formats
+            self.core.media.supportedFormats.append(".mxf")
+            self.core.media.videoFormats.append(".mxf")
+            logger.status("Added '.mxf' format to Prism Supported Formats")
 
 
     #   Called from Callback when ProjectBrowser is Created
