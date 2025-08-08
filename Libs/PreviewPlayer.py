@@ -1019,7 +1019,7 @@ class PreviewPlayer(QWidget):
         if len(self.mediaFiles) < 1:
             return
         
-        hasProxy = self.tile.data["hasProxy"]
+        hasProxy = self.tile.data.get("hasProxy", False)
         rcmenu = QMenu(self)
 
         #   Dummy Separator
