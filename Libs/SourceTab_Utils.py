@@ -681,6 +681,43 @@ def getThumbImageFromExrPath(core,
     return QPixmap.fromImage(thumbImage) if needPixMap else thumbImage
 
 
+
+def createStackedDragPixmap(widgets: list) -> QPixmap:
+    '''Creates Cascaded FileTile Image'''
+    
+    #   Cascade Offset Distance
+    x_offset = 10
+    y_offset = 40 
+
+    #   Get Size for Cascade Image
+    tile_pixmaps = [w.grab() for w in widgets]
+    if not tile_pixmaps:
+        return QPixmap()
+
+    tile_width = max(p.width() for p in tile_pixmaps)
+    tile_height = max(p.height() for p in tile_pixmaps)
+    total_width = tile_width + x_offset * (len(tile_pixmaps) - 1)
+    total_height = tile_height + y_offset * (len(tile_pixmaps) - 1)
+
+    result = QPixmap(total_width, total_height)
+    result.fill(Qt.transparent)
+    
+    #   Create Cascade Image
+    painter = QPainter(result)
+    for i, pixmap in enumerate(tile_pixmaps):
+        x = i * x_offset
+        y = i * y_offset
+        #   Add Semi-transparent BG
+        painter.fillRect(x, y, pixmap.width(), pixmap.height(), QColor(30, 30, 30, 200))
+        #   Draw the Tile Images
+        painter.drawPixmap(x, y, pixmap)
+
+    painter.end()
+
+    return result
+
+
+
 #################################################
 #################    METADATA    ################
 

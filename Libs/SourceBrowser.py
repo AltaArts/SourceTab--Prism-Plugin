@@ -96,7 +96,7 @@ from SourceFunctions import SourceFunctions
 from PopupWindows import DisplayPopup, WaitPopup
 from ElapsedTimer import ElapsedTimer
 from PreviewPlayer import PreviewPlayer
-from SourceTab_Models import PresetModel, PresetsCollection
+from SourceTab_Models import PresetsCollection, FileTileMimeData
 import SourceTab_Utils as Utils
 
 import SourceBrowser_ui                                                 #   TODO
@@ -286,13 +286,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Source Table setup
         self.lw_source.setObjectName("sourceTable")
 
-
         self.lw_source.setDragEnabled(True)
         self.lw_source.setDefaultDropAction(Qt.CopyAction)
-
         self.lw_source.setAcceptDrops(True)
-        self.lw_source.dragEnterEvent = partial(self.onDragEnterEvent)
-        self.lw_source.dragMoveEvent = partial(self.onDragMoveEvent, self.lw_source, "sourceTable")
+        self.lw_source.dragEnterEvent = partial(self.onDragEnterEvent, "source")
+        self.lw_source.dragMoveEvent = partial(self.onDragMoveEvent, self.lw_source, "sourceTable", "source")
         self.lw_source.dragLeaveEvent = partial(self.onDragLeaveEvent, self.lw_source)
         self.lw_source.dropEvent = partial(self.onDropEvent, self.lw_source, "source")
 
@@ -311,10 +309,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.lw_destination.setDragEnabled(True)
         self.lw_destination.setDragDropMode(QAbstractItemView.DropOnly)
-
         self.lw_destination.setAcceptDrops(True)
-        self.lw_destination.dragEnterEvent = partial(self.onDragEnterEvent)
-        self.lw_destination.dragMoveEvent = partial(self.onDragMoveEvent, self.lw_destination, "destTable")
+        self.lw_destination.dragEnterEvent = partial(self.onDragEnterEvent, "dest")
+        self.lw_destination.dragMoveEvent = partial(self.onDragMoveEvent, self.lw_destination, "destTable", "dest")
         self.lw_destination.dragLeaveEvent = partial(self.onDragLeaveEvent, self.lw_destination)
         self.lw_destination.dropEvent = partial(self.onDropEvent, self.lw_destination, "dest")
 
@@ -731,25 +728,47 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 ####    MOUSE ACTIONS   ####
 
-    #   Checks if Dragged Object has a Path
+    #   Checks if Dragged Object has a Path or is FileTile
     @err_catcher(name=__name__)
-    def onDragEnterEvent(self, e):
-        if e.mimeData().hasUrls() or e.mimeData().hasFormat("application/x-fileTile"):
+    def onDragEnterEvent(self, mode, e):
+
+        # URLs are fine anywhere
+        if e.mimeData().hasUrls():
             e.acceptProposedAction()
-        else:
-            e.ignore()
+            return
+
+        #   Allow Drag Based on Type and Table Mode
+        if isinstance(e.mimeData(), FileTileMimeData):
+            tileType = e.mimeData().tileType()
+            if (tileType == "sourceTile" and mode == "dest") or \
+            (tileType == "destTile" and mode == "source"):
+                e.acceptProposedAction()
+                return
+
+        e.ignore()
 
 
     #   Adds Dashed Outline to Table During Drag
     @err_catcher(name=__name__)
-    def onDragMoveEvent(self, widget, objName, e):
-        if e.mimeData().hasUrls() or e.mimeData().hasFormat("application/x-fileTile"):
+    def onDragMoveEvent(self, widget, objName, mode, e):
+        if e.mimeData().hasUrls():
             e.acceptProposedAction()
             widget.setStyleSheet(
                 f"QListWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
             )
-        else:
-            e.ignore()
+            return
+
+        if isinstance(e.mimeData(), FileTileMimeData):
+            tileType = e.mimeData().tileType()
+            if (tileType == "sourceTile" and mode == "dest") or \
+            (tileType == "destTile" and mode == "source"):
+                e.acceptProposedAction()
+                widget.setStyleSheet(
+                    f"QListWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
+                )
+                return
+
+        e.ignore()
 
 
     #   Removed Dashed Line
@@ -758,11 +777,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         widget.setStyleSheet("")
 
 
-    #   Gets Directory from Dropped Item
+    #   Gets Directory from Dropped Item or Handles File Tile
     @err_catcher(name=__name__)
     def onDropEvent(self, widget, mode, e):
         widget.setStyleSheet("")
 
+        #   If Has URL for Directory
         if e.mimeData().hasUrls():
             logger.debug("Drop Event Detected")
 
@@ -782,66 +802,33 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 if mode == "source":
                     self.sourceDir = path
                     self.refreshSourceItems()
+
                 elif mode == "dest":
                     self.destDir = path
                     self.refreshDestItems()
             else:
                 self.core.popup(f"ERROR: Dropped path is not a directory: {path}")
 
-
-        elif e.mimeData().hasFormat("application/x-fileTile"):
+        #   If is File Tile
+        elif isinstance(e.mimeData(), FileTileMimeData):
             e.acceptProposedAction()
 
-            dataBytes = e.mimeData().data("application/x-fileTile")
-            dataString = bytes(dataBytes).decode('utf-8')
+            tiles = e.mimeData().fileTiles()
+            tileType = e.mimeData().tileType()
 
-            Utils.debug_recursive_print(dataString)                                              #    TESTING
+            if tileType == "sourceTile":
+                for tile in tiles:
+                    self.addToDestList(tile.getData())
 
+                self.refreshDestItems()
 
-            # Create your destination FileTile widget from the serialized data
-            # fileItem = self.createDestFileTile(dataString)
+            elif tileType == "destTile":
+                for tile in tiles:
+                    tile.removeFromDestList()
 
-            # Create QListWidgetItem container
-            # listItem = QListWidgetItem()
-            # listItem.setSizeHint(fileItem.sizeHint())  # Optional for layout
-
-            # Add to your destination QListWidget
-            # widget.addItem(listItem)
-            # widget.setItemWidget(listItem, fileItem)
-
+                self.refreshDestItems()
         else:
             e.ignore()
-
-
-
-    @err_catcher(name=__name__)
-    def mouseMoveEvent(self, event):
-        if event.buttons() != Qt.LeftButton:
-            return
-
-        global_pos = self.mapToGlobal(event.pos())
-        child = QApplication.widgetAt(global_pos)
-
-        allowed_widgets = [self.lw_source, self.lw_destination]
-
-        if child not in allowed_widgets:
-            return
-        
-        drag = QDrag(self)
-        mimeData = QMimeData()
-
-        #   Serialize the Item Data
-        dataString = self.serializeData()
-
-        mimeData.setData("application/x-fileTile", dataString.encode('utf-8'))
-        drag.setMimeData(mimeData)
-
-        drag.exec_(Qt.CopyAction)
-
-
-    @err_catcher(name=__name__)
-    def serializeData(self):
-        return self.path
 
 
     @err_catcher(name=__name__)
@@ -861,7 +848,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Fetch All Source Tiles:\n{e}")
 
-        
 
     @err_catcher(name=__name__)
     def getAllDestTiles(self, onlyChecked=False):

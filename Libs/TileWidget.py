@@ -90,6 +90,7 @@ from WorkerThreads import (ThumbnailWorker,
 
 import SourceTab_Utils as Utils
 from PopupWindows import MetadataEditor
+from SourceTab_Models import FileTileMimeData
 
 
 from PrismUtils.Decorators import err_catcher
@@ -204,80 +205,37 @@ class BaseTileItem(QWidget):
         if self.tileType not in ["sourceTile", "destTile"]:
             return
         
-        # Only allow drag if at least one selected item exists
         selectedTiles = self.browser.selectedTiles
-
-        for tile in selectedTiles:                              #   TESTING
-            print(tile.data["displayName"])
-
         if not selectedTiles:
             return
         
+        #   Only Execute Drag if Moved a Bit
         dragDistance = (event.pos() - self.dragStartPosition).manhattanLength()
         if dragDistance < QApplication.startDragDistance():
             return
 
+        #   Create Drag Action
         drag = QDrag(self)
         drag.setHotSpot(QPoint(10, 10))
 
+        #    If Single Tile, then just get Image of that Tile
         if len(selectedTiles) == 1:
             drag.setPixmap(self.grab())
 
+        #   If Multiple Tiles, then Get Cascading Image
         else:
-            # Optional: set a drag icon
-            dragIcon = self.createStackedDragPixmap(selectedTiles)
+            dragIcon = Utils.createStackedDragPixmap(selectedTiles)
             drag.setPixmap(dragIcon)
 
+
+        #   Create FileTile Holder and Add to Drag
         mimeData = QMimeData()
-
-        serialized_items = [tile.serializeData() for tile in selectedTiles]
-        dataString = json.dumps(serialized_items)
-
-        # Custom data payload — you must have a serializeData method
-        mimeData.setData("application/x-fileTile", dataString.encode('utf-8'))
-
+        mimeData = FileTileMimeData(selectedTiles, self.tileType)
+        mimeData.setData("application/x-fileTile", b"")
         drag.setMimeData(mimeData)
-
 
         drag.exec_(Qt.CopyAction)
 
-    
-    
-    def createStackedDragPixmap(self, widgets):
-        # Settings for overlap
-        x_offset = 10  # Pixels to offset each tile horizontally
-        y_offset = 40  # Pixels to offset each tile vertically
-
-        # Calculate final pixmap size
-        tile_pixmaps = [w.grab() for w in widgets]
-        if not tile_pixmaps:
-            return QPixmap()
-
-        tile_width = max(p.width() for p in tile_pixmaps)
-        tile_height = max(p.height() for p in tile_pixmaps)
-        
-        total_width = tile_width + x_offset * (len(tile_pixmaps) - 1)
-        total_height = tile_height + y_offset * (len(tile_pixmaps) - 1)
-
-        result = QPixmap(total_width, total_height)
-        result.fill(Qt.transparent)
-        
-        painter = QPainter(result)
-        for i, pixmap in enumerate(tile_pixmaps):
-            x = i * x_offset
-            y = i * y_offset
-            painter.fillRect(x, y, pixmap.width(), pixmap.height(), QColor(30, 30, 30, 200))
-
-            painter.drawPixmap(x, y, pixmap)
-        painter.end()
-
-        return result
-
-
-    @err_catcher(name=__name__)
-    def serializeData(self):
-        return self.data["uuid"]
-    
 
     #   Launches the Double-click File Action
     @err_catcher(name=__name__)
@@ -2863,3 +2821,4 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def addTransferWarning(self, fileName, warning):
         self.browser.transferWarnings[fileName] = warning
+

@@ -53,6 +53,7 @@ import subprocess
 import logging
 import traceback
 import shutil
+from functools import partial
 
 
 from qtpy.QtCore import *
@@ -63,6 +64,7 @@ from qtpy.QtWidgets import *
 from PrismUtils.Decorators import err_catcher
 
 import SourceTab_Utils as Utils
+from SourceTab_Models import FileTileMimeData
 
 logger = logging.getLogger(__name__)
 
@@ -137,9 +139,17 @@ class PreviewPlayer(QWidget):
         #   Viewer Image Label
         self.l_previewImage = QLabel(self)
         self.l_previewImage.setContextMenuPolicy(Qt.CustomContextMenu)
+
         self.l_previewImage.setText("")
         self.l_previewImage.setAlignment(Qt.AlignCenter)
         self.l_previewImage.setObjectName("l_previewImage")
+
+        self.l_previewImage.setAcceptDrops(True)
+        self.l_previewImage.dragEnterEvent = partial(self.onDragEnterEvent)
+        self.l_previewImage.dragMoveEvent = partial(self.onDragMoveEvent, self.l_previewImage, "l_previewImage")
+        self.l_previewImage.dragLeaveEvent = partial(self.onDragLeaveEvent, self.l_previewImage)
+        self.l_previewImage.dropEvent = partial(self.onDropEvent, self.l_previewImage)
+
         self.lo_preview_main.addWidget(self.l_previewImage)
 
         #   Proxy Icon Label
@@ -245,7 +255,6 @@ class PreviewPlayer(QWidget):
         self.l_previewImage.resizeEventOrig = self.l_previewImage.resizeEvent
         self.l_previewImage.resizeEvent = self.previewResizeEvent
         self.l_previewImage.customContextMenuRequested.connect(self.rclPreview)
-        # self.l_previewImage.mouseMoveEvent = lambda x: self.mouseDrag(x, self.l_previewImage)
 
         self.sl_previewImage.valueChanged.connect(self.sliderChanged)
         self.sl_previewImage.sliderPressed.connect(self.sliderClk)
@@ -253,6 +262,53 @@ class PreviewPlayer(QWidget):
         self.sl_previewImage.origMousePressEvent = self.sl_previewImage.mousePressEvent
         self.sl_previewImage.mousePressEvent = self.sliderDrag
         self.sp_current.valueChanged.connect(self.onCurrentChanged)
+
+
+####    MOUSE ACTIONS   ####
+
+    #   Checks if Dragged Object is a File Tile
+    @err_catcher(name=__name__)
+    def onDragEnterEvent(self, e):
+        if e.mimeData().hasFormat("application/x-fileTile"):
+            e.acceptProposedAction()
+        else:
+            e.ignore()
+
+
+    #   Adds Dashed Outline to Player During Drag
+    @err_catcher(name=__name__)
+    def onDragMoveEvent(self, widget, objName, e):
+        if e.mimeData().hasFormat("application/x-fileTile"):
+            e.acceptProposedAction()
+            widget.setStyleSheet(
+                f"QLabel#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
+            )
+        else:
+            e.ignore()
+
+
+    #   Removed Dashed Line
+    @err_catcher(name=__name__)
+    def onDragLeaveEvent(self, widget, e):
+        widget.setStyleSheet("")
+
+
+    #   Sends File Tile to Viewer
+    @err_catcher(name=__name__)
+    def onDropEvent(self, widget, e):
+        widget.setStyleSheet("")
+
+        if isinstance(e.mimeData(), FileTileMimeData):
+            e.acceptProposedAction()
+
+            #   Get First Tile if Multiple
+            tiles = e.mimeData().fileTiles()
+            tile = next(iter(tiles))
+
+            #   Show in Viewer
+            tile.sendToViewer()
+        else:
+            e.ignore()
 
 
     @err_catcher(name=__name__)

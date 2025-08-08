@@ -69,6 +69,21 @@ logger = logging.getLogger(__name__)
 
 
 
+class FileTileMimeData(QMimeData):
+    '''Holder for Drag/Drop FileTiles'''
+    def __init__(self, fileTiles: list, tileType: str):
+        super().__init__()
+        self._fileTiles = fileTiles
+        self._tileType = tileType
+
+    def fileTiles(self) -> list:
+        return self._fileTiles
+    
+    def tileType(self) -> str:
+        return self._tileType
+
+
+
 @dataclass
 class PresetModel:
     '''Holds Preset Data'''
