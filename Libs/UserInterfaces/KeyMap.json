@@ -1,0 +1,15 @@
+{
+    "keymap":{
+        "Select All Tiles": ["Ctrl+A"],
+        "Un-Select All Tiles": ["Ctrl+U"],
+        "Show in Viewer": ["Ctrl+V"],
+        "Add Selected to Destination": ["Ctrl+C"],
+        "Remove Selected Tiles": ["Ctrl+X"],
+        "Remove All Tiles": ["Ctrl+R"],
+        "Play / Pause": ["Ctrl+Space"],
+        "Seek to First Frame": ["Home"],
+        "Step Back One Frame": ["Ctrl+J"],
+        "Step Forward One Frame": ["Ctrl+L"],
+        "Seek to Last": ["End"]
+    }
+}

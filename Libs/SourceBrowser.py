@@ -52,6 +52,7 @@ import os
 import sys
 import subprocess
 import logging
+import json
 from collections import OrderedDict, deque
 from datetime import datetime
 from time import time
@@ -73,6 +74,7 @@ pyLibsPath = os.path.join(pluginPath, "PythonLibs", "Python311")
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
 iconDir = os.path.join(uiPath, "Icons")
 audioDir = os.path.join(uiPath, "Audio")
+KEYMAP = os.path.join(uiPath, "KeyMap.json")
 sys.path.append(os.path.join(rootScripts, "Libs"))
 sys.path.append(pyLibsPath)
 sys.path.append(pluginPath)
@@ -191,6 +193,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Load Settings from Prism Project Settings
         self.loadAllPresets()
         self.loadSettings()
+        self.keyMap()
 
         #   Setup Worker Threadpools and Semephore Slots
         self.setupThreadpools()
@@ -751,11 +754,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Adds Dashed Outline to Table During Drag
     @err_catcher(name=__name__)
     def onDragMoveEvent(self, widget, objName, mode, e):
+        dashed = f"QListWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
+
         if e.mimeData().hasUrls():
             e.acceptProposedAction()
-            widget.setStyleSheet(
-                f"QListWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
-            )
+            widget.setStyleSheet(dashed)
             return
 
         if isinstance(e.mimeData(), FileTileMimeData):
@@ -763,9 +766,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if (tileType == "sourceTile" and mode == "dest") or \
             (tileType == "destTile" and mode == "source"):
                 e.acceptProposedAction()
-                widget.setStyleSheet(
-                    f"QListWidget#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
-                )
+                widget.setStyleSheet(dashed)
                 return
 
         e.ignore()
@@ -829,47 +830,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 self.refreshDestItems()
         else:
             e.ignore()
-
-
-    @err_catcher(name=__name__)
-    def getAllSourceTiles(self):
-        tiles = []
-
-        try:
-            for i in range(self.lw_source.count()):
-                item = self.lw_source.item(i)
-                widget = self.lw_source.itemWidget(item)
-                if isinstance(widget, TileWidget.SourceFileTile):
-                    tiles.append(widget)
-
-            logger.debug("Fetched All Source Tiles")
-            return tiles
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Fetch All Source Tiles:\n{e}")
-
-
-    @err_catcher(name=__name__)
-    def getAllDestTiles(self, onlyChecked=False):
-        tiles = []
-
-        try:
-            for i in range(self.lw_destination.count()):
-                item = self.lw_destination.item(i)
-                widget = self.lw_destination.itemWidget(item)
-                if isinstance(widget, TileWidget.DestFileTile):
-                    if onlyChecked:
-                        if widget.isChecked():
-                            tiles.append(widget)
-                    else:
-                        tiles.append(widget)
-
-            logger.debug("Fetched All Destination Tiles")
-            return tiles
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Fetch All Destination Tiles:\n{e}")
-
 
 
     #   Configures UI from Saved Settings
@@ -995,6 +955,101 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load SourceTab Settings:\n{e}")
+
+
+    #   Initializes Keyboard Shortcuts
+    @err_catcher(name=__name__)
+    def keyMap(self):
+        #   Open KeyMap File
+        with open(KEYMAP, "r") as f:
+            mapping = json.load(f).get("keymap", {})
+
+        #    Get KeyMap if it Exists Already
+        self._shortcuts = getattr(self, "_shortcuts", {})
+
+        #   Clear Old Mapping
+        for sc in self._shortcuts.values():
+            sc.deleteLater()
+        self._shortcuts.clear()
+
+        #   Add Mapping and Shortcut Connections
+        for action_name, keys in mapping.items():
+            for key_str in keys:
+                qseq = QKeySequence(key_str)
+                if qseq.isEmpty():
+                    print(f"[Warning] Invalid shortcut '{key_str}' for '{action_name}'")
+                    continue
+
+                shortcut = QShortcut(qseq, self)
+                shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+                shortcut.activated.connect(lambda name=action_name: self.onShortcutKey(name))
+                self._shortcuts[f"{action_name}:{key_str}"] = shortcut
+
+
+    #   Launch Action Based on Shortcut
+    @err_catcher(name=__name__)
+    def onShortcutKey(self, action):
+        #   Find Which List is being Focused
+        focused_widget = QApplication.focusWidget()
+        parent = focused_widget
+        mode = None
+        tile = None
+
+        while parent is not None:
+            #   Capture Tile if Focused
+            if tile is None and isinstance(parent, TileWidget.BaseTileItem):
+                tile = parent
+
+            #   Capture List that is Focused
+            if parent is self.lw_source:
+                mode = "source"
+                break
+            elif parent is self.lw_destination:
+                mode = "dest"
+                break
+
+            parent = parent.parentWidget()
+
+        if mode is None:
+            return
+
+        #   Call Method Based on Shoftcut
+        match action:
+            case "Select All Tiles":
+                self.selectAll(checked=True, mode=mode)
+
+            case "Un-Select All Tiles":
+                self.selectAll(checked=False, mode=mode)
+
+            case "Show in Viewer":
+                if tile:
+                    tile.sendToViewer()
+
+            case "Add Selected to Destination":
+                self.addSelected()
+                
+            case "Remove Selected Tiles":
+                self.clearTransferList(checked=True)
+
+            case "Remove All Tiles":
+                self.clearTransferList()
+
+            case "Play / Pause":
+                self.PreviewPlayer.onPlayClicked()
+
+            case "Seek to First Frame":
+                self.PreviewPlayer.onFirstClicked()
+
+            case "Step Back One Frame":
+                self.PreviewPlayer.onPrevClicked()
+
+            case "Step Forward One Frame":
+                self.PreviewPlayer.onNextClicked()
+
+            case "Seek to Last":
+                self.PreviewPlayer.onLastClicked()
+
+
 
 
     #   Initializes Worker Threadpools and Semaphore Slots
@@ -1237,6 +1292,46 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
+    def getAllSourceTiles(self):
+        tiles = []
+
+        try:
+            for i in range(self.lw_source.count()):
+                item = self.lw_source.item(i)
+                widget = self.lw_source.itemWidget(item)
+                if isinstance(widget, TileWidget.SourceFileTile):
+                    tiles.append(widget)
+
+            logger.debug("Fetched All Source Tiles")
+            return tiles
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Fetch All Source Tiles:\n{e}")
+
+
+    @err_catcher(name=__name__)
+    def getAllDestTiles(self, onlyChecked=False):
+        tiles = []
+
+        try:
+            for i in range(self.lw_destination.count()):
+                item = self.lw_destination.item(i)
+                widget = self.lw_destination.itemWidget(item)
+                if isinstance(widget, TileWidget.DestFileTile):
+                    if onlyChecked:
+                        if widget.isChecked():
+                            tiles.append(widget)
+                    else:
+                        tiles.append(widget)
+
+            logger.debug("Fetched All Destination Tiles")
+            return tiles
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Fetch All Destination Tiles:\n{e}")
+
+
+    @err_catcher(name=__name__)
     def selectAll(self, checked=True, mode=None):
         logger.debug(f"Selecting All - checked: {checked}")
 
@@ -1247,7 +1342,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         else:
             return
 
-        # Capture Current Scroll Position
+        #   Capture Current Scroll Position
         scrollPos = listWidget.verticalScrollBar().value()
 
         item_count = listWidget.count()
@@ -1262,12 +1357,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 and getattr(fileItem, "data", {}).get("tileType") == "file"
                 ):
 
+                fileItem.setSelected(checked=True)
                 fileItem.setChecked(checked, refresh=False)
 
         if mode == "dest":
             self.refreshTotalTransSize()
 
-        # Restore Scroll Position
+        #   Restore Scroll Position
         QTimer.singleShot(50, lambda: listWidget.verticalScrollBar().setValue(scrollPos))
 
 
