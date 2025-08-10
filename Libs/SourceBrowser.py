@@ -1175,6 +1175,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             for item in lockItems:
                 item.setEnabled(enabled)
 
+            for fileTile in self.getAllSourceTiles():
+                fileTile.tileLocked = not enabled
+
             for fileTile in self.getAllDestTiles():
                 fileTile.tileLocked = not enabled
 

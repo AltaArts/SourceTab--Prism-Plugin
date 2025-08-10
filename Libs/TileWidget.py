@@ -196,9 +196,12 @@ class BaseTileItem(QWidget):
         super().mouseReleaseEvent(event)
 
 
-
     @err_catcher(name=__name__)
     def mouseMoveEvent(self, event):
+        if self.tileLocked:
+            logger.debug("Tile is Locked: Drag is Disabled")
+            return
+        
         if not (event.buttons() & Qt.LeftButton):
             return
         
@@ -1535,6 +1538,10 @@ class SourceFileTile(BaseTileItem):
 
     @err_catcher(name=__name__)
     def rightClicked(self, pos):
+        if self.tileLocked:
+            logger.debug("Tile is Locked: Aborting Right-click Menu.")
+            return
+        
         rcmenu = QMenu(self.browser)
         hasProxy = self.data["hasProxy"]
         sc = self.browser.shortcutsByAction
