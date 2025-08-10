@@ -219,16 +219,20 @@ def createMenuAction(actionName: str,
                      menu: QMenu,
                      parent: QObject,
                      function: Callable[[], None],
-                     enabled: bool=True
+                     enabled: bool = True
                      ) -> None:
-    '''Creates a QAction for RCL Menus'''
+    """Creates a QAction for RCL Menus"""
 
-    shortcut = shortcuts.get(actionName, "")            
-    title = f"{actionName}   {shortcut}"
-    menuAction = QAction(title, parent)
+    menuAction = QAction(actionName, parent)
+
+    shortcut_list = shortcuts.get(actionName, [])
+    if shortcut_list:
+        first_shortcut = shortcut_list[0]
+        menuAction.setShortcut(QKeySequence(first_shortcut))
+
     menuAction.triggered.connect(function)
-    menu.addAction(menuAction)
     menuAction.setEnabled(enabled)
+    menu.addAction(menuAction)
 
 
 def playSound(path:str) -> None:
