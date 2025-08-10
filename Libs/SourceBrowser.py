@@ -184,7 +184,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.setupIcons()
 
         #   Load UI
+        self.keyMap()
         self.loadLayout()
+
         #   Reset Total Prog Bar
         self.reset_ProgBar()
         #   Signal Connections
@@ -193,7 +195,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Load Settings from Prism Project Settings
         self.loadAllPresets()
         self.loadSettings()
-        self.keyMap()
 
         #   Setup Worker Threadpools and Semephore Slots
         self.setupThreadpools()
@@ -273,18 +274,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_source_sorting_duration.setIcon(durationIcon)
         self.b_source_sorting_filtersEnable.setIcon(filtersIcon)
         self.b_source_sorting_combineSeqs.setIcon(sequenceIcon)
-        # self.b_tips_source.setIcon(tipIcon)
-
-        #   Setup Cheatsheets
-        # sourceTip = self.getCheatsheet("source", tip=True)
-        # self.b_tips_source.setToolTip(sourceTip)
-
-        # destTip = self.getCheatsheet("dest", tip=True)
-        # self.b_tips_dest.setToolTip(destTip)
-
-        #   Set Cheatsheet Button Size
-        # self.b_tips_source.setFixedWidth(30)
-        # self.b_tips_dest.setFixedWidth(30)
+        self.b_tips_source.setIcon(tipIcon)
 
         #   Source Table setup
         self.lw_source.setObjectName("sourceTable")
@@ -305,7 +295,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_sorting_sort.setIcon(sortIcon)
         self.b_dest_sorting_filtersEnable.setIcon(filtersIcon)
         self.b_dest_sorting_combineSeqs.setIcon(sequenceIcon)
-        # self.b_tips_dest.setIcon(tipIcon)
+        self.b_tips_dest.setIcon(tipIcon)
 
         #   Destination Table setup
         self.lw_destination.setObjectName("destTable")
@@ -408,6 +398,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_source_sorting_combineSeqs.setToolTip(tip)
         self.b_dest_sorting_combineSeqs.setToolTip(tip)
 
+        sourceTip = Utils.getHelpTip("source", self.shortcutsByAction)
+        self.b_tips_source.setToolTip(sourceTip)
+
+        destTip = Utils.getHelpTip("dest", self.shortcutsByAction)
+        self.b_tips_dest.setToolTip(destTip)
+
         tip = "Enable/Disable Media Player"
         self.chb_enablePlayer.setToolTip(tip)
 
@@ -415,52 +411,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                "(if the Proxy exists)\n\n"
                "This does not affect the Transfer")
         self.chb_preferProxies.setToolTip(tip)
-
-
-    @err_catcher(name=__name__)                                                     #   TODO - FINISH
-    def getCheatsheet(self, mode, tip=False):
-
-        cheatPath = os.path.join(uiPath, "Cheatsheet-Source.png")
-        cheatImage = QImage(cheatPath)
-
-        target_width = 1000
-        target_height = cheatImage.height() * target_width // cheatImage.width()
-
-
-        scaled_image = cheatImage.scaled(
-            target_width,
-            target_height,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
-        pixMap = QPixmap.fromImage(scaled_image)
-
-        # Convert QPixmap to Base64
-        byte_array = QByteArray()
-        buffer = QBuffer(byte_array)
-        buffer.open(QIODevice.WriteOnly)
-        pixMap.save(buffer, "PNG")
-
-
-        base64_data = byte_array.toBase64().data().decode()
-        cheatTip = f'<img src="data:image/png;base64,{base64_data}" width="{target_width}"/>'
-
-        return cheatTip
-
-
-#         cheatSheet = '''
-# Up-Arror:  Go up one level in the Directory
-# Folder:  Open Explorer to Choose Source Directory
-# Double-Click Item:  Toogles the Item's Checkbox
-# Double-Click Thumbnail:  Opens Media in External Player
-# Double-Click PXY Icon:  Opens Proxy Media in External Player
-
-# '''
-#         if tip:
-#             return cheatSheet
-        
-        # else:
-        #     DisplayPopup.display(cheatSheet, title="Help", modal=False)
 
 
     @err_catcher(name=__name__)
@@ -487,6 +437,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_source_sorting_duration.clicked.connect(lambda: self.toggleDuration())
         self.b_source_sorting_filtersEnable.toggled.connect(lambda: self.refreshSourceTable(restoreSelection=True))
         self.b_source_sorting_combineSeqs.toggled.connect(lambda: self.refreshSourceItems())
+        self.b_tips_source.clicked.connect(Utils.launchHelpWeb)
 
         #   Destination Buttons
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
@@ -496,6 +447,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_sorting_sort.clicked.connect(lambda: self.showSortMenu("destination"))
         self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable(restoreSelection=True))
         self.b_dest_sorting_combineSeqs.toggled.connect(lambda: self.refreshDestItems())
+        self.b_tips_dest.clicked.connect(Utils.launchHelpWeb)
 
         #   Media Player
         self.chb_enablePlayer.toggled.connect(self.togglePreviewPlayer)

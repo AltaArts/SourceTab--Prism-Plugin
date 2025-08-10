@@ -235,6 +235,73 @@ def createMenuAction(actionName: str,
     menu.addAction(menuAction)
 
 
+def getShortcutsTip(shortcuts: dict) -> str:
+    '''Returns Formatted Keyboard Shortcuts HTML Tip Block'''
+    actions = list(shortcuts.items())
+    if not actions:
+        return "<p>No shortcuts assigned.</p>"
+
+    rows = []
+    for action, keys in actions:
+        shortcut_display = keys[0] if keys else "—"
+        # Create a table row with two columns
+        row = f"<tr><td>{action}</td><td style='padding-left:20px;'>{shortcut_display}</td></tr>"
+        rows.append(row)
+
+    # Build the complete table with some simple styling
+    table_html = f"""
+<table cellspacing="0" cellpadding="4" border="0" style="border-collapse: collapse; font-family: monospace;">
+{''.join(rows)}
+</table>
+"""
+    return table_html
+
+
+def getHelpTip(mode: str, shortcuts: dict) -> str:
+    '''Gets Help HTML Tooltip'''
+
+    shortcuts_html = getShortcutsTip(shortcuts)
+
+    if mode == "source":
+        listHeader = "Source Directory for Transfer Items"
+    elif mode == "dest":
+        listHeader = "Destination Directory for Transfer Items"
+    
+
+    cheatSheet = f"""
+<html><body>
+( Click this Help Button to Open Browser to the Repo's Help Pages )<br>
+( tooltips are provided throughout )<br><br>
+
+<b>{listHeader}</b><br><br>
+
+General Usage:<br>
+&nbsp;&nbsp;&nbsp;- Drag/Drop Tiles to Destination to Add to Transfer<br>
+&nbsp;&nbsp;&nbsp;- Drag/Drop Tiles to Source to Remove from Transfer<br>
+&nbsp;&nbsp;&nbsp;- Shift and Ctrl Multi-Selection is Allowed<br><br>
+
+&nbsp;&nbsp;&nbsp;- Double-click a Tile to toggle its checkbox<br>
+&nbsp;&nbsp;&nbsp;- Double-click Tile's Filename to Display in Viewer<br>
+&nbsp;&nbsp;&nbsp;- Double-click a Thumbnail to View in External player<br>
+&nbsp;&nbsp;&nbsp;- Double-click PXY icon to View in External player<br><br>
+
+&nbsp;&nbsp;&nbsp;- Drag/Drop Tile to Viewer to Display<br><br><br>
+
+Keyboard Shortcuts:<br>
+{shortcuts_html}
+
+</body></html>
+"""
+    return cheatSheet
+
+
+def launchHelpWeb() -> None:                                                   #   TODO - DIRECT LINK FOR HELP PAGE
+    '''Opens the Browser to the Repo Help Page'''
+    url = QUrl("https://github.com/AltaArts/SourceTab--Prism-Plugin")
+    QDesktopServices.openUrl(url)
+
+
+
 def playSound(path:str) -> None:
     '''Plays Audio with Simple Audio'''
 

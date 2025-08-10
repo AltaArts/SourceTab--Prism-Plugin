@@ -40,8 +40,28 @@ class Ui_w_sourceBrowser(object):
         self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
         self.lo_source_title = QHBoxLayout()
         self.lo_source_title.setObjectName(u"lo_source_title")
+        self.lo_source_title.setContentsMargins(4, -1, -1, -1)
+        self.b_tips_source = QPushButton(self.w_source)
+        self.b_tips_source.setObjectName(u"b_tips_source")
+        sizePolicy2 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.b_tips_source.sizePolicy().hasHeightForWidth())
+        self.b_tips_source.setSizePolicy(sizePolicy2)
+        self.b_tips_source.setMinimumSize(QSize(30, 0))
+        self.b_tips_source.setMaximumSize(QSize(30, 16777215))
+
+        self.lo_source_title.addWidget(self.b_tips_source)
+
+        self.horizontalSpacer = QSpacerItem(10, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
+
+        self.lo_source_title.addItem(self.horizontalSpacer)
+
         self.l_source_title = QLabel(self.w_source)
         self.l_source_title.setObjectName(u"l_source_title")
+        font = QFont()
+        font.setBold(True)
+        self.l_source_title.setFont(font)
 
         self.lo_source_title.addWidget(self.l_source_title)
 
@@ -57,9 +77,6 @@ class Ui_w_sourceBrowser(object):
         self.lo_source_path.setObjectName(u"lo_source_path")
         self.b_sourcePathUp = QPushButton(self.gb_sourceHeader)
         self.b_sourcePathUp.setObjectName(u"b_sourcePathUp")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.b_sourcePathUp.sizePolicy().hasHeightForWidth())
         self.b_sourcePathUp.setSizePolicy(sizePolicy2)
         self.b_sourcePathUp.setMinimumSize(QSize(30, 0))
@@ -164,10 +181,25 @@ class Ui_w_sourceBrowser(object):
         self.verticalLayout_11.setContentsMargins(0, 0, 0, 0)
         self.lo_dest_title = QHBoxLayout()
         self.lo_dest_title.setObjectName(u"lo_dest_title")
+        self.lo_dest_title.setContentsMargins(4, -1, -1, -1)
+        self.b_tips_dest = QPushButton(self.w_destination)
+        self.b_tips_dest.setObjectName(u"b_tips_dest")
+        sizePolicy2.setHeightForWidth(self.b_tips_dest.sizePolicy().hasHeightForWidth())
+        self.b_tips_dest.setSizePolicy(sizePolicy2)
+        self.b_tips_dest.setMinimumSize(QSize(30, 0))
+        self.b_tips_dest.setMaximumSize(QSize(30, 16777215))
+
+        self.lo_dest_title.addWidget(self.b_tips_dest)
+
+        self.horizontalSpacer_3 = QSpacerItem(10, 20, QSizePolicy.Fixed, QSizePolicy.Minimum)
+
+        self.lo_dest_title.addItem(self.horizontalSpacer_3)
+
         self.l_dest_title = QLabel(self.w_destination)
         self.l_dest_title.setObjectName(u"l_dest_title")
         sizePolicy.setHeightForWidth(self.l_dest_title.sizePolicy().hasHeightForWidth())
         self.l_dest_title.setSizePolicy(sizePolicy)
+        self.l_dest_title.setFont(font)
 
         self.lo_dest_title.addWidget(self.l_dest_title)
 
@@ -278,6 +310,7 @@ class Ui_w_sourceBrowser(object):
 
     def retranslateUi(self, w_sourceBrowser):
         w_sourceBrowser.setWindowTitle(QCoreApplication.translate("w_sourceBrowser", u"Media Browser", None))
+        self.b_tips_source.setText("")
         self.l_source_title.setText(QCoreApplication.translate("w_sourceBrowser", u"Source", None))
         self.b_sourcePathUp.setText("")
         self.b_browseSource.setText("")
@@ -286,6 +319,7 @@ class Ui_w_sourceBrowser(object):
         self.b_source_sorting_duration.setText("")
         self.b_source_sorting_filtersEnable.setText("")
         self.b_source_sorting_combineSeqs.setText("")
+        self.b_tips_dest.setText("")
         self.l_dest_title.setText(QCoreApplication.translate("w_sourceBrowser", u"Destination", None))
         self.b_destPathUp.setText("")
         self.b_browseDest.setText("")
