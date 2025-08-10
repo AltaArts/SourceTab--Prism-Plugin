@@ -58,6 +58,7 @@ import datetime
 import hashlib
 import shutil
 import numpy
+from typing import Callable
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -211,6 +212,23 @@ def explorerDialogue(title: str = None,
 def openInExplorer(core, path:str) -> None:
     '''Opens Path in File Explorer'''
     core.openFolder(path)
+
+
+def createMenuAction(actionName: str,
+                     shortcuts: dict,
+                     menu: QMenu,
+                     parent: QObject,
+                     function: Callable[[], None],
+                     enabled: bool=True
+                     ) -> None:
+    '''Creates a QAction for RCL Menus'''
+
+    shortcut = shortcuts.get(actionName, "")            
+    title = f"{actionName}   {shortcut}"
+    menuAction = QAction(title, parent)
+    menuAction.triggered.connect(function)
+    menu.addAction(menuAction)
+    menuAction.setEnabled(enabled)
 
 
 def playSound(path:str) -> None:

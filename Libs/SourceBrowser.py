@@ -273,17 +273,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_source_sorting_duration.setIcon(durationIcon)
         self.b_source_sorting_filtersEnable.setIcon(filtersIcon)
         self.b_source_sorting_combineSeqs.setIcon(sequenceIcon)
-        self.b_tips_source.setIcon(tipIcon)
+        # self.b_tips_source.setIcon(tipIcon)
 
         #   Setup Cheatsheets
-        sourceTip = self.getCheatsheet("source", tip=True)
-        self.b_tips_source.setToolTip(sourceTip)
+        # sourceTip = self.getCheatsheet("source", tip=True)
+        # self.b_tips_source.setToolTip(sourceTip)
 
-        destTip = self.getCheatsheet("dest", tip=True)
+        # destTip = self.getCheatsheet("dest", tip=True)
         # self.b_tips_dest.setToolTip(destTip)
 
         #   Set Cheatsheet Button Size
-        self.b_tips_source.setFixedWidth(30)
+        # self.b_tips_source.setFixedWidth(30)
         # self.b_tips_dest.setFixedWidth(30)
 
         #   Source Table setup
@@ -408,18 +408,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_source_sorting_combineSeqs.setToolTip(tip)
         self.b_dest_sorting_combineSeqs.setToolTip(tip)
 
-        tip = "Select (check) all Items in the List"
-        self.b_source_checkAll.setToolTip(tip)
-        self.b_dest_checkAll.setToolTip(tip)
-
-        tip = "Un-Select all Items in the List"
-        self.b_source_uncheckAll.setToolTip(tip)
-        self.b_dest_uncheckAll.setToolTip(tip)
-
-        self.b_source_addSel.setToolTip("Add Selected (checked) items to the Destination List.")
-        self.b_dest_clearSel.setToolTip("Remove Selected Items")
-        self.b_dest_clearAll.setToolTip("Remove All Items")
-
         tip = "Enable/Disable Media Player"
         self.chb_enablePlayer.setToolTip(tip)
 
@@ -499,10 +487,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_source_sorting_duration.clicked.connect(lambda: self.toggleDuration())
         self.b_source_sorting_filtersEnable.toggled.connect(lambda: self.refreshSourceTable(restoreSelection=True))
         self.b_source_sorting_combineSeqs.toggled.connect(lambda: self.refreshSourceItems())
-        self.b_tips_source.clicked.connect(lambda: self.getCheatsheet("source", tip=False))
-        self.b_source_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="source"))
-        self.b_source_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="source"))
-        self.b_source_addSel.clicked.connect(self.addSelected)
 
         #   Destination Buttons
         self.b_destPathUp.clicked.connect(lambda: self.goUpDir("dest"))
@@ -512,11 +496,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_dest_sorting_sort.clicked.connect(lambda: self.showSortMenu("destination"))
         self.b_dest_sorting_filtersEnable.toggled.connect(lambda: self.refreshDestTable(restoreSelection=True))
         self.b_dest_sorting_combineSeqs.toggled.connect(lambda: self.refreshDestItems())
-        # self.b_tips_dest.clicked.connect(lambda: self.getCheatsheet("dest", tip=False))
-        self.b_dest_checkAll.clicked.connect(lambda: self.selectAll(checked=True, mode="dest"))
-        self.b_dest_uncheckAll.clicked.connect(lambda: self.selectAll(checked=False, mode="dest"))
-        self.b_dest_clearSel.clicked.connect(lambda: self.clearTransferList(checked=True))
-        self.b_dest_clearAll.clicked.connect(lambda: self.clearTransferList())
 
         #   Media Player
         self.chb_enablePlayer.toggled.connect(self.togglePreviewPlayer)
@@ -536,28 +515,46 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 ####    MENUS   ####
 
-    #   Right Click List for Source / Destination Tables (not on an item)
+    #   Called from Empty Part of List (not on an item)
     @err_catcher(name=__name__)
     def rclList(self, pos, lw):
         cpos = QCursor.pos()
         item = lw.itemAt(pos)
+        sc = self.shortcutsByAction
 
         rcmenu = QMenu(self)
 
-        if lw == self.lw_source and not item:
-            refreshAct = QAction("Refresh List", self)
-            refreshAct.triggered.connect(self.refreshSourceItems)
-            rcmenu.addAction(refreshAct)
-
-        elif lw == self.lw_destination and not item:
-            clearAct = QAction("Clear Transfer List", self)
-            clearAct.triggered.connect(self.clearTransferList)
-            rcmenu.addAction(clearAct)
+        #   Get List Menu Items
+        self.listRCL(sc, rcmenu, lw)
 
         if rcmenu.isEmpty():
             return False
 
         rcmenu.exec_(cpos)
+
+
+    #   Right Click List for Source / Destination List
+    @err_catcher(name=__name__)
+    def listRCL(self, shortcuts, rcmenu, lw):
+        if lw == self.lw_source:
+            Utils.createMenuAction("Refresh List", shortcuts, rcmenu, self, self.refreshSourceItems)
+
+            funct = lambda: self.selectAll(mode="source")
+            Utils.createMenuAction("Select All Tiles", shortcuts, rcmenu, self, funct)
+
+            funct = lambda: self.selectAll(checked=False, mode="source")
+            Utils.createMenuAction("Un-Select All Tiles", shortcuts, rcmenu, self, funct)
+
+        elif lw == self.lw_destination:
+            Utils.createMenuAction("Refresh List", shortcuts, rcmenu, self, self.refreshDestItems)
+
+            funct = lambda: self.selectAll(mode="dest")
+            Utils.createMenuAction("Select All Tiles", shortcuts, rcmenu, self, funct)
+
+            funct = lambda: self.selectAll(checked=False, mode="dest")
+            Utils.createMenuAction("Un-Select All Tiles", shortcuts, rcmenu, self, funct)
+
+            Utils.createMenuAction("Remove All Tiles", shortcuts, rcmenu, self, self.clearTransferList)
 
 
     #   Item Sorting Menu
@@ -964,16 +961,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         with open(KEYMAP, "r") as f:
             mapping = json.load(f).get("keymap", {})
 
-        #    Get KeyMap if it Exists Already
-        self._shortcuts = getattr(self, "_shortcuts", {})
+        self.shortcuts = {}         # key: "ActionName:Shortcut", value: (QShortcut, NativeText)
+        self.shortcutsByAction = {} # key: "ActionName", value: list of shortcut native strings
 
-        #   Clear Old Mapping
-        for sc in self._shortcuts.values():
-            sc.deleteLater()
-        self._shortcuts.clear()
+        # Clear old shortcuts
+        for sc in self.shortcuts.values():
+            sc[0].deleteLater()
+        self.shortcuts.clear()
+        self.shortcutsByAction.clear()
 
-        #   Add Mapping and Shortcut Connections
         for action_name, keys in mapping.items():
+            self.shortcutsByAction[action_name] = []
             for key_str in keys:
                 qseq = QKeySequence(key_str)
                 if qseq.isEmpty():
@@ -983,7 +981,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 shortcut = QShortcut(qseq, self)
                 shortcut.setContext(Qt.WidgetWithChildrenShortcut)
                 shortcut.activated.connect(lambda name=action_name: self.onShortcutKey(name))
-                self._shortcuts[f"{action_name}:{key_str}"] = shortcut
+                native_text = qseq.toString(QKeySequence.NativeText)
+
+                self.shortcuts[f"{action_name}:{key_str}"] = (shortcut, native_text)
+                self.shortcutsByAction[action_name].append(native_text)
 
 
     #   Launch Action Based on Shortcut
@@ -1166,9 +1167,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             lockItems = [self.sourceFuncts.gb_functions,
                         self.gb_sourceHeader,
-                        self.gb_sourceFooter,
+                        # self.gb_sourceFooter,
                         self.gb_destHeader,
-                        self.gb_destFooter]
+                        # self.gb_destFooter]
+            ]
 
             for item in lockItems:
                 item.setEnabled(enabled)

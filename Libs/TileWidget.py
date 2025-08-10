@@ -972,11 +972,11 @@ class BaseTileItem(QWidget):
                 return
             
             elif self.fileType == "Other":
-                logger.debug("Non-media File Types Not Supported in the Preview Player")
+                logger.debug("Non-media File Types Not Supported in the Preview Viewer")
                 return
             
             else:
-                logger.warning(f"ERROR:  File Type Not Supported in the Preview Player")
+                logger.warning(f"ERROR:  File Type Not Supported in the Preview Viewer")
                 return
 
             if self.isSequence:
@@ -1074,13 +1074,12 @@ class FolderItem(BaseTileItem):
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
 
-        showDataAct = QAction("Show Data", self.browser)                         #   TESTING
-        showDataAct.triggered.connect(self.TEST_SHOW_DATA)
-        rcmenu.addAction(showDataAct)
+        sc = self.browser.shortcutsByAction
 
-        expAct = QAction("Open in Explorer", self)
-        expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.data["dirPath"]))
-        rcmenu.addAction(expAct)
+        Utils.createMenuAction("Show Data", sc, rcmenu, self.browser, self.TEST_SHOW_DATA)
+
+        funct = lambda: Utils.openInExplorer(self.core, self.data["dirPath"])
+        Utils.createMenuAction("Open in Explorer", sc, rcmenu, self.browser, funct)
 
         rcmenu.exec_(QCursor.pos())
 
@@ -1538,6 +1537,8 @@ class SourceFileTile(BaseTileItem):
     def rightClicked(self, pos):
         rcmenu = QMenu(self.browser)
         hasProxy = self.data["hasProxy"]
+        sc = self.browser.shortcutsByAction
+
 
         #   Dummy Separator
         def _separator():
@@ -1549,61 +1550,42 @@ class SourceFileTile(BaseTileItem):
             return action
         
 
-        #   Displayed Always
-        addlAct = QAction("Add to Transfer List", self.browser)
-        addlAct.triggered.connect(self.addToDestList)
-        rcmenu.addAction(addlAct)
+        #   Always Displayed
+        Utils.createMenuAction("Add Selected to Destination", sc, rcmenu, self.browser, self.addToDestList)
 
         rcmenu.addAction(_separator())
 
-        selAct = QAction("Set Selected", self.browser)
-        selAct.triggered.connect(lambda: self.setChecked(True))
-        rcmenu.addAction(selAct)
+        Utils.createMenuAction("Set Selected", sc, rcmenu, self.browser, lambda: self.setChecked(True))
 
-        unSelAct = QAction("Un-Select", self.browser)
-        unSelAct.triggered.connect(lambda: self.setChecked(False))
-        rcmenu.addAction(unSelAct)
+        Utils.createMenuAction("Un-Select", sc, rcmenu, self.browser, lambda: self.setChecked(False))
 
         #   Displayed if Single Selection
         if len(self.browser.selectedTiles) == 1:
             rcmenu.addAction(_separator())
 
-            refreshThumbAct = QAction("Regenerate Thumbnail", self.browser)
-            refreshThumbAct.triggered.connect(lambda: self.getThumbnail(regenerate=True))
-            rcmenu.addAction(refreshThumbAct)
-
-            # mDataAct = QAction("Show All MetaData", self.browser)
-            # mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getSource_mainfilePath()))
-            # rcmenu.addAction(mDataAct)
+            funct = lambda: self.getThumbnail(regenerate=True)
+            Utils.createMenuAction("Regenerate Thumbnail", sc, rcmenu, self.browser, funct)
 
             rcmenu.addAction(_separator())
 
-            mDataAct = QAction("Show MetaData (Main File)", self.browser)
-            mDataAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath()))
-            rcmenu.addAction(mDataAct)
+            funct = lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath())
+            Utils.createMenuAction("Show MetaData (Main File)", sc, rcmenu, self.browser, funct)
 
-            mDataAct = QAction("Show MetaData (Proxy)", self.browser)
-            mDataAct.setEnabled(hasProxy)
-            mDataAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.getSource_proxyfilePath()))
-            rcmenu.addAction(mDataAct)
+            funct = lambda: Utils.displayFFprobeMetadata(self.getSource_proxyfilePath())
+            Utils.createMenuAction("Show MetaData (Proxy)", sc, rcmenu, self.browser, funct, enabled=hasProxy)
 
-            # sidecarAct = QAction("Create Sidecar", self.browser)
-            # sidecarAct.triggered.connect(lambda: self.createSidecar(self.getSource_mainfilePath()))
-            # rcmenu.addAction(sidecarAct)
-
-            showDataAct = QAction("Show Data", self.browser)                         #   TESTING
-            showDataAct.triggered.connect(self.TEST_SHOW_DATA)
-            rcmenu.addAction(showDataAct)
+            Utils.createMenuAction("Show Data", sc, rcmenu, self.browser, self.TEST_SHOW_DATA)
 
             rcmenu.addAction(_separator())
 
-            playerAct = QAction("Show in Player", self.browser)
-            playerAct.triggered.connect(self.sendToViewer)
-            rcmenu.addAction(playerAct)
+            Utils.createMenuAction("Show in Viewer", sc, rcmenu, self.browser, self.sendToViewer)
 
-            expAct = QAction("Open in Explorer", self)
-            expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getSource_mainfilePath()))
-            rcmenu.addAction(expAct)
+            funct = lambda: Utils.openInExplorer(self.core, self.getSource_mainfilePath())
+            Utils.createMenuAction("Open in Explorer", sc, rcmenu, self.browser, funct)
+
+        #   Add List Menu Actions
+        rcmenu.addAction(_separator())
+        self.browser.listRCL(sc, rcmenu, self.browser.lw_source)
 
         rcmenu.exec_(QCursor.pos())
 
@@ -2159,6 +2141,7 @@ class DestFileTile(BaseTileItem):
         
         rcmenu = QMenu(self.browser)
         destExists =  os.path.exists(self.getDestMainPath())
+        sc = self.browser.shortcutsByAction
 
 
         #   Dummy Separator
@@ -2172,53 +2155,42 @@ class DestFileTile(BaseTileItem):
 
 
         #   Displayed Always
-        delAct = QAction("Remove from Transfer List", self.browser)
-        delAct.triggered.connect(self.removeFromDestList)
-        rcmenu.addAction(delAct)
+        Utils.createMenuAction("Remove Selected Tiles", sc, rcmenu, self.browser, self.removeFromDestList)
 
         rcmenu.addAction(_separator())
 
-        selAct = QAction("Set Selected", self.browser)
-        selAct.triggered.connect(lambda: self.setChecked(True))
-        rcmenu.addAction(selAct)
+        Utils.createMenuAction("Set Selected", sc, rcmenu, self.browser, lambda: self.setChecked(True))
 
-        unSelAct = QAction("Un-Select", self.browser)
-        unSelAct.triggered.connect(lambda: self.setChecked(False))
-        rcmenu.addAction(unSelAct)
+        Utils.createMenuAction("Un-Select", sc, rcmenu, self.browser, lambda: self.setChecked(False))
 
         rcmenu.addAction(_separator())
 
-        mEditAct = QAction("Show Source File in Metadata Editor", self)
-        mEditAct.triggered.connect(lambda: self.configMetadata(filePath=self.getSource_mainfilePath()))
-        rcmenu.addAction(mEditAct)
+        funct = lambda: self.configMetadata(filePath=self.getSource_mainfilePath())
+        Utils.createMenuAction("Show Source File in Metadata Editor", sc, rcmenu, self.browser, funct)
 
         #   Displayed if Single Selection
         if len(self.browser.selectedTiles) == 1:
-            showDataAct = QAction("Show Data", self.browser)                         #   TESTING
-            showDataAct.triggered.connect(self.TEST_SHOW_DATA)
-            rcmenu.addAction(showDataAct)
+            Utils.createMenuAction("Show Data", sc, rcmenu, self.browser, self.TEST_SHOW_DATA)      #   TESTING
 
             rcmenu.addAction(_separator())
 
-            playerAct = QAction("Show in Player (Source)", self.browser)
-            playerAct.triggered.connect(self.sendToViewer)
-            rcmenu.addAction(playerAct)
+            Utils.createMenuAction("Show in Viewer", sc, rcmenu, self.browser, self.sendToViewer)
 
-            expAct = QAction("Open in Explorer (Source)", self)
-            expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getSource_mainfilePath()))
-            rcmenu.addAction(expAct)
+            funct = lambda: Utils.openInExplorer(self.core, self.getSource_mainfilePath())
+            Utils.createMenuAction("Open in Explorer (Source)", sc, rcmenu, self.browser, funct)
 
             rcmenu.addAction(_separator())
 
-            mDataAct = QAction("Show MetaData (Transferred File)", self.browser)
-            mDataAct.setEnabled(destExists)
-            mDataAct.triggered.connect(lambda: Utils.displayMetadata(self.getDestMainPath()))
-            rcmenu.addAction(mDataAct)
+            funct = lambda: Utils.displayMetadata(self.getDestMainPath())
+            Utils.createMenuAction("Show MetaData (Transferred File)", sc, rcmenu, self.browser, funct, enabled=destExists)
 
-            expAct = QAction("Open in Explorer (Transferred File)", self)
-            expAct.setEnabled(destExists)
-            expAct.triggered.connect(lambda: Utils.openInExplorer(self.core, self.getDestMainPath()))
-            rcmenu.addAction(expAct)
+            funct = lambda: Utils.openInExplorer(self.core, self.getDestMainPath())
+            Utils.createMenuAction("Open in Explorer (Transferred File)", sc, rcmenu, self.browser, funct, enabled=destExists)
+
+        #   Add List Menu Actions
+        rcmenu.addAction(_separator())
+        self.browser.listRCL(sc, rcmenu, self.browser.lw_destination)
+
 
         rcmenu.exec_(QCursor.pos())
 
