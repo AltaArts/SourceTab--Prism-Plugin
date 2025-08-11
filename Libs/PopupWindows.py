@@ -60,8 +60,6 @@ import csv
 from datetime import datetime
 
 
-
-
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
@@ -987,13 +985,12 @@ class ProxyPopup(QDialog):
             tooltip_html = "<div style='min-width: 400px;'>"
             tooltip_html += "<table>"
 
-            #   Make Separate Rows for each Preset
             for preset in self.proxyPresets.getOrderedPresets():
                 desc = preset.data.get("Description", "")
                 tooltip_html += f"""
                     <tr>
-                        <td><b>{preset.name}</b></td>
-                        <td style='padding-left: 10px;'>{desc}</td>
+                        <td style="white-space: nowrap;"><b>{preset.name}</b></td>
+                        <td style="padding-left: 10px; white-space: nowrap;">{desc}</td>
                     </tr>
                     <tr><td colspan='2' style='height: 10px;'>&nbsp;</td></tr>  <!-- spacer row -->
                 """
@@ -1535,6 +1532,8 @@ class ProxyPresetsEditor(QDialog):
         self.origin = origin
 
         self.proxyPresets = self.origin.sourceBrowser.proxyPresets
+        presetDir = Utils.getProjectPresetDir(self.core, "proxy")
+        Utils.loadPresets(presetDir, self.proxyPresets, ".p_preset")
 
         self._action = None
 
@@ -1607,6 +1606,17 @@ class ProxyPresetsEditor(QDialog):
             ("Name:", "Short name to be used in the UI"),
 
             ("Description:", "Blurb to describe the Preset (optional)"),
+
+
+            ("Global Parameters:", textwrap.dedent("""\
+                ffmpeg Global args (before the input args)
+                <div style='margin-left:20px;'>- This are parameters suchs as:</div>
+                <table style='margin-left:40px;'>
+                    <tr><td><code>-GPU hardware configuration</code></td></tr>
+                    <tr><td><code>-Threading settings</code></td></tr>
+                    <tr><td><code>-Logging options</code></td></tr>
+                </table>
+            """)),
 
             ("Video Parameters:", textwrap.dedent("""\
                 ffmpeg output Video transcode args
@@ -1687,6 +1697,7 @@ class ProxyPresetsEditor(QDialog):
         item = lw.itemAt(pos)
 
         rcmenu = QMenu(self)
+        sc = self.origin.sourceBrowser.shortcutsByAction
 
         #   Dummy Separator
         def _separator():
@@ -1701,50 +1712,29 @@ class ProxyPresetsEditor(QDialog):
             row = item.row()
             nameItem = self.tw_presets.item(row, 0)
 
-            editAct = QAction("Edit Preset", self)
-            editAct.triggered.connect(lambda: self.editPreset(item=nameItem))
-            rcmenu.addAction(editAct)
+            Utils.createMenuAction("Edit Preset", sc, rcmenu, self, lambda: self.editPreset(item=nameItem))
 
             rcmenu.addAction(_separator())
 
-            exportFileAct = QAction("Export Preset to File", self)
-            exportFileAct.triggered.connect(lambda: self.exportPreset(item=nameItem))
-            rcmenu.addAction(exportFileAct)
-
-            saveLocalAct = QAction("Save Preset to Local Machine", self)
-            saveLocalAct.triggered.connect(lambda: self.saveToLocal(item=nameItem))
-            rcmenu.addAction(saveLocalAct)
+            Utils.createMenuAction("Export Preset to File", sc, rcmenu, self, lambda: self.exportPreset(item=nameItem))
+            Utils.createMenuAction("Save Preset to Local Machine", sc, rcmenu, self, lambda: self.saveToLocal(item=nameItem))
 
             rcmenu.addAction(_separator())
 
-            delAct = QAction("Delete Preset", self)
-            delAct.triggered.connect(lambda: self.deletePreset(item=nameItem))
-            rcmenu.addAction(delAct)
+            Utils.createMenuAction("Delete Preset", sc, rcmenu, self, lambda: self.deletePreset(item=nameItem))
 
         else:
-            addAct = QAction("Create New Preset", self)
-            addAct.triggered.connect(lambda: self.editPreset(addNew=True))
-            rcmenu.addAction(addAct)
+            Utils.createMenuAction("Create New Preset", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
 
             rcmenu.addAction(_separator())
 
-            openProjPresetDirAct = QAction("Open Project Presets Directory", self)
-            openProjPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=True))
-            rcmenu.addAction(openProjPresetDirAct)
-
-            openLocalPresetDirAct = QAction("Open Local Presets Directory", self)
-            openLocalPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=False))
-            rcmenu.addAction(openLocalPresetDirAct)
+            Utils.createMenuAction("Open Project Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=True))
+            Utils.createMenuAction("Open Local Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=False))
 
             rcmenu.addAction(_separator())
 
-            importAct = QAction("Import Preset from File", self)
-            importAct.triggered.connect(lambda: self.importPreset())
-            rcmenu.addAction(importAct)
-
-            restoreAct = QAction("Import Preset from Local Directory", self)
-            restoreAct.triggered.connect(lambda: self.importPreset(local=True))
-            rcmenu.addAction(restoreAct)
+            Utils.createMenuAction("Import Preset from File", sc, rcmenu, self, lambda: self.importPreset())
+            Utils.createMenuAction("Import Preset from Local Directory", sc, rcmenu, self, lambda: self.importPreset(local=True))
 
         if rcmenu.isEmpty():
             return False
@@ -1999,7 +1989,6 @@ class ProxyPresetsEditor(QDialog):
 
         # 5. FFmpeg Dry Run
         try:
-
             cmd = [
                 ffmpegPath,
                 "-hide_banner", "-v", "error",
@@ -2008,7 +1997,7 @@ class ProxyPresetsEditor(QDialog):
             cmd.extend(shlex.split(data["Global_Parameters"]))
 
             cmd.extend([
-                "-f", "lavfi", "-i", "testsrc=duration=0.1",
+                "-f", "lavfi", "-i", "testsrc=duration=0.1:size=1920x1080:rate=25",
                 "-f", "lavfi", "-i", "anullsrc=duration=0.1",
             ])
 
@@ -2032,12 +2021,14 @@ class ProxyPresetsEditor(QDialog):
 
             if result.returncode != 0:
                 msg = result.stderr.decode("utf-8").strip()
+                logger.warning(f"DRY RUN ERROR: \n{msg}")
                 results.append(("FFmpeg Dry Run", False, msg))
             else:
                 results.append(("FFmpeg Dry Run", True, ""))
 
         except Exception as e:
             results.append(("FFmpeg Dry Run", False, str(e)))
+
 
         # 6. Multiplier validation
         try:
@@ -3004,6 +2995,7 @@ class MetaPresetsPopup(QDialog):
     def rclList(self, pos, lw):
         cpos = QCursor.pos()
         item = lw.itemAt(pos)
+        sc = self.sourceBrowser.shortcutsByAction
 
         rcmenu = QMenu(self)
 
@@ -3017,50 +3009,29 @@ class MetaPresetsPopup(QDialog):
             return action
 
         if item:
-            editAct = QAction("Edit Preset", self)
-            editAct.triggered.connect(lambda: self.editPreset(item=item))
-            rcmenu.addAction(editAct)
+            Utils.createMenuAction("Edit Preset", sc, rcmenu, self, lambda: self.editPreset(item=item))
 
             rcmenu.addAction(_separator())
 
-            exportFileAct = QAction("Export Preset to File", self)
-            exportFileAct.triggered.connect(lambda: self.exportPreset(item=item))
-            rcmenu.addAction(exportFileAct)
-
-            saveLocalAct = QAction("Save Preset to Local Machine", self)
-            saveLocalAct.triggered.connect(lambda: self.saveToLocal(item=item))
-            rcmenu.addAction(saveLocalAct)
+            Utils.createMenuAction("Export Preset to File", sc, rcmenu, self, lambda: self.exportPreset(item=item))
+            Utils.createMenuAction("Save Preset to Local Machine", sc, rcmenu, self, lambda: self.saveToLocal(item=item))
 
             rcmenu.addAction(_separator())
 
-            delAct = QAction("Delete Preset", self)
-            delAct.triggered.connect(self.deletePreset)
-            rcmenu.addAction(delAct)
+            Utils.createMenuAction("Delete Preset", sc, rcmenu, self, self.deletePreset)
 
         else:
-            addAct = QAction("Create New Preset from Current", self)
-            addAct.triggered.connect(lambda: self.editPreset(addNew=True))
-            rcmenu.addAction(addAct)
+            Utils.createMenuAction("Create New Preset from Current", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
 
             rcmenu.addAction(_separator())
 
-            openProjPresetDirAct = QAction("Open Project Presets Directory", self)
-            openProjPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=True))
-            rcmenu.addAction(openProjPresetDirAct)
-
-            openLocalPresetDirAct = QAction("Open Local Presets Directory", self)
-            openLocalPresetDirAct.triggered.connect(lambda: self.openPresetsDir(project=False))
-            rcmenu.addAction(openLocalPresetDirAct)
+            Utils.createMenuAction("Open Project Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=True))
+            Utils.createMenuAction("Open Local Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=False))
 
             rcmenu.addAction(_separator())
 
-            importAct = QAction("Import Preset from File", self)
-            importAct.triggered.connect(lambda: self.importPreset())
-            rcmenu.addAction(importAct)
-
-            restoreAct = QAction("Import Preset from Local Directory", self)
-            restoreAct.triggered.connect(lambda: self.importPreset(local=True))
-            rcmenu.addAction(restoreAct)
+            Utils.createMenuAction("Import Preset from File", sc, rcmenu, self, lambda: self.importPreset())
+            Utils.createMenuAction("Import Preset from Local Directory", sc, rcmenu, self, lambda: self.importPreset(local=True))
 
         if rcmenu.isEmpty():
             return False
@@ -3151,7 +3122,7 @@ class MetaPresetsPopup(QDialog):
 
     #   Opens Preset Editor to Edit/Create Preset
     def openPresetEditor(self, presetData):
-        presetEditor = PresetsEditor(self.core, self, presetData)
+        presetEditor = MetaPresetsEditor(self.core, self, presetData)
 
         if presetEditor.exec() == QDialog.Accepted:
             return presetEditor.resultData
@@ -3236,7 +3207,7 @@ class MetaPresetsPopup(QDialog):
 
 
 
-class PresetsEditor(QDialog):
+class MetaPresetsEditor(QDialog):
     def __init__(self, core, metaPresetPopup, presetData):
         super().__init__(metaPresetPopup)
         self.core = core

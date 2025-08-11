@@ -6,13 +6,13 @@
 ############################################################################
     
 {
-    "name": "ProRes Proxy",
+    "name": "ProRes 422 HQ",
     "data": {
-        "Description": "Proxy ProRes with 8-bit video and compressed audio",
+        "Description": "High-quality ProRes 422 HQ with 10 bit video",
         "Global_Parameters": "",
-        "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p",
-        "Audio_Parameters": "-c:a aac -b:a 128k",
+        "Video_Parameters": "-c:v prores_ks -profile:v 4 -pix_fmt yuv422p10le",
+        "Audio_Parameters": "-c:a copy",
         "Extension": ".mov",
-        "Multiplier": 0.2
+        "Multiplier": 1.5
     }
 }

@@ -1,0 +1,18 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Proxy Preset
+#
+############################################################################
+    
+{
+    "name": "H.264 HQ GPU",
+    "data": {
+        "Description": "High quality H.264 NVIDIA GPU encoding optimized for editing",
+        "Global_Parameters": "-hwaccel cuda -hwaccel_device 0 -hwaccel_output_format cuda",
+        "Video_Parameters": "-c:v h264_nvenc -preset p1 -rc vbr -cq 19 -pix_fmt yuv420p -g 48 -bf 2 -refs 4 -movflags +faststart",
+        "Audio_Parameters": "-c:a aac -b:a 192k",
+        "Extension": ".mp4",
+        "Multiplier": 0.02
+    }
+}

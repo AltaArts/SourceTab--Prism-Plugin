@@ -53,7 +53,7 @@ import sys
 import subprocess
 import logging
 import json
-from collections import OrderedDict, deque
+from collections import OrderedDict, deque, defaultdict
 from datetime import datetime
 from time import time
 from functools import partial
@@ -794,38 +794,35 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.plugin.copyPresets()
 
         #   Load Proxy Presets
+        self.loadProxyPresets()
+
+        #   Load Metadata Presets
+        self.loadMetadataPresets()
+
+
+    @err_catcher(name=__name__)
+    def loadProxyPresets(self):
         try:
-            self.proxyPresets = PresetsCollection()
+            self.proxyPresets = PresetsCollection("proxy")
             presetDir = Utils.getProjectPresetDir(self.core, "proxy")
-            self.loadPresets(presetDir, self.proxyPresets, ".p_preset")
+            Utils.loadPresets(presetDir, self.proxyPresets, ".p_preset")
             logger.debug("Loaded Proxy Presets")
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Load Proxy Presets")
 
-        #   Load Metadata Presets
+
+    @err_catcher(name=__name__)
+    def loadMetadataPresets(self):
         try:
-            self.metaPresets = PresetsCollection()
+            self.metaPresets = PresetsCollection("metadata")
             presetDir = Utils.getProjectPresetDir(self.core, "metadata")
-            self.loadPresets(presetDir, self.metaPresets, ".m_preset")
+            Utils.loadPresets(presetDir, self.metaPresets, ".m_preset")
             logger.debug("Loaded Metadata Presets")
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Load Metadata Presets")
 
-
-    @err_catcher(name=__name__)
-    def loadPresets(self, dir, model, ext):
-        #   Collect Preset Files from Dir
-        presetFiles = {
-            os.path.splitext(pf)[0]: os.path.join(dir, pf)
-            for pf in os.listdir(dir)
-            if Utils.getFileExtension(fileName=pf) == ext
-        }
-
-        for name, path in presetFiles.items():
-            pData = Utils.loadPreset(path)
-            model.addPreset(name, pData["data"])
 
 
     #   Configures UI from Saved Settings
@@ -2313,76 +2310,92 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         return self.copyList
 
 
-    @err_catcher(name=__name__)                                         #   TODO  Move
-    def getTransferErrors(self):
-        errors = {}
-        warnings = {}
 
-        ##   Check Drive Space Available
-        #   Get Stats
+    @err_catcher(name=__name__)  # TODO Move
+    def getTransferErrors(self):
+        #   Collect into Lists
+        errors_list = defaultdict(list)
+        warnings_list = defaultdict(list)
+
+        ##   CHECK DRIVE SPACE AVAILABLE
         spaceAvail = Utils.getDriveSpace(os.path.normpath(self.destDir))
         transferSize = self.getTotalTransferSize()
 
-        #   Not Enough Space
         if transferSize >= spaceAvail:
             transSize_str = Utils.getFileSizeStr(transferSize)
             spaceAvail_str = Utils.getFileSizeStr(spaceAvail)
-            errors["Not Enough Storage Space:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+            errors_list["Not Enough Storage Space:"].append(
+                f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+            )
 
-        #   Low Space
         elif (spaceAvail - transferSize) < 100 * 1024 * 1024:  # 100 MB
             transSize_str = Utils.getFileSizeStr(transferSize)
             spaceAvail_str = Utils.getFileSizeStr(spaceAvail)
-            warnings["Storage Space Low:"] = f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+            warnings_list["Storage Space Low:"].append(
+                f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+            )
 
-        ##  File Exists
+        ##  FILE EXISTS / OVERWRITE
         for fileTile in self.copyList:
+            basename = Utils.getBasename(fileTile.getDestMainPath())
             if fileTile.destFileExists():
-                basename = Utils.getBasename(fileTile.getDestMainPath())
                 if self.sourceFuncts.chb_overwrite.isChecked():
-                    warnings[f"{basename}: "] = "File Exists in Destination"
+                    warnings_list[basename].append("File Exists in Destination")
                 else:
-                    errors[f"{basename}: "] = "File Exists in Destination"
+                    errors_list[basename].append("File Exists in Destination")
 
-        ##  CODEC Not Supported and MainFile/Proxy Conflict
+        ##  CODEC NOT SUPPORTED and PROXY FILENAME CONFLICT
         if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
             for fileTile in (ft for ft in self.copyList if ft.isVideo()):
                 basename = Utils.getBasename(fileTile.getDestMainPath())
 
-                ##  UnSupported Format for Proxy Generation
+                #   Unsupported Format for Proxy Generation
                 if not fileTile.isCodecSupported():
                     codec = fileTile.data.get("source_mainFile_codec", "unknown")
-                    warnings[f"{basename}: "] = f"Proxy Generation not supported for  '{codec}'  format"
+                    warnings_list[basename].append(
+                        f"Proxy Generation not supported for '{codec}' format"
+                    )
 
-                ##  Proxy Conflict
+                #   Proxy Filename Conflict
                 elif fileTile.isCodecSupported() and not fileTile.data["hasProxy"]:
                     mainPath = Path(fileTile.getDestMainPath()).resolve()
                     proxyPath = Path(fileTile.getDestProxyFilepath()).resolve()
-
                     if mainPath == proxyPath:
-                        errors[f"{basename}: "] = "Main File and Proxy File have the Same File Path and will Conflict"
+                        errors_list[basename].append(
+                            "Main File and Proxy File have the Same File Path and will Conflict"
+                        )
 
-        hasErrors = True if len(errors) > 0 else False
+                #   DNxHD Resolution and Scale Check
+                if "dnxhd" in self.proxySettings.get("proxyPreset", "").lower():
+                    xRez = int(fileTile.data["source_mainFile_xRez"])
+                    yRez = int(fileTile.data["source_mainFile_yRez"])
+                    if xRez != 1920 or yRez != 1080:
+                        errors_list[basename].append(
+                            "Video Resolution must be 1920 x 1080 for DNxHD Proxy Generation"
+                        )
+                    if self.proxySettings.get("proxyScale", "") != "100%":
+                        errors_list[basename].append(
+                            "Proxy Scale must be 100% for DNxHD Proxy Generation"
+                        )
 
-        #   Set to Global Vars
-        self.transferErrors = errors.copy()
-        self.transferWarnings = warnings.copy()
+        #   Convert Lists to Single Strings
+        errors = {k: "\n".join(v) for k, v in errors_list.items()}
+        warnings = {k: "\n".join(v) for k, v in warnings_list.items()}
 
-        #   NO ERRORS
+        hasErrors = bool(errors)
+
+        #   Add None if there are No Errors/Warnings
         if not errors:
             errors["None"] = ""
-
-        #   NO ERRORS
         if not warnings:
             warnings["None"] = ""
 
-        #   Add Blank Line at the End
-        errors[""] = ""
-
-        #   Add Blank Line at the End
-        warnings[""] = ""
+        #   Save to Instance Vars
+        self.transferErrors = errors.copy()
+        self.transferWarnings = warnings.copy()
 
         return errors, warnings, hasErrors
+
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -2825,6 +2838,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 c.showPage()
                 c.setFont("Helvetica", 11)
 
+            def cleanNone(dict):
+                if "None" in dict and len(dict) > 1:
+                    del dict["None"]
+
+
             ## --- Page 1: Header info ---  ##
 
             #   Add Icon to Left of Title Line
@@ -2883,6 +2901,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             header_y -= 20
 
             # --- Errors Section ---
+            cleanNone(self.transferErrors)
             c.setFont("Helvetica-Bold", 10)
             c.drawString(left_margin, header_y, "Errors:")
             header_y -= header_line_height
@@ -2890,14 +2909,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if self.transferErrors:
                 c.setFont("Helvetica", 8)
                 for filename, message in self.transferErrors.items():
-                    line = f"- {filename}:  {message}"
-                    c.drawString(left_margin + 15, header_y, line)
-                    header_y -= header_line_height
+                    for msg_line in message.split("\n"):
+                        line = f"- {filename}:  {msg_line}"
+                        c.drawString(left_margin + 15, header_y, line)
+                        header_y -= header_line_height
 
-            #   Add Space Below Errors Section
+            #   Add Space Below Errors
             header_y -= 20
 
             # --- Warnings Section ---
+            cleanNone(self.transferWarnings)
             c.setFont("Helvetica-Bold", 10)
             c.drawString(left_margin, header_y, "Warnings:")
             header_y -= header_line_height
@@ -2905,9 +2926,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             if self.transferWarnings:
                 c.setFont("Helvetica", 8)
                 for filename, message in self.transferWarnings.items():
-                    line = f"- {filename}:  {message}"
-                    c.drawString(left_margin + 15, header_y, line)
-                    header_y -= header_line_height
+                    for msg_line in message.split("\n"):
+                        line = f"- {filename}:  {msg_line}"
+                        c.drawString(left_margin + 15, header_y, line)
+                        header_y -= header_line_height
+
 
             next_page()
 

@@ -271,6 +271,28 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
             logger.warning(f"ERROR:  Failed to Update Functions Panel Metadata UI:\n{e}")
 
 
+    @err_catcher(name=__name__)
+    def configProxy(self):
+        #   Call Popup
+        proxyPopup = ProxyPopup(self.core, self)
+        logger.debug("Opening Proxy Settings Window")
+        proxyPopup.exec_()
+
+        if proxyPopup.result == "Apply":
+            try:
+                #   Update Proxy Settings in SourceTab
+                self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
+                self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
+
+                self.updateUI()
+                self.sourceBrowser.refreshTotalTransSize()
+                self.sourceBrowser.toggleProxy(self.sourceBrowser.proxyEnabled)
+                #   Save Proxy Settings
+                self.sourceBrowser.plugin.saveSettings(key="proxySettings")
+
+            except Exception as e:
+                logger.warning(f"ERROR:  Failed to Update Proxy Settings:\n{e}")
+                
 
     #   Opens File Naming Window to Configure
     @err_catcher(name=__name__)
@@ -316,29 +338,6 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
 
             except Exception as e:
                 logger.warning(f"ERROR:  Failed to Update File Naming Settings:\n{e}")
-
-
-    @err_catcher(name=__name__)
-    def configProxy(self):
-        #   Call Popup
-        proxyPopup = ProxyPopup(self.core, self)
-        logger.debug("Opening Proxy Settings Window")
-        proxyPopup.exec_()
-
-        if proxyPopup.result == "Apply":
-            try:
-                #   Update Proxy Settings in SourceTab
-                self.sourceBrowser.proxyMode = proxyPopup.getProxyMode()
-                self.sourceBrowser.proxySettings = proxyPopup.getProxySettings()
-
-                self.updateUI()
-                self.sourceBrowser.refreshTotalTransSize()
-                self.sourceBrowser.toggleProxy(self.sourceBrowser.proxyEnabled)
-                #   Save Proxy Settings
-                self.sourceBrowser.plugin.saveSettings(key="proxySettings")
-
-            except Exception as e:
-                logger.warning(f"ERROR:  Failed to Update Proxy Settings:\n{e}")
 
 
     @err_catcher(name=__name__)

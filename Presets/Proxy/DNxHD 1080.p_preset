@@ -6,13 +6,13 @@
 ############################################################################
     
 {
-    "name": "ProRes Proxy",
+    "name": "DNxHD 1080",
     "data": {
-        "Description": "Proxy ProRes with 8-bit video and compressed audio",
+        "Description": "DNxHD 1080p. Requires 1920x1080 footage and 100% scale.",
         "Global_Parameters": "",
-        "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p",
-        "Audio_Parameters": "-c:a aac -b:a 128k",
-        "Extension": ".mov",
-        "Multiplier": 0.2
+        "Video_Parameters": "-c:v dnxhd -b:v 145M -pix_fmt yuv422p",
+        "Audio_Parameters": "-c:a pcm_s16le",
+        "Extension": ".mxf",
+        "Multiplier": 0.9
     }
 }

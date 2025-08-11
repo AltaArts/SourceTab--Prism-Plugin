@@ -6,13 +6,13 @@
 ############################################################################
     
 {
-    "name": "ProRes Proxy",
+    "name": "H.265 Fast",
     "data": {
-        "Description": "Proxy ProRes with 8-bit video and compressed audio",
+        "Description": "Fast H.265, prioritizes speed over compression efficiency",
         "Global_Parameters": "",
-        "Video_Parameters": "-c:v prores_ks -profile:v 0 -pix_fmt yuv422p",
-        "Audio_Parameters": "-c:a aac -b:a 128k",
-        "Extension": ".mov",
-        "Multiplier": 0.2
+        "Video_Parameters": "-c:v libx265 -preset fast -crf 26 -pix_fmt yuv420p10le",
+        "Audio_Parameters": "-c:a aac -b:a 192k",
+        "Extension": ".mp4",
+        "Multiplier": 0.01
     }
 }

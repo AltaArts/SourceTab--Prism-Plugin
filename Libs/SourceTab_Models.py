@@ -93,8 +93,9 @@ class PresetModel:
 class PresetsCollection:
     '''Holds all Preset Models'''
 
-    def __init__(self):
-        self.metaPresets: list[PresetModel] = []
+    def __init__(self, pType:str):
+        self.pType = pType
+        self.presets: list[PresetModel] = []
         self.currentPreset: Optional[str] = None
         self.presetOrder: list[str] = []
 
@@ -102,7 +103,7 @@ class PresetsCollection:
     def clear(self):
         """Clears all presets"""
 
-        self.metaPresets.clear()
+        self.presets.clear()
         self.presetOrder.clear()
 
 
@@ -110,27 +111,27 @@ class PresetsCollection:
         '''Creates PresetModel'''
 
         preset = PresetModel(name, data)
-        self.metaPresets.append(preset)
+        self.presets.append(preset)
 
 
     def addPreset(self, name: str, data: dict):
         '''Creates PresetModel'''
 
         #   Overwrite Data if Already Exists
-        for preset in self.metaPresets:
+        for preset in self.presets:
             if preset.name == name:
                 preset.data = data
                 return
         #   If Not, Add New
-        self.metaPresets.append(PresetModel(name, data))
+        self.presets.append(PresetModel(name, data))
 
         
     def removePreset(self, presetName: str) -> bool:
         """Removes a Preset by Name. Returns True if removed."""
 
-        removed = [p for p in self.metaPresets if p.name != presetName]
-        if len(removed) != len(self.metaPresets):
-            self.metaPresets = removed
+        removed = [p for p in self.presets if p.name != presetName]
+        if len(removed) != len(self.presets):
+            self.presets = removed
             if presetName in self.presetOrder:
                 self.presetOrder.remove(presetName)
             return True
@@ -140,9 +141,12 @@ class PresetsCollection:
     def getHeaders(self) -> list[str]:
         '''Returns Table Headers: "Name" + keys from first preset data'''
 
-        if not self.metaPresets:
-            return ["Name"]
-        return ["Name"] + list(self.metaPresets[0].data.keys())
+        #   Fallback if no Presets Exist
+        if not self.presets and self.pType == "proxy":
+            return ["Name", "Description", "Global_Parameters",
+                   "Video_Parameters", "Audio_Parameters", "Extension", "Multiplier"]
+        
+        return ["Name"] + list(self.presets[0].data.keys())
     
 
     def getNumberPresets(self) -> int:
@@ -154,14 +158,14 @@ class PresetsCollection:
     def getAllPresets(self) -> list[PresetModel]:
         '''Returns List of PresetModels'''
 
-        return self.metaPresets
+        return self.presets
 
 
     def getOrderedPresets(self) -> list[PresetModel]:
         """Returns Presets in the Project Order"""
 
         #   Build Map
-        preset_map = {p.name: p for p in self.metaPresets}
+        preset_map = {p.name: p for p in self.presets}
 
         #   Ordered List from presetOrder
         ordered = [preset_map[name] for name in self.presetOrder if name in preset_map]
@@ -178,7 +182,7 @@ class PresetsCollection:
     def getPresetNames(self) -> list[str]:
         '''Returns List of All Preset Names'''
 
-        return [preset.name for preset in self.metaPresets]
+        return [preset.name for preset in self.presets]
     
     
     def getOrderedPresetNames(self) -> list[str]:
@@ -190,7 +194,7 @@ class PresetsCollection:
     def getPresetData(self, presetName: str) -> dict:
         """Returns Preset Data for a Preset Name"""
 
-        for preset in self.metaPresets:
+        for preset in self.presets:
             if preset.name == presetName:
                 return preset.data
         return {}

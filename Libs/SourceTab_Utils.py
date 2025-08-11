@@ -58,6 +58,7 @@ import datetime
 import hashlib
 import shutil
 import numpy
+import re
 from typing import Callable
 
 from qtpy.QtCore import *
@@ -74,7 +75,8 @@ iconDir = os.path.join(uiPath, "Icons")
 import exiftool
 import simpleaudio as sa
 
-from PopupWindows import DisplayPopup, PresetsEditor
+from PopupWindows import DisplayPopup
+from SourceTab_Models import PresetsCollection
 
 
 logger = logging.getLogger(__name__)
@@ -979,19 +981,6 @@ def displayFFprobeMetadata(filePath:str) -> None:
         logger.warning("No FFprobe metadata to display.")
 
 
-def getProjectPresetDir(core, presetType:str) -> str:
-    '''Returns Projects Preset Dir by Type'''
-
-    projPipelineDir = core.projects.getPipelineFolder()
-    return os.path.join(projPipelineDir, "SourceTab", "Presets", presetType.capitalize())
-
-
-def getLocalPresetDir(presetType:str) -> str:
-    '''Returns Local Preset Dir by Type'''
-
-    pluginPath = os.path.dirname(os.path.dirname(__file__))
-    return os.path.join(pluginPath, "Presets", presetType.capitalize())
-
 
 ################################################
 #################    PRESETS    ################
@@ -1007,6 +996,20 @@ def getExtFromType(pType:str) -> str:
         ext = ""
 
     return ext
+
+
+def getProjectPresetDir(core, presetType:str) -> str:
+    '''Returns Projects Preset Dir by Type'''
+
+    projPipelineDir = core.projects.getPipelineFolder()
+    return os.path.join(projPipelineDir, "SourceTab", "Presets", presetType.capitalize())
+
+
+def getLocalPresetDir(presetType:str) -> str:
+    '''Returns Local Preset Dir by Type'''
+
+    pluginPath = os.path.dirname(os.path.dirname(__file__))
+    return os.path.join(pluginPath, "Presets", presetType.capitalize())
 
 
 def importPreset(core, pType:str, local:bool=False) -> dict | None:
@@ -1098,11 +1101,30 @@ def exportPreset(core, pType:str, pName:str, pData:dict) -> bool:
         return False
 
 
-def loadPreset(presetPath:str) -> dict:
-    '''Loads Preset Data from Preset File'''
-
+def loadPreset(presetPath: str) -> dict:
+    """Loads Preset Data from Preset File, ignoring lines starting with #."""
     with open(presetPath, "r", encoding="utf-8") as f:
-        return json.load(f)
+        raw = f.read()
+
+    # Remove lines where the first non-space character is #
+    raw = re.sub(r"^\s*#.*$", "", raw, flags=re.MULTILINE)
+
+    return json.loads(raw)
+
+
+def loadPresets(dir: str, model: PresetsCollection, ext: str) -> None:
+    '''Loads All Preset of a Given Preset Collection'''
+    
+    #   Collect Preset Files from Dir
+    presetFiles = {
+        os.path.splitext(pf)[0]: os.path.join(dir, pf)
+        for pf in os.listdir(dir)
+        if getFileExtension(fileName=pf) == ext
+    }
+
+    for name, path in presetFiles.items():
+        pData = loadPreset(path)
+        model.addPreset(name, pData["data"])
 
 
 def savePreset(core,
@@ -1148,10 +1170,22 @@ def savePreset(core,
         if result != "Overwrite":
             return
 
+    pTitle = pType.capitalize()
+    commentHeader = f"""\
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           {pTitle} Preset
+#
+############################################################################
+"""
+
     #   Write Preset to Applicable Presets Dir
     try:
+        json_str = json.dumps(pData, indent=4, ensure_ascii=False)
+
         with open(presetPath, "w", encoding="utf-8") as f:
-            json.dump(pData, f, indent=4, ensure_ascii=False)
+            f.write(commentHeader + "\n" + json_str)
 
         logger.debug(f"Preset'{presetName}' Saved.")
 
