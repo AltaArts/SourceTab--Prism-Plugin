@@ -195,7 +195,7 @@ class DisplayPopup(QDialog):
     def display(data, title="Display Data", buttons=None,
                 xScale=2, yScale=2, xSize=None, ySize=None,
                 modal=True, parent=None):
-        
+                
         try:
             dialog = DisplayPopup(data, title=title, buttons=buttons,
                                 xScale=xScale, yScale=yScale,
@@ -2344,7 +2344,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         rcmenu.exec_(cpos)
 
 
-
     #   Sidecar Selction Menu
     def sidecarTypeMenu(self):
         cpos = QCursor.pos()
@@ -2363,11 +2362,9 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
             menu.close()
 
-
         #   Temporary State Dictionary
         tempStates = self.sourceBrowser.sidecarStates.copy()
         
-
         checkboxRefs = {}
 
         #   Checkboxes
@@ -2392,8 +2389,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             return False
 
         rcmenu.exec_(cpos)
-
-
 
 
     #   Builds MetadataFieldCollection from MetaMap.json
@@ -2449,7 +2444,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
     def loadFiles(self, loadFilepath=None):
         #   Get All Checked FileTiles in Dest List
         try:
-            # fileTiles = self.sourceBrowser.getAllDestTiles(onlyChecked=True)
             fileTiles = self.sourceBrowser.getAllDestTiles(onlyChecked=False)
 
         except Exception as e:
@@ -2477,8 +2471,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 #   Or Add New MetaFileItem
                 else:
                     if not existing_item:
-                        metadata_raw = Utils.getFFprobeMetadata(filePath)
-                        metadata = MetadataModel(metadata_raw)
+                        metadata = Utils.getGroupedCombinedMetadata(filePath)                   
+                        metadata = MetadataModel(metadata)
 
                         self.MetaFileItems.addItem(
                             filePath=filePath,
@@ -2541,8 +2535,8 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             self.cb_fileList.setItemData(i, font, Qt.FontRole)
 
         #   Extract Metadata and add to Model Class
-        metadata_raw = Utils.getFFprobeMetadata(path)
-        metadata = MetadataModel(metadata_raw)
+        metadata = Utils.getGroupedCombinedMetadata(path)
+        metadata = MetadataModel(metadata)
 
         #   Update Table Model
         self.MetadataTableModel.sourceOptions = self.sourceOptions
@@ -2593,14 +2587,12 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         #   Get and Format Metadata
         try:
-            metadata_raw = Utils.getFFprobeMetadata(path)
-            metadata = Utils.groupFFprobeMetadata(metadata_raw)
+            Utils.displayCombinedMetadata(path)
 
         except Exception as e:
-            logger.warning(f"ERROR: Unable to get Grouped Metadata: {e}")
+            logger.warning(f"ERROR: Unable to Display Grouped Metadata: {e}")
             return
 
-        DisplayPopup.display(metadata, title=f"Metadata: {fileName}", modal=False)
 
 
     #   Saves Presets to Config

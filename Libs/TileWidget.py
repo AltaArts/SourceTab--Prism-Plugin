@@ -168,76 +168,105 @@ class BaseTileItem(QWidget):
         if event.button() == Qt.LeftButton:
             self.dragStartPosition = event.pos()
             self._pressModifiers = QApplication.keyboardModifiers()
-            self._wasSelectedOnPress = self.isSelected()
+            self._pendingSingleSelect = False  # Track if we should later single-select
+
+            if self._pressModifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
+                self._selectRange()
+                return
+
+            if self._pressModifiers & Qt.ControlModifier:
+                if self in self.browser.selectedTiles:
+                    self.deselect()
+                    self.browser.selectedTiles.discard(self)
+                else:
+                    self.state = "selected"
+                    self.applyStyle(self.state)
+                    self.browser.selectedTiles.add(self)
+                self.browser.lastClickedTile = self
+                return
+
+            if self in self.browser.selectedTiles:
+                # Already selected — maybe dragging, maybe single-select later
+                self._pendingSingleSelect = True
+            else:
+                # Not selected → select this one immediately
+                for tile in list(self.browser.selectedTiles):
+                    tile.deselect()
+                self.browser.selectedTiles.clear()
+
+                self.state = "selected"
+                self.applyStyle(self.state)
+                self.browser.selectedTiles.add(self)
+
+            self.browser.lastClickedTile = self
             return
 
         elif event.button() == Qt.RightButton:
-            if self in self.browser.selectedTiles:
-                self.browser.lastClickedTile = self
-            else:
+            if self not in self.browser.selectedTiles:
                 for tile in list(self.browser.selectedTiles):
                     tile.deselect()
                 self.browser.selectedTiles.clear()
                 self.state = "selected"
                 self.applyStyle(self.state)
                 self.browser.selectedTiles.add(self)
-                self.browser.lastClickedTile = self
+            self.browser.lastClickedTile = self
             return
 
         super().mousePressEvent(event)
 
 
     @err_catcher(name=__name__)
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            dragDistance = (event.pos() - self.dragStartPosition).manhattanLength()
-            if dragDistance < QApplication.startDragDistance():
-                self.setSelected(modifiers=self._pressModifiers)
-        super().mouseReleaseEvent(event)
+    def mouseMoveEvent(self, event):
+        if self.tileLocked:
+            return
+
+        if not (event.buttons() & Qt.LeftButton):
+            return
+
+        dragDistance = (event.pos() - self.dragStartPosition).manhattanLength()
+        if dragDistance >= QApplication.startDragDistance():
+            self._pendingSingleSelect = False  # Cancel single-select if drag starts
+
+            selectedTiles = self.browser.selectedTiles
+            if not selectedTiles:
+                return
+
+            drag = QDrag(self)
+            drag.setHotSpot(QPoint(10, 10))
+
+            if len(selectedTiles) == 1:
+                drag.setPixmap(self.grab())
+            else:
+                dragIcon = Utils.createStackedDragPixmap(selectedTiles)
+                drag.setPixmap(dragIcon)
+
+            mimeData = FileTileMimeData(selectedTiles, self.tileType)
+            mimeData.setData("application/x-fileTile", b"")
+            drag.setMimeData(mimeData)
+
+            drag.exec_(Qt.CopyAction)
 
 
     @err_catcher(name=__name__)
-    def mouseMoveEvent(self, event):
-        if self.tileLocked:
-            logger.debug("Tile is Locked: Drag is Disabled")
-            return
-        
-        if not (event.buttons() & Qt.LeftButton):
-            return
-        
-        if self.tileType not in ["sourceTile", "destTile"]:
-            return
-        
-        selectedTiles = self.browser.selectedTiles
-        if not selectedTiles:
-            return
-        
-        #   Only Execute Drag if Moved a Bit
-        dragDistance = (event.pos() - self.dragStartPosition).manhattanLength()
-        if dragDistance < QApplication.startDragDistance():
-            return
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self._pendingSingleSelect:
+            # Clear all other selections and select just this tile
+            for tile in list(self.browser.selectedTiles):
+                tile.deselect()
+            self.browser.selectedTiles.clear()
 
-        #   Create Drag Action
-        drag = QDrag(self)
-        drag.setHotSpot(QPoint(10, 10))
+            self.state = "selected"
+            self.applyStyle(self.state)
+            self.browser.selectedTiles.add(self)
+            self.browser.lastClickedTile = self
 
-        #    If Single Tile, then just get Image of that Tile
-        if len(selectedTiles) == 1:
-            drag.setPixmap(self.grab())
+            self._pendingSingleSelect = False
 
-        #   If Multiple Tiles, then Get Cascading Image
-        else:
-            dragIcon = Utils.createStackedDragPixmap(selectedTiles)
-            drag.setPixmap(dragIcon)
+        super().mouseReleaseEvent(event)
 
 
-        #   Create FileTile Holder and Add to Drag
-        mimeData = QMimeData()
-        mimeData = FileTileMimeData(selectedTiles, self.tileType)
-        mimeData.setData("application/x-fileTile", b"")
-        drag.setMimeData(mimeData)
 
-        drag.exec_(Qt.CopyAction)
+
 
 
     #   Launches the Double-click File Action
@@ -273,17 +302,22 @@ class BaseTileItem(QWidget):
 
     #   Sets the State Selected based on the Checkbox
     @err_catcher(name=__name__)
-    def setSelected(self, checked=None, modifiers=None):
+    def setSelected(self, checked=None, modifiers=None, additive=False, set_focus=True):
         try:
             if modifiers is None:
                 modifiers = QApplication.keyboardModifiers()
-                
-            #   SHIFT: Select range from lastClickedTile to this one
+
+            if checked is False:
+                self.deselect()
+                self.browser.selectedTiles.discard(self)
+                return
+
+            # SHIFT: Select range
             if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
                 self._selectRange()
                 return
 
-            #   CTRL: Toggle this tile's selection
+            # CTRL: Toggle selection
             elif modifiers & Qt.ControlModifier:
                 if self in self.browser.selectedTiles:
                     self.deselect()
@@ -291,24 +325,38 @@ class BaseTileItem(QWidget):
                 else:
                     self.state = "selected"
                     self.applyStyle(self.state)
-                    self.setFocus()
+                    if set_focus:
+                        self.setFocus()
                     self.browser.selectedTiles.add(self)
                 self.browser.lastClickedTile = self
                 return
 
-            #   Default (no modifier): exclusive selection
+            # Additive mode: just add without clearing
+            if additive:
+                self.state = "selected"
+                self.applyStyle(self.state)
+                if set_focus:
+                    self.setFocus()
+                self.browser.selectedTiles.add(self)
+                self.browser.lastClickedTile = self
+                return
+
+            # Default: clear and select only this
             for tile in list(self.browser.selectedTiles):
                 tile.deselect()
             self.browser.selectedTiles.clear()
 
             self.state = "selected"
             self.applyStyle(self.state)
-            self.setFocus()
+            if set_focus:
+                self.setFocus()
             self.browser.selectedTiles.add(self)
             self.browser.lastClickedTile = self
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Item(s) Selected:\n{e}")
+
+
 
 
     @err_catcher(name=__name__)
@@ -405,11 +453,11 @@ class BaseTileItem(QWidget):
         borderColor = DEFAULT_BORDER
 
         #   If Tile is Checked
-        if self.isChecked():
-            borderColor = COLOR_GREEN
+        # if self.isChecked():
+        #     borderColor = COLOR_GREEN
 
         #   If Dest Tile File Exists
-        elif self.tileType == "destTile" and self.transferState == "Idle" and self.destFileExists():
+        if self.tileType == "destTile" and self.transferState == "Idle" and self.destFileExists():
             borderColor = COLOR_ORANGE
 
         #   Create Border Style
@@ -425,8 +473,8 @@ class BaseTileItem(QWidget):
         baseColor = "69, 105, 129"
 
         #   If Tile is Checked
-        if self.isChecked() and self.browser.transferState == "Idle":
-            baseColor = COLOR_GREEN
+        # if self.isChecked() and self.browser.transferState == "Idle":
+        #     baseColor = COLOR_GREEN
 
         #   If Dest Tile File Exists
         if (self.tileType == "destTile" and self.transferState == "Idle" and self.destFileExists()):
@@ -1543,7 +1591,7 @@ class SourceFileTile(BaseTileItem):
             return
         
         rcmenu = QMenu(self.browser)
-        hasProxy = self.data["hasProxy"]
+        hasProxy = self.data.get("hasProxy", False)
         sc = self.browser.shortcutsByAction
 
 
@@ -1575,10 +1623,10 @@ class SourceFileTile(BaseTileItem):
 
             rcmenu.addAction(_separator())
 
-            funct = lambda: Utils.displayFFprobeMetadata(self.getSource_mainfilePath())
+            funct = lambda: Utils.displayCombinedMetadata(self.getSource_mainfilePath())
             Utils.createMenuAction("Show MetaData (Main File)", sc, rcmenu, self.browser, funct)
 
-            funct = lambda: Utils.displayFFprobeMetadata(self.getSource_proxyfilePath())
+            funct = lambda: Utils.displayCombinedMetadata(self.getSource_proxyfilePath())
             Utils.createMenuAction("Show MetaData (Proxy)", sc, rcmenu, self.browser, funct, enabled=hasProxy)
 
             Utils.createMenuAction("Show Data", sc, rcmenu, self.browser, self.TEST_SHOW_DATA)

@@ -1311,7 +1311,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 and getattr(fileItem, "data", {}).get("tileType") == "file"
                 ):
 
-                fileItem.setSelected(checked=True)
+                fileItem.setSelected(checked=True, additive=True, set_focus=False)
                 fileItem.setChecked(checked, refresh=False)
 
         if mode == "dest":

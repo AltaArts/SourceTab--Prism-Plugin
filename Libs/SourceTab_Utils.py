@@ -812,6 +812,8 @@ def createStackedDragPixmap(widgets: list) -> QPixmap:
 #################################################
 #################    METADATA    ################
 
+EXIFTOOL_BLOCKED_GROUPS = {"QuickTime", "SourceFile", "File", "Composite"}
+
 
 def formatCodecMetadata(metadata:dict) -> str:
     '''Returns String from Metadata Dict'''
@@ -824,13 +826,19 @@ def formatCodecMetadata(metadata:dict) -> str:
     return "\n".join(lines)
 
 
-def getFFprobePath() -> str:
-    '''Returns File Path of ffprobe.exe'''
-    return os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
+def getFFprobePath() -> str | None:
+    '''Returns File Path of ffprobe.exe or None if Not Found'''
+
+    ffprobe_path = os.path.join(pluginPath, "PythonLibs", "FFmpeg", "ffprobe.exe")
+    if os.path.isfile(ffprobe_path):
+        return ffprobe_path
+    
+    logger.warning("ERROR: Unable to Find FFprobe")
+    return None
 
 
-def getExiftool() -> str:
-    '''Returns File Path of exitool.exe'''
+def getExiftool() -> str | None:
+    '''Returns File Path of exitool.exe or None if Not Found'''
 
     exifDir = os.path.join(pluginPath, "PythonLibs", "ExifTool")
 
@@ -848,62 +856,60 @@ def getExiftool() -> str:
     return None
 
 
-def getMetadata(filePath:str) -> dict:
-    '''Returns Dict of All Raw Metadata from ExifTool'''
+def getExifMetadata(filePath: str) -> dict:
+    '''Returns Dict of All Metadata from ExifTool'''
+
     try:
         exifToolEXE = getExiftool()
+        if not exifToolEXE:
+            return {}
+
         with exiftool.ExifTool(exifToolEXE) as et:
             metadata_list = et.execute_json("-G", filePath)
 
         if metadata_list:
             metadata = metadata_list[0]
-            logger.debug(f"MetaData found for {filePath}")
+            logger.debug(f"ExifTool metadata found for {filePath}")
             return metadata
         
-        else:
-            logger.warning(f"ERROR:  No metadata found for {filePath}")
-            return {}
+        logger.warning(f"No ExifTool metadata found for {filePath}")
+        return {}
 
     except Exception as e:
-        logger.warning(f"ERROR:  Failed to get metadata for {filePath}: {e}")
+        logger.warning(f"Failed to get ExifTool metadata for {filePath}: {e}")
         return {}
     
     
-def groupMetadata(metadata:dict) -> dict:
-    '''Groups Raw Metadata into Logical Groups'''
-
+def groupExifMetadata(metadata: dict) -> dict:
+    '''Groups Raw Metadata into Logical Groups, Excluding Blocked Ones'''
     grouped = {}
     
     for key, value in metadata.items():
         section = key.split(":")[0]
+
+        #   Skips Redundant Data (already in ffprobe data)
+        if section in EXIFTOOL_BLOCKED_GROUPS:
+            continue
+
         tag = key.split(":")[1] if len(key.split(":")) > 1 else key
         
         if section not in grouped:
             grouped[section] = {}
         
         grouped[section][tag] = value
-    
+
     return grouped
-
-
-def displayMetadata(filePath:str) -> None:
-    '''Displays Popup of Groupded Metadata from ExifTool'''
-
-    metadata = getMetadata(filePath)
-
-    if metadata:
-        grouped_metadata = groupMetadata(metadata)
-        logger.debug("Showing MetaData Popup")
-        DisplayPopup.display(grouped_metadata, title="File Metadata", modal=False)
-    else:
-        logger.warning("No metadata to display.")
 
 
 def getFFprobeMetadata(filePath: str) -> dict:
     '''Returns Dict of All Raw Metadata from FFprobe'''
 
+    ffprobe_path = getFFprobePath()
+    if not ffprobe_path:
+        return {}
+    
     cmd = [
-        getFFprobePath(),
+        ffprobe_path,
         "-v", "error",
         "-show_format",
         "-show_streams",
@@ -968,17 +974,71 @@ def groupFFprobeMetadata(metadata:dict) -> dict:
     return grouped
 
 
-def displayFFprobeMetadata(filePath:str) -> None:
-    '''Displays Popup of Groupded Metadata from FFprobe'''
+def getCombinedMetadata(filePath: str) -> dict:
+    '''Returns Ungrouped FFprobe and EXIF metadata merged into one dict'''
 
-    metadata = getFFprobeMetadata(filePath)
+    combined = {}
 
-    if metadata:
-        grouped_metadata = groupFFprobeMetadata(metadata)
-        logger.debug("Showing FFprobe MetaData Popup")
-        DisplayPopup.display(grouped_metadata, title="File Metadata (FFprobe)", modal=False)
+    #   Get FFprobe Data
+    ffprobe_data = getFFprobeMetadata(filePath)
+    if ffprobe_data:
+        combined.update(ffprobe_data)
+
+    #   Get ExifTool Data
+    exif_data = getExifMetadata(filePath)
+    if exif_data:
+        for k, v in exif_data.items():
+            group = k.split(":")[0]
+            if group not in EXIFTOOL_BLOCKED_GROUPS:
+                combined[k] = v
+
+    return combined
+
+
+def getGroupedCombinedMetadata(filePath: str) -> dict:
+    """Returns Combined Grouped FFprobe and ExifTool Metadata"""
+
+    grouped = {}
+
+    #   Get FFprobe Data
+    ffprobe_data = getFFprobeMetadata(filePath)
+    if ffprobe_data:
+        grouped.update(groupFFprobeMetadata(ffprobe_data))
+
+    #   Get ExifTool Data
+    exif_data = getExifMetadata(filePath)
+    if exif_data:
+        grouped_exif = groupExifMetadata(exif_data)
+
+        for group_name, data in grouped_exif.items():
+            if not isinstance(data, dict):
+                data = {"value": data}
+            if group_name not in grouped and not group_name.lower().startswith("stream_"):
+                grouped[group_name] = data
+
+    #   Reorder Streams to the End
+    non_streams = {k: v for k, v in grouped.items() if not k.lower().startswith("stream_")}
+    streams     = {k: v for k, v in grouped.items() if k.lower().startswith("stream_")}
+
+    #   Sort Streams
+    streams = dict(sorted(streams.items(), key=lambda kv: int(kv[0].split("_")[1])))
+
+    #   Merge Both Back Together
+    ordered_grouped = {**non_streams, **streams}
+    return ordered_grouped
+
+
+def displayCombinedMetadata(filePath: str) -> None:
+    '''Displays Popup of Combined Metadata (FFprobe + ExifTool)'''
+
+    unified_metadata = getGroupedCombinedMetadata(filePath)
+
+    if unified_metadata:
+        logger.debug("Showing Unified Metadata Popup")
+        DisplayPopup.display(unified_metadata, title="File Metadata (Unified)", modal=False)
     else:
-        logger.warning("No FFprobe metadata to display.")
+        logger.warning("No metadata to display.")
+
 
 
 

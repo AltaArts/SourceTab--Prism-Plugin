@@ -300,34 +300,50 @@ class MetaFileItems:
 class MetadataModel:
     '''Metadata Structured Data'''
 
-    def __init__(self, raw_metadata):
-        self.metadata: dict[str, dict] = self.group_metadata(raw_metadata)
+    def __init__(self, metadata):
+        self.metadata: dict[str, dict] = self.group_metadata(metadata)
+
 
     @staticmethod
-    def group_metadata(metadata: dict[str, object]) -> dict[str, dict]:
-        '''Groups Raw Metadata into Sections'''
+    def group_metadata(metadata: dict) -> dict[str, dict]:
+        '''Groups Raw Metadata into Sections Dynamically'''
+
+        def _strip_prefix(key: str) -> str:
+            """Remove EXIF:, PNG:, etc. prefixes from keys."""
+
+            return key.split(":", 1)[1] if ":" in key else key
+        
 
         grouped = {}
 
-        if "format" in metadata:
-            grouped["format"] = {}
-            for k, v in metadata["format"].items():
-                if k == "tags" and isinstance(v, dict):
-                    grouped["format"]["tags"] = v.copy()
-                else:
-                    grouped["format"][k] = v
+        for section_key, section_value in metadata.items():
 
-        if "streams" in metadata:
-            for idx, stream in enumerate(metadata["streams"]):
-                section_name = f"stream_{idx}"
-                grouped[section_name] = {}
-                for k, v in stream.items():
-                    if k == "tags" and isinstance(v, dict):
-                        grouped[section_name]["tags"] = v.copy()
-                    else:
-                        grouped[section_name][k] = v
+            # Special handling for FFprobe streams
+            if section_key == "streams" and isinstance(section_value, list):
+                for idx, stream in enumerate(section_value):
+                    section_name = f"stream_{idx}"
+                    grouped[section_name] = {}
+                    for k, v in stream.items():
+                        if k == "tags" and isinstance(v, dict):
+                            grouped[section_name]["tags"] = v.copy()
+                        else:
+                            grouped[section_name][k] = v
+                continue
+
+            # Group other dictionary sections (format, EXIF, PNG, etc.)
+            if isinstance(section_value, dict):
+                grouped[section_key] = {}
+                for k, v in section_value.items():
+                    grouped[section_key][_strip_prefix(k)] = v
+                continue
+
+            # Skip non-dict, non-list sections — or wrap them if needed
+            logger.warning(f"Skipping non-dict section: {section_key} ({type(section_value).__name__})")
+            # If you prefer to keep them:
+            # grouped[section_key] = {"value": section_value}
 
         return grouped
+
 
 
     def get_sections(self) -> list[str]:
@@ -367,7 +383,6 @@ class MetadataModel:
         '''Returns Field's Value'''
 
         parts = [p.strip() for p in sourceField.split(">")]
-        
         section = parts[0]
         key_path = parts[1:]
 
