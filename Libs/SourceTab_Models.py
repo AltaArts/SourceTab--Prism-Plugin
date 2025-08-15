@@ -308,9 +308,7 @@ class MetadataModel:
     def group_metadata(metadata: dict) -> dict[str, dict]:
         '''Groups Raw Metadata into Sections Dynamically'''
 
-        def _strip_prefix(key: str) -> str:
-            """Remove EXIF:, PNG:, etc. prefixes from keys."""
-
+        def _strip_prefix(key):
             return key.split(":", 1)[1] if ":" in key else key
         
 

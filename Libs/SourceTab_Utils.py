@@ -240,6 +240,7 @@ def createMenuAction(actionName: str,
 
 def getShortcutsTip(shortcuts: dict) -> str:
     '''Returns Formatted Keyboard Shortcuts HTML Tip Block'''
+
     actions = list(shortcuts.items())
     if not actions:
         return "<p>No shortcuts assigned.</p>"
@@ -260,9 +261,35 @@ def getShortcutsTip(shortcuts: dict) -> str:
     return table_html
 
 
+def getGeneralUsageTip() -> str:
+    '''Returns Formatted General Usage HTML Tip Block'''
+
+    usageItems = [
+        ("Drag/Drop Tiles to Destination", "Add to Transfer"),
+        ("Drag/Drop Tiles to Source", "Remove from Transfer"),
+        ("Shift and Ctrl", "Multi-Selection is Allowed"),
+        ("Double-click a Tile", "Toggle its checkbox"),
+        ("Double-click Filename", "Display in Viewer"),
+        ("Double-click Thumbnail", "View in External Player"),
+        ("Double-click PXY icon", "View in External Player"),
+    ]
+
+    rows = []
+    for key, value in usageItems:
+        rows.append(f"<tr><td>{key}</td><td style='padding-left:20px;'>{value}</td></tr>")
+
+    return f"""
+<table cellspacing="0" cellpadding="4" border="0"
+       style="border-collapse: collapse; font-family: monospace;">
+{''.join(rows)}
+</table>
+"""
+
+
 def getHelpTip(mode: str, shortcuts: dict) -> str:
     '''Gets Help HTML Tooltip'''
 
+    generalUsage_html = getGeneralUsageTip()
     shortcuts_html = getShortcutsTip(shortcuts)
 
     if mode == "source":
@@ -270,26 +297,25 @@ def getHelpTip(mode: str, shortcuts: dict) -> str:
     elif mode == "dest":
         listHeader = "Destination Directory for Transfer Items"
     
-
     cheatSheet = f"""
-<html><body>
-( Click this Help Button to Open Browser to the Repo's Help Pages )<br>
-( tooltips are provided throughout )<br><br>
+<html><body style="font-family:sans-serif;">
 
-<b>{listHeader}</b><br><br>
+<b>{listHeader}</b><br><br><br>
 
 General Usage:<br>
-&nbsp;&nbsp;&nbsp;- Drag/Drop Tiles to Destination to Add to Transfer<br>
-&nbsp;&nbsp;&nbsp;- Drag/Drop Tiles to Source to Remove from Transfer<br>
-&nbsp;&nbsp;&nbsp;- Shift and Ctrl Multi-Selection is Allowed<br><br>
-
-&nbsp;&nbsp;&nbsp;- Double-click a Tile to toggle its checkbox<br>
-&nbsp;&nbsp;&nbsp;- Double-click Tile's Filename to Display in Viewer<br>
-&nbsp;&nbsp;&nbsp;- Double-click a Thumbnail to View in External player<br>
-&nbsp;&nbsp;&nbsp;- Double-click PXY icon to View in External player<br><br>
+<div style="margin-left:10px;">
+{generalUsage_html}
+</div>
+<br><br>
 
 Keyboard Shortcuts:<br>
+<div style="margin-left:10px;">
 {shortcuts_html}
+</div>
+<br><br>
+
+( Click this Help Button to Open Browser to the Repo's Help Pages )<br>
+( tooltips are provided throughout )<br>
 
 </body></html>
 """
@@ -300,7 +326,6 @@ def launchHelpWeb() -> None:                                                   #
     '''Opens the Browser to the Repo Help Page'''
     url = QUrl("https://github.com/AltaArts/SourceTab--Prism-Plugin")
     QDesktopServices.openUrl(url)
-
 
 
 def playSound(path:str) -> None:
