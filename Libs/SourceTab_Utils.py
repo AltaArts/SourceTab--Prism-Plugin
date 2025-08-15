@@ -49,6 +49,7 @@
 
 
 import os
+from posixpath import basename
 import sys
 import subprocess
 import json
@@ -1031,11 +1032,14 @@ def getGroupedCombinedMetadata(filePath: str) -> dict:
 def displayCombinedMetadata(filePath: str) -> None:
     '''Displays Popup of Combined Metadata (FFprobe + ExifTool)'''
 
-    unified_metadata = getGroupedCombinedMetadata(filePath)
+    metadata = getGroupedCombinedMetadata(filePath)
 
-    if unified_metadata:
-        logger.debug("Showing Unified Metadata Popup")
-        DisplayPopup.display(unified_metadata, title="File Metadata (Unified)", modal=False)
+    if metadata:
+        logger.debug("Showing Metadata Popup")
+
+        basename = getBasename(filePath)
+
+        DisplayPopup.display(metadata, title=f"File Metadata ( {basename} )", modal=False)
     else:
         logger.warning("No metadata to display.")
 
@@ -1045,7 +1049,7 @@ def displayCombinedMetadata(filePath: str) -> None:
 ################################################
 #################    PRESETS    ################
 
-def getExtFromType(pType:str) -> str:
+def getPresetExt(pType:str) -> str:
     '''Returns Preset File Extension by Type'''
 
     if pType == "proxy":
@@ -1076,7 +1080,7 @@ def importPreset(core, pType:str, local:bool=False) -> dict | None:
     '''Import Preset from File'''
 
     presetDir = None
-    presetExt = getExtFromType(pType)
+    presetExt = getPresetExt(pType)
 
     if local:
         #   Get Local Preset Dir for Explorer
@@ -1128,7 +1132,7 @@ def importPreset(core, pType:str, local:bool=False) -> dict | None:
 def exportPreset(core, pType:str, pName:str, pData:dict) -> bool:
     '''Export Preset to Selected Location'''
 
-    presetExt = getExtFromType(pType)
+    presetExt = getPresetExt(pType)
     initialName = pName + presetExt   
 
     #   Open Explorer to Choose Destination Path
@@ -1198,7 +1202,7 @@ def savePreset(core,
     
     '''Saves Preset by Type to Either Project or Local Plugin Dir'''
 
-    presetExt = getExtFromType(pType)
+    presetExt = getPresetExt(pType)
     if not presetExt or presetExt == "":
         return
 
@@ -1256,7 +1260,7 @@ def savePreset(core,
 def deletePreset(core, pType:str, pName:str) -> None:
     '''Delete Preset by Type from Project Preset Dir'''
 
-    presetExt = getExtFromType(pType)
+    presetExt = getPresetExt(pType)
     if not presetExt or presetExt == "":
         return
 

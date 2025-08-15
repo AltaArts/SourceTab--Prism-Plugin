@@ -1,0 +1,78 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "DJI - ProRes Raw",
+    "data": [
+        {
+            "field": "Date Recorded",
+            "enabled": true,
+            "sourceField": "format > tags > creation_time",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Type",
+            "enabled": false,
+            "sourceField": "format > tags > com.apple.proapps.modelname",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": false,
+            "sourceField": "format > tags > com.apple.proapps.manufacturer",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "stream_0 > tags > encoder",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": false,
+            "sourceField": "stream_0 > time_base",
+            "currentData": ""
+        },
+        {
+            "field": "Shutter Angle",
+            "enabled": true,
+            "sourceField": "format > tags > org.smpte.rdd18.camera.shutterspeed_angle",
+            "currentData": ""
+        },
+        {
+            "field": "ISO",
+            "enabled": false,
+            "sourceField": "format > tags > org.smpte.rdd18.camera.isosensitivity",
+            "currentData": ""
+        },
+        {
+            "field": "White Point (Kelvin)",
+            "enabled": false,
+            "sourceField": "format > tags > org.smpte.rdd18.camera.whitebalance",
+            "currentData": ""
+        },
+        {
+            "field": "Camera TC Type",
+            "enabled": true,
+            "sourceField": "stream_2 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Aperture",
+            "enabled": false,
+            "sourceField": "format > tags > com.apple.proapps.exif.{Exif}.FNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > sample_aspect_ratio",
+            "currentData": ""
+        }
+    ]
+}

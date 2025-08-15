@@ -1,0 +1,180 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "zCam - ProRes MOV",
+    "data": [
+        {
+            "field": "Date Recorded",
+            "enabled": true,
+            "sourceField": "format > tags > creation_time",
+            "currentData": ""
+        },
+        {
+            "field": "Camera #",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.cameraName",
+            "currentData": ""
+        },
+        {
+            "field": "Reel Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.reel",
+            "currentData": ""
+        },
+        {
+            "field": "Clip Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.clipID",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Type",
+            "enabled": true,
+            "sourceField": "format > tags > CameraModel",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": true,
+            "sourceField": "format > tags > CameraMaker",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.sn",
+            "currentData": ""
+        },
+        {
+            "field": "Camera ID",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.cameraName",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "stream_0 > tags > encoder",
+            "currentData": ""
+        },
+        {
+            "field": "Media Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.storage",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.projectFps",
+            "currentData": ""
+        },
+        {
+            "field": "Shutter Angle",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.shutterAngle",
+            "currentData": ""
+        },
+        {
+            "field": "ISO",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.iso",
+            "currentData": ""
+        },
+        {
+            "field": "White Point (Kelvin)",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.whiteBalanceKelvin",
+            "currentData": ""
+        },
+        {
+            "field": "White Balance Tint",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.whiteBalanceTint",
+            "currentData": ""
+        },
+        {
+            "field": "Camera TC Type",
+            "enabled": true,
+            "sourceField": "stream_2 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.fw",
+            "currentData": ""
+        },
+        {
+            "field": "Mon Color Space",
+            "enabled": false,
+            "sourceField": "stream_0 > color_space",
+            "currentData": ""
+        },
+        {
+            "field": "Monitor LUT",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.lut",
+            "currentData": ""
+        },
+        {
+            "field": "ND Filter",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.nd",
+            "currentData": ""
+        },
+        {
+            "field": "Compression Ratio",
+            "enabled": true,
+            "sourceField": "stream_0 > profile",
+            "currentData": ""
+        },
+        {
+            "field": "Codec Bitrate",
+            "enabled": false,
+            "sourceField": "stream_0 > bits_per_raw_sample",
+            "currentData": ""
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > sample_aspect_ratio",
+            "currentData": ""
+        },
+        {
+            "field": "Gamma Notes",
+            "enabled": true,
+            "sourceField": "format > tags > com.zcam.camera.lut",
+            "currentData": ""
+        },
+        {
+            "field": "Color Space Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > color_space",
+            "currentData": ""
+        },
+        {
+            "field": "Embedded Audio",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_long_name",
+            "currentData": ""
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Audio Media",
+            "enabled": true,
+            "sourceField": "stream_1 > channel_layout",
+            "currentData": ""
+        }
+    ]
+}

@@ -1,0 +1,84 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "DJI - DNG",
+    "data": [
+        {
+            "field": "Reel Number",
+            "enabled": false,
+            "sourceField": "EXIF > ReelName",
+            "currentData": ""
+        },
+        {
+            "field": "Clip Number",
+            "enabled": false,
+            "sourceField": "EXIF > ReelName",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Type",
+            "enabled": false,
+            "sourceField": "EXIF > Model",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": false,
+            "sourceField": "EXIF > Make",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": false,
+            "sourceField": "EXIF > CameraSerialNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": false,
+            "sourceField": "EXIF > FrameRate",
+            "currentData": ""
+        },
+        {
+            "field": "ISO",
+            "enabled": false,
+            "sourceField": "EXIF > ISO",
+            "currentData": ""
+        },
+        {
+            "field": "White Point (Kelvin)",
+            "enabled": false,
+            "sourceField": "XMP > WhiteBalanceCCT",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": false,
+            "sourceField": "EXIF > Software",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Aperture",
+            "enabled": false,
+            "sourceField": "EXIF > FNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Focal Point (mm)",
+            "enabled": false,
+            "sourceField": "EXIF > FocalLength",
+            "currentData": ""
+        },
+        {
+            "field": "Codec Bitrate",
+            "enabled": false,
+            "sourceField": "EXIF > BitsPerSample",
+            "currentData": ""
+        }
+    ]
+}

@@ -1,0 +1,78 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "RED - R3D",
+    "data": [
+        {
+            "field": "Take",
+            "enabled": true,
+            "sourceField": "Red > Take",
+            "currentData": ""
+        },
+        {
+            "field": "Camera #",
+            "enabled": true,
+            "sourceField": "Red > CameraType",
+            "currentData": ""
+        },
+        {
+            "field": "Reel Number",
+            "enabled": true,
+            "sourceField": "Red > ReelNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Clip Number",
+            "enabled": true,
+            "sourceField": "Red > OriginalFileName",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "Red > SerialNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Media Type",
+            "enabled": true,
+            "sourceField": "Red > StorageType",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": false,
+            "sourceField": "Red > FrameRate",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": true,
+            "sourceField": "Red > FirmwareVersion",
+            "currentData": ""
+        },
+        {
+            "field": "Focal Point (mm)",
+            "enabled": false,
+            "sourceField": "Red > FocalLength",
+            "currentData": ""
+        },
+        {
+            "field": "Distance",
+            "enabled": true,
+            "sourceField": "Red > FocusDistance",
+            "currentData": ""
+        },
+        {
+            "field": "Filter",
+            "enabled": true,
+            "sourceField": "Red > Filter",
+            "currentData": ""
+        }
+    ]
+}

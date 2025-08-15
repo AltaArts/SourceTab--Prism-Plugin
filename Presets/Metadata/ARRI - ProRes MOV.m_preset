@@ -6,36 +6,24 @@
 ############################################################################
 
 {
-    "name": "ARRI ProRes MOV",
+    "name": "ARRI - ProRes MOV",
     "data": [
         {
-            "field": "File Name",
+            "field": "Production Name",
             "enabled": true,
-            "sourceField": "format > filename",
-            "currentData": "C:\\Users\\Joshua Breckeen\\Desktop\\Alexa Footage\\Alexa Mini PR4444\\M001C001_161207_R00H.mov"
-        },
-        {
-            "field": "Reel Number",
-            "enabled": true,
-            "sourceField": "format > tags > com.arri.camera.ReelName",
-            "currentData": "M001R00H"
+            "sourceField": "format > tags > com.arri.camera.ProductionInfoProduction",
+            "currentData": ""
         },
         {
             "field": "Production Company",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.ProductionInfoCompany",
-            "currentData": "ARRITEST"
+            "currentData": ""
         },
         {
             "field": "Camera Operator",
             "enabled": true,
-            "sourceField": "format > tags > com.arri.camera.ProductionInfoOperator",
-            "currentData": "GHI"
-        },
-        {
-            "field": "Shot",
-            "enabled": true,
-            "sourceField": "format > tags > com.arri.camera.TakeName",
+            "sourceField": "format > tags > com.arri.camera.ProductionInfoCinematographer",
             "currentData": ""
         },
         {
@@ -45,112 +33,178 @@
             "currentData": ""
         },
         {
-            "field": "Program Name",
+            "field": "Take",
             "enabled": true,
-            "sourceField": "format > tags > com.arri.camera.ProductionInfoProduction",
-            "currentData": "ARRI"
+            "sourceField": "format > tags > com.arri.camera.TakeName",
+            "currentData": ""
+        },
+        {
+            "field": "Date Recorded",
+            "enabled": true,
+            "sourceField": "format > tags > creation_time",
+            "currentData": ""
         },
         {
             "field": "Camera #",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.CameraId",
-            "currentData": "R00H"
+            "currentData": ""
+        },
+        {
+            "field": "Reel Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.ReelName",
+            "currentData": ""
         },
         {
             "field": "Clip Number",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.CameraClipName",
-            "currentData": "M001C001_161207_R00H.mov"
+            "currentData": ""
         },
         {
             "field": "Camera Type",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.CameraModel",
-            "currentData": "ARRI ALEXA Mini"
+            "currentData": ""
         },
         {
             "field": "Camera Manufacturer",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.CameraModel",
-            "currentData": "ARRI ALEXA Mini"
+            "currentData": ""
         },
         {
             "field": "Camera Serial #",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.CameraSerialNumber",
-            "currentData": "20017"
+            "currentData": ""
         },
         {
             "field": "Camera ID",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.CameraId",
-            "currentData": "R00H"
+            "currentData": ""
         },
         {
             "field": "Camera Format",
             "enabled": true,
-            "sourceField": "format > format_long_name",
-            "currentData": "QuickTime / MOV"
+            "sourceField": "stream_0 > tags > encoder",
+            "currentData": ""
         },
         {
             "field": "Camera FPS",
-            "enabled": false,
+            "enabled": true,
             "sourceField": "format > tags > com.arri.camera.ProjectFps",
-            "currentData": "24000"
+            "currentData": ""
         },
         {
             "field": "Shutter Angle",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.ShutterAngle",
-            "currentData": "1728"
+            "currentData": ""
         },
         {
             "field": "ISO",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.ExposureIndexAsa",
-            "currentData": "800"
+            "currentData": ""
         },
         {
             "field": "White Point (Kelvin)",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.WhiteBalanceKelvin",
-            "currentData": "5600"
+            "currentData": ""
         },
         {
             "field": "White Balance Tint",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.WhiteBalanceTintCc",
-            "currentData": "0"
+            "currentData": ""
         },
         {
-            "field": "Monitor LUT",
+            "field": "Camera TC Type",
             "enabled": true,
-            "sourceField": "format > tags > com.arri.camera.look.name",
-            "currentData": "ARRI 709.AML"
+            "sourceField": "stream_2 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Sensor",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.sensor.PhotoSites",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.SupVersion",
+            "currentData": ""
+        },
+        {
+            "field": "Mon Color Space",
+            "enabled": false,
+            "sourceField": "stream_0 > color_space",
+            "currentData": ""
+        },
+        {
+            "field": "Lens Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.LensType",
+            "currentData": ""
+        },
+        {
+            "field": "Lens Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.arri.camera.LensSerialNumber",
+            "currentData": ""
         },
         {
             "field": "ND Filter",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.NdFilterDensity",
-            "currentData": "1200"
+            "currentData": ""
+        },
+        {
+            "field": "Compression Ratio",
+            "enabled": true,
+            "sourceField": "stream_0 > profile",
+            "currentData": ""
+        },
+        {
+            "field": "Codec Bitrate",
+            "enabled": false,
+            "sourceField": "stream_0 > bits_per_raw_sample",
+            "currentData": ""
         },
         {
             "field": "Aspect Ratio Notes",
             "enabled": true,
             "sourceField": "stream_0 > sample_aspect_ratio",
-            "currentData": "1:1"
+            "currentData": ""
         },
         {
             "field": "Gamma Notes",
             "enabled": true,
             "sourceField": "format > tags > com.arri.camera.ColorGammaSxS",
-            "currentData": "LOG-C"
+            "currentData": ""
         },
         {
             "field": "Color Space Notes",
             "enabled": true,
             "sourceField": "stream_0 > color_space",
-            "currentData": "bt709"
+            "currentData": ""
+        },
+        {
+            "field": "Embedded Audio",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_long_name",
+            "currentData": ""
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_tag_string",
+            "currentData": ""
         }
     ]
 }

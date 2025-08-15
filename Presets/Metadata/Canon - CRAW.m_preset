@@ -1,0 +1,120 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "Canon - CRAW",
+    "data": [
+        {
+            "field": "Camera Operator",
+            "enabled": true,
+            "sourceField": "MakerNotes > OwnerName",
+            "currentData": ""
+        },
+        {
+            "field": "Date Recorded",
+            "enabled": true,
+            "sourceField": "format > tags > creation_time",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Type",
+            "enabled": true,
+            "sourceField": "EXIF > Model",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": true,
+            "sourceField": "EXIF > Make",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "EXIF > SerialNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "MakerNotes > CompressorVersion",
+            "currentData": ""
+        },
+        {
+            "field": "Media Type",
+            "enabled": true,
+            "sourceField": "stream_0 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": true,
+            "sourceField": "stream_0 > r_frame_rate",
+            "currentData": ""
+        },
+        {
+            "field": "ISO",
+            "enabled": true,
+            "sourceField": "EXIF > ISO",
+            "currentData": ""
+        },
+        {
+            "field": "White Point (Kelvin)",
+            "enabled": true,
+            "sourceField": "MakerNotes > ColorTemperature",
+            "currentData": ""
+        },
+        {
+            "field": "Camera TC Type",
+            "enabled": true,
+            "sourceField": "stream_2 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": true,
+            "sourceField": "MakerNotes > CanonFirmwareVersion",
+            "currentData": ""
+        },
+        {
+            "field": "Lens Type",
+            "enabled": true,
+            "sourceField": "EXIF > LensModel",
+            "currentData": ""
+        },
+        {
+            "field": "Lens Number",
+            "enabled": true,
+            "sourceField": "EXIF > LensSerialNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Aperture",
+            "enabled": true,
+            "sourceField": "EXIF > FNumber",
+            "currentData": ""
+        },
+        {
+            "field": "Focal Point (mm)",
+            "enabled": true,
+            "sourceField": "EXIF > FocalLength",
+            "currentData": ""
+        },
+        {
+            "field": "Embedded Audio",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_long_name",
+            "currentData": ""
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_tag_string",
+            "currentData": ""
+        }
+    ]
+}

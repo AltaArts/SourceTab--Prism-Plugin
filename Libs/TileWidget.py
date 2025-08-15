@@ -2236,7 +2236,7 @@ class DestFileTile(BaseTileItem):
 
             rcmenu.addAction(_separator())
 
-            funct = lambda: Utils.displayMetadata(self.getDestMainPath())
+            funct = lambda: Utils.displayCombinedMetadata(self.getDestMainPath())
             Utils.createMenuAction("Show MetaData (Transferred File)", sc, rcmenu, self.browser, funct, enabled=destExists)
 
             funct = lambda: Utils.openInExplorer(self.core, self.getDestMainPath())

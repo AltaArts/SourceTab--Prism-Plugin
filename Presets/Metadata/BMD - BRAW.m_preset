@@ -1,0 +1,198 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "BMD - BRAW",
+    "data": [
+        {
+            "field": "Production Name",
+            "enabled": true,
+            "sourceField": "format > tags > production_name",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Operator",
+            "enabled": true,
+            "sourceField": "format > tags > camera_operator",
+            "currentData": ""
+        },
+        {
+            "field": "Scene",
+            "enabled": true,
+            "sourceField": "format > tags > scene",
+            "currentData": ""
+        },
+        {
+            "field": "Take",
+            "enabled": true,
+            "sourceField": "format > tags > take",
+            "currentData": ""
+        },
+        {
+            "field": "Day / Night",
+            "enabled": true,
+            "sourceField": "format > tags > day_night",
+            "currentData": ""
+        },
+        {
+            "field": "Environment",
+            "enabled": true,
+            "sourceField": "format > tags > environment",
+            "currentData": ""
+        },
+        {
+            "field": "Shot Type",
+            "enabled": true,
+            "sourceField": "format > tags > day_night",
+            "currentData": ""
+        },
+        {
+            "field": "Date Recorded",
+            "enabled": true,
+            "sourceField": "format > tags > creation_time",
+            "currentData": ""
+        },
+        {
+            "field": "Program Name",
+            "enabled": true,
+            "sourceField": "format > tags > production_name",
+            "currentData": ""
+        },
+        {
+            "field": "Camera #",
+            "enabled": true,
+            "sourceField": "format > tags > camera_number",
+            "currentData": ""
+        },
+        {
+            "field": "Reel Number",
+            "enabled": true,
+            "sourceField": "format > tags > reel_name",
+            "currentData": ""
+        },
+        {
+            "field": "Clip Number",
+            "enabled": true,
+            "sourceField": "format > tags > clip_number",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Type",
+            "enabled": true,
+            "sourceField": "format > tags > camera_type",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": true,
+            "sourceField": "format > tags > manufacturer",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "format > tags > camera_id",
+            "currentData": ""
+        },
+        {
+            "field": "Camera ID",
+            "enabled": true,
+            "sourceField": "format > tags > camera_id",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "stream_0 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": true,
+            "sourceField": "stream_0 > r_frame_rate",
+            "currentData": ""
+        },
+        {
+            "field": "Shutter Type",
+            "enabled": true,
+            "sourceField": "format > tags > shutter_type",
+            "currentData": ""
+        },
+        {
+            "field": "Camera TC Type",
+            "enabled": true,
+            "sourceField": "stream_2 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": true,
+            "sourceField": "format > tags > firmware_version",
+            "currentData": ""
+        },
+        {
+            "field": "Mon Color Space",
+            "enabled": false,
+            "sourceField": "format > tags > viewing_gamut",
+            "currentData": ""
+        },
+        {
+            "field": "Monitor LUT",
+            "enabled": true,
+            "sourceField": "format > tags > post_3dlut_embedded_name",
+            "currentData": ""
+        },
+        {
+            "field": "LUT Used",
+            "enabled": true,
+            "sourceField": "format > tags > post_3dlut_embedded_name",
+            "currentData": ""
+        },
+        {
+            "field": "Lens Type",
+            "enabled": true,
+            "sourceField": "format > tags > lens_type",
+            "currentData": ""
+        },
+        {
+            "field": "Compression Ratio",
+            "enabled": true,
+            "sourceField": "format > tags > braw_compression_ratio",
+            "currentData": ""
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": true,
+            "sourceField": "format > tags > aspect_ratio",
+            "currentData": ""
+        },
+        {
+            "field": "Gamma Notes",
+            "enabled": true,
+            "sourceField": "format > tags > viewing_gamut",
+            "currentData": ""
+        },
+        {
+            "field": "RAW",
+            "enabled": true,
+            "sourceField": "format > tags > braw_compression_ratio",
+            "currentData": ""
+        },
+        {
+            "field": "Embedded Audio",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_long_name",
+            "currentData": ""
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_tag_string",
+            "currentData": ""
+        }
+    ]
+}

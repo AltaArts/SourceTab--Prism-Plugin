@@ -1,0 +1,72 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "Sony - h264",
+    "data": [
+        {
+            "field": "Camera Type",
+            "enabled": true,
+            "sourceField": "XML > DeviceModelName",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": true,
+            "sourceField": "XML > DeviceManufacturer",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "XML > DeviceSerialNo",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "XML > VideoFormatVideoFrameVideoCodec",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": false,
+            "sourceField": "XML > VideoFormatVideoFrameCaptureFps",
+            "currentData": ""
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": true,
+            "sourceField": "XML > VideoFormatVideoLayoutAspectRatio",
+            "currentData": ""
+        },
+        {
+            "field": "Gamma Notes",
+            "enabled": true,
+            "sourceField": "XML > AcquisitionRecordGroupItemValue",
+            "currentData": ""
+        },
+        {
+            "field": "Color Space Notes",
+            "enabled": true,
+            "sourceField": "stream_0 > profile",
+            "currentData": ""
+        },
+        {
+            "field": "Embedded Audio",
+            "enabled": true,
+            "sourceField": "XML > AudioFormatAudioRecPortTrackDst",
+            "currentData": ""
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": true,
+            "sourceField": "XML > AudioFormatAudioRecPortAudioCodec",
+            "currentData": ""
+        }
+    ]
+}

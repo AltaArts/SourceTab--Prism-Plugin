@@ -1,0 +1,48 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "Sony - XOCN MXF",
+    "data": [
+        {
+            "field": "Camera Type",
+            "enabled": false,
+            "sourceField": "format > tags > product_name",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": false,
+            "sourceField": "format > tags > company_name",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": false,
+            "sourceField": "MXF > RoundedTimecodeTimebase",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": false,
+            "sourceField": "format > tags > product_version",
+            "currentData": ""
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": false,
+            "sourceField": "MXF > PresentationAspectRatio",
+            "currentData": ""
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": false,
+            "sourceField": "MXF > AudioSampleRate",
+            "currentData": ""
+        }
+    ]
+}

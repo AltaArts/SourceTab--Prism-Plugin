@@ -1,0 +1,252 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           Metadata Preset
+#
+############################################################################
+
+{
+    "name": "BMD - ProRes MOV",
+    "data": [
+        {
+            "field": "Production Name",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.projectName",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Operator",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.cameraOp",
+            "currentData": ""
+        },
+        {
+            "field": "Shot",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.shot",
+            "currentData": ""
+        },
+        {
+            "field": "Scene",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.scene",
+            "currentData": ""
+        },
+        {
+            "field": "Day / Night",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.dayNight",
+            "currentData": ""
+        },
+        {
+            "field": "Environment",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.environment",
+            "currentData": ""
+        },
+        {
+            "field": "Date Recorded",
+            "enabled": true,
+            "sourceField": "format > tags > creation_time",
+            "currentData": ""
+        },
+        {
+            "field": "Program Name",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.projectName",
+            "currentData": ""
+        },
+        {
+            "field": "Camera #",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.cameraName",
+            "currentData": ""
+        },
+        {
+            "field": "Reel Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.reel",
+            "currentData": ""
+        },
+        {
+            "field": "Clip Number",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.clipID",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.cameraType",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Manufacturer",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.manufacturer",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Serial #",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.uuid",
+            "currentData": ""
+        },
+        {
+            "field": "Camera ID",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.cameraName",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Format",
+            "enabled": true,
+            "sourceField": "stream_0 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Time-lapse Interval",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.shootingRate",
+            "currentData": ""
+        },
+        {
+            "field": "Camera FPS",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.projectFPS",
+            "currentData": ""
+        },
+        {
+            "field": "Shutter Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.shutterMode",
+            "currentData": ""
+        },
+        {
+            "field": "Shutter Angle",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.shutterAngle",
+            "currentData": ""
+        },
+        {
+            "field": "ISO",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.iso",
+            "currentData": ""
+        },
+        {
+            "field": "White Point (Kelvin)",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.whiteBalanceKelvin",
+            "currentData": ""
+        },
+        {
+            "field": "White Balance Tint",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.whiteBalanceTint",
+            "currentData": ""
+        },
+        {
+            "field": "Camera TC Type",
+            "enabled": true,
+            "sourceField": "stream_1 > codec_tag_string",
+            "currentData": ""
+        },
+        {
+            "field": "Sensor",
+            "enabled": true,
+            "sourceField": "stream_0 > tags > encoder",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Firmware",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.firmware",
+            "currentData": ""
+        },
+        {
+            "field": "Mon Color Space",
+            "enabled": false,
+            "sourceField": "stream_0 > color_space",
+            "currentData": ""
+        },
+        {
+            "field": "Lens Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.lensType",
+            "currentData": ""
+        },
+        {
+            "field": "Lens Notes",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.lensFocalLength",
+            "currentData": ""
+        },
+        {
+            "field": "Camera Aperture Type",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.look.anamorphicDesqueezeEnable",
+            "currentData": ""
+        },
+        {
+            "field": "Focal Point (mm)",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.lensDistance",
+            "currentData": ""
+        },
+        {
+            "field": "Distance",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.lensDistance",
+            "currentData": ""
+        },
+        {
+            "field": "ND Filter",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.NDFilter",
+            "currentData": ""
+        },
+        {
+            "field": "Compression Ratio",
+            "enabled": true,
+            "sourceField": "stream_0 > profile",
+            "currentData": ""
+        },
+        {
+            "field": "Codec Bitrate",
+            "enabled": true,
+            "sourceField": "stream_0 > bits_per_raw_sample",
+            "currentData": ""
+        },
+        {
+            "field": "Aspect Ratio Notes",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.guides.aspectRatio",
+            "currentData": ""
+        },
+        {
+            "field": "Gamma Notes",
+            "enabled": true,
+            "sourceField": "format > tags > com.apple.proapps.customgamma",
+            "currentData": ""
+        },
+        {
+            "field": "Color Space Notes",
+            "enabled": true,
+            "sourceField": "format > tags > com.blackmagic-design.camera.colorScience",
+            "currentData": ""
+        },
+        {
+            "field": "Embedded Audio",
+            "enabled": true,
+            "sourceField": "stream_2 > codec_long_name",
+            "currentData": ""
+        },
+        {
+            "field": "Audio File Type",
+            "enabled": true,
+            "sourceField": "stream_2 > codec_name",
+            "currentData": ""
+        }
+    ]
+}
