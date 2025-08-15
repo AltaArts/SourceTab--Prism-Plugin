@@ -288,8 +288,6 @@ General Usage:<br>
 &nbsp;&nbsp;&nbsp;- Double-click a Thumbnail to View in External player<br>
 &nbsp;&nbsp;&nbsp;- Double-click PXY icon to View in External player<br><br>
 
-&nbsp;&nbsp;&nbsp;- Drag/Drop Tile to Viewer to Display<br><br><br>
-
 Keyboard Shortcuts:<br>
 {shortcuts_html}
 
