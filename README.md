@@ -1,5 +1,6 @@
 # **SourceTab Plugin for Prism Pipeline 2**
 **Adds a "Source" tab to Prism that provides integrated file ingestion.  Adds Proxy handling/generation, File Naming, and Metadata.**
+
 <br>
 
 Prism automates and simplifies the workflow of animation and VFX projects.
