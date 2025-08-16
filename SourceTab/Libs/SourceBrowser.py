@@ -1210,7 +1210,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Get Custom Icon if Selected
         try:
             if self.useCustomIcon and os.path.isfile(self.customIconPath):
-                return self.customIconPath
+                reader = QImageReader(self.customIconPath)
+                if reader.canRead():
+                    logger.debug("Using Custom Icon")
+                    return self.customIconPath
+                
+                else:
+                    logger.warning("Custom Icon Invalid, using Prism Default Icon")
+                    return prismIcon
+            
             else:
                 logger.debug("Using Default Prism Icon")
                 return prismIcon

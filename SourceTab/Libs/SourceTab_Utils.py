@@ -324,7 +324,8 @@ Keyboard Shortcuts:<br>
 
 def launchHelpWeb() -> None:                                                   #   TODO - DIRECT LINK FOR HELP PAGE
     '''Opens the Browser to the Repo Help Page'''
-    url = QUrl("https://github.com/AltaArts/SourceTab--Prism-Plugin")
+    # url = QUrl("https://github.com/AltaArts/SourceTab--Prism-Plugin")
+    url = QUrl("https://raw.githubusercontent.com/AltaArts/SourceTab--Prism-Plugin/main/Docs/Doc-Docs_TOC.md")
     QDesktopServices.openUrl(url)
 
 

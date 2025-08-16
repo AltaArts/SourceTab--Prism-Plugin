@@ -14,7 +14,13 @@ You can find more information on the website:
 
 
 - Use to speed up the process of ingesting camera original clips (rushes/dailies) into the pipeline.
-- Automatated Proxy Search / transfer / generation ([**see Proxys**](Docs/Doc-Proxys.md)).
+- Allows quick viewing of a directory of clips with thumbnail and metadata display.
+- Drag/drop UI interface for File Tiles
+- Keyboard shortcuts (hotkeys) are provided for common actions.
+- Mini Preview Viewer for quick review of clips.
+- Transfer Report generated during transfer.
+- Metadata sidecar files generation (Resolve .csv and Avid .ale)
+- Automatated Proxy search/transfer/generation ([**see Proxys**](Docs/Doc-Proxys.md)).
 - Filename modifiers to allow bulk renaming during transfer ([**see File Naming**](Docs/Doc-FileNaming.md)).
 - Metadata extraction and assignment using ffprobe and ExifTool ([**see Metadata Handling**](Docs/Doc-Metadata.md)).
 

@@ -2,7 +2,7 @@
 
 <br/>
 
-It is highly suggested to exit Prism before installation of SourceTab.
+    It is highly suggested to exit Prism before installation of SourceTab.
 
 Copy the directory named "SourceTab" to a plugin directory of your choice, or a Prism2 plugin directory.
 
