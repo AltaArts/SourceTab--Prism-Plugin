@@ -53,9 +53,11 @@ import sys
 import logging
 import shutil
 
+
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
+
 
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
@@ -137,7 +139,8 @@ class Prism_SourceTab_Functions(object):
             self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=pb, refresh=False)
 
             #   Adds Source Tab to Project Browser
-            pb.addTab("Source", self.sourceBrowser, position=0)
+            tabPos = int(getattr(self.sourceBrowser, "tabPos", 1)) - 1
+            pb.addTab("Source", self.sourceBrowser, position=tabPos)
             logger.status("Added SourceTab to Project Browser")
         
         except Exception as e:
@@ -273,6 +276,25 @@ class Prism_SourceTab_Functions(object):
 
         projectSettings.lo_sourceTabOptions.addWidget(separatorLine("Misc"))
 
+        #   Tab Position
+        projectSettings.lo_tabPos = QHBoxLayout()
+        projectSettings.lo_tabPos.setContentsMargins(50, 0, 20, 0)
+        projectSettings.l_tabPos = QLabel("SourceTab Position", projectSettings.w_config)
+        projectSettings.cb_tabPos = QComboBox(projectSettings.w_config)
+        posItems = [str(i) for i in range(1, 11)]
+        projectSettings.cb_tabPos.addItems(posItems)
+        projectSettings.lo_tabPos.addWidget(projectSettings.l_tabPos)
+        projectSettings.lo_tabPos.addStretch()
+        projectSettings.lo_tabPos.addWidget(projectSettings.cb_tabPos)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_tabPos)
+
+        #   Libraries Import Popup
+        projectSettings.lo_useLibImport = QHBoxLayout()
+        projectSettings.lo_useLibImport.setContentsMargins(50, 0, 20, 0)
+        projectSettings.chb_useLibImport = QCheckBox("Use Libraries Popup for Destination Selection (if installed)", projectSettings.w_config)
+        projectSettings.lo_useLibImport.addWidget(projectSettings.chb_useLibImport)
+        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_useLibImport)
+
         #   Custom Icon
         projectSettings.lo_customIcon = QHBoxLayout()
         projectSettings.lo_customIcon.setContentsMargins(50, 0, 20, 0)
@@ -287,12 +309,6 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_customIcon.addWidget(projectSettings.b_customIconPath)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customIcon)
 
-        #   Libraries Import Popup
-        projectSettings.lo_useLibImport = QHBoxLayout()
-        projectSettings.lo_useLibImport.setContentsMargins(50, 0, 20, 0)
-        projectSettings.chb_useLibImport = QCheckBox("Use Libraries Popup for Destination Selection (if installed)", projectSettings.w_config)
-        projectSettings.lo_useLibImport.addWidget(projectSettings.chb_useLibImport)
-        projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_useLibImport)
 
         # #   View Lut                                                                      #   TODO - IMPLEMENT
         # projectSettings.lo_viewLut = QHBoxLayout()
@@ -366,6 +382,14 @@ class Prism_SourceTab_Functions(object):
                "directory, and contains the transfer data and stats.")
         projectSettings.chb_useTransferReport.setToolTip(tip)
 
+        tip = "Position of SourceTab in the Prism Project Browser Tab Bar."
+        projectSettings.l_tabPos.setToolTip(tip)
+        projectSettings.cb_tabPos.setToolTip(tip)
+
+        tip = ("If the Prism Libraries Plugin is Installed, this will Open a Custom\n"
+               "Libraries Dialogue to choose a Destination Path.")
+        projectSettings.chb_useLibImport.setToolTip(tip)
+
         tip = ("Filepath to a custom file to be used as an icon in the Completion Report.\n"
                "This can be any 'normal' image file (.png, .jpg, .tif, .bmp).\n\n"
                "   (leave blank to use the default Prism Icon)")
@@ -375,9 +399,6 @@ class Prism_SourceTab_Functions(object):
         tip = "Opens File Explorer to Choose Icon"
         projectSettings.b_customIconPath.setToolTip(tip)
 
-        tip = ("If the Prism Libraries Plugin is Installed, this will Open a Custom\n"
-               "Libraries Dialogue to choose a Destination Path.")
-        projectSettings.chb_useLibImport.setToolTip(tip)
 
         #   CONNECTIONS
         projectSettings.chb_useCustomIcon.toggled.connect(lambda: self.configureSettingsUI(projectSettings))
@@ -456,11 +477,17 @@ class Prism_SourceTab_Functions(object):
                 if "useCustomIcon" in sData:
                     projectSettings.chb_useCustomIcon.setChecked(sData["useCustomIcon"])
 
-                if "customIconPath" in sData:
-                    projectSettings.le_customIconPath.setText(sData["customIconPath"])
+                if "tabPosition" in sData:
+                    idx = projectSettings.cb_tabPos.findText(sData["tabPosition"])
+                    if idx != -1:
+                        projectSettings.cb_tabPos.setCurrentIndex(idx)
 
                 if "useLibImport" in sData:
                     projectSettings.chb_useLibImport.setChecked(sData["useLibImport"])
+
+                if "customIconPath" in sData:
+                    projectSettings.le_customIconPath.setText(sData["customIconPath"])
+
 
             #####   UNUSED RIGHT NOW        #########################
                 # if "useViewLut" in sData:
@@ -497,8 +524,9 @@ class Prism_SourceTab_Functions(object):
                 "useCompleteSound": origin.chb_playSound.isChecked(),
                 "useTransferReport": origin.chb_useTransferReport.isChecked(),
                 "useCustomIcon": origin.chb_useCustomIcon.isChecked(),
-                "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
+                "tabPosition": origin.cb_tabPos.currentText(),
                 "useLibImport": origin.chb_useLibImport.isChecked(),
+                "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
                 # "useViewLut": origin.chb_useViewLut.isChecked(),
                 # "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
                 # "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
@@ -543,9 +571,6 @@ class Prism_SourceTab_Functions(object):
 
             elif key == "proxySearch":
                 self.core.setConfig(cat="sourceTab", param="proxySearch", val=data, config="project")
-
-            # elif key == "ffmpegPresets":
-            #     self.core.setConfig(cat="sourceTab", param="ffmpegPresets", val=data, config="project")
                 
             elif key == "nameMods":
                 nData = self.sourceBrowser.nameMods
@@ -616,9 +641,10 @@ class Prism_SourceTab_Functions(object):
                     "useCustomIcon": False,
                     "customIconPath": "", 
                     "useViewLut": False,
+                    "tabPosition": "1",
+                    "useLibImport": True,
                     "useCustomThumbPath": False,
-                    "customThumbPath": "",
-                    "useLibImport": True
+                    "customThumbPath": ""
                 },
                 "tabSettings": {
                     "enable_frames": False,

@@ -842,6 +842,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.useCompletePopup = settingData["useCompletePopup"]
             self.useCompleteSound = settingData["useCompleteSound"]
             self.useTransferReport = settingData["useTransferReport"]
+            self.tabPos = settingData["tabPosition"]
             self.useCustomIcon = settingData["useCustomIcon"]
             self.customIconPath = os.path.normpath(settingData["customIconPath"].strip().strip('\'"'))
             self.useViewLuts = settingData["useViewLut"]
