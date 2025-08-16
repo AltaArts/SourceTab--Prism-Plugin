@@ -2,7 +2,7 @@
 
 [**Settings**](Doc-Settings.md)
 
-[**Interface**](Interface.md)
+[**Interface**](doc-Interface.md)
 
 [**Proxys**](Doc-Proxys.md)
 

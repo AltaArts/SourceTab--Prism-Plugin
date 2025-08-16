@@ -1,5 +1,5 @@
 # **SourceTab Plugin for Prism Pipeline 2**
-**Adds a "Source" tab to Prism that gives integrated file ingestion.  Adds Proxy handling/generation, File Naming, and Metadata.**
+**Adds a "Source" tab to Prism that provides integrated file ingestion.  Adds Proxy handling/generation, File Naming, and Metadata.**
 <br>
 
 Prism automates and simplifies the workflow of animation and VFX projects.
@@ -10,20 +10,14 @@ You can find more information on the website:
 
 <br/>
 
+![SourceTab](Docs/DocsImages/tab_overview.png)
 
-## **Notes**
 
-- Loader and Saver version management.
-- Rendering through Prism's State Manager.
-- Image loading into Fusion through a custom Import State using Prism's State Manager.
-- Multi-layer and Multi-part EXR splitting and sorting.
-- Farm Render submission through Deadline.
-- USD, FBX, and ABC object and scene importing.
-- USD and MaterialX material importing.
-- Tested with Fusion Studio versions 18 and 19.
-- Python 3.11 must installed and in the system path for Prism scripting to work with Fusion ([**see Installation**](Docs/Installation.md)).
-- This integration does not work with Resolve Fusion, though it is planned for the future.
-- To aid is use, tooltips are provided throughout.
+- Use to speed up the process of ingesting camera original clips (rushes/dailies) into the pipeline.
+- Automatated Proxy Search / transfer / generation ([**see Proxys**](Docs/Doc-Proxys.md)).
+- Filename modifiers to allow bulk renaming during transfer ([**see File Naming**](Docs/Doc-FileNaming.md)).
+- Metadata extraction and assignment using ffprobe and ExifTool ([**see Metadata Handling**](Docs/Doc-Metadata.md)).
+
 
 <br/>
 
