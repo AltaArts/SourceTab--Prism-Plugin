@@ -25,6 +25,9 @@ You can find more information on the website:
 - Filename modifiers to allow bulk renaming during transfer ([**see File Naming**](Docs/Doc-FileNaming.md)).
 - Metadata extraction and assignment using ffprobe and ExifTool ([**see Metadata Handling**](Docs/Doc-Metadata.md)).
 
+<br>
+
+        NOTE: The name "Proxys" is used throughout this plugin.  Yes technically it should be "Proxies", but I just think Proxys looks better, so there it is.
 
 <br/>
 
