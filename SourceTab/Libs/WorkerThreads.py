@@ -65,10 +65,6 @@ from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
-# if sys.version[0] == "3":
-#     pVersion = 3
-# else:
-#     pVersion = 2
 
 prismRoot = os.getenv("PRISM_ROOT")
 
@@ -658,7 +654,6 @@ class ProxyGenerationWorker(QThread):
             if scale_str.endswith("%"):
                 pct = float(scale_str.strip("%")) / 100.0
                 expr = f"scale=trunc(iw*{pct}/2)*2:trunc(ih*{pct}/2)*2"
-                # expr = f"scale_cuda=trunc(iw*{pct}/2)*2:trunc(ih*{pct}/2)*2"        #   TESTING - USE IN TESTING TO MAKE FAIL
 
             else:
                 expr = f"scale={scale_str}"

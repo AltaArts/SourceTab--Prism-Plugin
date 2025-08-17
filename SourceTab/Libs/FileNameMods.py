@@ -51,6 +51,7 @@
 import os
 import logging
 
+
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
@@ -81,8 +82,9 @@ def createModifier(mod_class):
 
 
 
-##   Base Modifier that Each Child Modifier Inhierits   ##
 class Mods_BaseFilename(QObject):
+    '''Base Modifier that Each Child Modifier Inhierits'''
+
     mod_name = "Base Modifier"
     mod_description = "Base Modifier"
     modChanged = Signal()
@@ -115,13 +117,15 @@ class Mods_BaseFilename(QObject):
         logger.debug(f"Created Filename Modifier: {self.mod_name}")
 
 
-    #   Connect Checkbox to Enabled Method
-    def baseConnections(self):
+    def baseConnections(self) -> None:
+        '''Connect Checkbox to Enabled Method'''
+
         self.chb_enableCheckbox.stateChanged.connect(self.onEnableChanged)
 
 
-    #   Returns QIcon with Both Normal and Disabled Versions
-    def getIconFromPath(self, imagePath, normalLevel=0.9, dimLevel=0.4):
+    def getIconFromPath(self, imagePath:str, normalLevel:float=0.9, dimLevel:float=0.4) -> QIcon:
+        '''Returns QIcon with Both Normal and Disabled Versions'''
+
         normal_pixmap = QPixmap(imagePath)
         normal_image = normal_pixmap.toImage().convertToFormat(QImage.Format_ARGB32)
 
@@ -161,28 +165,33 @@ class Mods_BaseFilename(QObject):
         return icon
 
 
-    #   Toggles Enabled State
-    def onEnableChanged(self, state):
+    def onEnableChanged(self, state:bool) -> None:
+        '''Toggles Enabled State'''
+
         self.isEnabled = bool(state)
         if hasattr(self, "_rowWidgets"):
             for w in self._rowWidgets:
                 w.setEnabled(self.isEnabled)
+
         self.modChanged.emit()
 
 
-    #   Toggles Checkbox
-    def setCheckbox(self, state):
+    def setCheckbox(self, state:bool) -> None:
+        '''Toggles Checkbox'''
+
         self.chb_enableCheckbox.setChecked(state)
         self.onEnableChanged(state)
 
 
-    #   Signals for UI Refresh
-    def onWidgetChanged(self, *args):
+    def onWidgetChanged(self, *args) -> None:
+        '''Signals for UI Refresh'''
+
         self.modChanged.emit()
 
 
-    #   Returns Base UI Items
-    def getModUI(self):
+    def getModUI(self) -> QWidget:
+        '''Returns Base UI Items'''
+
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -200,8 +209,9 @@ class Mods_BaseFilename(QObject):
         return [group]
 
 
-    #   Returns Un-Altered Name
-    def applyMod(self, base_name):
+    def applyMod(self, base_name:str) -> str:
+        '''Returns Un-Altered Name'''
+
         try:
             if not self.isEnabled:
                 return base_name

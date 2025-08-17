@@ -168,7 +168,8 @@ class BaseTileItem(QWidget):
         if event.button() == Qt.LeftButton:
             self.dragStartPosition = event.pos()
             self._pressModifiers = QApplication.keyboardModifiers()
-            self._pendingSingleSelect = False  # Track if we should later single-select
+            # Track if Later Single-select
+            self._pendingSingleSelect = False
 
             if self._pressModifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
                 self._selectRange()
@@ -186,10 +187,10 @@ class BaseTileItem(QWidget):
                 return
 
             if self in self.browser.selectedTiles:
-                # Already selected — maybe dragging, maybe single-select later
+                #   Already Selected — Maybe Dragging, Maybe Single-select
                 self._pendingSingleSelect = True
             else:
-                # Not selected → select this one immediately
+                #   Not selected - Select Immediately
                 for tile in list(self.browser.selectedTiles):
                     tile.deselect()
                 self.browser.selectedTiles.clear()
@@ -225,7 +226,8 @@ class BaseTileItem(QWidget):
 
         dragDistance = (event.pos() - self.dragStartPosition).manhattanLength()
         if dragDistance >= QApplication.startDragDistance():
-            self._pendingSingleSelect = False  # Cancel single-select if drag starts
+            #   Cancel Single-select if Drag Starts
+            self._pendingSingleSelect = False
 
             selectedTiles = self.browser.selectedTiles
             if not selectedTiles:
@@ -250,7 +252,7 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self._pendingSingleSelect:
-            # Clear all other selections and select just this tile
+            #   Clear Selections and Select
             for tile in list(self.browser.selectedTiles):
                 tile.deselect()
             self.browser.selectedTiles.clear()
@@ -263,10 +265,6 @@ class BaseTileItem(QWidget):
             self._pendingSingleSelect = False
 
         super().mouseReleaseEvent(event)
-
-
-
-
 
 
     #   Launches the Double-click File Action
@@ -312,12 +310,12 @@ class BaseTileItem(QWidget):
                 self.browser.selectedTiles.discard(self)
                 return
 
-            # SHIFT: Select range
+            # SHIFT: Select Range
             if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
                 self._selectRange()
                 return
 
-            # CTRL: Toggle selection
+            # CTRL: Toggle Selection
             elif modifiers & Qt.ControlModifier:
                 if self in self.browser.selectedTiles:
                     self.deselect()
@@ -331,7 +329,7 @@ class BaseTileItem(QWidget):
                 self.browser.lastClickedTile = self
                 return
 
-            # Additive mode: just add without clearing
+            # Additive Mode: Add Without Clearing
             if additive:
                 self.state = "selected"
                 self.applyStyle(self.state)
@@ -341,7 +339,7 @@ class BaseTileItem(QWidget):
                 self.browser.lastClickedTile = self
                 return
 
-            # Default: clear and select only this
+            # Default: Clear and Select Only This
             for tile in list(self.browser.selectedTiles):
                 tile.deselect()
             self.browser.selectedTiles.clear()
@@ -357,11 +355,9 @@ class BaseTileItem(QWidget):
             logger.warning(f"ERROR:  Failed to Set Item(s) Selected:\n{e}")
 
 
-
-
     @err_catcher(name=__name__)
     def _selectRange(self):
-        # Get all tiles in order
+        #   Get all tiles in order
         if isinstance(self, SourceFileTile):
             allTiles = self.browser.getAllSourceTiles()
         elif isinstance(self, DestFileTile):
@@ -378,12 +374,12 @@ class BaseTileItem(QWidget):
         if start > end:
             start, end = end, start
 
-        # Deselect current selection
+        #   Deselect Current Selection
         for tile in self.browser.selectedTiles:
             tile.deselect()
         self.browser.selectedTiles.clear()
 
-        # Select the range
+        #   Select the Range
         for tile in allTiles[start:end + 1]:
             tile.state = "selected"
             tile.applyStyle(tile.state)
@@ -606,7 +602,7 @@ class BaseTileItem(QWidget):
 
     #   Gets Thumbnail Save Path
     @err_catcher(name=__name__)
-    def getThumbnailPath(self, filepath):                                       #   TODO - USE CUSTOM PATH???
+    def getThumbnailPath(self, filepath):
         thumbBasename = Utils.getBasename(os.path.splitext(filepath)[0]) + ".jpg"
 
         if self.browser.useCustomThumbPath:
@@ -2278,7 +2274,7 @@ class DestFileTile(BaseTileItem):
                 #   Convert to Path
                 user_path = Path(os.path.normpath(user_dir))
 
-                # Determine if it's relative or absolute
+                #   Determine Relative or Absolute
                 if user_path.is_absolute():
                     resolvedPath = user_path
                 else:
@@ -2402,7 +2398,7 @@ class DestFileTile(BaseTileItem):
                              "proxyAction": None}
 
         ##  IF PROXY IS ENABLED ##
-        if proxyEnabled and self.isVideo() and self.isCodecSupported():                #   TODO - HANDLE PROXY FOR NON-VIDEO
+        if proxyEnabled and self.isVideo() and self.isCodecSupported():         #   TODO - HANDLE PROXY FOR NON-VIDEO
             proxySettings = options["proxySettings"]
             self.transferData["proxyMode"] = proxyMode
             self.transferData["proxySettings"] = proxySettings
@@ -2500,7 +2496,6 @@ class DestFileTile(BaseTileItem):
             self.transferTimer.stop()
             self.worker_proxy.cancel()
             logger.debug("Sending Cancel Generation to Worker")
-
 
 
     #   Updates the UI During the Transfer

@@ -91,7 +91,7 @@ class Prism_SourceTab_Functions(object):
         self.sourceBrowser = None
 
 
-        #	Register callbacks
+        #	Register Callbacks
         try:
             callbacks = [
                         ("projectBrowser_loadUI", self.projectBrowser_loadUI, 20),
@@ -101,7 +101,7 @@ class Prism_SourceTab_Functions(object):
                         ("preProjectSettingsSave", self.preProjectSettingsSave, 40),
                         ]
 
-            # Iterate through the list to register callbacks
+            #   Iterate Callback List to Register
             for callback_name, method, priority in callbacks:
                 self.core.registerCallback(callback_name, method, plugin=self.plugin, priority=priority)
 
@@ -125,7 +125,6 @@ class Prism_SourceTab_Functions(object):
     @err_catcher(name=__name__)
     def checkMXF(self):
         if ".mxf" not in self.core.media.supportedFormats:
-            #   Add .mxf format to Supported Formats
             self.core.media.supportedFormats.append(".mxf")
             self.core.media.videoFormats.append(".mxf")
             logger.status("Added '.mxf' format to Prism Supported Formats")
@@ -137,9 +136,9 @@ class Prism_SourceTab_Functions(object):
         try:
             #   Creates Source Browser
             self.sourceBrowser = SourceBrowser.SourceBrowser(self, core=self.core, projectBrowser=pb, refresh=False)
-
-            #   Adds Source Tab to Project Browser
+            #   Get Tab Position from Settings
             tabPos = int(getattr(self.sourceBrowser, "tabPos", 1)) - 1
+            #   Adds Source Tab to Project Browser
             pb.addTab("Source", self.sourceBrowser, position=tabPos)
             logger.status("Added SourceTab to Project Browser")
         
@@ -156,6 +155,7 @@ class Prism_SourceTab_Functions(object):
     #   Creates Project Settings Tab UI
     @err_catcher(name=__name__)
     def addUiToProjectSettings(self, projectSettings):
+
         #   Simple Line Generator
         def separatorLine(title=None):
             box = QWidget()
@@ -172,6 +172,7 @@ class Prism_SourceTab_Functions(object):
             layout.addWidget(line)
 
             return box
+
 
         #   Create the SourceTab Widget
         projectSettings.w_sourceTab = QWidget()
@@ -326,6 +327,7 @@ class Prism_SourceTab_Functions(object):
         # projectSettings.lo_customThumbPath.addWidget(projectSettings.chb_useCustomThumbPath)
         # projectSettings.lo_customThumbPath.addWidget(projectSettings.le_customThumbPath)
         # projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customThumbPath)
+
 
         projectSettings.lo_sourceTabOptions.addStretch()
 
@@ -527,6 +529,7 @@ class Prism_SourceTab_Functions(object):
                 "tabPosition": origin.cb_tabPos.currentText(),
                 "useLibImport": origin.chb_useLibImport.isChecked(),
                 "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
+                
                 # "useViewLut": origin.chb_useViewLut.isChecked(),
                 # "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
                 # "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')

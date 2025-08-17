@@ -49,7 +49,6 @@
 
 
 import os
-from posixpath import basename
 import sys
 import subprocess
 import json
@@ -62,9 +61,11 @@ import numpy
 import re
 from typing import Callable
 
+
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
+
 
 prismRoot = os.getenv("PRISM_ROOT")
 

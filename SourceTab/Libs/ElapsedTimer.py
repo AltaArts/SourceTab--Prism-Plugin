@@ -51,61 +51,56 @@
 import time
 
 
-
 class ElapsedTimer:
-    '''
-    Simple Elapsed Timer with Pause Functions
-    '''
+    '''Simple Elapsed Timer with Pause Functions'''
+
     def __init__(self):
         self._start_time = None
         self._elapsed = 0.0
         self._running = False
 
+
     def start(self) -> None:
-        '''
-        Starts Timer
-        '''
+        '''Starts Timer'''
 
         if not self._running:
             self._start_time = time.time()
             self._running = True
 
+
     def pause(self) -> None:
-        '''
-        Pauses Timer and keeps Time Elapsed
-        '''
+        '''Pauses Timer and keeps Time Elapsed'''
 
         if self._running:
             self._elapsed += time.time() - self._start_time
             self._start_time = None
             self._running = False
+            
 
     def stop(self) -> None:
         '''
         Alias of .pause() Method\n
         Stops Timer and keeps Time Elapsed
         '''
+
         self.pause()
 
+
     def reset(self) -> None:
-        '''
-        Resets Timer to 0.0
-        '''
+        '''Resets Timer to 0.0'''
 
         self._start_time = None
         self._elapsed = 0.0
         self._running = False
 
+
     def isRunning(self) -> bool:
-        '''
-        Returns Bool of Timer Running
-        '''
+        '''Returns Bool of Timer Running'''
         return self._running
+    
 
     def elapsed(self) -> float:
-        '''
-        Returns the Elapsed Time
-        '''
+        '''Returns the Elapsed Time'''
 
         if self._running:
             return self._elapsed + (time.time() - self._start_time)

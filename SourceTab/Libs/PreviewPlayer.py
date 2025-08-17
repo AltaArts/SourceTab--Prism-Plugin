@@ -287,7 +287,7 @@ class PreviewPlayer(QWidget):
             e.ignore()
 
 
-    #   Removed Dashed Line
+    #   Removes Dashed Line
     @err_catcher(name=__name__)
     def onDragLeaveEvent(self, widget, e):
         widget.setStyleSheet("")
@@ -589,7 +589,6 @@ class PreviewPlayer(QWidget):
                 self.pduration,
                 frStr,
             )
-
 
         elif len(self.previewSeq) > 1:
             infoStr = "%s files %sx%s   %s\n%s" % (
@@ -1023,28 +1022,6 @@ class PreviewPlayer(QWidget):
             icon = self.core.media.getColoredIcon(path)
             self.b_play.setIcon(icon)
             self.b_play.setToolTip("Pause")
-
-
-#####   TESTING     ######
-            
-    # @Slot(int, QImage)
-    # def cachePixmapInMainThread(self, frame: int, image: QImage):
-    #     if image and not image.isNull():
-    #         pixmap = QPixmap.fromImage(image)
-    #         key = f"Preview_Frame{frame}"
-    #         QPixmapCache.insert(key, pixmap)
-    #         logger.status(f"[Parent] Cached frame {frame} in main thread")
-
-
-    # def test_pixmap_cache(self, prefix: str = "Preview_Frame", start: int = 1, end: int = 10):
-    #     print(f"Testing QPixmapCache from {start} to {end} (prefix: '{prefix}')")
-    #     for frame in range(start, end + 1):
-    #         key = f"{prefix}{frame}"
-    #         pm = QPixmapCache.find(key)
-    #         if pm and not pm.isNull():
-    #             print(f"Frame {frame} cached: {pm}")
-    #         else:
-    #             print(f"Frame {frame} NOT cached")
 
 
     @err_catcher(name=__name__)

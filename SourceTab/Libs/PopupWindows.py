@@ -92,6 +92,10 @@ logger = logging.getLogger(__name__)
 
 
 
+#################################################
+##############    WAIT POPUP    #################
+
+
 class WaitPopup:
     _popupProcess = None
 
@@ -137,10 +141,13 @@ class WaitPopup:
     
 
 
+#################################################
+#############    DISPLAY POPUP   ################
+
+
 class DisplayPopup(QDialog):
     def __init__(self, data, title="Display Data", buttons=None, xScale=2, yScale=2, xSize=None, ySize=None, parent=None):
         super().__init__(parent)
-
 
         self.result = None
         self.setWindowTitle(title)
@@ -191,10 +198,89 @@ class DisplayPopup(QDialog):
         self.accept()
 
 
+    def _add_recursive(self, layout, data, indent=0):
+        #   WIDGET
+        if isinstance(data, QWidget):
+            try:
+                layout.addWidget(data)
+
+            except Exception as e:
+                logger.warning(f"ERROR: Failed to display Widget: {e}")
+
+        #   DICT
+        elif isinstance(data, dict):
+            try:
+                for key, value in data.items():
+                    #   If Empty Just Add Empty Line
+                    if key == "" and value == "":
+                        layout.addSpacing(10)
+                        continue
+
+                    #   Nested dict/list/widget -> header + recursive call
+                    if isinstance(value, (dict, list, QWidget)):
+                        header = QLabel(" " * indent + str(key))
+                        font = header.font()
+                        font.setBold(True)
+
+                        #   Colors for Errors/Warnings
+                        if str(key).lower().startswith("error"):
+                            header.setStyleSheet("color: red;")
+                        elif str(key).lower().startswith("warning"):
+                            header.setStyleSheet("color: orange;")
+
+                        header.setFont(font)
+                        layout.addWidget(header)
+
+                        #   Recurse into Children
+                        self._add_recursive(layout, value, indent + 4)
+
+                    else:
+                        # Simple Key-Value
+                        hlayout = QHBoxLayout()
+                        key_lbl = QLabel(" " * indent + str(key) + ":")
+                        val_lbl = QLabel(str(value))
+                        val_lbl.setWordWrap(True)
+                        hlayout.addWidget(key_lbl)
+                        hlayout.addWidget(val_lbl)
+                        layout.addLayout(hlayout)
+
+            except Exception as e:
+                logger.warning(f"ERROR: Failed to display dict: {e}")
+
+        #   LIST
+        elif isinstance(data, list):
+            try:
+                for item in data:
+                    self._add_recursive(layout, item, indent)
+            
+            except Exception as e:
+                logger.warning(f"ERROR: Falied to display list: {e}")
+
+        #   STRING
+        else:
+            try:
+                if data == "":
+                    layout.addSpacing(10)
+                    return
+                lbl = QLabel(" " * indent + str(data))
+                lbl.setWordWrap(True)
+                layout.addWidget(lbl)
+            
+            except Exception as e:
+                logger.warning(f"ERROR: Failed to display string: {e}")
+
+
     @staticmethod
-    def display(data, title="Display Data", buttons=None,
-                xScale=2, yScale=2, xSize=None, ySize=None,
-                modal=True, parent=None):
+    def display(data: QWidget | dict | list | str,
+                title: str = "Display Data",
+                buttons: list = None,
+                xScale: int = 2,
+                yScale: int = 2,
+                xSize: int = None,
+                ySize: int = None,
+                modal: bool = True,
+                parent: QWindow = None) -> str | None:
+        '''Display Data in Popup Window'''
                 
         try:
             dialog = DisplayPopup(data, title=title, buttons=buttons,
@@ -211,60 +297,10 @@ class DisplayPopup(QDialog):
             logger.warning(f"ERROR:  Failed to Show DisplayPopup:\n{e}")
 
 
-    def _add_recursive(self, layout, data, indent=0):
-        # If this is a QWidget (e.g., QGroupBox), add directly
-        if isinstance(data, QWidget):
-            layout.addWidget(data)
 
-        elif isinstance(data, dict):
-            for key, value in data.items():
-                # If it's an empty filler row: add spacing instead of colon line
-                if key == "" and value == "":
-                    layout.addSpacing(10)   # Add vertical space
-                    continue
-
-                # Nested dict/list/widget -> header + recursive call
-                if isinstance(value, (dict, list, QWidget)):
-                    header = QLabel(" " * indent + str(key))
-                    font = header.font()
-                    font.setBold(True)
-
-                    # Optional: colors for Errors/Warnings headers
-                    if str(key).lower().startswith("error"):
-                        header.setStyleSheet("color: red;")
-                    elif str(key).lower().startswith("warning"):
-                        header.setStyleSheet("color: orange;")
-
-                    header.setFont(font)
-                    layout.addWidget(header)
-
-                    # Recurse into children
-                    self._add_recursive(layout, value, indent + 4)
-
-                else:
-                    # Simple key-value
-                    hlayout = QHBoxLayout()
-                    key_lbl = QLabel(" " * indent + str(key) + ":")
-                    val_lbl = QLabel(str(value))
-                    val_lbl.setWordWrap(True)
-                    hlayout.addWidget(key_lbl)
-                    hlayout.addWidget(val_lbl)
-                    layout.addLayout(hlayout)
-
-        elif isinstance(data, list):
-            for item in data:
-                self._add_recursive(layout, item, indent)
-
-        else:
-            # Simple value
-            if data == "":
-                layout.addSpacing(10)  # Add spacing for standalone empty strings
-                return
-            lbl = QLabel(" " * indent + str(data))
-            lbl.setWordWrap(True)
-            layout.addWidget(lbl)
-
-
+#################################################
+###############    OCIO    ######################
+            
 
 class OcioConfigPopup(QDialog):
     def __init__(self, core, data):
@@ -299,7 +335,6 @@ class OcioConfigPopup(QDialog):
         scroll_area.setWidgetResizable(True)
         scroll_widget = QWidget()
         scroll_layout = QVBoxLayout(scroll_widget)
-
         
 
         # # Display content
@@ -347,7 +382,6 @@ class OcioConfigPopup(QDialog):
         lo_main.addLayout(lo_buttons)
 
 
-
     def connectEvents(self):
         self.b_addPreset.clicked.connect(self.onOcioPresetClicked)
         self.b_close.clicked.connect(self.onCloseClicked)
@@ -372,7 +406,6 @@ class OcioConfigPopup(QDialog):
             self.addOcioPreset(preset)
 
 
-
     @staticmethod
     def display(core, data, buttons=None):
         dialog = OcioConfigPopup(core, data)
@@ -381,298 +414,9 @@ class OcioConfigPopup(QDialog):
 
 
 
-class NamingPopup(QDialog):
-    def __init__(self, core, origName, mods=None):
-        super().__init__()
 
-        self.core = core
-        self.origName = origName
-
-        self.activeMods = []
-
-        #   Make Modifier References List
-        self.modDefs = [{"name": cls.mod_name, "description": cls.mod_description, "class": cls} for cls in GetMods()]
-
-        self.result = None
-
-        self.setupUI()
-        self.setWindowTitle("File Naming Configuration")
-
-        #   If passed Mods, Load Mods into the UI
-        if mods:
-            self.loadMods(mods)
-
-        self.refreshUI()
-
-        logger.debug("Loaded NamingPopup")
-
-
-    def setupUI(self):
-        #   Calculate Window Geometry
-        screen = QGuiApplication.primaryScreen()
-        screen_geometry = screen.availableGeometry()
-        width   = screen_geometry.width() // 2.5
-        height  = screen_geometry.height() // 1.5
-        x_pos   = (screen_geometry.width() - width) // 2
-        y_pos   = (screen_geometry.height() - height) // 2
-        self.setGeometry(x_pos, y_pos, width, height)
-
-        #   Main layout
-        lo_main = QVBoxLayout(self)
-
-        #   TOP NAMES SECTION
-        lo_top = QVBoxLayout()
-
-        #   Original Name
-        lo_origName = QHBoxLayout()
-        l_origName = QLabel("Original:")
-        l_origName.setFixedWidth(70)
-        self.le_origName = QLineEdit()
-
-        lo_origName.addWidget(l_origName)
-        lo_origName.addWidget(self.le_origName)
-
-        #   Modified Name
-        lo_newName = QHBoxLayout()
-        l_newName = QLabel("Modified:")
-        l_newName.setFixedWidth(70)
-        self.le_newName = QLineEdit()
-        lo_newName.addWidget(l_newName)
-        lo_newName.addWidget(self.le_newName)
-
-        #   Add Top Layouts
-        lo_top.addLayout(lo_origName)
-        lo_top.addLayout(lo_newName)
-        lo_main.addLayout(lo_top)
-
-        #   MIDDLE MODIFIERS SECTION
-        mod_container = QWidget()
-        mod_container_layout = QVBoxLayout(mod_container)
-        mod_container_layout.setContentsMargins(0, 0, 0, 0)
-        mod_container_layout.setSpacing(4)
-
-        self.gb_activeMods = QGroupBox("Active Modifiers")
-        self.lo_activeMods = QVBoxLayout()
-        self.lo_activeMods.setContentsMargins(4, 4, 4, 4)
-        self.lo_activeMods.setSpacing(6)
-        self.gb_activeMods.setLayout(self.lo_activeMods)
-
-        mod_container_layout.addWidget(self.gb_activeMods)
-        mod_container_layout.addStretch(1)
-
-        mod_scroll = QScrollArea()
-        mod_scroll.setWidgetResizable(True)
-        mod_scroll.setWidget(mod_container)
-        mod_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        lo_main.addWidget(mod_scroll, 1)
-
-        #   BOTTOM BUTTONS SECTION
-        lo_buttons = QHBoxLayout()
-        l_availMods = QLabel("Modifier")
-        self.cb_availMods = QComboBox()
-        b_addMod = QPushButton(text="Add Modifier")
-        b_apply = QPushButton("Apply")
-        b_close = QPushButton("Close")
-
-        lo_buttons.addWidget(l_availMods)
-        lo_buttons.addWidget(self.cb_availMods)
-        lo_buttons.addWidget(b_addMod)
-        lo_buttons.addStretch(1)
-        lo_buttons.addWidget(b_apply)
-        lo_buttons.addWidget(b_close)
-
-        lo_main.addLayout(lo_buttons)
-
-        #   Connections
-        b_addMod.clicked.connect(self.onAddModifierClicked)
-        b_apply.clicked.connect(lambda: self._onButtonClicked("Apply"))
-        b_close.clicked.connect(lambda: self._onButtonClicked("Close"))
-
-        #   ToolTips
-        tip = ("Original Un-Altered Name\n\n"
-               "To use as an Example:\n"
-               "First file is used, or EXAMPLEFILENAME")
-        self.le_origName.setToolTip(tip)
-
-        tip = ("Altered Name after all Enabled Modifiers\n\n"
-               "This will affect all selected files in the\n"
-               "Destination list")
-        self.le_newName.setToolTip(tip)
-
-        tip = ("Active Modifier Stack.\n\n"
-               "Select desired Modifiers and click Add Modifier\n"
-               "to add Mods to Stack")
-        self.gb_activeMods.setToolTip(tip)
-
-        self.cb_availMods.setToolTip("Select Modifier Type to add")
-        b_addMod.setToolTip("Add Selected Modifier to Stack")
-        b_apply.setToolTip("Apply Changes and Close Window")
-        b_close.setToolTip("Discard Changes and Close Window")
-
-        self.populateModsCombo()
-
-
-    #    Add Modifier Names to Combo
-    def populateModsCombo(self):
-        try:
-            self.cb_availMods.clear()
-
-            tipRows = []
-
-            #   Get All Available Mod Details
-            for mod in self.modDefs:
-                name = mod["name"]
-                descrip = mod["description"]
-                #   Add to Combobox
-                self.cb_availMods.addItem(name)
-                #   Add to Tooltip
-                tipRows.append(f"<tr><td><b>{name}</b></td><td>{descrip}</td></tr>")
-
-            #   Create Tooltip
-            tipHtml = (
-                "<html><head/><body>"
-                "<table style='min-width: 800px;' cellspacing='6' cellpadding='4'>"
-                + "\n".join(tipRows) +
-                "</table></body></html>"
-            )
-            #   Set Tooltip
-            self.cb_availMods.setToolTip(tipHtml)
-
-            logger.debug("Populated Mods Combo")
-
-        except Exception as e:
-            logger.warning(f"ERROR:  Failed to Populate Mods Combo:\n{e}")
-
-
-    #    Removes all Mod Widgets from Layout
-    def clearLayout(self, layout):
-        while layout.count():
-            item = layout.takeAt(0)
-
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
-
-            #   Clear Any Nested Layouts
-            elif item.layout():
-                self.clearLayout(item.layout())
-
-
-    #   Updates Filename Text
-    def refreshUI(self):
-        #   Set Original Name
-        self.le_origName.setText(self.origName)
-        #    Get Modified Name
-        newName = self.applyMods(self.origName)
-        #    Set Modified Name
-        self.le_newName.setText(newName)
-
-
-    #   Loads Existing Mods into UI
-    def loadMods(self, mods):
-        #   Clear List
-        self.activeMods = []
-        #   Clear Layout
-        self.clearLayout(self.lo_activeMods)
-
-        for mod_data in mods:
-            try:
-                modifierClass = GetModByName(mod_data["mod_type"])
-                modifier = CreateMod(modifierClass)
-                self.addModToUi(modifier, mod_data)
-
-                logger.debug(f"Loaded Modifier: {modifierClass}")
-
-            except Exception as e:
-                logger.debug(f"ERROR:  Unable to add Filename Mod: {modifierClass}:\n{e}")
-
-
-    #   Creates New Modifier from Selected Combo
-    def onAddModifierClicked(self):
-        #   Get Mod Name from Combo
-        selIndx = self.cb_availMods.currentIndex()
-        selMod  = self.modDefs[selIndx]["class"]
-        #   Create New Modifier
-        modifier = CreateMod(selMod)
-        #   Add to UI
-        self.addModToUi(modifier)
-
-
-    #   Creates UI Item for passed Modifier
-    def addModToUi(self, modifier, data=None):
-        modifier.modChanged.connect(self.refreshUI)
-
-        #   Connect each Mod's Remove button to the UI
-        modifier.b_remove.clicked.connect(lambda _, m=modifier: self.removeModifier(m))
-
-        #   Create Layout for the Modifier
-        lo_mod = QHBoxLayout()
-
-        #   Add Widgets from Returned getModUI()
-        for widget in modifier.getModUI():
-            lo_mod.addWidget(widget)
-
-        #   Wrap Layout in a QWidget
-        mod_widget = QWidget()
-        mod_widget.setLayout(lo_mod)
-
-        #   Add Widget to Mods Layout
-        self.lo_activeMods.addWidget(mod_widget)
-
-        #   If passed Existing Mod Settings
-        if data:
-            modifier.setSettings(data["settings"])
-            modifier.isEnabled = data.get("enabled", True)
-            modifier.chb_enableCheckbox.setChecked(modifier.isEnabled)
-
-        #   Add Mod to List
-        self.activeMods.append((modifier, mod_widget))
-
-        self.refreshUI()
-
-
-    #   Modify Original Name based on Active Mods
-    def applyMods(self, origName):
-        #   Start with Orig Name
-        newName = origName
-
-        #    Loop Through All Modifiers
-        for mod_instance, _ in self.activeMods:
-            try:
-                #   If Checkbox is Enabled
-                if mod_instance.isEnabled:
-                    #   Execute Mod's Apply Method
-                    newName = mod_instance.applyMod(newName)
-                
-            except Exception as e:
-                logger.warning(f"ERROR:  Unable to Add Filename Modifier:\n{e}")
-
-        return newName
-            
-
-    #   Removes Modifier (obviously)
-    def removeModifier(self, mod_instance):
-        #   Find the Mod and its Associated Widget
-        for i, (instance, widget) in enumerate(self.activeMods):
-            if instance == mod_instance:
-                self.lo_activeMods.removeWidget(widget)
-
-                #   Removes Mod from UI
-                widget.setParent(None)
-                widget.deleteLater()
-
-                #   Removes Mod from List
-                self.activeMods.pop(i)
-                break
-
-        self.refreshUI()
-
-
-    def _onButtonClicked(self, text):
-        self.result = text
-        self.accept()
-
+#################################################
+###############    PROXY   ######################
 
 
 class ProxyPopup(QDialog):
@@ -2107,6 +1851,308 @@ class ProxyPresetsEditor(QDialog):
 
 
 
+#################################################
+##############    FILE NAMING   #################
+
+
+class NamingPopup(QDialog):
+    def __init__(self, core, origName, mods=None):
+        super().__init__()
+
+        self.core = core
+        self.origName = origName
+
+        self.activeMods = []
+
+        #   Make Modifier References List
+        self.modDefs = [{"name": cls.mod_name, "description": cls.mod_description, "class": cls} for cls in GetMods()]
+
+        self.result = None
+
+        self.setupUI()
+        self.setWindowTitle("File Naming Configuration")
+
+        #   If passed Mods, Load Mods into the UI
+        if mods:
+            self.loadMods(mods)
+
+        self.refreshUI()
+
+        logger.debug("Loaded NamingPopup")
+
+
+    def setupUI(self):
+        #   Calculate Window Geometry
+        screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        width   = screen_geometry.width() // 2.5
+        height  = screen_geometry.height() // 1.5
+        x_pos   = (screen_geometry.width() - width) // 2
+        y_pos   = (screen_geometry.height() - height) // 2
+        self.setGeometry(x_pos, y_pos, width, height)
+
+        #   Main layout
+        lo_main = QVBoxLayout(self)
+
+        #   TOP NAMES SECTION
+        lo_top = QVBoxLayout()
+
+        #   Original Name
+        lo_origName = QHBoxLayout()
+        l_origName = QLabel("Original:")
+        l_origName.setFixedWidth(70)
+        self.le_origName = QLineEdit()
+
+        lo_origName.addWidget(l_origName)
+        lo_origName.addWidget(self.le_origName)
+
+        #   Modified Name
+        lo_newName = QHBoxLayout()
+        l_newName = QLabel("Modified:")
+        l_newName.setFixedWidth(70)
+        self.le_newName = QLineEdit()
+        lo_newName.addWidget(l_newName)
+        lo_newName.addWidget(self.le_newName)
+
+        #   Add Top Layouts
+        lo_top.addLayout(lo_origName)
+        lo_top.addLayout(lo_newName)
+        lo_main.addLayout(lo_top)
+
+        #   MIDDLE MODIFIERS SECTION
+        mod_container = QWidget()
+        mod_container_layout = QVBoxLayout(mod_container)
+        mod_container_layout.setContentsMargins(0, 0, 0, 0)
+        mod_container_layout.setSpacing(4)
+
+        self.gb_activeMods = QGroupBox("Active Modifiers")
+        self.lo_activeMods = QVBoxLayout()
+        self.lo_activeMods.setContentsMargins(4, 4, 4, 4)
+        self.lo_activeMods.setSpacing(6)
+        self.gb_activeMods.setLayout(self.lo_activeMods)
+
+        mod_container_layout.addWidget(self.gb_activeMods)
+        mod_container_layout.addStretch(1)
+
+        mod_scroll = QScrollArea()
+        mod_scroll.setWidgetResizable(True)
+        mod_scroll.setWidget(mod_container)
+        mod_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        lo_main.addWidget(mod_scroll, 1)
+
+        #   BOTTOM BUTTONS SECTION
+        lo_buttons = QHBoxLayout()
+        l_availMods = QLabel("Modifier")
+        self.cb_availMods = QComboBox()
+        b_addMod = QPushButton(text="Add Modifier")
+        b_apply = QPushButton("Apply")
+        b_close = QPushButton("Close")
+
+        lo_buttons.addWidget(l_availMods)
+        lo_buttons.addWidget(self.cb_availMods)
+        lo_buttons.addWidget(b_addMod)
+        lo_buttons.addStretch(1)
+        lo_buttons.addWidget(b_apply)
+        lo_buttons.addWidget(b_close)
+
+        lo_main.addLayout(lo_buttons)
+
+        #   Connections
+        b_addMod.clicked.connect(self.onAddModifierClicked)
+        b_apply.clicked.connect(lambda: self._onButtonClicked("Apply"))
+        b_close.clicked.connect(lambda: self._onButtonClicked("Close"))
+
+        #   ToolTips
+        tip = ("Original Un-Altered Name\n\n"
+               "To use as an Example:\n"
+               "First file is used, or EXAMPLEFILENAME")
+        self.le_origName.setToolTip(tip)
+
+        tip = ("Altered Name after all Enabled Modifiers\n\n"
+               "This will affect all selected files in the\n"
+               "Destination list")
+        self.le_newName.setToolTip(tip)
+
+        tip = ("Active Modifier Stack.\n\n"
+               "Select desired Modifiers and click Add Modifier\n"
+               "to add Mods to Stack")
+        self.gb_activeMods.setToolTip(tip)
+
+        self.cb_availMods.setToolTip("Select Modifier Type to add")
+        b_addMod.setToolTip("Add Selected Modifier to Stack")
+        b_apply.setToolTip("Apply Changes and Close Window")
+        b_close.setToolTip("Discard Changes and Close Window")
+
+        self.populateModsCombo()
+
+
+    #    Add Modifier Names to Combo
+    def populateModsCombo(self):
+        try:
+            self.cb_availMods.clear()
+
+            tipRows = []
+
+            #   Get All Available Mod Details
+            for mod in self.modDefs:
+                name = mod["name"]
+                descrip = mod["description"]
+                #   Add to Combobox
+                self.cb_availMods.addItem(name)
+                #   Add to Tooltip
+                tipRows.append(f"<tr><td><b>{name}</b></td><td>{descrip}</td></tr>")
+
+            #   Create Tooltip
+            tipHtml = (
+                "<html><head/><body>"
+                "<table style='min-width: 800px;' cellspacing='6' cellpadding='4'>"
+                + "\n".join(tipRows) +
+                "</table></body></html>"
+            )
+            #   Set Tooltip
+            self.cb_availMods.setToolTip(tipHtml)
+
+            logger.debug("Populated Mods Combo")
+
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Populate Mods Combo:\n{e}")
+
+
+    #    Removes all Mod Widgets from Layout
+    def clearLayout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+            #   Clear Any Nested Layouts
+            elif item.layout():
+                self.clearLayout(item.layout())
+
+
+    #   Updates Filename Text
+    def refreshUI(self):
+        #   Set Original Name
+        self.le_origName.setText(self.origName)
+        #    Get Modified Name
+        newName = self.applyMods(self.origName)
+        #    Set Modified Name
+        self.le_newName.setText(newName)
+
+
+    #   Loads Existing Mods into UI
+    def loadMods(self, mods):
+        #   Clear List
+        self.activeMods = []
+        #   Clear Layout
+        self.clearLayout(self.lo_activeMods)
+
+        for mod_data in mods:
+            try:
+                modifierClass = GetModByName(mod_data["mod_type"])
+                modifier = CreateMod(modifierClass)
+                self.addModToUi(modifier, mod_data)
+
+                logger.debug(f"Loaded Modifier: {modifierClass}")
+
+            except Exception as e:
+                logger.debug(f"ERROR:  Unable to add Filename Mod: {modifierClass}:\n{e}")
+
+
+    #   Creates New Modifier from Selected Combo
+    def onAddModifierClicked(self):
+        #   Get Mod Name from Combo
+        selIndx = self.cb_availMods.currentIndex()
+        selMod  = self.modDefs[selIndx]["class"]
+        #   Create New Modifier
+        modifier = CreateMod(selMod)
+        #   Add to UI
+        self.addModToUi(modifier)
+
+
+    #   Creates UI Item for passed Modifier
+    def addModToUi(self, modifier, data=None):
+        modifier.modChanged.connect(self.refreshUI)
+
+        #   Connect each Mod's Remove button to the UI
+        modifier.b_remove.clicked.connect(lambda _, m=modifier: self.removeModifier(m))
+
+        #   Create Layout for the Modifier
+        lo_mod = QHBoxLayout()
+
+        #   Add Widgets from Returned getModUI()
+        for widget in modifier.getModUI():
+            lo_mod.addWidget(widget)
+
+        #   Wrap Layout in a QWidget
+        mod_widget = QWidget()
+        mod_widget.setLayout(lo_mod)
+
+        #   Add Widget to Mods Layout
+        self.lo_activeMods.addWidget(mod_widget)
+
+        #   If passed Existing Mod Settings
+        if data:
+            modifier.setSettings(data["settings"])
+            modifier.isEnabled = data.get("enabled", True)
+            modifier.chb_enableCheckbox.setChecked(modifier.isEnabled)
+
+        #   Add Mod to List
+        self.activeMods.append((modifier, mod_widget))
+
+        self.refreshUI()
+
+
+    #   Modify Original Name based on Active Mods
+    def applyMods(self, origName):
+        #   Start with Orig Name
+        newName = origName
+
+        #    Loop Through All Modifiers
+        for mod_instance, _ in self.activeMods:
+            try:
+                #   If Checkbox is Enabled
+                if mod_instance.isEnabled:
+                    #   Execute Mod's Apply Method
+                    newName = mod_instance.applyMod(newName)
+                
+            except Exception as e:
+                logger.warning(f"ERROR:  Unable to Add Filename Modifier:\n{e}")
+
+        return newName
+            
+
+    #   Removes Modifier (obviously)
+    def removeModifier(self, mod_instance):
+        #   Find the Mod and its Associated Widget
+        for i, (instance, widget) in enumerate(self.activeMods):
+            if instance == mod_instance:
+                self.lo_activeMods.removeWidget(widget)
+
+                #   Removes Mod from UI
+                widget.setParent(None)
+                widget.deleteLater()
+
+                #   Removes Mod from List
+                self.activeMods.pop(i)
+                break
+
+        self.refreshUI()
+
+
+    def _onButtonClicked(self, text):
+        self.result = text
+        self.accept()
+
+
+
+#################################################
+################    METADATA   ##################
+
+
 class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
     def __init__(self, core, origin, loadFilepath=None, parent=None):
@@ -2594,7 +2640,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             return
 
 
-
     #   Saves Presets to Config
     def savePresets(self):
         mData = {
@@ -2760,9 +2805,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         if popup:
             self.core.popup(f"Created Sidecar Files ({sidecarPath_base})")
-        
-
-
+    
 
     #   Create Resolve Type .CSV
     def saveSidecarCSV(self, sidecarPath_base):
@@ -2838,7 +2881,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         with open(sidecarPath, "w", newline="", encoding="utf-8") as file:
             # --- Heading Section ---
             file.write("Heading\n")
-            file.write("FIELD_DELIM\tTABS\n")                               #   TODO - MAKE THESE HEADER GET DATA
+            file.write("FIELD_DELIM\tTABS\n")
             file.write("VIDEO_FORMAT\tCUSTOM\n")
             file.write("AUDIO_FORMAT\t48kHz\n")
             file.write("FPS\t24\n\n")
@@ -2888,7 +2931,6 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                     logger.warning(f"Failed to Generate Metadata File Row in the .ALE file: {e}")
 
         logger.status(f"Saved .ALE sidecar to: {sidecarPath}")
-
 
 
     #   Saves and Closes the MetaEditor

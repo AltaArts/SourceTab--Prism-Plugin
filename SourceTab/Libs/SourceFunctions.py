@@ -66,7 +66,6 @@ sys.path.append(uiPath)
 
 from PrismUtils.Decorators import err_catcher
 
-
 from SourceFunctions_ui import Ui_w_sourceFunctions
 
 from PopupWindows import NamingPopup, ProxyPopup, MetadataEditor
@@ -152,7 +151,6 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
         tip = ("Resets the Transfer Functions.\n"
                "(resets all Progress)")
         self.b_transfer_reset.setToolTip(tip)
-        
 
 
     @err_catcher(name=__name__)
