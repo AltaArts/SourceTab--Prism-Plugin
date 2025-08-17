@@ -162,8 +162,8 @@ ___
 
 ### **Right-Click Menu**
 
-<img src="DocsImages/proxy_presets_rcl_item.png" alt="Proxy Presets RCL Item" width="300" style="margin-right:80px;" />
-<img src="DocsImages/proxy_presets_rcl_empty.png" alt="Proxy Presets RCL Empty" width="300" />
+| ![Proxy Presets RCL Item](DocsImages/proxy_presets_rcl_item.png) | | | ![Proxy Presets RCL Empty](DocsImages/proxy_presets_rcl_empty.png) |
+|---|---|---|---|
 
 Right-clicking in the Proxy Presets window will bring up context menus with extra functionality.
 
