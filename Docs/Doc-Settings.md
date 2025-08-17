@@ -83,4 +83,4 @@ jump to:
 
 [**File Naming**](Doc-FileNaming.md)
 
-[**Metadata Handling**](Doc-Metadata.md)
+[**Metadata**](Doc-Metadata.md)
