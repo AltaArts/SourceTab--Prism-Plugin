@@ -56,7 +56,7 @@ This plugin is for Windows only, as Prism2 only supports Windows at this time.
 
 [**File Naming**](Docs/Doc-FileNaming.md)
 
-[**Metadata Handling**](Docs/Doc-Metadata.md)
+[**Metadata**](Docs/Doc-Metadata.md)
 
 
 <br/>
