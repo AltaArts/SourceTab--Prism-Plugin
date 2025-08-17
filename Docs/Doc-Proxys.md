@@ -162,20 +162,20 @@ ___
 
 ### **Right-Click Menu**
 
-![Proxy Presets RCL Item](DocsImages/proxy_presets_rcl_item.png)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![Proxy Presets RCL Empty](DocsImages/proxy_presets_rcl_empty.png)
+![Proxy Presets RCL Menu](DocsImages/proxy_presets_rclMenu.png)
 
 
 Right-clicking in the Proxy Presets window will bring up context menus with extra functionality.
 
-- **Create New Preset:**  Inserts a new blank Preset at thew current location.
-
 - **Edit Preset:**  Allow editing of the Preset.  By default the Presets are not editable to avoid accidental edits.
-
-- **Delete Preset:**  Deletes the selected Preset from the Project.  If the Preset is in the Local plugin dir or elsewhere, it will not delete those.
 
 - **Export Preset to File:**  Opens File Explorer to save the selected Preset using the Preset name with an extension ".p_preset"
 
 - **Save Preset to Local Machine:**  Saves the selected Preset to the local plugin presets directory.  This allows both backup, and future use in other projects.
+
+- **Delete Preset:**  Deletes the selected Preset from the Project.  If the Preset is in the Local plugin dir or elsewhere, it will not delete those.
+
+- **Create New Preset:**  Inserts a new blank Preset at thew current location.
 
 - **Import Preset from File:**  Opens File Explorer to allow import a ".p_preset" file.
 
