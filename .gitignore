@@ -82,3 +82,4 @@ PythonLibs/Python311/reportlab/pdfgen/__pycache__/textobject.cpython-311.pyc
 /PythonLibs/Python311/PIL/__pycache__
 /PythonLibs/Python311/PIL/__pycache__
 PythonLibs/Python311/PIL/__pycache__/__init__.cpython-311.pyc
+*.pyc

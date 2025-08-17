@@ -397,7 +397,8 @@ class BaseTileItem(QWidget):
         
         if len(self.browser.selectedTiles) > 1:
             for tile in list(self.browser.selectedTiles):
-                tile.chb_selected.setChecked(checked)
+                if hasattr(tile, "chb_selected"):
+                    tile.chb_selected.setChecked(checked)
         else:
             self.chb_selected.setChecked(checked)
 
