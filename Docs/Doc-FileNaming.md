@@ -32,27 +32,27 @@ Each Modifier will alter the file name from the top to the bottom.  Multiple Mod
 ## Available Modifiers
 
 **Add Prefix**
-![Mods Overview](DocsImages/mods_addPrefix.png)<cr>
+![Mods Overview](DocsImages/mods_addPrefix.png)<br>
 Adds text to beginning of name.
 
 **Add Suffix**
-![Mods Overview](DocsImages/mods_addSuffix.png)<cr>
+![Mods Overview](DocsImages/mods_addSuffix.png)<br>
 Adds text to end of name. Use *extension* if desired.
 
 **Remove Start/End**
-![Mods Overview](DocsImages/mods_remStrtEnd.png)<cr>
+![Mods Overview](DocsImages/mods_remStrtEnd.png)<br>
 Removes number of *charactors* from the *start* or *end* of the name.
 
 **Remove Charactors**
-![Mods Overview](DocsImages/mods_remChars.png)<cr>
+![Mods Overview](DocsImages/mods_remChars.png)<br>
 Removes number of *charactors* starting at *position*
 
 **Insert Charactors**
-![Mods Overview](DocsImages/mods_insChars.png)<cr>
+![Mods Overview](DocsImages/mods_insChars.png)<br>
 Inserts text into name at position
 
 **Shift Charactors**
-![Mods Overview](DocsImages/mods_shtChars.png)<cr>
+![Mods Overview](DocsImages/mods_shtChars.png)<br>
 Shifts *charactors* starting at *position* to the left (negative) or right (positive)
 
 <br>
