@@ -1452,6 +1452,7 @@ class ProxyPresetsEditor(QDialog):
             action.setDefaultWidget(gb)
             return action
 
+        #   If Called from Item
         if item:
             row = item.row()
             nameItem = self.tw_presets.item(row, 0)
@@ -1467,18 +1468,21 @@ class ProxyPresetsEditor(QDialog):
 
             Utils.createMenuAction("Delete Preset", sc, rcmenu, self, lambda: self.deletePreset(item=nameItem))
 
-        else:
-            Utils.createMenuAction("Create New Preset", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
-
             rcmenu.addAction(_separator())
 
-            Utils.createMenuAction("Open Project Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=True))
-            Utils.createMenuAction("Open Local Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=False))
 
-            rcmenu.addAction(_separator())
+        # Always Displayed
+        Utils.createMenuAction("Create New Preset", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
 
-            Utils.createMenuAction("Import Preset from File", sc, rcmenu, self, lambda: self.importPreset())
-            Utils.createMenuAction("Import Preset from Local Directory", sc, rcmenu, self, lambda: self.importPreset(local=True))
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Import Preset from File", sc, rcmenu, self, lambda: self.importPreset())
+        Utils.createMenuAction("Import Preset from Local Directory", sc, rcmenu, self, lambda: self.importPreset(local=True))
+
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Open Project Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=True))
+        Utils.createMenuAction("Open Local Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=False))
 
         if rcmenu.isEmpty():
             return False
