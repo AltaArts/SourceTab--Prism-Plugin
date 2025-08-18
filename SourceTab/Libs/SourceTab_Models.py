@@ -517,7 +517,7 @@ class MetadataTableModel(QAbstractTableModel):
 
             tip_field = "Metadata Field Name"
 
-            tip_source = ("Metadata Key Listing from the File (ffprobe)\n\n"
+            tip_source = ("Metadata Field Value Source:\n\n"
                           "   - 'NONE': no data\n"
                           "   - 'GLOBAL': custom text for all files\n"
                           "   - 'UNIQUE': custom text for current file\n"

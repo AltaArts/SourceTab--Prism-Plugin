@@ -10,13 +10,13 @@ ___
 ### **Performance / Processes**
 These are settings that affect the UI and transfer performance.  The provided defaults seem to work well on most systems, but these settings may be tweaked to gain more performance for differences in machines (CPU, RAM, etc), network speeds, and file type and size.
 
-- **Max Parallel Thumbnail Processes (default = 6)**: The maximum number of separate worker threads allowed for thumbnail generation (ffmpeg instances).  In testing it seems if there are too many threads, ffmpeg may fail to create a thumbnail (may be a Qt issue).
+- **Max Parallel Thumbnail Processes (default = 6)**: The maximum number of separate worker threads allowed for thumbnail generation (FFmpeg instances).  In testing it seems if there are too many threads, FFmpeg may fail to create a thumbnail (may be a Qt issue).
 
 - **Max Parallel Transfer Processes (default = 6)**: The maximum number of transfer worker threads.  Each worker transfers one file at a time, in parallel.  The performance will be based on machine speed, as well as the storage speed and network type.
 
 - **Transfer Chunk Size (default = 2mb)**:  The size of each data block read and written during file transfers. Larger chunks can improve performance on fast systems, while smaller chunks may reduce memory usage and work better on slower or unstable storage.
 
-- **Max Parallel Proxy Generation Processes (default = 2)**:  This plugin uses ffmpeg for Proxy Generation and ffmpeg is multi-threaded by default (on CPU). This means each process should be using all available processor cores (on CPU), thus higher settings do not tend to speed up the generation.  But for GPU proxy generation, higher numbers may work.
+- **Max Parallel Proxy Generation Processes (default = 2)**:  This plugin uses FFmpeg for Proxy Generation and FFmpeg is multi-threaded by default (on CPU). This means each process should be using all available processor cores (on CPU), thus higher settings do not tend to speed up the generation.  But for GPU proxy generation, higher numbers may work.
 
 ___
 

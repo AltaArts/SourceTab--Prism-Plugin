@@ -3045,6 +3045,7 @@ class MetaPresetsPopup(QDialog):
             action.setDefaultWidget(gb)
             return action
 
+        #   If Called from Item
         if item:
             Utils.createMenuAction("Edit Preset", sc, rcmenu, self, lambda: self.editPreset(item=item))
 
@@ -3057,18 +3058,20 @@ class MetaPresetsPopup(QDialog):
 
             Utils.createMenuAction("Delete Preset", sc, rcmenu, self, self.deletePreset)
 
-        else:
-            Utils.createMenuAction("Create New Preset from Current", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
-
             rcmenu.addAction(_separator())
 
-            Utils.createMenuAction("Open Project Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=True))
-            Utils.createMenuAction("Open Local Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=False))
+        #   Always Displayed
+        Utils.createMenuAction("Create New Preset from Current", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
 
-            rcmenu.addAction(_separator())
+        rcmenu.addAction(_separator())
 
-            Utils.createMenuAction("Import Preset from File", sc, rcmenu, self, lambda: self.importPreset())
-            Utils.createMenuAction("Import Preset from Local Directory", sc, rcmenu, self, lambda: self.importPreset(local=True))
+        Utils.createMenuAction("Import Preset from File", sc, rcmenu, self, lambda: self.importPreset())
+        Utils.createMenuAction("Import Preset from Local Directory", sc, rcmenu, self, lambda: self.importPreset(local=True))
+
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Open Project Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=True))
+        Utils.createMenuAction("Open Local Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=False))
 
         if rcmenu.isEmpty():
             return False
