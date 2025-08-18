@@ -4,7 +4,7 @@
 
 Unfortunately there seems to be no standard for Metadata throughout the industry.  Each Camera manufacturer and Studio pipeline have their own take on what data is saved, what key it is saved to, and even the type of file used.  And DCC's do not help by limiting Metadata Import/Export types.
 
-But since Metadata can be such a useful piece in the data flow, SourceTab tries to make Metadata as flexible as possible.  Metadata will be read from each video file using a combination of FFprobe (part of the FFmpeg tools see [FFmpeg](https://github.com/FFmpeg/FFmpeg)), and ExifTool (see [ExifTool](https://github.com/exiftool/exiftool)).  As much Metadata will be read from the file, and the user can target Metadata fields with that data.
+But since Metadata can be such a useful piece in the data flow, SourceTab tries to make Metadata as flexible as possible.  Metadata will be read from each video file using a combination of FFprobe (part of the FFmpeg tools see [FFmpeg](https://github.com/FFmpeg/FFmpeg)), and ExifTool (see [ExifTool](https://github.com/exiftool/exiftool)).  The Metadata will be read from the file, and the user can target Metadata fields with that data (see [Configuring](#configuring) below).
 
 ![Metadata Functions](DocsImages/meta_functs.png)
 
@@ -12,7 +12,7 @@ Metadata handling is enabled by setting the Metadata checkbox in the SourceTab F
 
 <br>
 
-## Metadata Editor
+## **Metadata Editor**
 
 ![Metadata Overview](DocsImages/meta_overview.png)
 
@@ -86,14 +86,14 @@ The Metadata Editor has filtering functions that allow the user to show/hide fie
 ### Metadata Viewer
 ![Metadata Popup](DocsImages/meta_dataPopup.png)
 
-Clicking the *View Metadata* button will display the current file's Metadata in the popup viewer (the same as the right-click men u action of a File Tile).  This allows viewing the complete raw Metadata for a file, and can be used for reference when configuring the Editor.
+Clicking the *View Metadata* button will display the current file's Metadata in the popup viewer (the same as the right-click menu action of a File Tile).  This allows viewing the complete raw Metadata for a file, and can be used for reference when configuring the Editor.
 
 <br>
 
 ### Metadata Presets
 ![Presets List](DocsImages/meta_presetList.png)
 
-Allows for quick configuration from saved Metadata Presets.  Clicking the *Edit* button will open the Metadata Presets Editor (see #########).       **TODO**
+Allows for quick configuration from saved Metadata Presets.  Clicking the *Edit* button will open the Metadata Presets List (see [Presets List](#presets-list) below).
 
 <br>
 
@@ -112,18 +112,48 @@ Sidecar files are normally generated at the end of a transfer.  This will genera
 <br>
 
 
-
+## **Presets List**
 
 ![Presets List](DocsImages/meta_presetsList.png)
 
+ORDER of Presets
+
+### Right-click Menu
+![Presets RCL Menu](DocsImages/meta_presetList_rcl.png)
+
+Right-clicking in the Presets window will bring up context menus with extra functionality.
+
+- **Edit Preset*** Opens the Preset Editor to manually edit the json text of the Preset (see [Preset Editor](#metadata-preset-editor) below).
+
+- **Export Preset to File:** Opens File Explorer to save the selected Preset using the Preset name with an extension ".m_preset"
+
+- **Save Preset to Local Machine:** Saves the selected Preset to the local plugin presets directory. This allows both backup, and future use in other projects.
+
+- **Delete Preset:** Deletes the selected Preset from the Project. If the Preset is in the Local plugin dir or elsewhere, it will not delete those.
+
+- **Create New Preset from Current:** Opens the Preset Editor and populates it with the current Metadata configuration (see [Preset Editor](#metadata-preset-editor) below).
+
+- **Import Preset from File:** Opens File Explorer to allow import a ".m_preset" file.
+
+- **Import Preset from Local Dir:** Opens the local plugin presets dir to import a Preset.
+
+- **Open Project Presets Dir:** Opens the Project Presets dir in Explorer.
+
+- **Open Local Presets Dir:** Opens the local plugin presets dir in Explorer.
 
 
+<br>
+
+## **Metadata Preset Editor**
+
+![Presets Editor Edit](DocsImages/meta_presetEditor_edit.png)
+
+Preset Name must be max 30 chars and use normal symbols
+
+Preset Data - must be valid json
 
 
-
-
-
-
+<br>
 
 
 

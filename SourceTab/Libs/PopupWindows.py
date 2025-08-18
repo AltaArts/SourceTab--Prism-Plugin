@@ -106,7 +106,7 @@ class WaitPopup:
             launcherPath = os.path.abspath(os.path.join(os.path.dirname(__file__), "WaitPopup.py"))
             gifPath = os.path.join(iconDir, "loading-dark.gif")
 
-            #   Get Enviroment for Prism Qt Libs
+            #   Get Environment for Prism Qt Libs
             env = os.environ.copy()
             env["PRISM_SYSPATH"] = os.pathsep.join(sys.path)
 
@@ -749,7 +749,7 @@ class ProxyPopup(QDialog):
 
     def _onProxyModeChanged(self):
         mode = self.getProxyMode()
-        #   Set Visabilty of Options Based on Mode
+        #   Set Visibility of Options Based on Mode
         self.gb_proxyCopySettings.setVisible(mode in ["copy", "missing"])
         self.gb_ffmpegSettings.setVisible(mode in ("generate", "missing"))
 
@@ -760,7 +760,7 @@ class ProxyPopup(QDialog):
         searchList = self.getProxySearchList()
 
         editWindow = ProxySearchStrEditor(self.core, self, searchList)
-        logger.debug("Opening Proxy Search Tempplate Editor")
+        logger.debug("Opening Proxy Search Template Editor")
         editWindow.exec_()
 
         if editWindow.result() == "Save":
@@ -926,7 +926,7 @@ class ProxySearchStrEditor(QDialog):
         self.connectEvents()
         self.populateTable(self.searchList)
 
-        logger.debug("Loaded Proxy Seaarch Editor")
+        logger.debug("Loaded Proxy Search Editor")
 
 
     def setupUI(self):
@@ -1347,14 +1347,13 @@ class ProxyPresetsEditor(QDialog):
 
         #   Make Tooltip Lines as Pairs of Label and Description
         tip_lines = [
-            ("Name:", "Short name to be used in the UI"),
+            ("Name:", "Short name to be used in the UI<br>(max 20 chars and normal symbols)"),
 
             ("Description:", "Blurb to describe the Preset (optional)"),
 
-
             ("Global Parameters:", textwrap.dedent("""\
                 ffmpeg Global args (before the input args)
-                <div style='margin-left:20px;'>- This are parameters suchs as:</div>
+                <div style='margin-left:20px;'>- This are parameters such as:</div>
                 <table style='margin-left:40px;'>
                     <tr><td><code>-GPU hardware configuration</code></td></tr>
                     <tr><td><code>-Threading settings</code></td></tr>
@@ -1410,6 +1409,7 @@ class ProxyPresetsEditor(QDialog):
         Run a quick test on the Preset to validate.
 
         This will check various points such as:
+        - Acceptable Preset Name
         - File extension is applicable to the encode codec
         - Video parameters contain the required args
         - Audio parameters contain the required args
@@ -1511,7 +1511,7 @@ class ProxyPresetsEditor(QDialog):
         }
 
         total_weight = sum(weights.values())
-        #   Intterate and Set Widths
+        #   Iterate and Set Widths
         for col in range(self.tw_presets.columnCount()):
             weight = weights.get(col, 1)
             col_width = int((weight / total_weight) * total_width)
@@ -1688,20 +1688,40 @@ class ProxyPresetsEditor(QDialog):
 
         results = []
 
-        # 1. FFmpeg Check
+        # 1. Preset Name Check
+        valid_name_pattern = re.compile(
+            r'^[A-Za-z0-9 \-!@#$%^&()_+=.,;{}\[\]~`^]{1,20}$'
+        )
+
+        if not name:
+            results.append(("Preset Name", False, "Preset name cannot be blank."))
+
+        elif not valid_name_pattern.match(name):
+            results.append((
+                "Preset Name", 
+                False, 
+                f"'{name}' is not valid.\n\n"
+                "           Allowed characters: letters, numbers, spaces, dashes, underscores, and common symbols.\n\n"
+                "           Length: 1-20 characters.\n\n"
+                "           Not allowed: \\ / : * ? \" < > |"
+            ))
+        else:
+            results.append(("Preset Name", True, ""))
+
+        # 2. FFmpeg Check
         if not os.path.isfile(ffmpegPath):
             results.append(("FFmpeg Executable", False, "FFmpeg was not found"))
         else:
             results.append(("FFmpeg Executable", True, ""))
 
-        # 2. Extension check
+        # 3. Extension check
         ext = data["Extension"]
         if not re.match(r'^\.\w+$', ext):
             results.append(("Output Extension", False, "Must begin with a period (e.g., .mp4)"))
         else:
             results.append(("Output Extension", True, ""))
 
-        # 3. Required codec flags
+        # 4. Required codec flags
         if "-c:v" not in data["Video_Parameters"]:
             results.append(("Video Codec (-c:v)", False, "Missing -c:v in video parameters"))
         else:
@@ -1712,7 +1732,7 @@ class ProxyPresetsEditor(QDialog):
         else:
             results.append(("Audio Codec (-c:a)", True, ""))
 
-        # 4. Codec compatibility check
+        # 5. Codec compatibility check
         allowed = {
             '.mp4': {'libx264', 'libx265', 'mpeg4', 'h264_nvenc', 'hevc_nvenc'},
             '.mov': {'prores_ks', 'prores_aw', 'dnxhd', 'dnxhr', 'libx264', 'libx265', 'mpeg4'},
@@ -1734,7 +1754,7 @@ class ProxyPresetsEditor(QDialog):
         except (ValueError, IndexError):
             results.append(("Codec Compatibility", False, "Unable to determine -c:v codec"))
 
-        # 5. FFmpeg Dry Run
+        # 6. FFmpeg Dry Run
         try:
             cmd = [
                 ffmpegPath,
@@ -1776,8 +1796,7 @@ class ProxyPresetsEditor(QDialog):
         except Exception as e:
             results.append(("FFmpeg Dry Run", False, str(e)))
 
-
-        # 6. Multiplier validation
+        # 7. Multiplier validation
         try:
             raw_mult = data.get("Multiplier", "")
             mult = float(raw_mult)
@@ -3345,23 +3364,26 @@ class MetaPresetsEditor(QDialog):
         valid = True
         msg = ""
 
-        #   RegEx Match String
+        # Regex pattern: allows letters, numbers, spaces, dashes, underscores, and "safe" symbols
+        # Disallows: \ / : * ? " < > |
         valid_name_pattern = re.compile(
-            r'^[A-Za-z0-9 \-!@#$%^&*()_+]{1,30}$'
+            r'^[A-Za-z0-9 \-!@#$%^&()_+=.,;{}\[\]~`^]{1,30}$'
         )
 
         #   Check Blank
         if not name:
             valid = False
-            msg = ("Preset name cannot be blank.")
+            msg = "Preset name cannot be blank."
         
         #   Check RegEx
         elif not valid_name_pattern.match(name):
             valid = False
-            msg = ("Preset name is not Valid:\n\n"
-                   f"'{name}'\n\n"
-                   "Use 1-30 characters: letters, numbers, dashes, and normal symbols.")
-
+            msg = ("Preset name is not valid:\n\n"
+                f"'{name}'\n\n"
+                "Allowed characters: letters, numbers, spaces, dashes, underscores, and common symbols.\n\n"
+                "Length: 1-30 characters.\n\n"
+                "Not allowed: \\ / : * ? \" < > |")
+        
         #   Color Border if Invalid
         if not valid:
             self.le_pName.setStyleSheet("QLineEdit { border: 1px solid #cc6666; }")
@@ -3369,6 +3391,7 @@ class MetaPresetsEditor(QDialog):
             self.le_pName.setStyleSheet("")
 
         return valid, msg
+
     
 
     #   Validates Text Edit for Valid Json Array of Dicts
