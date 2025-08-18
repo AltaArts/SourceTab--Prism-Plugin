@@ -8,7 +8,7 @@ Each Modifier will alter the file name from the top to the bottom.  Multiple Mod
 
 ![Mods Example](DocsImages/mods_example.png)
 
-**NOTE:** This will not edit the file's Metadata, so the original file name will still exist in the file.  In addition, the orginal file name will be included with any Metadata sidecar files generated.
+**NOTE:** This will not edit the file's Metadata, so the original file name will still exist in the file.  In addition, the original file name will be included with any Metadata sidecar files generated.
 
 <br>
 
@@ -41,19 +41,19 @@ Adds text to end of name. Use *extension* if desired.
 
 **Remove Start/End**<br>
 ![Mods Overview](DocsImages/mods_remStrtEnd.png)<br>
-Removes number of *charactors* from the *start* or *end* of the name.
+Removes number of *characters* from the *start* or *end* of the name.
 
-**Remove Charactors**<br>
+**Remove Characters**<br>
 ![Mods Overview](DocsImages/mods_remChars.png)<br>
-Removes number of *charactors* starting at *position*
+Removes number of *characters* starting at *position*
 
-**Insert Charactors**<br>
+**Insert Characters**<br>
 ![Mods Overview](DocsImages/mods_insChars.png)<br>
 Inserts text into name at position
 
-**Shift Charactors**<br>
+**Shift Characters**<br>
 ![Mods Overview](DocsImages/mods_shtChars.png)<br>
-Shifts *charactors* starting at *position* to the left (negative) or right (positive)
+Shifts *characters* starting at *position* to the left (negative) or right (positive)
 
 <br>
 

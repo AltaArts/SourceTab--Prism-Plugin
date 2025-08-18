@@ -26,6 +26,7 @@ ___
  (default = 1.0)
 
     Note: Too fast an interval (low number) may cause the UI to lock up on slow machines.
+    
 <br>
 
 ___

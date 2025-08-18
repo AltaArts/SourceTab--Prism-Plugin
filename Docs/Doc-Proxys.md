@@ -38,8 +38,9 @@ This is the per-project Proxy handling mode:
 
 - **Generate Missing Proxys:** Will transfer any discovered Proxys, or generate new Proxys for files without a discovered Proxy.
 
-
-        Generate Missing Proxies is the suggested mode as it covers most cases, both if Source Proxys exist or not.
+```
+Generate Missing Proxies is the suggested mode as it covers most cases, both if Source Proxys exist or not.
+```
 
 <br>
 
@@ -55,11 +56,13 @@ SourceTab will try to resolve and use the same Proxy directory structure in the 
 
 - **Fallback Proxy Dir:**  This is the fallback directory used if the plugin is unable to resolve a Proxy directory, and the Override is not utilized.  This should always be populated with a usable path to stop errors.
 
-        NOTE: Both relative and absolute path formatting are allowed:
+```
+NOTE: Both relative and absolute path formatting are allowed:
 
-        - Relative: standard "dot notation" is utilized to build relative paths such as ./ (current directory) and ../ (parent directory)
+- Relative: standard "dot notation" is utilized to build relative paths such as ./ (current directory) and ../ (parent directory)
 
-        - Absolute:  standard filepath style with the full path such as "c:\path\to\dir" or "c:/path/to/dir"
+- Absolute:  standard filepath style with the full path such as "c:\path\to\dir" or "c:/path/to/dir"
+```
 
 <br>
 
@@ -81,6 +84,9 @@ SourceTab will try to resolve and use the same Proxy directory structure in the 
 
 -  **Edit Proxy Settings:** Open the Preset Editor to configure the Proxy Presets (**see Proxy Preset Editor below**).
 
+```
+NOTE: Several Proxy Presets are included with the Plugin, and users are encouraged to create/edit/remove their own presets.
+```
 <br>
 
 ## **Proxy Search Editor**

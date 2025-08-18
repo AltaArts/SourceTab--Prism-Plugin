@@ -21,13 +21,15 @@ You can find more information on the website:
 - Mini Preview Viewer for quick review of clips.
 - Transfer Report generated during transfer.
 - Metadata sidecar files generation (Resolve .csv and Avid .ale)
-- Automatated Proxy search/transfer/generation ([**see Proxys**](Docs/Doc-Proxys.md)).
+- Automated Proxy search/transfer/generation ([**see Proxys**](Docs/Doc-Proxys.md)).
 - Filename modifiers to allow bulk renaming during transfer ([**see File Naming**](Docs/Doc-FileNaming.md)).
 - Metadata extraction and assignment using ffprobe and ExifTool ([**see Metadata Handling**](Docs/Doc-Metadata.md)).
 
 <br>
 
-        NOTE: The name "Proxys" is used throughout this plugin.  Yes technically it should be "Proxies", but I just think Proxys looks better, so there it is.
+```
+NOTE: The name "Proxys" is used throughout this plugin.  Yes technically it should be "Proxies", but I just think Proxys looks better, so there it is.
+```
 
 <br/>
 
@@ -46,7 +48,7 @@ This plugin is for Windows only, as Prism2 only supports Windows at this time.
 
 <br/>
 
-## **Documentaion**
+## **Documentation**
 
 [**Settings**](Docs/Doc-Settings.md)
 
