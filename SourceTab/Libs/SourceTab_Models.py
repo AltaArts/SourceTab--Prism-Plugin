@@ -454,7 +454,7 @@ class MetadataFieldCollection:
 
                     if hideDisabled and not field.enabled:
                         continue
-                    if hideEmpty and field.sourceField is None:
+                    if hideEmpty and (field.sourceField is None or field.sourceField == "- NONE -"):
                         continue
 
                 # Add header for new category
@@ -585,7 +585,7 @@ class MetadataTableModel(QAbstractTableModel):
                 return field.name
             
             elif col == self.COL_SOURCE:
-                return field.sourceField if field.sourceField is not None else "- None -"
+                return field.sourceField if field.sourceField is not None else "- NONE -"
             
             elif col == self.COL_VALUE:
                 if field.name in ["File Name", "Original File Name"]:

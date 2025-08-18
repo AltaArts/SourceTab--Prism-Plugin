@@ -1470,8 +1470,7 @@ class ProxyPresetsEditor(QDialog):
 
             rcmenu.addAction(_separator())
 
-
-        # Always Displayed
+        #   Always Displayed
         Utils.createMenuAction("Create New Preset", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
 
         rcmenu.addAction(_separator())
