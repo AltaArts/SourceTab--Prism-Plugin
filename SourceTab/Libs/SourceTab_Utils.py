@@ -165,7 +165,7 @@ def createUUID(simple:bool=False, length:int=8) -> str:
     
         return uid
     
-    #   Generate 8 Charactor UUID String
+    #   Generate 8 Character UUID String
     else:
         uid = uuid.uuid4()
         #   Create a SHA-256 hash of the UUID
@@ -434,7 +434,7 @@ def getIconFromPath(imagePath:str, normalLevel:int=0.9, dimLevel:int=0.4) -> QIc
 
         darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
 
-        #   Darken Disbled Version More (dimLevel)
+        #   Darken Disabled Version More (dimLevel)
         disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
 
         for y in range(normal_image.height()):

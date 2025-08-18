@@ -83,7 +83,7 @@ def createModifier(mod_class):
 
 
 class Mods_BaseFilename(QObject):
-    '''Base Modifier that Each Child Modifier Inhierits'''
+    '''Base Modifier that Each Child Modifier Inherits'''
 
     mod_name = "Base Modifier"
     mod_description = "Base Modifier"
@@ -143,7 +143,7 @@ class Mods_BaseFilename(QObject):
 
         darkened_normal_pixmap = QPixmap.fromImage(darkened_normal_image)
 
-        #   Darken Disbled Version More (dimLevel)
+        #   Darken Disabled Version More (dimLevel)
         disabled_image = QImage(normal_image.size(), QImage.Format_ARGB32)
 
         for y in range(normal_image.height()):

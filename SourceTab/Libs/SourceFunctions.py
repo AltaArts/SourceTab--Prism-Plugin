@@ -119,11 +119,11 @@ class SourceFunctions(QWidget, Ui_w_sourceFunctions):
                "(this affects the Transferred File Naming)")
         self.chb_ovr_fileNaming.setToolTip(tip)
 
-        tip = ("Enable/Disable Metadata Genertion\n"
+        tip = ("Enable/Disable Metadata Generation\n"
                "(this affects the Transferred File(s) Metatdata)")
         self.chb_ovr_metadata.setToolTip(tip)
 
-        tip = ("Enable/Disable Detination File Overwriting\n"
+        tip = ("Enable/Disable Destination File Overwriting\n"
                "(files with the same name in the Destination will be overwritten)")
         self.chb_overwrite.setToolTip(tip)
 

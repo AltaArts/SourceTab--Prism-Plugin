@@ -2348,7 +2348,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
             "Hide Empty": False,
             }
 
-        #   Add Seperator
+        #   Add Separator
         self.filterStates["----1"] = False
 
         #   Add All Categories (default True)
@@ -2357,7 +2357,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
                 continue
             self.filterStates[cat] = True
 
-        #   Add Seperator
+        #   Add Separator
         self.filterStates["----2"] = False
 
 
@@ -2425,7 +2425,7 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         rcmenu.exec_(cpos)
 
 
-    #   Sidecar Selction Menu
+    #   Sidecar Selection Menu
     def sidecarTypeMenu(self):
         cpos = QCursor.pos()
         rcmenu = QMenu(self)

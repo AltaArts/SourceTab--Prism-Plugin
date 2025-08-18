@@ -10,7 +10,7 @@ Prism's default plugin directories are: *{installation path}\Plugins\Apps* and *
 
 You can add the additional plugin search paths in Prism2 settings.  Go to Settings->Plugins and click the gear icon.  This opens a dialogue and you may add additional search paths at the bottom.
 
-Once added, completly shutdown Prism (if running) and re-launch Prism.  This will copy the required files for the plugin, and create SourceTab settings.
+Once added, completely shutdown Prism (if running) and re-launch Prism.  This will copy the required files for the plugin, and create SourceTab settings.
 
 <br>
 

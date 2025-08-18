@@ -565,7 +565,7 @@ class BaseTileItem(QWidget):
         return self.getSequenceItems()[0]["data"]
     
 
-    #   Returns Total Size of Image Sequnce
+    #   Returns Total Size of Image Sequence
     @err_catcher(name=__name__)
     def getSequenceSize(self, seqItems):
         totalSize_raw = 0
@@ -1219,7 +1219,7 @@ class SourceFileItem(BaseTileItem):
     
     #   Sets Info when ready from Thread
     @err_catcher(name=__name__)
-    def onMainfileInfoReady(self, frames, fps, time, codec, codecMetatdata, xRez, yRez):
+    def onMainfileInfoReady(self, frames, fps, time, codec, codecMetadata, xRez, yRez):
         try:
             self.data["source_mainFile_xRez"] = xRez
             self.data["source_mainFile_yRez"] = yRez
@@ -1228,7 +1228,7 @@ class SourceFileItem(BaseTileItem):
             self.data["source_mainFile_time_raw"] = time
             self.data["source_mainFile_time"] = Utils.getFormattedTimeStr(time)
             self.data["source_mainFile_codec"] = codec
-            self.data["source_mainFile_codecMetadata"] = codecMetatdata
+            self.data["source_mainFile_codecMetadata"] = codecMetadata
 
             self._notify("duration")
 
@@ -1356,7 +1356,7 @@ class SourceFileItem(BaseTileItem):
 
     #   Sets Info when ready from Thread
     @err_catcher(name=__name__)
-    def onProxyInfoReady(self, frames, fps, time, codec, codecMetatdata, xRez, yRez):
+    def onProxyInfoReady(self, frames, fps, time, codec, codecMetadata, xRez, yRez):
         try:
             self.data["source_proxyFile_xRez"] = xRez
             self.data["source_proxyFile_yRez"] = yRez
@@ -1365,7 +1365,7 @@ class SourceFileItem(BaseTileItem):
             self.data["source_proxyFile_time_raw"] = time
             self.data["source_proxyFile_time"] = Utils.getFormattedTimeStr(time)
             self.data["source_proxyFile_codec"] = codec
-            self.data["source_proxyFile_codecMetadata"] = codecMetatdata
+            self.data["source_proxyFile_codecMetadata"] = codecMetadata
 
             self._notify("proxy")
 
@@ -1861,14 +1861,14 @@ class DestFileTile(BaseTileItem):
             self.setDuration()
             self.setThumbnail()
             self.setProxyIcon()
-            self.setQuanityUI("idle")
+            self.setQuantityUI("idle")
             self.toggleProxyProgbar()
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load Destination FileTile UI:\n{e}")
 
 
-    #   Displays Proxy Progbar if Applcable
+    #   Displays Proxy Progbar if Applicable
     @err_catcher(name=__name__)
     def toggleProxyProgbar(self):
         enabled = False
@@ -1945,7 +1945,7 @@ class DestFileTile(BaseTileItem):
 
             destPath = self.getDestPath()
 
-            #   Modifiy Name is Enabled
+            #   Modify Name is Enabled
             baseName = self.getModifiedName(baseName)
 
             return os.path.join(destPath, baseName)
@@ -1978,7 +1978,7 @@ class DestFileTile(BaseTileItem):
             # Get just the proxy filename
             proxy_fileName = Utils.getBasename(source_proxyFilePath)
 
-            #   Modifiy Name if Enabled
+            #   Modify Name if Enabled
             proxy_fileName = self.getModifiedName(proxy_fileName)
 
             # Apply the relative subdir to the dest main directory
@@ -2062,7 +2062,7 @@ class DestFileTile(BaseTileItem):
             scale_str = self.browser.proxySettings.get("proxyScale", "100%")
             scale_pct = int(scale_str.strip("%")) / 100.0
 
-            #   Reverse the Multiplir Calc
+            #   Reverse the Multiplier Calc
             new_base_mult = proxySize / (mainSize * (scale_pct ** 2))
             #   Clamp Result
             new_base_mult = max(0.001, min(new_base_mult, 5.0))
@@ -2134,7 +2134,7 @@ class DestFileTile(BaseTileItem):
 
     #   Sets the Quality UI for Each Mode
     @err_catcher(name=__name__)
-    def setQuanityUI(self, mode):
+    def setQuantityUI(self, mode):
         copied = ""
         dash = ""
         total = ""
@@ -2312,7 +2312,7 @@ class DestFileTile(BaseTileItem):
 
             proxyPath = None
 
-            ##  OVERIDE PROXY PATH  ##
+            ##  OVERRIDE PROXY PATH  ##
             #   Get Override Dir if it Exists
             override_dir_raw = proxySettings.get("ovr_proxyDir", "").strip()
             if override_dir_raw:
@@ -2429,7 +2429,7 @@ class DestFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def transferMainFile(self, transferList):
         self.setTransferStatus(progBar="transfer", status="Queued")
-        self.setQuanityUI("copyMain")
+        self.setQuantityUI("copyMain")
         self.applyStyle(self.state)
 
         logger.debug(f"Starting MainFile Transfer: {transferList[0]}")
@@ -2546,7 +2546,7 @@ class DestFileTile(BaseTileItem):
                 else:
                     destFiles.append(destMainPath)
 
-                #   Itterate through all Transfered Files to Check Exists
+                #   Iterate through all Transferred Files to Check Exists
                 filesExist = all(os.path.isfile(file) for file in destFiles)
 
                 return filesExist
@@ -2593,7 +2593,7 @@ class DestFileTile(BaseTileItem):
             self.setTransferStatus(progBar="transfer", status="Error", tooltip=errMsg)
 
 
-    #   Called After Hash Genertaion for UI Feedback
+    #   Called After Hash Generation for UI Feedback
     @err_catcher(name=__name__)
     def generateDestHashs(self):
         self._pending_tiles = set()
@@ -2635,17 +2635,17 @@ class DestFileTile(BaseTileItem):
             tile.data["mainFile_result"] = statusMsg
 
             self.setTransferStatus(progBar="transfer", status="Complete")
-            self.setQuanityUI("complete")
+            self.setQuantityUI("complete")
 
             logger.status(f"Main Transfer complete: {tile.data['dest_mainFile_path']}")
 
         else:
-            statusMsg = "ERROR:  Transfered Hash Incorrect"
-            self.addTransferWarning(self.data["displayName"], "Transfered Hash Incorrect")
+            statusMsg = "ERROR:  Transferred Hash Incorrect"
+            self.addTransferWarning(self.data["displayName"], "Transferred Hash Incorrect")
             tile.data["mainFile_result"] = statusMsg
 
             status = "Warning"
-            logger.warning(f"Transfered Hash Incorrect: {tile.getSource_mainfilePath()}")
+            logger.warning(f"Transferred Hash Incorrect: {tile.getSource_mainfilePath()}")
 
             hashMsg = (f"Status: {statusMsg}\n\n"
                        f"Source Hash:   {orig_hash}\n"
@@ -2654,7 +2654,7 @@ class DestFileTile(BaseTileItem):
             self.setTransferStatus(progBar="transfer", status=status, tooltip=hashMsg)
 
 
-    #   Called After Hash Genertaion for UI Feedback
+    #   Called After Hash Generation for UI Feedback
     @err_catcher(name=__name__)
     def onDestHashReady(self, dest_hash, tile):
         self.hashWatchdogTimer.stop()
@@ -2667,7 +2667,7 @@ class DestFileTile(BaseTileItem):
             statusMsg = "Transfer Successful"
             self.data["mainFile_result"] = statusMsg
 
-            self.setQuanityUI("complete")
+            self.setQuantityUI("complete")
 
             hashMsg = (f"Status: {statusMsg}\n\n"
                        f"Source Hash:   {orig_hash}\n"
@@ -2681,24 +2681,24 @@ class DestFileTile(BaseTileItem):
 
                 #   Copy Proxy if Applicable
                 if self.transferData["proxyAction"] == "copy":
-                    self.setQuanityUI("copyProxy")
+                    self.setQuantityUI("copyProxy")
                     self.transferProxy()
 
                 #   Generate Proxy if Enabled
                 if self.transferData["proxyAction"] == "generate":
-                    self.setQuanityUI("generate")
+                    self.setQuantityUI("generate")
                     self.generateProxy()
 
             logger.status(f"Main Transfer complete: {self.data['dest_mainFile_path']}")
             
         #   Transfer Hash is Not Correct
         else:
-            statusMsg = "ERROR:  Transfered Hash Incorrect"
-            self.addTransferWarning(self.data["displayName"], "Transfered Hash Incorrect")
+            statusMsg = "ERROR:  Transferred Hash Incorrect"
+            self.addTransferWarning(self.data["displayName"], "Transferred Hash Incorrect")
             self.data["mainFile_result"] = statusMsg
 
             status = "Warning"
-            logger.warning(f"Transfered Hash Incorrect: {self.getSource_mainfilePath()}")
+            logger.warning(f"Transferred Hash Incorrect: {self.getSource_mainfilePath()}")
 
             hashMsg = (f"Status: {statusMsg}\n\n"
                     f"Source Hash:   {orig_hash}\n"
@@ -2753,13 +2753,13 @@ class DestFileTile(BaseTileItem):
 
                 status = "Generating Hash"
                 tip = "Proxy Transferred"
-                self.setQuanityUI("complete")
+                self.setQuantityUI("complete")
                 logger.status(f"Proxy Transfer Complete: {self.data['dest_proxyFile_path']}")
 
                 self.setFileHash(self.data["dest_proxyFile_path"], self.onDestProxyHashReady, mode="proxy", mainTile=self)
 
             else:
-                errMsg = "Transfered Proxy Does Not Exist"
+                errMsg = "Transferred Proxy Does Not Exist"
                 self.addTransferError(self.data["displayName"], errMsg)
                 logger.warning(f"ERROR: {self.data['displayName']} - {errMsg}")
                 status = "Error"
@@ -2775,7 +2775,7 @@ class DestFileTile(BaseTileItem):
         self.setTransferStatus(progBar="proxy", status=status, tooltip=tip)
 
 
-    #   Called After Hash Genertaion
+    #   Called After Hash Generation
     @err_catcher(name=__name__)
     def onDestProxyHashReady(self, dest_hash, tile):
         self.hashWatchdogTimer.stop()
@@ -2788,7 +2788,7 @@ class DestFileTile(BaseTileItem):
             statusMsg = "Proxy Transfer Successful"
             self.data["proxyFile_result"] = statusMsg
 
-            self.setQuanityUI("complete")
+            self.setQuantityUI("complete")
 
             hashMsg = (f"Status: {statusMsg}\n\n"
                        f"Source Hash:   {orig_hash}\n"
@@ -2818,7 +2818,7 @@ class DestFileTile(BaseTileItem):
                 self.addTransferError(self.data["displayName"], "Generated Proxy Does Not Exist")
                 logger.warning(tip)
 
-            self.setQuanityUI("complete")
+            self.setQuantityUI("complete")
         
         else:
             status = "Error"

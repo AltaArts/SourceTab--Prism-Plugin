@@ -268,7 +268,7 @@ class MetaFileItems:
     
 
     def allItems(self, active:bool=False) -> list[MetaFileItem]:
-        '''Retuns List of All MetaFileItem's'''
+        '''Returns List of All MetaFileItem's'''
 
         if active:
             return [item for file in self.activeFiles if (item := self.getByName(file))]

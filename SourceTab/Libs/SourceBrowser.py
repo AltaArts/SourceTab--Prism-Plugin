@@ -175,7 +175,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Time to Detect Stalled Worker Threads
         self.stallInterval = 30
         
-        #   Controls the "Smoothness" of the Estmated Transfer Time Remaining
+        #   Controls the "Smoothness" of the Estimated Transfer Time Remaining
         #   (1st value is Min samples at the start, 2nd is the Max Samples at the end)
         # self.adaptiveProgUpdate = [5, 10]   #   Sensitive - for small files
         self.adaptiveProgUpdate = [20, 60]  #   Medium - for normal files
@@ -317,7 +317,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Player Enable Switch
         self.chb_enablePlayer = QCheckBox("Enable Media Player")
 
-        #   Prefer Proxis Switch
+        #   Prefer Proxys Switch
         self.chb_preferProxies = QCheckBox("Prefer Proxies")
 
         #   Add Widgets to PreviewPlayer Toolbar
@@ -358,7 +358,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         tip = ("Source Media Directory (required)\n\n"
                "Please add Source by:\n"
                "   - Clicking the Browser button\n"
-               "   - Typing the Direcory Path\n"
+               "   - Typing the Directory Path\n"
                "   - Paste Path\n"
                "   - Drag/drop Media Folder into List Window")
         self.le_sourcePath.setToolTip(tip)
@@ -366,7 +366,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         tip = ("Destination Directory (required)\n\n"
                "Please add Destination by:\n"
                "   - Clicking the Browser button\n"
-               "   - Typing the Direcory Path\n"
+               "   - Typing the Directory Path\n"
                "   - Paste Path\n"
                "   - Drag/drop Destination Folder into List Window")
         self.le_destPath.setToolTip(tip)
@@ -964,7 +964,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if mode is None:
             return
 
-        #   Call Method Based on Shoftcut
+        #   Call Method Based on Shortcut
         match action:
             case "Select All Tiles":
                 self.selectAll(checked=True, mode=mode)
@@ -1135,7 +1135,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR:  Failed to Configure Transfer UI:\n{e}")
 
 
-    #   Reset Total Progess Bar
+    #   Reset Total Progress Bar
     @err_catcher(name=__name__)
     def reset_ProgBar(self):
         self.sourceFuncts.progBar_total.setValue(0)
@@ -1241,7 +1241,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.refreshStatus = "valid"
 
 
-    #   Toggles Media Player Visability
+    #   Toggles Media Player Visibility
     @err_catcher(name=__name__)
     def togglePreviewPlayer(self, checked):
         self.PreviewPlayer.setVisible(checked)
@@ -1830,7 +1830,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.lw_source.clear()
             row = 0
 
-            #   Itterate Sorted Items and Create Tile UI Widgets
+            #   Iterate Sorted Items and Create Tile UI Widgets
             for dataItem in sourceDataItems_sorted:
                 data = dataItem.get("data", {})
                 tileType = dataItem["tileType"]
@@ -1952,7 +1952,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.lw_destination.clear()
             row = 0
 
-            #   Itterate Sorted Items and Create Tile UI Widgets
+            #   Iterate Sorted Items and Create Tile UI Widgets
             for dataItem in destDataItems_sorted:
                 fileItem = dataItem["tile"]
                 tileType = dataItem["tileType"]
@@ -2200,7 +2200,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   If there is Sequence Data
         if data.get("sequenceItems"):
-            #   Itterate Seq Items and Add to List
+            #   Iterate Seq Items and Add to List
             for sData in data["sequenceItems"]:
                 tile = sData["tile"]
                 addList.append(tile.getData())
@@ -2679,7 +2679,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.refreshDestItems()
 
 
-    #   Update Total Progess Bar based on self.progressTimer
+    #   Update Total Progress Bar based on self.progressTimer
     @err_catcher(name=__name__)
     def updateTransfer(self):
         try:
@@ -2698,7 +2698,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             #   Update Time Remaining in the UI
             self.sourceFuncts.l_time_remain.setText(Utils.getFormattedTimeStr(timeRemaining))
 
-            #   Get Tranfer Status for Every FileTile
+            #   Get Transfer Status for Every FileTile
             overall_statusList = [transfer.transferState for transfer in self.copyList]
 
             #   Determine Overall Status based on Priority
@@ -2727,13 +2727,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             #   Call Complete Method if Applicable
             if any(status == "Cancelled" for status in overall_statusList):
-                self.completeTranfer("Cancelled")
+                self.completeTransfer("Cancelled")
             elif all(status in {"Complete"} for status in overall_statusList):
-                self.completeTranfer("Complete")
+                self.completeTransfer("Complete")
             elif all(status in {"Complete", "Warning"} for status in overall_statusList):
-                self.completeTranfer("Complete with Warnings")
+                self.completeTransfer("Complete with Warnings")
             elif all(status in {"Complete", "Error"} for status in overall_statusList):
-                self.completeTranfer("Complete with Errors")
+                self.completeTransfer("Complete with Errors")
 
             logger.debug(f"Updated Overall Status: {overall_status}")
 
@@ -2742,7 +2742,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
-    def completeTranfer(self, transResult):
+    def completeTransfer(self, transResult):
         self.progressTimer.stop()
 
         if transResult == "Complete with Warnings":
@@ -2950,7 +2950,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             line_height = 11
             block_spacing = 10
 
-            #   If No Transferd Files
+            #   If No Transferred Files
             if not reportData:
                 c.setFont("Helvetica", 10)
                 c.drawString(left_margin, y, "No files were transferred.")

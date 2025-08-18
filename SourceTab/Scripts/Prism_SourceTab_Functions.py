@@ -121,7 +121,7 @@ class Prism_SourceTab_Functions(object):
         return True
 
 
-    #   Checks and Adds .MXF for verions Prior to Prism 2.0.18
+    #   Checks and Adds .MXF for Versions Prior to Prism 2.0.18
     @err_catcher(name=__name__)
     def checkMXF(self):
         if ".mxf" not in self.core.media.supportedFormats:
@@ -314,10 +314,10 @@ class Prism_SourceTab_Functions(object):
         # #   View Lut                                                                      #   TODO - IMPLEMENT
         # projectSettings.lo_viewLut = QHBoxLayout()
         # projectSettings.chb_useViewLut = QCheckBox("Use View Lut Presets:", projectSettings.w_config)
-        # projectSettings.b_configureOcioPreets = QPushButton("Configure OCIO Presets", projectSettings.w_config)
+        # projectSettings.b_configureOcioPresets = QPushButton("Configure OCIO Presets", projectSettings.w_config)
         # projectSettings.lo_viewLut.addWidget(projectSettings.chb_useViewLut)
         # projectSettings.lo_viewLut.addStretch()
-        # projectSettings.lo_viewLut.addWidget(projectSettings.b_configureOcioPreets)
+        # projectSettings.lo_viewLut.addWidget(projectSettings.b_configureOcioPresets)
         # projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_viewLut)
 
         # #   Custom Thumbnail Path option                                                      #   TODO - DO WE WANT THIS ???
@@ -344,13 +344,13 @@ class Prism_SourceTab_Functions(object):
         QMetaObject.connectSlotsByName(projectSettings)
 
         #   TOOLTIPS
-        tip = ("Maximum Seperate Processes to use for Media Thumbnail generation.\n"
+        tip = ("Maximum Separate Processes to use for Media Thumbnail generation.\n"
                "  note:  too many threads tends to hang the ffmpeg process.\n\n"
                "    (default = 6)")
         projectSettings.l_thumbThreads.setToolTip(tip)
         projectSettings.sb_thumbThreads.setToolTip(tip)
 
-        tip = ("Maximum Seperate Processes to use for the File Transfer (copying).\n"
+        tip = ("Maximum Separate Processes to use for the File Transfer (copying).\n"
                "The system's optimum setting will depend on processor/disk/network speeds.\n\n"
                "    (default = 6)")
         projectSettings.l_copyThreads.setToolTip(tip)
@@ -362,7 +362,7 @@ class Prism_SourceTab_Functions(object):
         projectSettings.l_copyChunks.setToolTip(tip)
         projectSettings.sb_copyChunks.setToolTip(tip)
 
-        tip = ("Maximum Seperate Processes for Proxy Generation.\n"
+        tip = ("Maximum Separate Processes for Proxy Generation.\n"
                "This plugin uses ffmpeg for Proxy Generation and ffmpeg is multi-threaded by default.\n"
                "This means each process should be using all available processor cores,\n"
                "thus higher settings do not tend to speed up the generation.\n\n"
@@ -405,7 +405,7 @@ class Prism_SourceTab_Functions(object):
         #   CONNECTIONS
         projectSettings.chb_useCustomIcon.toggled.connect(lambda: self.configureSettingsUI(projectSettings))
         projectSettings.b_customIconPath.clicked.connect(lambda: self.selectCustomIconPath(projectSettings))
-        # projectSettings.b_configureOcioPreets.clicked.connect(self.openOcioPresets)
+        # projectSettings.b_configureOcioPresets.clicked.connect(self.openOcioPresets)
 
         logger.debug("Added Settings UI to Prism Project Settings")
 
