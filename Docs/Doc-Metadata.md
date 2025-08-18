@@ -148,9 +148,18 @@ Right-clicking in the Presets window will bring up context menus with extra func
 
 ![Presets Editor Edit](DocsImages/meta_presetEditor_edit.png)
 
-Preset Name must be max 30 chars and use normal symbols
+The selected Preset (or empty current) will be displayed in the Editor, with its name in the *Preset Name* box, and its data in the text box.  A Preset's data is a json text with each Field's data (if enabled and not None).
 
-Preset Data - must be valid json
+The Preset can be manually edited using the Preset Editor, and some text validation is implemented to try and mitigate mistakes:
+
+
+- **Preset Name:** Max of 30 chars and use "normal" file system symbols (not allowed: \\ / : * ? \" < > |)
+
+- **Preset Data:** - Valid json that is a list of dictionaries.  Each dictionary must have these key/value pairs:
+    - "field": string
+    - "enabled": bool
+    - "sourceField": string
+    - "currentData": string
 
 
 <br>

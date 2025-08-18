@@ -2193,23 +2193,13 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
         #   Instantiate Metafiles
         self.MetaFileItems = MetaFileItems()
 
-        self.filterStates = {
-            "Hide Disabled": False,
-            "Hide Empty": False,
-            "----1": False,
-            "Crew/Production": True,
-            "Shot/Scene": True,
-            "Camera": True,
-            "Audio": True,
-            "----2": False
-        }
-
         self.loadMetamap()
 
         #   Setup UI from Ui_w_metadataEditor
         self.setupUi(self)
 
         self.configureUI()
+        self.createFilters()
         self.refresh(loadFilepath)
         self.connectEvents()
 
@@ -2346,6 +2336,29 @@ class MetadataEditor(QWidget, Ui_w_metadataEditor):
 
         tip = "Closes the Editor without Saving"
         self.b_close.setToolTip(tip)
+
+
+    #   Dynamically Build Filters Menu from MetaMap
+    def createFilters(self):
+        categories = self.MetadataFieldCollection.get_allCategories()
+
+        #   Add Filter Types
+        self.filterStates = {
+            "Hide Disabled": False,
+            "Hide Empty": False,
+            }
+
+        #   Add Seperator
+        self.filterStates["----1"] = False
+
+        #   Add All Categories (default True)
+        for cat in categories:
+            if cat == "File":
+                continue
+            self.filterStates[cat] = True
+
+        #   Add Seperator
+        self.filterStates["----2"] = False
 
 
     def connectEvents(self):

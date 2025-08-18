@@ -422,6 +422,20 @@ class MetadataFieldCollection:
         return [f.name for f in self.fields_all if include_headers or not f.is_header]
     
 
+    def get_allCategories(self) -> list[str]:
+        '''Returns a Sorted List of Category Names'''
+
+        seen = set()
+        categories = []
+
+        for f in self.fields_all:
+            if not f.is_header and f.category not in seen:
+                seen.add(f.category)
+                categories.append(f.category)
+
+        return categories
+    
+
     def applyFilters(self, filterStates: dict[str, bool], useFilters: bool, metaMap: list[dict]) -> None:
         '''Returns List of Filtered Field Names'''
 
