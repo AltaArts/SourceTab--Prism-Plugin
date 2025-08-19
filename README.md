@@ -16,14 +16,14 @@ You can find more information on the website:
 
 - Use to speed up the process of ingesting camera original clips (rushes/dailies) into the pipeline.
 - Allows quick viewing of a directory of clips with thumbnail and metadata display.
-- Drag/drop UI interface for File Tiles
-- Keyboard shortcuts (hotkeys) are provided for common actions.
-- Mini Preview Viewer for quick review of clips.
-- Transfer Report generated during transfer.
-- Metadata sidecar files generation (Resolve .csv and Avid .ale)
-- Automated Proxy search/transfer/generation ([**see Proxys**](Docs/Doc-Proxys.md)).
-- Filename modifiers to allow bulk renaming during transfer ([**see File Naming**](Docs/Doc-FileNaming.md)).
-- Metadata extraction and assignment using FFprobe and ExifTool ([**see Metadata**](Docs/Doc-Metadata.md)).
+- Drag/drop UI interface for File Tiles ([see **Drag/Drop**](Docs/Doc-Interface.md/#drag--drop))
+- Keyboard shortcuts (hotkeys) are provided for common actions ([see **Shortcuts**](Docs/Doc-Interface.md/#keyboard-shortcuts-hotkeys)).
+- Mini Preview Viewer for quick review of clips ([see **Preview Player**](Docs/Doc-Interface.md/#preview-viewer)).
+- Transfer Report generated during transfer ([see **Transfer Report**](Docs/Doc-Interface.md/#transfer-report)).
+- Metadata sidecar files generation ([see **Sidecars**](Docs/Doc-Metadata.md/#sidecar-generation))
+- Automated Proxy search/transfer/generation ([see **Proxys**](Docs/Doc-Proxys.md)).
+- Filename modifiers to allow bulk renaming during transfer ([see **File Naming**](Docs/Doc-FileNaming.md)).
+- Metadata extraction and assignment using FFprobe and ExifTool ([see **Metadata**](Docs/Doc-Metadata.md)).
 
 <br>
 
