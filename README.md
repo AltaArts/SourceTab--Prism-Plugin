@@ -23,7 +23,7 @@ You can find more information on the website:
 - Metadata sidecar files generation (Resolve .csv and Avid .ale)
 - Automated Proxy search/transfer/generation ([**see Proxys**](Docs/Doc-Proxys.md)).
 - Filename modifiers to allow bulk renaming during transfer ([**see File Naming**](Docs/Doc-FileNaming.md)).
-- Metadata extraction and assignment using FFprobe and ExifTool ([**see Metadata Handling**](Docs/Doc-Metadata.md)).
+- Metadata extraction and assignment using FFprobe and ExifTool ([**see Metadata**](Docs/Doc-Metadata.md)).
 
 <br>
 
