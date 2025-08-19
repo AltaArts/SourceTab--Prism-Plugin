@@ -1804,7 +1804,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR:  Failed to Refresh Source Items:\n{e}")
 
         finally:
-            WaitPopup.closePopup()
+            QTimer.singleShot(0, WaitPopup.closePopup)
+
 
 
     #   Sort / Filter / Refresh Source Table
@@ -1883,7 +1884,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR:  Failed to Refresh Source Table:\n{e}")
 
         finally:
-            WaitPopup.closePopup()
+            QTimer.singleShot(0, WaitPopup.closePopup)
+
 
 
     #   Build List of Items in Destination Directory
@@ -1926,7 +1928,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR:  Failed to Refresh Destination Items:\n{e}")
 
         finally:
-            WaitPopup.closePopup()
+            QTimer.singleShot(0, WaitPopup.closePopup)
+
 
 
     #   Sort / Filter / Refresh Destination Table
@@ -2004,7 +2007,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR:  Failed to Refresh Destination Table:\n{e}")
 
         finally:
-            WaitPopup.closePopup()
+            QTimer.singleShot(0, WaitPopup.closePopup)
+
 
 
     #   Create Source Data Item (this is the class that will calculate and hold all the data)
