@@ -2,6 +2,22 @@
 
 <br>
 
+## **Quick Index**
+
+[**Source Browser**](#source-browser)<br>
+[**File Tile**](#file-tiles)<br>
+[**Preview Player**](#preview-viewer)<br>
+[**Functions Panel**](#functions-panel)<br>
+[**Transfer Popup**](#transfer-popup)<br>
+[**Transfer Report**](#transfer-report)<br>
+[**Sidecar Files**](#sidecar-files)<br>
+[**Drag / Drop**](#drag--drop)<br>
+[**Keyboard Shortcuts**](#keyboard-shortcuts-hotkeys)<br>
+
+
+
+<br>
+
 ## **Basic Transfer Flow**
 
 - Source:
@@ -126,12 +142,18 @@ File Tiles have additional functionality and Tooltips
 
 
 
-## **Sidecar File**
+## **Sidecar Files**
 
 
 
 
 ## **Drag / Drop**
+
+![Drag/Drop Single](DocsImages/dragDrop_single.png)
+
+![Drag/Drop Multi](DocsImages/dragDrop_multi.png)
+
+![Drag/Drop Player](DocsImages/dragDrop_player.png)
 
 
 ## **Keyboard Shortcuts (Hotkeys)**
