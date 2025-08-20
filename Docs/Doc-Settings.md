@@ -78,7 +78,7 @@ jump to:
 
 [**Installation**](Doc-Installation.md)
 
-[**Interface**](doc-Interface.md)
+[**Interface**](Doc-Interface.md)
 
 [**Proxys**](Doc-Proxys.md)
 

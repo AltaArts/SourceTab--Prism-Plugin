@@ -64,7 +64,7 @@ jump to:
 
 [**Settings**](Doc-Settings.md)
 
-[**Interface**](doc-Interface.md)
+[**Interface**](Doc-Interface.md)
 
 [**Proxys**](Doc-Proxys.md)
 
