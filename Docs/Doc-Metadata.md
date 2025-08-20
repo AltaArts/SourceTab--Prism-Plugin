@@ -205,12 +205,10 @@ NOTE: As of now, the "Alias" key/value pair is not used.  It is included for fut
 ___
 jump to:
 
-[**Installation**](Doc-Installation.md)
+[**Table of Contents / Index**](Doc-Docs_TOC.md)<br>
 
-[**Settings**](Doc-Settings.md)
-
-[**Interface**](Doc-Interface.md)
-
-[**Proxys**](Doc-Proxys.md)
-
-[**File Naming**](Doc-FileNaming.md)
+[**Installation**](Doc-Installation.md)<br>
+[**Settings**](Doc-Settings.md)<br>
+[**Interface**](Doc-Interface.md)<br>
+[**Proxys**](Doc-Proxys.md)<br>
+[**File Naming**](Doc-FileNaming.md)<br>

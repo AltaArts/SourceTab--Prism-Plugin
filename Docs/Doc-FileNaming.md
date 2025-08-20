@@ -60,12 +60,10 @@ Shifts *characters* starting at *position* to the left (negative) or right (posi
 ___
 jump to:
 
-[**Installation**](Doc-Installation.md)
+[**Table of Contents / Index**](Doc-Docs_TOC.md)<br>
 
-[**Settings**](Doc-Settings.md)
-
-[**Interface**](Doc-Interface.md)
-
-[**Proxys**](Doc-Proxys.md)
-
-[**Metadata**](Doc-Metadata.md)
+[**Installation**](Doc-Installation.md)<br>
+[**Settings**](Doc-Settings.md)<br>
+[**Interface**](Doc-Interface.md)<br>
+[**Proxys**](Doc-Proxys.md)<br>
+[**Metadata**](Doc-Metadata.md)<br>

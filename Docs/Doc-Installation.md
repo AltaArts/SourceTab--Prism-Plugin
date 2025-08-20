@@ -17,12 +17,10 @@ Once added, completely shutdown Prism (if running) and re-launch Prism.  This wi
 ___
 jump to:
 
-[**Settings**](Doc-Settings.md)
+[**Table of Contents / Index**](Doc-Docs_TOC.md)<br>
 
-[**Interface**](Doc-Interface.md)
-
-[**Proxys**](Doc-Proxys.md)
-
-[**File Naming**](Doc-FileNaming.md)
-
-[**Metadata**](Doc-Metadata.md)
+[**Settings**](Doc-Settings.md)<br>
+[**Interface**](Doc-Interface.md)<br>
+[**Proxys**](Doc-Proxys.md)<br>
+[**File Naming**](Doc-FileNaming.md)<br>
+[**Metadata**](Doc-Metadata.md)<br>

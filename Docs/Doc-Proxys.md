@@ -201,12 +201,10 @@ Right-clicking in the Proxy Presets window will bring up context menus with extr
 ___
 jump to:
 
-[**Installation**](Doc-Installation.md)
+[**Table of Contents / Index**](Doc-Docs_TOC.md)<br>
 
-[**Settings**](Doc-Settings.md)
-
-[**Interface**](Doc-Interface.md)
-
-[**File Naming**](Doc-FileNaming.md)
-
-[**Metadata**](Doc-Metadata.md)
+[**Installation**](Doc-Installation.md)<br>
+[**Settings**](Doc-Settings.md)v
+[**Interface**](Doc-Interface.md)<br>
+[**File Naming**](Doc-FileNaming.md)<br>
+[**Metadata**](Doc-Metadata.md)<br>
