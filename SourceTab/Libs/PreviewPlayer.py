@@ -55,6 +55,8 @@ import traceback
 import shutil
 from functools import partial
 
+# from OpenGL.GL import *
+
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
@@ -112,6 +114,44 @@ class PreviewPlayer(QWidget):
         self.setupUi()
         self.connectEvents()
 
+        # Check GPU / OpenGL availability
+        self.gpuAvailable = self.checkGpuAvailability()
+
+        # Switch: choose display widget based on GPU
+        if self.gpuAvailable:
+            self.initGpuViewer()
+        else:
+            self.initCpuViewer()
+
+
+    def initGpuViewer(self):
+        logger.status("Initializing GPU Viewer")
+        # Replace QLabel with QOpenGLWidget or your GPU frame painter
+        # self.viewerWidget = GpuFrameWidget(self)
+        # self.lo_preview_main.addWidget(self.viewerWidget)
+
+
+        
+
+    def initCpuViewer(self):
+        logger.status("Initializing CPU Viewer")
+
+        # Use existing QLabel
+        self.viewerWidget = self.l_previewImage
+
+
+    @err_catcher(name=__name__)
+    def checkGpuAvailability(self):
+        fmt = QSurfaceFormat()
+        fmt.setVersion(3, 3)  # Require OpenGL 3.3+
+        fmt.setProfile(QSurfaceFormat.CoreProfile)
+        QSurfaceFormat.setDefaultFormat(fmt)
+
+        ctx = QOpenGLContext()
+        if ctx.create():
+            return True
+        return False
+    
 
     @err_catcher(name=__name__)
     def sizeHint(self):
