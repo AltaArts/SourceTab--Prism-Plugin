@@ -4,6 +4,9 @@
 
 ![Settings](DocsImages/settings_overview.png)
 
+The SourceTab settings will be saved in the Prism Project's settings (pipeline.json) which is normally in the "00_Pipeline" directory.  This means each project can have its own specific settings, based on the type of files to be transferred to the project.
+
+<br>
 
 ___
 

@@ -19,10 +19,10 @@
 <br>
 
 ## **Basic Transfer Flow**
-
+This is a simple overview of a typical transfer job:
 - Source:
     - Source Directory is added to Source Panel
-    - for Each File:
+    - then each File is:
         - Scanned to get its details (frames, size, etc) and Metadata
         - Hashed for future reference.
         - Scanned for a associated Proxy
@@ -41,7 +41,7 @@
 
 - Transfer is Initiated with the *Start Transfer* button
     - All Checked File Tiles are put in Queue for transfer 
-    - Checked File Tile's Mainfile are copied in parallel (up to max workers [default is 5])
+    - Checked File Tile's Mainfile are copied in parallel (up to max workers [default is 6])
 
 - After Mainfile transfer is complete:
     - The transferred file is hashed
@@ -56,22 +56,32 @@
     - Metadata Sidecar file(s) are generated (if enabled)
     - Complete sound and popup are displayed (if enabled)
 
-
-
-
-
-
-
-
-
-
-
+<br>
 
 
 
 ## **Source Browser**
 
+![SourceBrowser Overview](DocsImages/sourceBrowser_overview.png)
 
+The main window is the SourceBrowser in the "Source" tab.  The SourceTab plugin will add the tab to the main Prism Project Browser top bar, in the position set in the [**Settings**](Doc-Settings.md/#sourcetab-project-settings).
+
+There are 4 main panels that make up the SourceBrowser:
+- **Source List:**  displays all the files in the Source Directory.  
+- **Destination List:** holds added File Tiles for transfer.
+- **Preview Player:** plays the selected media for review.
+- **Functions Panel:** transfer-specific configuration options.
+
+### **Icons**
+
+![Help Icon](DocsImages/sourceBrowser_icon_help.png) **Help:**  Hovering will display quick details.  Clicking will open the Web Browser to the SourceTab Documentation on GitHub.<br>
+![Up Dir Icon](DocsImages/sourceBrowser_icon_up.png) **Up:** go up one directory level.<br>
+![Explorer Icon](DocsImages/sourceBrowser_icon_explorer.png) **Explorer:** open the File Explorer to select the directory (or optionally in the Destination side will open the Libraries popup to choose a directory).<br>
+![Refresh Icon](DocsImages/sourceBrowser_icon_refresh.png) **Refresh:** reload the File Tiles.<br>
+![Sort Icon](DocsImages/sourceBrowser_icon_sort.png) **Sorting:** open the Sorting Menu for the list.<br>
+![Frames Icon](DocsImages/sourceBrowser_icon_frames.png) **Frames Display:** toggle frames/duration display in the File Tile.<br>
+![Filter Icon](DocsImages/sourceBrowser_icon_filters.png) **Filters:** enables filtering of File Tiles. Click to toggle enabled, right-click for the Filters Menu.<br>
+![Sequences Icon](DocsImages/sourceBrowser_icon_seqs.png) **Group Sequences:** toggle grouping of image sequences into one File Tile.
 
 
 
@@ -82,13 +92,16 @@
 
 ![FileTile Overview](DocsImages/FileTile_overview.png)
 
-Each file is represented by a File Tile.  This is aimed to quickly display each file and its relevant information.
+Each file is represented by a File Tile.  This is aimed to quickly display each file and its relevant information.  File Tiles contain the file's information and have additional functionality (**see below**).
+
+File Tiles can be added from the Source to the Destination by several ways including [**Drag/Drop**](#drag--drop), [**Keyboard Shortcuts**](Doc-Interface.md/#keyboard-shortcuts-hotkeys), and through the [**Right-click Menu**](#right-click-menu).
 
 <br>
 
 ### **Details**
+File Tiles have additional functionality and Tooltips to help in quick viewing and handling.
+
 ![FileTile Details](DocsImages/FileTile_details.png)<br>
-File Tiles have additional functionality and Tooltips
 
 <br>
 
