@@ -50,19 +50,15 @@ This plugin is for Windows only, as Prism2 only supports Windows at this time.
 
 ## **Documentation**
 
-[**Settings**](Docs/Doc-Settings.md)
+[**Table of Contents / Index**](Docs/Doc-Docs_TOC.md)<br>
 
-[**Interface**](Docs/Doc-Interface.md)
-
-[**Proxys**](Docs/Doc-Proxys.md)
-
-[**File Naming**](Docs/Doc-FileNaming.md)
-
-[**Metadata**](Docs/Doc-Metadata.md)
-
+[**Settings**](Docs/Doc-Settings.md)<br>
+[**Interface**](Docs/Doc-Interface.md)<br>
+[**Proxys**](Docs/Doc-Proxys.md)<br>
+[**File Naming**](Docs/Doc-FileNaming.md)<br>
+[**Metadata**](Docs/Doc-Metadata.md)<br>
 
 <br/>
-
 
 ## **Issues / Suggestions**
 
