@@ -47,6 +47,7 @@
 #
 ####################################################
 
+
 import os
 import sys
 import subprocess
@@ -55,7 +56,6 @@ import traceback
 import shutil
 from functools import partial
 
-# from OpenGL.GL import *
 
 
 from qtpy.QtCore import *
@@ -82,16 +82,13 @@ class PreviewPlayer(QWidget):
         super(PreviewPlayer, self).__init__()
 
         self.sourceBrowser = browser
-
         self.core = self.sourceBrowser.core
 
         self.iconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
-
         self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
         self.ffprobePath = Utils.getFFprobePath()
 
         self.externalMediaPlayers = None
-
         self.mediaFiles = []
         self.renderResX = 300
         self.renderResY = 169
@@ -114,44 +111,6 @@ class PreviewPlayer(QWidget):
         self.setupUi()
         self.connectEvents()
 
-        # Check GPU / OpenGL availability
-        self.gpuAvailable = self.checkGpuAvailability()
-
-        # Switch: choose display widget based on GPU
-        if self.gpuAvailable:
-            self.initGpuViewer()
-        else:
-            self.initCpuViewer()
-
-
-    def initGpuViewer(self):
-        logger.status("Initializing GPU Viewer")
-        # Replace QLabel with QOpenGLWidget or your GPU frame painter
-        # self.viewerWidget = GpuFrameWidget(self)
-        # self.lo_preview_main.addWidget(self.viewerWidget)
-
-
-        
-
-    def initCpuViewer(self):
-        logger.status("Initializing CPU Viewer")
-
-        # Use existing QLabel
-        self.viewerWidget = self.l_previewImage
-
-
-    @err_catcher(name=__name__)
-    def checkGpuAvailability(self):
-        fmt = QSurfaceFormat()
-        fmt.setVersion(3, 3)  # Require OpenGL 3.3+
-        fmt.setProfile(QSurfaceFormat.CoreProfile)
-        QSurfaceFormat.setDefaultFormat(fmt)
-
-        ctx = QOpenGLContext()
-        if ctx.create():
-            return True
-        return False
-    
 
     @err_catcher(name=__name__)
     def sizeHint(self):
@@ -177,23 +136,23 @@ class PreviewPlayer(QWidget):
         self.lo_preview_main.addWidget(self.container_viewLut)
 
         #   Viewer Image Label
-        self.l_previewImage = QLabel(self)
-        self.l_previewImage.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.displayWindow = QLabel(self)
+        self.displayWindow.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        self.l_previewImage.setText("")
-        self.l_previewImage.setAlignment(Qt.AlignCenter)
-        self.l_previewImage.setObjectName("l_previewImage")
+        self.displayWindow.setText("")
+        self.displayWindow.setAlignment(Qt.AlignCenter)
+        self.displayWindow.setObjectName("displayWindow")
 
-        self.l_previewImage.setAcceptDrops(True)
-        self.l_previewImage.dragEnterEvent = partial(self.onDragEnterEvent)
-        self.l_previewImage.dragMoveEvent = partial(self.onDragMoveEvent, self.l_previewImage, "l_previewImage")
-        self.l_previewImage.dragLeaveEvent = partial(self.onDragLeaveEvent, self.l_previewImage)
-        self.l_previewImage.dropEvent = partial(self.onDropEvent, self.l_previewImage)
+        self.displayWindow.setAcceptDrops(True)
+        self.displayWindow.dragEnterEvent = partial(self.onDragEnterEvent)
+        self.displayWindow.dragMoveEvent = partial(self.onDragMoveEvent, self.displayWindow, "displayWindow")
+        self.displayWindow.dragLeaveEvent = partial(self.onDragLeaveEvent, self.displayWindow)
+        self.displayWindow.dropEvent = partial(self.onDropEvent, self.displayWindow)
 
-        self.lo_preview_main.addWidget(self.l_previewImage)
+        self.lo_preview_main.addWidget(self.displayWindow)
 
         #   Proxy Icon Label
-        self.l_pxyIcon = QLabel(self.l_previewImage)
+        self.l_pxyIcon = QLabel(self.displayWindow)
         self.l_pxyIcon.setPixmap(self.sourceBrowser.icon_proxy.pixmap(40, 40))
         self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
         self.l_pxyIcon.setVisible(False)
@@ -283,18 +242,18 @@ class PreviewPlayer(QWidget):
         self.b_last.setIcon(icon)
         self.b_last.setToolTip("Last Frame")
 
-        self.l_previewImage.setMinimumWidth(self.renderResX)
-        self.l_previewImage.setMinimumHeight(self.renderResY)
-        self.l_previewImage.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.displayWindow.setMinimumWidth(self.renderResX)
+        self.displayWindow.setMinimumHeight(self.renderResY)
+        self.displayWindow.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
 
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        self.l_previewImage.clickEvent = self.l_previewImage.mouseReleaseEvent
-        self.l_previewImage.mouseReleaseEvent = self.previewClk
-        self.l_previewImage.resizeEventOrig = self.l_previewImage.resizeEvent
-        self.l_previewImage.resizeEvent = self.previewResizeEvent
-        self.l_previewImage.customContextMenuRequested.connect(self.rclPreview)
+        self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
+        self.displayWindow.mouseReleaseEvent = self.previewClk
+        self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
+        self.displayWindow.resizeEvent = self.previewResizeEvent
+        self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
 
         self.sl_previewImage.valueChanged.connect(self.sliderChanged)
         self.sl_previewImage.sliderPressed.connect(self.sliderClk)
@@ -321,7 +280,7 @@ class PreviewPlayer(QWidget):
         if e.mimeData().hasFormat("application/x-fileTile"):
             e.acceptProposedAction()
             widget.setStyleSheet(
-                f"QLabel#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
+                f"#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
             )
         else:
             e.ignore()
@@ -354,7 +313,7 @@ class PreviewPlayer(QWidget):
     @err_catcher(name=__name__)
     def setPreviewEnabled(self, state):
         self.previewEnabled = state
-        self.l_previewImage.setVisible(state)
+        self.displayWindow.setVisible(state)
         self.w_timeslider.setVisible(state)
         self.w_playerCtrls.setVisible(state)
 
@@ -511,7 +470,7 @@ class PreviewPlayer(QWidget):
 
         pmap = self.core.media.scalePixmap(self.emptypmap, self.getThumbnailWidth(), self.getThumbnailHeight())
         self.currentPreviewMedia = pmap
-        self.l_previewImage.setPixmap(pmap)
+        self.displayWindow.setPixmap(pmap)
         self.sl_previewImage.setEnabled(False)
         self.l_start.setText("")
         self.l_end.setText("")
@@ -533,7 +492,7 @@ class PreviewPlayer(QWidget):
         if not os.path.exists(prvFile):
             self.l_info.setText("\nNo image found\n")
             self.l_info.setToolTip("")
-            self.l_previewImage.setToolTip("")
+            self.displayWindow.setToolTip("")
             return
 
         if self.state == "disabled" or os.getenv("PRISM_DISPLAY_MEDIA_RESOLUTION") == "0":
@@ -750,7 +709,7 @@ class PreviewPlayer(QWidget):
         metrics = QFontMetrics(self.l_info.font())
         lines = []
         for line in text.split("\n"):
-            elidedText = metrics.elidedText(line, Qt.ElideRight, self.l_previewImage.width()-20)
+            elidedText = metrics.elidedText(line, Qt.ElideRight, self.displayWindow.width()-20)
             lines.append(elidedText)
 
         self.l_info.setText("\n".join(lines))
@@ -806,10 +765,10 @@ class PreviewPlayer(QWidget):
     @err_catcher(name=__name__)
     def moveLoadingLabel(self):
         geo = QRect()
-        pos = self.l_previewImage.parent().mapToGlobal(self.l_previewImage.geometry().topLeft())
+        pos = self.displayWindow.parent().mapToGlobal(self.displayWindow.geometry().topLeft())
         pos = self.mapFromGlobal(pos)
-        geo.setWidth(self.l_previewImage.width())
-        geo.setHeight(self.l_previewImage.height())
+        geo.setWidth(self.displayWindow.width())
+        geo.setHeight(self.displayWindow.height())
         geo.moveTopLeft(pos)
         self.l_loading.setGeometry(geo)
 
@@ -866,12 +825,12 @@ class PreviewPlayer(QWidget):
 
     @err_catcher(name=__name__)
     def getThumbnailWidth(self):
-        return self.l_previewImage.width()
+        return self.displayWindow.width()
 
 
     @err_catcher(name=__name__)
     def getThumbnailHeight(self):
-        return self.l_previewImage.height()
+        return self.displayWindow.height()
 
 
     @err_catcher(name=__name__)
@@ -1028,7 +987,7 @@ class PreviewPlayer(QWidget):
     @err_catcher(name=__name__)
     def completeChangeImg(self, pmsmall, curFrame, ext):
         self.currentPreviewMedia = pmsmall
-        self.l_previewImage.setPixmap(pmsmall)
+        self.displayWindow.setPixmap(pmsmall)
         if self.pduration > 1:
             newVal = int(self.sl_previewImage.maximum() * (curFrame / float(self.pduration-1)))
         else:
@@ -1074,7 +1033,7 @@ class PreviewPlayer(QWidget):
                 if self.previewTimeline.state() == QTimeLine.Running:
                     self.setTimelinePaused(True)
 
-        self.l_previewImage.clickEvent(event)
+        self.displayWindow.clickEvent(event)
 
 
     @err_catcher(name=__name__)
@@ -1256,15 +1215,15 @@ class PreviewPlayer(QWidget):
 
     @err_catcher(name=__name__)
     def previewResizeEvent(self, event):
-        self.l_previewImage.resizeEventOrig(event)
-        height = int(self.l_previewImage.width()*(self.renderResY/self.renderResX))
-        self.l_previewImage.setMinimumHeight(height)
-        self.l_previewImage.setMaximumHeight(height)
+        self.displayWindow.resizeEventOrig(event)
+        height = int(self.displayWindow.width()*(self.renderResY/self.renderResX))
+        self.displayWindow.setMinimumHeight(height)
+        self.displayWindow.setMaximumHeight(height)
         if self.currentPreviewMedia:
             pmap = self.core.media.scalePixmap(
                 self.currentPreviewMedia, self.getThumbnailWidth(), self.getThumbnailHeight()
             )
-            self.l_previewImage.setPixmap(pmap)
+            self.displayWindow.setPixmap(pmap)
 
         if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
             self.moveLoadingLabel()
