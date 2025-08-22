@@ -105,11 +105,41 @@ class PreviewPlayer(QWidget):
         self.pend = 0
         self.openPreviewPlayer = False
         self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
+
         self.previewEnabled = True
         self.state = "enabled"
+
+
         self.updateExternalMediaPlayers()
         self.setupUi()
         self.connectEvents()
+
+
+
+    @err_catcher(name=__name__)
+    def checkGpuAvailability(self):
+        ctx = QOpenGLContext()
+        return bool(ctx.create())
+
+
+    @err_catcher(name=__name__)
+    def createViewerWidget(self):
+        self.gpuAvail = self.checkGpuAvailability()
+
+        # useGPU = self.gpuAvail and self.core.getConfig("globals", "useGpuViewer", fallback=True)          #   TODO
+
+        useGPU = self.checkGpuAvailability()
+
+        useGPU = False                                #   TESTING
+
+        if useGPU:
+            logger.status("Creating GPU Preview Player")
+            w = GpuFrameWidget(self)
+        else:
+            logger.status("Creating CPU Preview Player")
+            w = CpuFrameWidget(self)
+
+        return w
 
 
     @err_catcher(name=__name__)
@@ -136,20 +166,27 @@ class PreviewPlayer(QWidget):
         self.lo_preview_main.addWidget(self.container_viewLut)
 
         #   Viewer Image Label
-        self.displayWindow = QLabel(self)
-        self.displayWindow.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        self.displayWindow.setText("")
-        self.displayWindow.setAlignment(Qt.AlignCenter)
-        self.displayWindow.setObjectName("displayWindow")
-
-        self.displayWindow.setAcceptDrops(True)
-        self.displayWindow.dragEnterEvent = partial(self.onDragEnterEvent)
-        self.displayWindow.dragMoveEvent = partial(self.onDragMoveEvent, self.displayWindow, "displayWindow")
-        self.displayWindow.dragLeaveEvent = partial(self.onDragLeaveEvent, self.displayWindow)
-        self.displayWindow.dropEvent = partial(self.onDropEvent, self.displayWindow)
-
+        self.displayWindow = self.createViewerWidget()
         self.lo_preview_main.addWidget(self.displayWindow)
+
+
+        # self.displayWindow = QLabel(self)
+        # self.displayWindow.setContextMenuPolicy(Qt.CustomContextMenu)
+
+        # self.displayWindow.setText("")
+        # self.displayWindow.setAlignment(Qt.AlignCenter)
+        # self.displayWindow.setObjectName("displayWindow")
+
+        # self.displayWindow.setAcceptDrops(True)
+        # self.displayWindow.dragEnterEvent = partial(self.onDragEnterEvent)
+        # self.displayWindow.dragMoveEvent = partial(self.onDragMoveEvent, self.displayWindow, "displayWindow")
+        # self.displayWindow.dragLeaveEvent = partial(self.onDragLeaveEvent, self.displayWindow)
+        # self.displayWindow.dropEvent = partial(self.onDropEvent, self.displayWindow)
+
+        # self.lo_preview_main.addWidget(self.displayWindow)
+
+
 
         #   Proxy Icon Label
         self.l_pxyIcon = QLabel(self.displayWindow)
@@ -197,15 +234,10 @@ class PreviewPlayer(QWidget):
         self.lo_playerCtrls.setContentsMargins(0, 0, 0, 0)
         
         self.b_first = QToolButton()
-        self.b_first.clicked.connect(self.onFirstClicked)
         self.b_prev = QToolButton()
-        self.b_prev.clicked.connect(self.onPrevClicked)
         self.b_play = QToolButton()
-        self.b_play.clicked.connect(self.onPlayClicked)
         self.b_next = QToolButton()
-        self.b_next.clicked.connect(self.onNextClicked)
         self.b_last = QToolButton()
-        self.b_last.clicked.connect(self.onLastClicked)
         
         self.lo_playerCtrls.addWidget(self.b_first)
         self.lo_playerCtrls.addStretch()
@@ -249,11 +281,22 @@ class PreviewPlayer(QWidget):
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
-        self.displayWindow.mouseReleaseEvent = self.previewClk
-        self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
-        self.displayWindow.resizeEvent = self.previewResizeEvent
-        self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
+
+        self.displayWindow.clicked.connect(self.previewClk)
+        self.displayWindow.contextMenuRequested.connect(self.rclPreview)
+        self.displayWindow.viewResized.connect(self.onPreviewResized)
+
+        # self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
+        # self.displayWindow.mouseReleaseEvent = self.previewClk
+        # self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
+        # self.displayWindow.resizeEvent = self.previewResizeEvent
+        # self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
+
+        self.b_first.clicked.connect(self.onFirstClicked)
+        self.b_prev.clicked.connect(self.onPrevClicked)
+        self.b_play.clicked.connect(self.onPlayClicked)
+        self.b_next.clicked.connect(self.onNextClicked)
+        self.b_last.clicked.connect(self.onLastClicked)
 
         self.sl_previewImage.valueChanged.connect(self.sliderChanged)
         self.sl_previewImage.sliderPressed.connect(self.sliderClk)
@@ -316,6 +359,31 @@ class PreviewPlayer(QWidget):
         self.displayWindow.setVisible(state)
         self.w_timeslider.setVisible(state)
         self.w_playerCtrls.setVisible(state)
+
+
+
+
+
+
+    def onPreviewResized(self):
+        height = int(self.displayWindow.width() * (self.renderResY / self.renderResX))
+        self.displayWindow.setMinimumHeight(height)
+        self.displayWindow.setMaximumHeight(height)
+
+        if self.currentPreviewMedia:
+            pmap = self.core.media.scalePixmap(
+                self.currentPreviewMedia, self.displayWindow.width(), self.getThumbnailHeight()
+            )
+            self.displayWindow.setFrame(pmap)
+
+        if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
+            self.moveLoadingLabel()
+
+        text = self.l_info.toolTip() or self.l_info.text()
+        self.setInfoText(text)
+
+
+
 
 
     @err_catcher(name=__name__)
@@ -451,15 +519,6 @@ class PreviewPlayer(QWidget):
 
             else:
                 self.updatePrvInfo(imgPath, frame=prevFrame)
-
-        ###     Attempt to Use Workers as PreCache  ###
-            # if not self.prvIsSequence and self.pduration > 1:
-            #     self.startCacheWorkers(
-            #         path=imgPath,
-            #         total_frames=self.pduration,
-            #         thumbWidth=self.getThumbnailWidth()
-            #         )
-        ###############################################
 
             if self.tlPaused:
                 self.changeImage_threaded(regenerateThumb=regenerateThumb)
@@ -1047,7 +1106,7 @@ class PreviewPlayer(QWidget):
 
 
     @err_catcher(name=__name__)
-    def getMediaPreviewMenu(self):
+    def getMediaPreviewMenu(self):                      #   TODO - USE Lib Calls
         if len(self.mediaFiles) < 1:
             return
         
@@ -1320,3 +1379,175 @@ class PreviewPlayer(QWidget):
         else:
             player = self.core.media.getExternalMediaPlayer()
             self.externalMediaPlayers = [player]
+
+
+
+
+class CpuFrameWidget(QLabel):
+    clicked = Signal()
+    contextMenuRequested = Signal(object)    # QContextMenuEvent
+    fileDropped = Signal(str)
+    viewResized = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("previewWindow")
+        self.setAlignment(Qt.AlignCenter)
+        self.setAcceptDrops(True)
+
+    # --- unified API ---
+    def setFrame(self, pixmap):
+        self.setPixmap(pixmap)
+
+    def getThumbWidth(self):
+        return self.width()
+
+    def getThumbHeight(self):
+        return self.height()
+
+    def setDragHighlight(self, on: bool):
+        if on:
+            self.setStyleSheet("#previewWindow { border: 2px dashed rgb(100,200,100); }")
+        else:
+            self.setStyleSheet("")
+
+    # --- events unified as signals ---
+    def mouseReleaseEvent(self, e):
+        self.clicked.emit()
+
+    def contextMenuEvent(self, e):
+        self.contextMenuRequested.emit(e)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self.viewResized.emit()
+
+    # Drag & drop
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
+            e.acceptProposedAction()
+            self.setDragHighlight(True)
+        else:
+            e.ignore()
+
+    def dragMoveEvent(self, e):
+        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
+            e.acceptProposedAction()
+        else:
+            e.ignore()
+
+    def dragLeaveEvent(self, e):
+        self.setDragHighlight(False)
+
+    def dropEvent(self, e):
+        self.setDragHighlight(False)
+        if e.mimeData().hasUrls():
+            urls = e.mimeData().urls()
+            if urls:
+                self.fileDropped.emit(urls[0].toLocalFile())
+        e.acceptProposedAction()
+
+
+
+
+
+class GpuFrameWidget(QOpenGLWidget):
+    clicked = Signal()
+    contextMenuRequested = Signal(object)   # QContextMenuEvent
+    fileDropped = Signal(str)
+    viewResized = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("previewWindow")
+        self.setAcceptDrops(True)
+        self.setAttribute(Qt.WA_OpaquePaintEvent, True)
+        self._image = None   # QImage in RGBA8888
+        self._dpr_img = 1.0  # track devicePixelRatio for crisp draws
+
+    # --- unified API ---
+    def setFrame(self, pixmap):
+        # Keep the API identical to the CPU widget
+        img = pixmap.toImage().convertToFormat(QImage.Format_RGBA8888)
+        # Handle high-DPI pixmaps/images
+        self._dpr_img = getattr(pixmap, "devicePixelRatioF", lambda: 1.0)()
+        img.setDevicePixelRatio(self._dpr_img)
+        self._image = img
+        self.update()
+
+    def getThumbWidth(self):
+        return self.width()
+
+    def getThumbHeight(self):
+        return self.height()
+
+    def setDragHighlight(self, on: bool):
+        if on:
+            self.setStyleSheet("#previewWindow { border: 2px dashed rgb(100,200,100); }")
+        else:
+            self.setStyleSheet("")
+
+    # --- events unified as signals ---
+    def mouseReleaseEvent(self, e):
+        self.clicked.emit()
+
+    def contextMenuEvent(self, e: QContextMenuEvent):
+        self.contextMenuRequested.emit(e)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self.viewResized.emit()
+
+    # --- Drag & drop ---
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
+            e.acceptProposedAction()
+            self.setDragHighlight(True)
+        else:
+            e.ignore()
+
+    def dragMoveEvent(self, e):
+        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
+            e.acceptProposedAction()
+        else:
+            e.ignore()
+
+    def dragLeaveEvent(self, e):
+        self.setDragHighlight(False)
+
+    def dropEvent(self, e):
+        self.setDragHighlight(False)
+        if e.mimeData().hasUrls():
+            urls = e.mimeData().urls()
+            if urls:
+                self.fileDropped.emit(urls[0].toLocalFile())
+        e.acceptProposedAction()
+
+    # --- OpenGL lifecycle ---
+    def initializeGL(self):
+        # You can set GL state here if you want; QPainter will manage what it needs.
+        self.makeCurrent()
+        self.doneCurrent()
+
+    def resizeGL(self, w, h):
+        # Nothing special required for the QPainter path
+        pass
+
+    def paintGL(self):
+        p = QPainter(self)
+        # Clear to black (QPainter on GL clears by painting a rect)
+        p.fillRect(self.rect(), Qt.black)
+
+        if self._image is not None and not self._image.isNull():
+            # Keep aspect ratio and letterbox
+            target = self.rect()
+            scaled = self._image.scaled(
+                target.size(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            x = (target.width() - scaled.width()) // 2
+            y = (target.height() - scaled.height()) // 2
+            p.drawImage(QPoint(x, y), scaled)
+
+        p.end()
