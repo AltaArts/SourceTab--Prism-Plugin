@@ -223,6 +223,7 @@ def createMenuAction(actionName: str,
                      menu: QMenu,
                      parent: QObject,
                      function: Callable[[], None],
+                     icon: str = None,
                      enabled: bool = True
                      ) -> None:
     """Creates a QAction for RCL Menus"""
@@ -233,6 +234,9 @@ def createMenuAction(actionName: str,
     if shortcut_list:
         first_shortcut = shortcut_list[0]
         menuAction.setShortcut(QKeySequence(first_shortcut))
+
+    if icon:
+        menuAction.setIcon(icon)
 
     menuAction.triggered.connect(function)
     menuAction.setEnabled(enabled)

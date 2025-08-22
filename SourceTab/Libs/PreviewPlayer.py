@@ -105,46 +105,28 @@ class PreviewPlayer(QWidget):
         self.pend = 0
         self.openPreviewPlayer = False
         self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
-
         self.previewEnabled = True
         self.state = "enabled"
-
-
         self.updateExternalMediaPlayers()
         self.setupUi()
         self.connectEvents()
 
 
-
-    @err_catcher(name=__name__)
-    def checkGpuAvailability(self):
-        ctx = QOpenGLContext()
-        return bool(ctx.create())
-
-
-    @err_catcher(name=__name__)
-    def createViewerWidget(self):
-        self.gpuAvail = self.checkGpuAvailability()
-
-        # useGPU = self.gpuAvail and self.core.getConfig("globals", "useGpuViewer", fallback=True)          #   TODO
-
-        useGPU = self.checkGpuAvailability()
-
-        useGPU = False                                #   TESTING
-
-        if useGPU:
-            logger.status("Creating GPU Preview Player")
-            w = GpuFrameWidget(self)
-        else:
-            logger.status("Creating CPU Preview Player")
-            w = CpuFrameWidget(self)
-
-        return w
-
-
     @err_catcher(name=__name__)
     def sizeHint(self):
         return QSize(400, 100)
+    
+
+    @err_catcher(name=__name__)
+    def updateExternalMediaPlayers(self):
+        #   For Prism 2.0.18+
+        if hasattr(self.core.media, "getExternalMediaPlayers"):
+            self.externalMediaPlayers = self.core.media.getExternalMediaPlayers()
+
+        #   For Before Prism 2.0.18
+        else:
+            player = self.core.media.getExternalMediaPlayer()
+            self.externalMediaPlayers = [player]
 
 
     @err_catcher(name=__name__)
@@ -166,27 +148,20 @@ class PreviewPlayer(QWidget):
         self.lo_preview_main.addWidget(self.container_viewLut)
 
         #   Viewer Image Label
+        self.displayWindow = QLabel(self)
+        self.displayWindow.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        self.displayWindow = self.createViewerWidget()
+        self.displayWindow.setText("")
+        self.displayWindow.setAlignment(Qt.AlignCenter)
+        self.displayWindow.setObjectName("displayWindow")
+
+        self.displayWindow.setAcceptDrops(True)
+        self.displayWindow.dragEnterEvent = partial(self.onDragEnterEvent)
+        self.displayWindow.dragMoveEvent = partial(self.onDragMoveEvent, self.displayWindow, "displayWindow")
+        self.displayWindow.dragLeaveEvent = partial(self.onDragLeaveEvent, self.displayWindow)
+        self.displayWindow.dropEvent = partial(self.onDropEvent, self.displayWindow)
+
         self.lo_preview_main.addWidget(self.displayWindow)
-
-
-        # self.displayWindow = QLabel(self)
-        # self.displayWindow.setContextMenuPolicy(Qt.CustomContextMenu)
-
-        # self.displayWindow.setText("")
-        # self.displayWindow.setAlignment(Qt.AlignCenter)
-        # self.displayWindow.setObjectName("displayWindow")
-
-        # self.displayWindow.setAcceptDrops(True)
-        # self.displayWindow.dragEnterEvent = partial(self.onDragEnterEvent)
-        # self.displayWindow.dragMoveEvent = partial(self.onDragMoveEvent, self.displayWindow, "displayWindow")
-        # self.displayWindow.dragLeaveEvent = partial(self.onDragLeaveEvent, self.displayWindow)
-        # self.displayWindow.dropEvent = partial(self.onDropEvent, self.displayWindow)
-
-        # self.lo_preview_main.addWidget(self.displayWindow)
-
-
 
         #   Proxy Icon Label
         self.l_pxyIcon = QLabel(self.displayWindow)
@@ -234,10 +209,15 @@ class PreviewPlayer(QWidget):
         self.lo_playerCtrls.setContentsMargins(0, 0, 0, 0)
         
         self.b_first = QToolButton()
+        self.b_first.clicked.connect(self.onFirstClicked)
         self.b_prev = QToolButton()
+        self.b_prev.clicked.connect(self.onPrevClicked)
         self.b_play = QToolButton()
+        self.b_play.clicked.connect(self.onPlayClicked)
         self.b_next = QToolButton()
+        self.b_next.clicked.connect(self.onNextClicked)
         self.b_last = QToolButton()
+        self.b_last.clicked.connect(self.onLastClicked)
         
         self.lo_playerCtrls.addWidget(self.b_first)
         self.lo_playerCtrls.addStretch()
@@ -281,22 +261,11 @@ class PreviewPlayer(QWidget):
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-
-        self.displayWindow.clicked.connect(self.previewClk)
-        self.displayWindow.contextMenuRequested.connect(self.rclPreview)
-        self.displayWindow.viewResized.connect(self.onPreviewResized)
-
-        # self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
-        # self.displayWindow.mouseReleaseEvent = self.previewClk
-        # self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
-        # self.displayWindow.resizeEvent = self.previewResizeEvent
-        # self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
-
-        self.b_first.clicked.connect(self.onFirstClicked)
-        self.b_prev.clicked.connect(self.onPrevClicked)
-        self.b_play.clicked.connect(self.onPlayClicked)
-        self.b_next.clicked.connect(self.onNextClicked)
-        self.b_last.clicked.connect(self.onLastClicked)
+        self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
+        self.displayWindow.mouseReleaseEvent = self.previewClk
+        self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
+        self.displayWindow.resizeEvent = self.previewResizeEvent
+        self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
 
         self.sl_previewImage.valueChanged.connect(self.sliderChanged)
         self.sl_previewImage.sliderPressed.connect(self.sliderClk)
@@ -359,31 +328,6 @@ class PreviewPlayer(QWidget):
         self.displayWindow.setVisible(state)
         self.w_timeslider.setVisible(state)
         self.w_playerCtrls.setVisible(state)
-
-
-
-
-
-
-    def onPreviewResized(self):
-        height = int(self.displayWindow.width() * (self.renderResY / self.renderResX))
-        self.displayWindow.setMinimumHeight(height)
-        self.displayWindow.setMaximumHeight(height)
-
-        if self.currentPreviewMedia:
-            pmap = self.core.media.scalePixmap(
-                self.currentPreviewMedia, self.displayWindow.width(), self.getThumbnailHeight()
-            )
-            self.displayWindow.setFrame(pmap)
-
-        if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
-            self.moveLoadingLabel()
-
-        text = self.l_info.toolTip() or self.l_info.text()
-        self.setInfoText(text)
-
-
-
 
 
     @err_catcher(name=__name__)
@@ -774,38 +718,6 @@ class PreviewPlayer(QWidget):
         self.l_info.setText("\n".join(lines))
 
 
-    # @err_catcher(name=__name__)
-    # def startCacheWorkers(self, path, total_frames, thumbWidth, num_workers=4):
-    #     frames_per_worker = total_frames // num_workers
-    #     remainder = total_frames % num_workers
-
-    #     frame_ranges = []
-    #     start = 0
-    #     for i in range(num_workers):
-    #         end = start + frames_per_worker - 1
-    #         if i < remainder:
-    #             end += 1
-    #         if start > total_frames - 1:
-    #             break
-    #         if end > total_frames - 1:
-    #             end = total_frames - 1
-    #         frame_ranges.append((start, end))
-    #         start = end + 1
-        
-    #     for start_frame, end_frame in frame_ranges:
-    #         worker = PixmapCacheWorker(
-    #             parent=self,
-    #             path=path,
-    #             start_frame=start_frame,
-    #             end_frame=end_frame,
-    #             thumbWidth=thumbWidth
-    #         )
-    #         worker.setAutoDelete(True)
-    #         self.cache_threadpool.start(worker)
-
-    #     logger.debug(f"[startCacheWorkers] Started {len(frame_ranges)} cache workers for {path}")
-
-
     @err_catcher(name=__name__)
     def createPMap(self, resx, resy):
         fbFolder = self.core.projects.getFallbackFolder()
@@ -999,15 +911,6 @@ class PreviewPlayer(QWidget):
                                 regenerateThumb=regenerateThumb,
                                 needPixMap=True
                             )
-                        
-                        #####   PRISM NATIVE METHOD     ########
-                        # pm = self.core.media.getPixmapFromVideoPath(
-                        #         fileName,
-                        #         videoReader=vidFile,
-                        #         imgNum=imgNum,
-                        #         regenerateThumb=regenerateThumb
-                        #     )
-                        #########################################
 
                         pmsmall = self.core.media.scalePixmap(
                             pm, self.getThumbnailWidth(), self.getThumbnailHeight()
@@ -1106,11 +1009,12 @@ class PreviewPlayer(QWidget):
 
 
     @err_catcher(name=__name__)
-    def getMediaPreviewMenu(self):                      #   TODO - USE Lib Calls
+    def getMediaPreviewMenu(self):
         if len(self.mediaFiles) < 1:
             return
         
         hasProxy = self.tile.data.get("hasProxy", False)
+        sc = self.sourceBrowser.shortcutsByAction
         rcmenu = QMenu(self)
 
         #   Dummy Separator
@@ -1133,79 +1037,47 @@ class PreviewPlayer(QWidget):
 
         if self.externalMediaPlayers is not None:
             for player in self.externalMediaPlayers:
-                pAct = QAction(player.get("name", ""), self)
-                pAct.triggered.connect(lambda x=None, name=player.get("name", ""): self.compare(name))
-                playMenu.addAction(pAct)
+                funct = lambda x=None, name=player.get("name", ""): self.compare(name)
+                Utils.createMenuAction(player.get("name", ""), sc, playMenu, self, funct)
 
         pAct = QAction("Default", self)
         pAct.triggered.connect(
             lambda: self.compare(prog="default")
-        )
+            )
         playMenu.addAction(pAct)
         rcmenu.addMenu(playMenu)
 
-        #   Regenerate Thumb
-        if self.core.media.getUseThumbnails():
-            prvAct = QAction("Regenerate Thumbnail", self)
-            iconPath = os.path.join(self.iconPath, "refresh.png")
-            icon = self.core.media.getColoredIcon(iconPath)
-            prvAct.setIcon(icon)
-            prvAct.triggered.connect(self.regenerateThumbnail)
-            rcmenu.addAction(prvAct)
+        iconPath = os.path.join(self.iconPath, "refresh.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Regenerate Thumbnail", sc, rcmenu, self, self.regenerateThumbnail, icon=icon)
 
         rcmenu.addAction(_separator())
 
-        #   Open in Explorer
-        expAct = QAction("Open in Explorer", self)
         iconPath = os.path.join(self.iconPath, "folder.png")
         icon = self.core.media.getColoredIcon(iconPath)
-        expAct.setIcon(icon)
-        expAct.triggered.connect(lambda: self.core.openFolder(path))
-        rcmenu.addAction(expAct)
+        Utils.createMenuAction("Open in Explorer", sc, rcmenu, self, lambda: self.core.openFolder(path), icon=icon)
 
-        #   Copy
-        copAct = QAction("Copy", self)
         iconPath = os.path.join(self.iconPath, "copy.png")
         icon = self.core.media.getColoredIcon(iconPath)
-        copAct.setIcon(icon)
-        copAct.triggered.connect(lambda: self.core.copyToClipboard(path, file=True))
-        rcmenu.addAction(copAct)
+        Utils.createMenuAction("Copy", sc, rcmenu, self, lambda: self.core.copyToClipboard(path, file=True), icon=icon)
 
         rcmenu.addAction(_separator())
 
-        #   Set Tile Checked
-        chkAct = QAction("Set File Checked", self)
-        chkAct.triggered.connect(lambda: self.setTileChecked(True))
-        rcmenu.addAction(chkAct)
-
-        #   Set Tile UnChecked
-        unChkAct = QAction("Set File UnChecked", self)
-        unChkAct.triggered.connect(lambda: self.setTileChecked(False))
-        rcmenu.addAction(unChkAct)
+        Utils.createMenuAction("Set File Checked", sc, rcmenu, self, lambda: self.setTileChecked(True))
+        Utils.createMenuAction("Set File UnChecked", sc, rcmenu, self, lambda: self.setTileChecked(False))
 
         rcmenu.addAction(_separator())
 
-        #   Add Tile to Transfer List
-        addAct = QAction("Add to Transfer List", self)
-        addAct.triggered.connect(self.addToTransferList)
-        rcmenu.addAction(addAct)
-
-        #   Add Tile to Transfer List
-        removeAct = QAction("Remove from Transfer List", self)
-        removeAct.triggered.connect(self.removeFromTransferList)
-        rcmenu.addAction(removeAct)
+        Utils.createMenuAction("Add to Transfer List", sc, rcmenu, self, self.addToTransferList)
+        Utils.createMenuAction("Remove from Transfer List", sc, rcmenu, self, self.removeFromTransferList)
 
         rcmenu.addAction(_separator())
 
-        #   Show Metadata
-        mainMetaAct = QAction("Show Metadata (Main File)", self)
-        mainMetaAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.tile.getSource_mainfilePath()))
-        rcmenu.addAction(mainMetaAct)
+        funct = lambda: Utils.displayCombinedMetadata(self.tile.getSource_mainfilePath())
+        Utils.createMenuAction("Show Metadata (Main File)", sc, rcmenu, self, funct)
 
-        pxyMetaAct = QAction("Show Metadata (Proxy File)", self)
-        pxyMetaAct.setEnabled(hasProxy)
-        pxyMetaAct.triggered.connect(lambda: Utils.displayFFprobeMetadata(self.tile.getSource_proxyfilePath()))
-        rcmenu.addAction(pxyMetaAct)
+        funct = lambda: Utils.displayCombinedMetadata(self.tile.self.tile.getSource_proxyfilePath())
+        Utils.createMenuAction("Show Metadata (Proxy File)", sc, rcmenu, self, funct)
 
         return rcmenu
 
@@ -1368,186 +1240,3 @@ class PreviewPlayer(QWidget):
                     except Exception as e:
                         raise RuntimeError("%s - %s" % (comd, e))
 
-
-    @err_catcher(name=__name__)
-    def updateExternalMediaPlayers(self):
-        #   For Prism 2.0.18+
-        if hasattr(self.core.media, "getExternalMediaPlayers"):
-            self.externalMediaPlayers = self.core.media.getExternalMediaPlayers()
-
-        #   For Before Prism 2.0.18
-        else:
-            player = self.core.media.getExternalMediaPlayer()
-            self.externalMediaPlayers = [player]
-
-
-
-
-class CpuFrameWidget(QLabel):
-    clicked = Signal()
-    contextMenuRequested = Signal(object)    # QContextMenuEvent
-    fileDropped = Signal(str)
-    viewResized = Signal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setObjectName("previewWindow")
-        self.setAlignment(Qt.AlignCenter)
-        self.setAcceptDrops(True)
-
-    # --- unified API ---
-    def setFrame(self, pixmap):
-        self.setPixmap(pixmap)
-
-    def getThumbWidth(self):
-        return self.width()
-
-    def getThumbHeight(self):
-        return self.height()
-
-    def setDragHighlight(self, on: bool):
-        if on:
-            self.setStyleSheet("#previewWindow { border: 2px dashed rgb(100,200,100); }")
-        else:
-            self.setStyleSheet("")
-
-    # --- events unified as signals ---
-    def mouseReleaseEvent(self, e):
-        self.clicked.emit()
-
-    def contextMenuEvent(self, e):
-        self.contextMenuRequested.emit(e)
-
-    def resizeEvent(self, e):
-        super().resizeEvent(e)
-        self.viewResized.emit()
-
-    # Drag & drop
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
-            e.acceptProposedAction()
-            self.setDragHighlight(True)
-        else:
-            e.ignore()
-
-    def dragMoveEvent(self, e):
-        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
-            e.acceptProposedAction()
-        else:
-            e.ignore()
-
-    def dragLeaveEvent(self, e):
-        self.setDragHighlight(False)
-
-    def dropEvent(self, e):
-        self.setDragHighlight(False)
-        if e.mimeData().hasUrls():
-            urls = e.mimeData().urls()
-            if urls:
-                self.fileDropped.emit(urls[0].toLocalFile())
-        e.acceptProposedAction()
-
-
-
-
-
-class GpuFrameWidget(QOpenGLWidget):
-    clicked = Signal()
-    contextMenuRequested = Signal(object)   # QContextMenuEvent
-    fileDropped = Signal(str)
-    viewResized = Signal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setObjectName("previewWindow")
-        self.setAcceptDrops(True)
-        self.setAttribute(Qt.WA_OpaquePaintEvent, True)
-        self._image = None   # QImage in RGBA8888
-        self._dpr_img = 1.0  # track devicePixelRatio for crisp draws
-
-    # --- unified API ---
-    def setFrame(self, pixmap):
-        # Keep the API identical to the CPU widget
-        img = pixmap.toImage().convertToFormat(QImage.Format_RGBA8888)
-        # Handle high-DPI pixmaps/images
-        self._dpr_img = getattr(pixmap, "devicePixelRatioF", lambda: 1.0)()
-        img.setDevicePixelRatio(self._dpr_img)
-        self._image = img
-        self.update()
-
-    def getThumbWidth(self):
-        return self.width()
-
-    def getThumbHeight(self):
-        return self.height()
-
-    def setDragHighlight(self, on: bool):
-        if on:
-            self.setStyleSheet("#previewWindow { border: 2px dashed rgb(100,200,100); }")
-        else:
-            self.setStyleSheet("")
-
-    # --- events unified as signals ---
-    def mouseReleaseEvent(self, e):
-        self.clicked.emit()
-
-    def contextMenuEvent(self, e: QContextMenuEvent):
-        self.contextMenuRequested.emit(e)
-
-    def resizeEvent(self, e):
-        super().resizeEvent(e)
-        self.viewResized.emit()
-
-    # --- Drag & drop ---
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
-            e.acceptProposedAction()
-            self.setDragHighlight(True)
-        else:
-            e.ignore()
-
-    def dragMoveEvent(self, e):
-        if e.mimeData().hasFormat("application/x-fileTile") or e.mimeData().hasUrls():
-            e.acceptProposedAction()
-        else:
-            e.ignore()
-
-    def dragLeaveEvent(self, e):
-        self.setDragHighlight(False)
-
-    def dropEvent(self, e):
-        self.setDragHighlight(False)
-        if e.mimeData().hasUrls():
-            urls = e.mimeData().urls()
-            if urls:
-                self.fileDropped.emit(urls[0].toLocalFile())
-        e.acceptProposedAction()
-
-    # --- OpenGL lifecycle ---
-    def initializeGL(self):
-        # You can set GL state here if you want; QPainter will manage what it needs.
-        self.makeCurrent()
-        self.doneCurrent()
-
-    def resizeGL(self, w, h):
-        # Nothing special required for the QPainter path
-        pass
-
-    def paintGL(self):
-        p = QPainter(self)
-        # Clear to black (QPainter on GL clears by painting a rect)
-        p.fillRect(self.rect(), Qt.black)
-
-        if self._image is not None and not self._image.isNull():
-            # Keep aspect ratio and letterbox
-            target = self.rect()
-            scaled = self._image.scaled(
-                target.size(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
-            )
-            x = (target.width() - scaled.width()) // 2
-            y = (target.height() - scaled.height()) // 2
-            p.drawImage(QPoint(x, y), scaled)
-
-        p.end()

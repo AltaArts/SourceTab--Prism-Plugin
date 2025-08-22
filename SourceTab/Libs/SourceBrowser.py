@@ -3086,11 +3086,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR: Failed to Update Proxy Preset Multiplier:\n{e}")
 
 
-    @err_catcher(name=__name__)
-    def setPreview(self):
-        entity = self.getCurrentEntity()
-        pm = self.PreviewPlayer.PreviewPlayer.l_preview.pixmap()
-        self.core.entities.setEntityPreview(entity, pm)
-        self.core.pb.sceneBrowser.refreshEntityInfo()
-        self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
+    # @err_catcher(name=__name__)                                                         #   NEEDED ????
+    # def setPreview(self):
+    #     entity = self.getCurrentEntity()
+    #     pm = self.PreviewPlayer.PreviewPlayer.l_preview.pixmap()
+    #     self.core.entities.setEntityPreview(entity, pm)
+    #     self.core.pb.sceneBrowser.refreshEntityInfo()
+    #     self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
 
