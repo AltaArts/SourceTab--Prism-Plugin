@@ -101,7 +101,7 @@ from PreviewPlayer import PreviewPlayer
 from SourceTab_Models import PresetsCollection, FileTileMimeData
 import SourceTab_Utils as Utils
 
-import SourceBrowser_ui                                                 #   TODO
+import SourceBrowser_ui
 
 
 #   Colors
@@ -116,7 +116,7 @@ SOUND_SUCCESS = os.path.join(audioDir, "Success.wav")
 SOUND_ERROR = os.path.join(audioDir, "Error.wav")
 
 
-SOURCE_ITEM_HEIGHT = 70                                         #   TODO - Think about moving to Settings?
+SOURCE_ITEM_HEIGHT = 70
 SOURCE_DIR_HEIGHT = 30 
 
 logger = logging.getLogger(__name__)

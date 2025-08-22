@@ -307,7 +307,7 @@ class FileInfoWorker(QObject, QRunnable):
                 except Exception:
                     height = 0
 
-                # Parse fps
+                #   Parse FPS
                 if '/' in fps_str:
                     try:
                         num, denom = map(int, fps_str.split('/'))
@@ -315,13 +315,13 @@ class FileInfoWorker(QObject, QRunnable):
                     except Exception:
                         fps = 0.0
 
-                # Parse duration
+                #   Parse Duration
                 try:
                     secs = float(sec_str)
                 except Exception:
                     secs = 0.0
 
-                # Parse frames
+                #   Parse Frames
                 if frames_str == 'N/A' or not frames_str.isdigit():
                     logger.debug("[FileInfoWorker] FFprobe failed to get Frames Metadata. Estimating.")
                     frames = int(round(secs * fps)) if fps > 0 and secs > 0 else 1
@@ -341,116 +341,6 @@ class FileInfoWorker(QObject, QRunnable):
         except Exception as e:
             logger.warning(f"[FileInfoWorker] ERROR: {self.filePath} - {e}")
             self.finished.emit(1, 0.0, 0.0, None, {})
-
-
-
-# class PixmapCacheWorker(QRunnable):
-#     def __init__(self, parent, path, start_frame, end_frame, thumbWidth):
-#         super().__init__()
-#         self.parent = parent
-#         self.path = path
-#         self.start_frame = start_frame
-#         self.end_frame = end_frame
-#         self.thumbWidth = thumbWidth
-#         self._interrupted = False
-
-#     def interrupt(self):
-#         self._interrupted = True
-
-#     def run(self):
-#         logger.debug(
-#             f"[PixmapCacheWorker] Started: {self.path} frames {self.start_frame}-{self.end_frame}"
-#         )
-
-#         for frame in range(self.start_frame, self.end_frame + 1):
-#             if self._interrupted:
-#                 logger.debug(f"[PixmapCacheWorker] Interrupted at frame {frame} for {self.path}")
-#                 break
-
-#             # Key used in your cache elsewhere
-#             cache_key = f"Preview_Frame{frame}"
-#             cached_pixmap = QPixmapCache.find(cache_key)
-
-#             if cached_pixmap and not cached_pixmap.isNull():
-#                 logger.warning( f"[PixmapCacheWorker] Frame {frame} already cached, skipping")
-#                 continue
-
-#             try:
-#                 pixmap = self.parent.getPixmapFromVideoPath(
-#                     self.path,
-#                     thumbWidth=self.thumbWidth,
-#                     imgNum=frame,
-#                 )
-
-#                 if not pixmap or pixmap.isNull():
-#                     logger.warning(f"[PixmapCacheWorker] Null or invalid pixmap for frame {frame} of {self.path}")
-#                     continue
-
-#                 QPixmapCache.insert(cache_key, pixmap)
-
-#                 logger.status(f"[PixmapCacheWorker] Cached frame {frame}")
-
-#             except Exception as e:
-#                 logger.error(f"[PixmapCacheWorker] Exception caching frame {frame} of {self.path}: {e}")
-
-#         logger.status(f"[PixmapCacheWorker] Finished: {self.path}")
-
-#         self.parent.test_pixmap_cache()
-
-
-
-
-# class PixmapCacheWorker(QRunnable):
-#     def __init__(self, parent, path, start_frame, end_frame, thumbWidth):
-#         super().__init__()
-#         self.parent = parent
-#         self.path = path
-#         self.start_frame = start_frame
-#         self.end_frame = end_frame
-#         self.thumbWidth = thumbWidth
-#         self._interrupted = False
-
-#     def interrupt(self):
-#         self._interrupted = True
-
-#     def run(self):
-#         logger.debug(
-#             f"[PixmapCacheWorker] Started: {self.path} frames {self.start_frame}-{self.end_frame}"
-#         )
-
-#         for frame in range(self.start_frame, self.end_frame + 1):
-#             if self._interrupted:
-#                 logger.debug(f"[PixmapCacheWorker] Interrupted at frame {frame} for {self.path}")
-#                 break
-
-#             try:
-#                 # Get QImage only (thread-safe)
-#                 image = self.parent.getPixmapFromVideoPath(
-#                     self.path,
-#                     thumbWidth=self.thumbWidth,
-#                     imgNum=frame,
-#                     imageOnly=True
-#                 )
-
-#                 if not image or image.isNull():
-#                     logger.warning(f"[PixmapCacheWorker] Null or invalid image for frame {frame} of {self.path}")
-#                     continue
-
-#                 # Use invokeMethod to call main thread slot
-#                 QMetaObject.invokeMethod(
-#                     self.parent,
-#                     "cachePixmapInMainThread",
-#                     Qt.QueuedConnection,
-#                     Q_ARG(int, frame),
-#                     Q_ARG(QImage, image)
-#                 )
-
-#                 logger.status(f"[PixmapCacheWorker] Scheduled frame {frame} for main-thread caching")
-
-#             except Exception as e:
-#                 logger.error(f"[PixmapCacheWorker] Exception caching frame {frame} of {self.path}: {e}")
-
-#         logger.status(f"[PixmapCacheWorker] Finished: {self.path}")
 
 
 

@@ -193,12 +193,12 @@ def explorerDialogue(title: str = None,
         return presetPath
 
     if selDir:
-        # Directory selection
+        #   Directory selection
         dialog = QFileDialog(None, title or "Select Path", dir or "")
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
     else:
-        # File selection
+        #   File selection
         dialog = QFileDialog(None, title or "Select File", dir or "")
         dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
         if filter:
@@ -249,11 +249,9 @@ def getShortcutsTip(shortcuts: dict) -> str:
     rows = []
     for action, keys in actions:
         shortcut_display = keys[0] if keys else "—"
-        # Create a table row with two columns
         row = f"<tr><td>{action}</td><td style='padding-left:20px;'>{shortcut_display}</td></tr>"
         rows.append(row)
 
-    # Build the complete table with some simple styling
     table_html = f"""
 <table cellspacing="0" cellpadding="4" border="0" style="border-collapse: collapse; font-family: monospace;">
 {''.join(rows)}
@@ -323,7 +321,7 @@ Keyboard Shortcuts:<br>
     return cheatSheet
 
 
-def launchHelpWeb() -> None:                                                   #   TODO - DIRECT LINK FOR HELP PAGE
+def launchHelpWeb() -> None:
     '''Opens the Browser to the Repo Help Page'''
     url = QUrl("https://github.com/AltaArts/SourceTab--Prism-Plugin/blob/main/Docs/Doc-Docs_TOC.md")
     QDesktopServices.openUrl(url)
@@ -440,7 +438,7 @@ def getIconFromPath(imagePath:str, normalLevel:int=0.9, dimLevel:int=0.4) -> QIc
             for x in range(normal_image.width()):
                 color = normal_image.pixelColor(x, y)
 
-                # Reduce brightness to 40%
+                #   Reduce brightness to 40%
                 dark = int(color.red() * dimLevel)
                 color = QColor(dark, dark, dark, color.alpha())
                 disabled_image.setPixelColor(x, y, color)
@@ -465,7 +463,7 @@ def normalizeData(data: dict) -> dict:
     return {k: str(v) for k, v in data.items()}
 
 
-#################################################
+##################################################
 #################    THUMBNAIL    ################
 
 
@@ -646,8 +644,8 @@ def getThumbImageFromExrPath(core,
                              ) -> QPixmap | QImage:
     '''Returns a QImage or Qpixmap from a EXR FilePath.'''
     
-    oiio = core.media.getOIIO()
-    if not oiio:                                #   TODO - LOOK AT THIS
+    oiio = core.media.getOIIO()                                #   TODO - LOOK AT THIS
+    if not oiio:
         return core.getPixmapFromExrPathWithoutOIIO(path, width=None, height=None, channel=channel,
                                                     allowThumb=allowThumb, regenerateThumb=regenerateThumb)
 
@@ -682,7 +680,7 @@ def getThumbImageFromExrPath(core,
                 chend = chbegin + numChannels
                 break
     else:
-        #   Try to get RGB, fallback to Grayscale
+        #   Try to get RGB, Fallback to Grayscale
         while imgInput.seek_subimage(subimage, 0):
             spec = imgInput.spec()
             r = spec.channelindex("R")
@@ -1194,7 +1192,7 @@ def loadPreset(presetPath: str) -> dict:
     with open(presetPath, "r", encoding="utf-8") as f:
         raw = f.read()
 
-    # Remove lines where the first non-space character is #
+    #   Remove lines where the first non-space character is #
     raw = re.sub(r"^\s*#.*$", "", raw, flags=re.MULTILINE)
 
     return json.loads(raw)
