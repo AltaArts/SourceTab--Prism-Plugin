@@ -97,7 +97,6 @@ import TileWidget as TileWidget
 from SourceFunctions import SourceFunctions
 from PopupWindows import DisplayPopup, WaitPopup
 from ElapsedTimer import ElapsedTimer
-from PreviewPlayer import PreviewPlayer
 from SourceTab_Models import PresetsCollection, FileTileMimeData
 import SourceTab_Utils as Utils
 
@@ -220,6 +219,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
+    def checkGpuAvailability(self):
+        ctx = QOpenGLContext()
+        return bool(ctx.create())
+    
+
+    @err_catcher(name=__name__)
     def entered(self, prevTab=None, navData=None):
         if not self.initialized:
             self.initialized = True
@@ -327,7 +332,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.lo_playerToolbar.addWidget(self.chb_preferProxies)
 
         # Media Player Import
-        self.PreviewPlayer = PreviewPlayer(self)
+        self.useGPU = self.checkGpuAvailability()
+
+        # self.useGPU = False                                                                             #   TESTING
+
+        if self.useGPU:
+            logger.status("Initializing GPU PreviewViewer")
+
+            from PreviewPlayer_GPU import PreviewPlayer_GPU
+            self.PreviewPlayer = PreviewPlayer_GPU(self)
+
+        else:
+            logger.status("Initializing CPU PreviewViewer")
+
+            from PreviewPlayer_CPU import PreviewPlayer_CPU
+            self.PreviewPlayer = PreviewPlayer_CPU(self)
 
         #   Functions Import
         self.sourceFuncts = SourceFunctions(self.core, self)
@@ -1025,7 +1044,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     @err_catcher(name=__name__)
-    def configureViewLut(self, presets=None):
+    def configureViewLut(self, presets=None):                                       #   TODO
+
         self.PreviewPlayer.container_viewLut.setVisible(self.useViewLuts)
 
         if presets:

@@ -1,0 +1,1300 @@
+# -*- coding: utf-8 -*-
+#
+####################################################
+#
+# PRISM - Pipeline for animation and VFX projects
+#
+# www.prism-pipeline.com
+#
+# contact: contact@prism-pipeline.com
+#
+####################################################
+#
+#
+# Copyright (C) 2016-2023 Richard Frangenberg
+# Copyright (C) 2023 Prism Software GmbH
+#
+# Licensed under GNU LGPL-3.0-or-later
+#
+# This file is part of Prism.
+#
+# Prism is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Prism is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with Prism.  If not, see <https://www.gnu.org/licenses/>.
+####################################################
+#
+#                SOURCE TAB PLUGIN
+#
+#                 Joshua Breckeen
+#                    Alta Arts
+#                josh@alta-arts.com
+#
+#   This PlugIn adds an additional Main Tab to the
+#   Prism Standalone Project Browser.
+#
+#   This adds functionality to Ingest Media such as Camera clips,
+#   as well as handling Proxy's and Metadata.
+#
+#
+####################################################
+
+
+import os
+import sys
+import subprocess
+import logging
+import traceback
+import shutil
+from functools import partial
+import threading
+
+
+import numpy as np
+from OpenGL.GL import *
+
+
+
+from qtpy.QtCore import *
+from qtpy.QtGui import *
+from qtpy.QtWidgets import *
+
+
+
+from PrismUtils.Decorators import err_catcher
+
+import SourceTab_Utils as Utils
+from SourceTab_Models import FileTileMimeData
+
+logger = logging.getLogger(__name__)
+
+
+
+
+
+
+class PreviewPlayer_GPU(QWidget):
+    frameReady = Signal(np.ndarray)
+
+    def __init__(self, browser):
+        super(PreviewPlayer_GPU, self).__init__()
+        self.sourceBrowser = browser
+        self.core = browser.core
+
+
+
+
+
+
+        # FFmpeg paths
+        self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
+        self.ffprobePath = Utils.getFFprobePath()
+
+
+
+        self.iconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
+        self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
+        self.ffprobePath = Utils.getFFprobePath()
+
+        self.externalMediaPlayers = None
+        self.mediaFiles = []
+        self.renderResX = 300
+        self.renderResY = 169
+        self.videoPlayers = {}
+        self.currentPreviewMedia = None
+        self.previewThreads = []
+        self.previewTimeline = None
+        self.tlPaused = False
+        self.previewSeq = []
+
+        self.prvIsSequence = False
+
+        self.pduration = 0
+        self.pwidth = 0
+        self.pheight = 0
+        self.pstart = 0
+        self.pend = 0
+        self.openPreviewPlayer = False
+        self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
+        self.previewEnabled = True
+        self.state = "enabled"
+        self.updateExternalMediaPlayers()
+        self.setupUi()
+        self.connectEvents()
+
+
+
+
+        # Timer for playback
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.nextFrame)
+        self.playing = False
+
+        # Thread-safe frame queue
+        self.frameQueue = []
+        self.frameLock = threading.Lock()
+
+        # Connect signal to GL widget
+        self.frameReady.connect(self.displayWindow.setFrame)
+
+
+    @err_catcher(name=__name__)
+    def sizeHint(self):
+        return QSize(400, 100)
+
+
+    @err_catcher(name=__name__)
+    def updateExternalMediaPlayers(self):
+        #   For Prism 2.0.18+
+        if hasattr(self.core.media, "getExternalMediaPlayers"):
+            self.externalMediaPlayers = self.core.media.getExternalMediaPlayers()
+
+        #   For Before Prism 2.0.18
+        else:
+            player = self.core.media.getExternalMediaPlayer()
+            self.externalMediaPlayers = [player]
+
+
+
+    @err_catcher(name=__name__)
+    def setupUi(self):
+        self.lo_preview_main = QVBoxLayout(self)
+        self.lo_preview_main.setContentsMargins(0, 0, 0, 0)
+        self.l_info = QLabel(self)
+        self.l_info.setText("")
+        self.l_info.setObjectName("l_info")
+        self.lo_preview_main.addWidget(self.l_info)
+
+        #   View LUT
+        self.container_viewLut = QWidget()
+        self.lo_viewLut = QHBoxLayout(self.container_viewLut)
+        self.l_viewLut = QLabel("View Lut Preset:")
+        self.cb_viewLut = QComboBox()
+        self.lo_viewLut.addWidget(self.l_viewLut)
+        self.lo_viewLut.addWidget(self.cb_viewLut)
+        self.lo_preview_main.addWidget(self.container_viewLut)
+
+        #   Viewer Image Label
+        # Video widget
+        self.displayWindow = GLVideoWidget()
+        self.lo_preview_main.addWidget(self.displayWindow)
+
+        #   Proxy Icon Label
+        self.l_pxyIcon = QLabel(self.displayWindow)
+        self.l_pxyIcon.setPixmap(self.sourceBrowser.icon_proxy.pixmap(40, 40))
+        self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
+        self.l_pxyIcon.setVisible(False)
+        self.l_pxyIcon.move(3, 3)
+
+        #   Loading Animation
+        self.l_loading = QLabel(self)
+        self.l_loading.setAlignment(Qt.AlignCenter)
+        self.l_loading.setVisible(False)
+
+        #   Timeline
+        self.w_timeslider = QWidget()
+        self.lo_timeslider = QHBoxLayout(self.w_timeslider)
+        self.lo_timeslider.setContentsMargins(0, 0, 0, 0)
+        self.l_start = QLabel()
+        self.l_end = QLabel()
+        self.sl_previewImage = QSlider(self)
+        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sl_previewImage.sizePolicy().hasHeightForWidth())
+        self.sl_previewImage.setSizePolicy(sizePolicy)
+        self.sl_previewImage.setOrientation(Qt.Horizontal)
+        self.sl_previewImage.setObjectName("sl_previewImage")
+        self.sl_previewImage.setMaximum(999)
+        self.lo_timeslider.addWidget(self.l_start)
+        self.lo_timeslider.addWidget(self.sl_previewImage)
+        self.lo_timeslider.addWidget(self.l_end)
+        self.sp_current = QSpinBox()
+        self.sp_current.sizeHint = lambda: QSize(30, 0)
+        self.sp_current.setStyleSheet("min-width: 30px;")
+        self.sp_current.setValue(self.pstart)
+        self.sp_current.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        sizePolicy = self.sp_current.sizePolicy()
+        sizePolicy.setHorizontalPolicy(QSizePolicy.Preferred)
+        self.sp_current.setSizePolicy(sizePolicy)
+        self.lo_timeslider.addWidget(self.sp_current)
+        self.lo_preview_main.addWidget(self.w_timeslider)
+
+        self.w_playerCtrls = QWidget()
+        self.lo_playerCtrls = QHBoxLayout(self.w_playerCtrls)
+        self.lo_playerCtrls.setContentsMargins(0, 0, 0, 0)
+        
+        #   Buttons
+        self.b_first = QToolButton()
+        path = os.path.join(self.iconPath, "first.png")
+        icon = self.core.media.getColoredIcon(path)
+        self.b_first.setIcon(icon)
+        self.b_first.setToolTip("First Frame")
+
+        self.b_prev = QToolButton()
+        path = os.path.join(self.iconPath, "prev.png")
+        icon = self.core.media.getColoredIcon(path)
+        self.b_prev.setIcon(icon)
+        self.b_prev.setToolTip("Previous Frame")
+
+        self.b_play = QToolButton()
+        path = os.path.join(self.iconPath, "play.png")
+        icon = self.core.media.getColoredIcon(path)
+        self.b_play.setIcon(icon)
+        self.b_play.setToolTip("Play")
+
+        self.b_next = QToolButton()
+        path = os.path.join(self.iconPath, "next.png")
+        icon = self.core.media.getColoredIcon(path)
+        self.b_next.setIcon(icon)
+        self.b_next.setToolTip("Next Frame")
+
+        self.b_last = QToolButton()
+        path = os.path.join(self.iconPath, "last.png")
+        icon = self.core.media.getColoredIcon(path)
+        self.b_last.setIcon(icon)
+        self.b_last.setToolTip("Last Frame")
+        
+        self.lo_playerCtrls.addWidget(self.b_first)
+        self.lo_playerCtrls.addStretch()
+        self.lo_playerCtrls.addWidget(self.b_prev)
+        self.lo_playerCtrls.addWidget(self.b_play)
+        self.lo_playerCtrls.addWidget(self.b_next)
+        self.lo_playerCtrls.addStretch()
+        self.lo_playerCtrls.addWidget(self.b_last)
+        self.lo_preview_main.addWidget(self.w_playerCtrls)
+
+
+        self.displayWindow.setMinimumWidth(self.renderResX)
+        self.displayWindow.setMinimumHeight(self.renderResY)
+        self.displayWindow.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+
+
+    @err_catcher(name=__name__)
+    def connectEvents(self):
+        self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
+        self.displayWindow.mouseReleaseEvent = self.previewClk
+        self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
+
+        # self.displayWindow.resizeEvent = self.previewResizeEvent
+
+        self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
+
+        self.sl_previewImage.valueChanged.connect(self.sliderChanged)
+        self.sl_previewImage.sliderPressed.connect(self.sliderClk)
+        self.sl_previewImage.sliderReleased.connect(self.sliderRls)
+        self.sl_previewImage.origMousePressEvent = self.sl_previewImage.mousePressEvent
+        self.sl_previewImage.mousePressEvent = self.sliderDrag
+        self.sp_current.valueChanged.connect(self.onCurrentChanged)
+
+        self.b_first.clicked.connect(self.onFirstClicked)
+        self.b_prev.clicked.connect(self.onPrevClicked)
+
+        self.b_play.clicked.connect(self.onPlayClicked)
+
+        self.b_next.clicked.connect(self.onNextClicked)
+        self.b_last.clicked.connect(self.onLastClicked)
+
+
+
+####    MOUSE ACTIONS   ####
+
+    #   Checks if Dragged Object is a File Tile
+    @err_catcher(name=__name__)
+    def onDragEnterEvent(self, e):
+        if e.mimeData().hasFormat("application/x-fileTile"):
+            e.acceptProposedAction()
+        else:
+            e.ignore()
+
+
+    #   Adds Dashed Outline to Player During Drag
+    @err_catcher(name=__name__)
+    def onDragMoveEvent(self, widget, objName, e):
+        if e.mimeData().hasFormat("application/x-fileTile"):
+            e.acceptProposedAction()
+            widget.setStyleSheet(
+                f"#{objName} {{ border-style: dashed; border-color: rgb(100, 200, 100); border-width: 2px; }}"
+            )
+        else:
+            e.ignore()
+
+
+    #   Removes Dashed Line
+    @err_catcher(name=__name__)
+    def onDragLeaveEvent(self, widget, e):
+        widget.setStyleSheet("")
+
+
+    #   Sends File Tile to Viewer
+    @err_catcher(name=__name__)
+    def onDropEvent(self, widget, e):
+        widget.setStyleSheet("")
+
+        if isinstance(e.mimeData(), FileTileMimeData):
+            e.acceptProposedAction()
+
+            #   Get First Tile if Multiple
+            tiles = e.mimeData().fileTiles()
+            tile = next(iter(tiles))
+
+            #   Show in Viewer
+            tile.sendToViewer()
+        else:
+            e.ignore()
+
+
+    @err_catcher(name=__name__)
+    def setPreviewEnabled(self, state):
+        self.previewEnabled = state
+        self.displayWindow.setVisible(state)
+        self.w_timeslider.setVisible(state)
+        self.w_playerCtrls.setVisible(state)
+
+
+    @err_catcher(name=__name__)
+    def onFirstClicked(self):
+        self.previewTimeline.setCurrentTime(0)
+
+
+    @err_catcher(name=__name__)
+    def onPrevClicked(self):
+        time = self.previewTimeline.currentTime() - self.previewTimeline.updateInterval()
+        if time < 0:
+            time = self.previewTimeline.duration() - self.previewTimeline.updateInterval()
+
+        self.previewTimeline.setCurrentTime(time)
+
+
+    @err_catcher(name=__name__)
+    def onPlayClicked(self):
+        print(f"*** in onPlayClicked")                                              #    TESTING
+
+        # if not self.previewSeq:
+        #     return
+
+        self.setTimelinePaused(self.previewTimeline.state() == QTimeLine.Running)
+
+
+    @err_catcher(name=__name__)
+    def onNextClicked(self):
+        time = self.previewTimeline.currentTime() + self.previewTimeline.updateInterval()
+        time = min(self.previewTimeline.duration(), time)
+        self.previewTimeline.setCurrentTime(time)
+
+
+    @err_catcher(name=__name__)
+    def onLastClicked(self):
+        self.previewTimeline.setCurrentTime(self.previewTimeline.updateInterval() * (self.pduration - 1))
+
+
+    @err_catcher(name=__name__)
+    def sliderChanged(self, val):
+        if not self.previewSeq:
+            return
+
+        time = int(val / self.sl_previewImage.maximum() * self.previewTimeline.duration())
+        if time == self.previewTimeline.duration():
+            time -= 1
+
+        self.previewTimeline.setCurrentTime(time)
+
+        self.loadFrame(time)
+
+
+    @err_catcher(name=__name__)
+    def onCurrentChanged(self, value):
+        if not self.previewTimeline:
+            return
+
+        time = (value - self.pstart) * self.previewTimeline.updateInterval()
+        self.previewTimeline.setCurrentTime(time)
+
+
+
+
+
+
+    #   Entry Point for Media to be Played
+    @err_catcher(name=__name__)
+    def loadMedia(self, mediaFiles, metadata, isProxy, tile=None):
+        self.mediaFiles = mediaFiles
+        self.metadata = metadata
+        self.isProxy = isProxy
+        self.tile = tile
+
+        print(f"*** IN LOAD MEDIA")                                              #    TESTING
+
+        self.updatePreview()
+
+
+
+    @err_catcher(name=__name__)
+    def updatePreview(self, regenerateThumb=False):
+        if not self.previewEnabled:
+            return
+        
+        self.l_pxyIcon.setVisible(self.isProxy)
+
+        if self.previewTimeline:
+            curFrame = self.getCurrentFrame()
+
+            if self.previewTimeline.state() != QTimeLine.NotRunning:
+                if self.previewTimeline.state() == QTimeLine.Running:
+                    self.tlPaused = False
+                elif self.previewTimeline.state() == QTimeLine.Paused:
+                    self.tlPaused = True
+
+                self.previewTimeline.stop()
+        else:
+            self.tlPaused = True
+            curFrame = 0
+
+
+        prevFrame = self.pstart + curFrame
+        self.sl_previewImage.setValue(0)
+        self.sp_current.setValue(0)
+        self.previewSeq = []
+        self.prvIsSequence = False
+
+        if len(self.mediaFiles) > 0:
+            _, extension = os.path.splitext(self.mediaFiles[0])
+            extension = extension.lower()
+
+            if (len(self.mediaFiles) > 1 and extension not in self.core.media.videoFormats):
+                self.previewSeq = self.mediaFiles
+                self.prvIsSequence = True
+
+                (self.pstart, self.pend,) = self.core.media.getFrameRangeFromSequence(self.mediaFiles)
+
+            else:
+                self.prvIsSequence = False
+                self.previewSeq = self.mediaFiles
+
+            self.pduration = len(self.previewSeq)
+
+            imgPath = self.mediaFiles[0]
+            if (self.pduration == 1 and os.path.splitext(imgPath)[1].lower() in self.core.media.videoFormats):
+                self.vidPrw = "loading"
+                self.updatePrvInfo(imgPath, vidReader="loading", frame=prevFrame)
+
+            else:
+                self.updatePrvInfo(imgPath, frame=prevFrame)
+
+
+
+            # self.loadFrame(prevFrame)
+
+            # if self.tlPaused:
+            #     self.changeImage_threaded(regenerateThumb=regenerateThumb)
+            # elif self.pduration < 3:
+            #     self.changeImage_threaded(regenerateThumb=regenerateThumb)
+
+            return True
+
+        self.sl_previewImage.setEnabled(False)
+        self.l_start.setText("")
+        self.l_end.setText("")
+        self.w_playerCtrls.setEnabled(False)
+        self.sp_current.setEnabled(False)
+
+        if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
+            self.l_loading.setVisible(False)
+            self.loadingGif.stop()
+
+
+
+
+    @err_catcher(name=__name__)
+    def updatePrvInfo(self, prvFile="", vidReader=None, seq=None, frame=None):
+        if seq is not None:
+            if self.previewSeq != seq:
+                logger.debug("Exit Preview Info Update")
+                return
+
+        if not os.path.exists(prvFile):
+            self.l_info.setText("\nNo image found\n")
+            self.l_info.setToolTip("")
+            self.displayWindow.setToolTip("")
+            return
+
+        if self.state == "disabled" or os.getenv("PRISM_DISPLAY_MEDIA_RESOLUTION") == "0":
+            self.pwidth = "?"
+            self.pheight = "?"
+
+        else:
+            if vidReader == "loading":
+                self.pwidth = "loading..."
+                self.pheight = ""
+            else:
+                self.pwidth = self.metadata.get("source_mainFile_xRez", None)
+                self.pheight = self.metadata.get("source_mainFile_yRez", None)
+
+                if not self.pwidth:
+                    resolution = self.core.media.getMediaResolution(prvFile, videoReader=vidReader)
+                    self.pwidth = resolution["width"]
+                    self.pheight = resolution["height"]
+
+        ext = os.path.splitext(prvFile)[1].lower()
+        if ext in self.core.media.videoFormats:
+            if len(self.previewSeq) == 1:
+                duration = self.metadata.get("source_mainFile_frames", None)
+                if not duration:
+                    duration = self.getVideoDuration(prvFile)
+                if not duration:
+                    duration = 1
+
+                self.pduration = int(duration)
+
+        self.pformat = "*" + ext
+
+        pdate = self.core.getFileModificationDate(prvFile)
+        self.sl_previewImage.setEnabled(True)
+        start = "1"
+        end = "1"
+
+        if self.prvIsSequence:
+            start = str(self.pstart)
+            end = str(self.pend)
+
+        elif ext in self.core.media.videoFormats:
+            if self.pwidth != "?":
+                end = str(int(start) + self.pduration - 1)
+
+        self.l_start.setText(start)
+        self.l_end.setText(end)
+        self.sp_current.setMinimum(int(start))
+        self.sp_current.setMaximum(int(end))
+        self.w_playerCtrls.setEnabled(True)
+        self.sp_current.setEnabled(True)
+
+        if self.previewTimeline:
+            self.previewTimeline.stop()
+
+
+        fps = self.core.projects.getFps() or 25                 #   TODO - FIX FPS playback
+
+
+
+        self.previewTimeline = QTimeLine(int(1000/float(fps)) * self.pduration, self)
+        self.previewTimeline.setEasingCurve(QEasingCurve.Linear)
+        self.previewTimeline.setLoopCount(0)
+        self.previewTimeline.setUpdateInterval(int(1000/float(fps)))
+
+        print(f"*** value: {int(self.previewTimeline.currentValue())}")                                              #    TESTING
+
+        self.previewTimeline.valueChanged.connect(lambda x: self.loadFrame(int(x)))            #   TODO
+
+
+        frame = frame or self.pstart
+
+        if frame != self.sp_current.value():
+            self.sp_current.setValue(frame)
+
+        else:
+            self.onCurrentChanged(self.sp_current.value())
+
+        self.previewTimeline.resume()
+
+        if self.tlPaused or self.state == "disabled":
+            self.setTimelinePaused(True)
+
+        if self.pduration == 1:
+            frStr = "frame"
+        else:
+            frStr = "frames"
+
+        width = self.pwidth if self.pwidth is not None else "?"
+        height = self.pheight if self.pheight is not None else "?"
+
+        fileName = Utils.getBasename(prvFile)
+
+        if self.prvIsSequence:
+            infoStr = "%sx%s   %s   %s-%s (%s %s)" % (
+                width,
+                height,
+                self.pformat,
+                self.pstart,
+                self.pend,
+                self.pduration,
+                frStr,
+            )
+
+        elif len(self.previewSeq) > 1:
+            infoStr = "%s files %sx%s   %s\n%s" % (
+                self.pduration,
+                width,
+                height,
+                self.pformat,
+                Utils.getBasename(prvFile),
+            )
+
+        elif ext in self.core.media.videoFormats:
+            if self.pwidth == "?":
+                duration = "?"
+                frStr = "frames"
+            else:
+                duration = self.pduration
+
+                if self.core.isStr(duration) or duration <= 1:
+                    self.sl_previewImage.setEnabled(False)
+                    self.l_start.setText("")
+                    self.l_end.setText("")
+                    self.w_playerCtrls.setEnabled(False)
+                    self.sp_current.setEnabled(False)
+
+        else:
+            self.sl_previewImage.setEnabled(False)
+            self.l_start.setText("")
+            self.l_end.setText("")
+            self.w_playerCtrls.setEnabled(False)
+            self.sp_current.setEnabled(False)
+
+        infoStr = (f"{fileName}\n"
+                   f"{width} x {height}   -   {self.pduration} {frStr}   -   {pdate}")
+
+        #   Add File Size if Enabled
+        if self.core.getConfig("globals", "showFileSizes"):
+            size = 0
+            for file in self.previewSeq:
+                if os.path.exists(file):
+                    size += Utils.getFileSize(file)
+
+            infoStr += f"   -   {Utils.getFileSizeStr(size)}"
+
+        if self.state == "disabled":
+            infoStr += "\nPreview is disabled"
+            self.sl_previewImage.setEnabled(False)
+            self.w_playerCtrls.setEnabled(False)
+            self.sp_current.setEnabled(False)
+
+        self.setInfoText(infoStr)
+        self.l_info.setToolTip(infoStr)
+
+
+
+
+    @err_catcher(name=__name__)
+    def getVideoDuration(self, filePath):
+        frames = 1
+        fps = 0.0
+        duration_sec = 0.0
+
+        kwargs = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text": True,
+        }
+
+        if sys.platform == "win32":
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+        #   Quick Method
+        result = subprocess.run(
+            [
+                self.ffprobePath,
+                "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=nb_frames,r_frame_rate:format=duration",
+                "-of", "default=noprint_wrappers=1",
+                filePath
+            ],
+            **kwargs
+        )
+
+        #   Parse Output
+        output_lines = result.stdout.strip().splitlines()
+        values = {}
+        for line in output_lines:
+            if '=' in line:
+                k, v = line.strip().split('=', 1)
+                values[k] = v
+
+        frames_str = values.get("nb_frames", "1")
+        fps_str = values.get("r_frame_rate", "0/1")
+        duration_sec_str = values.get("duration", "0")
+
+        #   Parse FPS
+        if '/' in fps_str:
+            try:
+                num, denom = map(int, fps_str.split('/'))
+                fps = num / denom if denom else 0.0
+            except Exception:
+                fps = 0.0
+
+        #   Parse Duration
+        try:
+            duration_sec = float(duration_sec_str)
+        except Exception:
+            duration_sec = 0.0
+
+        #   Decide on Frames Method
+        if frames_str == 'N/A' or not frames_str.isdigit():
+            logger.debug("FFprobe failed to get Frames Metadata. Calculating Frames.")
+            frames = int(round(duration_sec * fps)) if fps > 0 and duration_sec > 0 else 1
+        else:
+            frames = int(frames_str)
+
+        return frames
+
+
+    @err_catcher(name=__name__)
+    def setInfoText(self, text):
+        metrics = QFontMetrics(self.l_info.font())
+        lines = []
+        for line in text.split("\n"):
+            elidedText = metrics.elidedText(line, Qt.ElideRight, self.displayWindow.width()-20)
+            lines.append(elidedText)
+
+        self.l_info.setText("\n".join(lines))
+
+
+    @err_catcher(name=__name__)
+    def createPMap(self, resx, resy):
+        fbFolder = self.core.projects.getFallbackFolder()
+        if resx == 300:
+            imgFile = os.path.join(fbFolder, "noFileBig.jpg")
+        else:
+            imgFile = os.path.join(fbFolder, "noFileSmall.jpg")
+
+        pmap = self.core.media.getPixmapFromPath(imgFile)
+        if not pmap:
+            pmap = QPixmap()
+
+        return pmap
+
+
+    @err_catcher(name=__name__)
+    def moveLoadingLabel(self):
+        geo = QRect()
+        pos = self.displayWindow.parent().mapToGlobal(self.displayWindow.geometry().topLeft())
+        pos = self.mapFromGlobal(pos)
+        geo.setWidth(self.displayWindow.width())
+        geo.setHeight(self.displayWindow.height())
+        geo.moveTopLeft(pos)
+        self.l_loading.setGeometry(geo)
+
+
+
+
+    @err_catcher(name=__name__)
+    def getThumbnailWidth(self):
+        return self.displayWindow.width()
+
+
+    @err_catcher(name=__name__)
+    def getThumbnailHeight(self):
+        return self.displayWindow.height()
+
+
+    @err_catcher(name=__name__)
+    def getCurrentFrame(self):
+        if not self.previewTimeline:
+            return
+
+        return int(self.previewTimeline.currentTime() / self.previewTimeline.updateInterval())
+
+
+
+
+
+
+
+    @err_catcher(name=__name__)
+    def setTimelinePaused(self, state):
+        self.previewTimeline.setPaused(state)
+        if state:
+            path = os.path.join(self.iconPath, "play.png")
+            icon = self.core.media.getColoredIcon(path)
+            self.b_play.setIcon(icon)
+            self.b_play.setToolTip("Play")
+        else:
+            path = os.path.join(self.iconPath, "pause.png")
+            icon = self.core.media.getColoredIcon(path)
+            self.b_play.setIcon(icon)
+            self.b_play.setToolTip("Pause")
+
+
+    @err_catcher(name=__name__)
+    def previewClk(self, event):
+        if (len(self.previewSeq) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
+            if self.previewTimeline.state() == QTimeLine.Paused:
+                self.setTimelinePaused(False)
+
+            else:
+                if self.previewTimeline.state() == QTimeLine.Running:
+                    self.setTimelinePaused(True)
+
+        self.displayWindow.clickEvent(event)
+
+
+    @err_catcher(name=__name__)
+    def rclPreview(self, pos):
+        menu = self.getMediaPreviewMenu()
+
+        if not menu or menu.isEmpty():
+            return
+
+        menu.exec_(QCursor.pos())
+
+
+    @err_catcher(name=__name__)
+    def getMediaPreviewMenu(self):
+        if len(self.mediaFiles) < 1:
+            return
+        
+        hasProxy = self.tile.data.get("hasProxy", False)
+        sc = self.sourceBrowser.shortcutsByAction
+        rcmenu = QMenu(self)
+
+        #   Dummy Separator
+        def _separator():
+            gb = QGroupBox()
+            gb.setFlat(False)
+            gb.setFixedHeight(15)
+            action = QWidgetAction(self)
+            action.setDefaultWidget(gb)
+            return action
+
+
+        path = self.mediaFiles[0]
+
+        #   External Player
+        playMenu = QMenu("Play in", self)
+        iconPath = os.path.join(self.iconPath, "play.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        playMenu.setIcon(icon)
+
+        if self.externalMediaPlayers is not None:
+            for player in self.externalMediaPlayers:
+                funct = lambda x=None, name=player.get("name", ""): self.compare(name)
+                Utils.createMenuAction(player.get("name", ""), sc, playMenu, self, funct)
+
+        pAct = QAction("Default", self)
+        pAct.triggered.connect(
+            lambda: self.compare(prog="default")
+            )
+        playMenu.addAction(pAct)
+        rcmenu.addMenu(playMenu)
+
+        iconPath = os.path.join(self.iconPath, "refresh.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Regenerate Thumbnail", sc, rcmenu, self, self.regenerateThumbnail, icon=icon)
+
+        rcmenu.addAction(_separator())
+
+        iconPath = os.path.join(self.iconPath, "folder.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Open in Explorer", sc, rcmenu, self, lambda: self.core.openFolder(path), icon=icon)
+
+        iconPath = os.path.join(self.iconPath, "copy.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Copy", sc, rcmenu, self, lambda: self.core.copyToClipboard(path, file=True), icon=icon)
+
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Set File Checked", sc, rcmenu, self, lambda: self.setTileChecked(True))
+        Utils.createMenuAction("Set File UnChecked", sc, rcmenu, self, lambda: self.setTileChecked(False))
+
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Add to Transfer List", sc, rcmenu, self, self.addToTransferList)
+        Utils.createMenuAction("Remove from Transfer List", sc, rcmenu, self, self.removeFromTransferList)
+
+        rcmenu.addAction(_separator())
+
+        funct = lambda: Utils.displayCombinedMetadata(self.tile.getSource_mainfilePath())
+        Utils.createMenuAction("Show Metadata (Main File)", sc, rcmenu, self, funct)
+
+        funct = lambda: Utils.displayCombinedMetadata(self.tile.getSource_proxyfilePath())
+        Utils.createMenuAction("Show Metadata (Proxy File)", sc, rcmenu, self, funct)
+
+        return rcmenu
+
+
+    @err_catcher(name=__name__)
+    def regenerateThumbnail(self):
+        self.clearCurrentThumbnails()
+        self.updatePreview(regenerateThumb=True)
+
+
+    @err_catcher(name=__name__)
+    def clearCurrentThumbnails(self):
+        if not self.previewSeq:
+            return
+
+        thumbdir = os.path.dirname(self.core.media.getThumbnailPath(self.previewSeq[0]))
+        if not os.path.exists(thumbdir):
+            return
+
+        try:
+            shutil.rmtree(thumbdir)
+        except Exception as e:
+            logger.warning("Failed to remove thumbnail: %s" % e)
+
+
+    @err_catcher(name=__name__)
+    def tileExists(self, obj):
+        try:
+            if obj is None:
+                return False
+            
+            obj.objectName()
+            return True
+        
+        except RuntimeError:
+            return False
+
+
+    @err_catcher(name=__name__)
+    def setTileChecked(self, checked):
+        sourceTile = self.tile.data.get("sourceTile", None)
+        destTile = self.tile.data.get("destTile", None)
+
+        if self.tileExists(sourceTile):
+            sourceTile.setChecked(checked)
+
+        if self.tileExists(destTile):
+            destTile.setChecked(checked)
+
+
+    @err_catcher(name=__name__)
+    def addToTransferList(self):
+        sourceTile = self.tile.data.get("sourceTile", None)
+
+        if self.tileExists(sourceTile):
+            sourceTile.addToDestList()
+
+
+    @err_catcher(name=__name__)
+    def removeFromTransferList(self):
+        destTile = self.tile.data.get("destTile", None)
+
+        if self.tileExists(destTile):
+            destTile.removeFromDestList()
+
+
+    # @err_catcher(name=__name__)                                               #   NEEDED ???
+    # def previewResizeEvent(self, event):
+    #     self.displayWindow.resizeEventOrig(event)
+    #     height = int(self.displayWindow.width()*(self.renderResY/self.renderResX))
+    #     self.displayWindow.setMinimumHeight(height)
+    #     self.displayWindow.setMaximumHeight(height)
+    #     if self.currentPreviewMedia:
+    #         pmap = self.core.media.scalePixmap(
+    #             self.currentPreviewMedia, self.getThumbnailWidth(), self.getThumbnailHeight()
+    #         )
+    #         self.displayWindow.setPixmap(pmap)
+
+    #     if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
+    #         self.moveLoadingLabel()
+
+    #     # QPixmapCache.clear()
+    #     text = self.l_info.toolTip()
+    #     if not text:
+    #         text = self.l_info.text()
+
+    #     self.setInfoText(text)
+
+
+    @err_catcher(name=__name__)
+    def sliderDrag(self, event):
+        custEvent = QMouseEvent(
+            QEvent.MouseButtonPress,
+            event.pos(),
+            Qt.MidButton,
+            Qt.MidButton,
+            Qt.NoModifier,
+        )
+        self.sl_previewImage.origMousePressEvent(custEvent)
+
+
+    @err_catcher(name=__name__)
+    def sliderClk(self):
+        if (
+            self.previewTimeline
+            and self.previewTimeline.state() == QTimeLine.Running
+        ):
+            self.slStop = True
+            self.setTimelinePaused(True)
+        else:
+            self.slStop = False
+
+
+    @err_catcher(name=__name__)
+    def sliderRls(self):
+        if self.slStop:
+            self.setTimelinePaused(False)
+
+
+    @err_catcher(name=__name__)
+    def compare(self, prog=""):
+        if (
+            self.previewTimeline
+            and self.previewTimeline.state() == QTimeLine.Running
+        ):
+            self.setTimelinePaused(True)
+
+        if prog == "default":
+            progPath = ""
+        else:
+            mediaPlayer = None
+            if prog and self.externalMediaPlayers:
+                matchingPlayers = [player for player in self.externalMediaPlayers if player.get("name") == prog]
+                if matchingPlayers:
+                    mediaPlayer = matchingPlayers[0]
+                else:
+                    self.core.popup("Can't find media player: %s" % prog)
+                    return
+
+            if not mediaPlayer:
+                mediaPlayer = self.externalMediaPlayers[0] if self.externalMediaPlayers else None
+
+            progPath = (mediaPlayer.get("path") or "") if mediaPlayer else ""
+
+        comd = []
+        filePath = self.mediaFiles[0]
+        comd = [progPath, filePath]
+
+        if comd:
+            with open(os.devnull, "w") as f:
+                logger.debug("launching: %s" % comd)
+                try:
+                    subprocess.Popen(comd, stdin=subprocess.PIPE, stdout=f, stderr=f)
+                except:
+                    comd = "%s %s" % (comd[0], comd[1])
+                    try:
+                        subprocess.Popen(
+                            comd, stdin=subprocess.PIPE, stdout=f, stderr=f, shell=True
+                        )
+                    except Exception as e:
+                        raise RuntimeError("%s - %s" % (comd, e))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # def togglePlay(self):
+    #     if self.playing:
+    #         self.timer.stop()
+    #         self.playButton.setText("Play")
+    #     else:
+    #         self.timer.start(33)  # ~30 FPS                         #   TODO
+    #         self.playButton.setText("Pause")
+    #     self.playing = not self.playing
+
+
+    def seekFrame(self, frameIdx):
+        # Implementation: extract frame at frameIdx using FFmpeg
+        threading.Thread(target=self.loadFrame, args=(frameIdx,)).start()
+
+
+    def nextFrame(self):
+        # Called by timer to advance frame
+        nextIdx = self.slider.value() + 1
+        self.slider.setValue(nextIdx)
+        self.seekFrame(nextIdx)
+
+
+    def loadFrame(self, frameIdx):
+
+        print(f"*** loadFrame:{frameIdx}")                                              #    TESTING
+
+        if not self.mediaFiles:
+            logger.debug("No media files loaded.")                 #   TODO
+            return
+
+        filePath = self.mediaFiles[0]
+
+        #   Get Image Dimensions
+        try:
+            w, h = self.getVideoDimensions(filePath)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to get video dimensions: {e}")
+            return
+
+        #   Get Frame Size in Bytes (RGB24)
+        frameSize = w * h * 3
+
+        #   Build FFmpeg command
+        cmd = [
+            self.ffmpegPath,
+            "-i", filePath,
+            "-vf", f"select=eq(n\,{frameIdx})",
+            "-vframes", "1",
+            "-f", "image2pipe",
+            "-pix_fmt", "rgb24",
+            "-vcodec", "rawvideo",
+            "-"
+        ]
+
+        try:
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            stdout, stderr = proc.communicate(timeout=10)
+
+            #   Check for FFmpeg Errors
+            if proc.returncode != 0:
+                logger.warning(f"ERROR: FFmpeg error:\n{stderr.decode('utf-8')}")
+                return
+
+            #   Checks if Returned Bytes Matches Expected Size
+            if len(stdout) < frameSize:
+                logger.warning(f"ERROR: Expected {frameSize} bytes from FFmpeg, got {len(stdout)}")
+                return
+
+            #   Convert Raw Bytes to Numpy Array
+            frame = np.frombuffer(stdout[:frameSize], np.uint8).reshape((h, w, 3))
+
+            #   Flips Image Vertically
+            frame = np.flipud(frame)
+
+            #   Swaps R <-> B Channels
+            frame = frame[..., ::-1]
+
+            # Emit signal
+            self.frameReady.emit(frame)
+
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            print("FFmpeg process timed out!")
+
+        except Exception as e:
+            print(f"Failed to load frame {frameIdx}: {e}")
+            traceback.print_exc()
+
+
+
+
+
+
+
+
+    def getVideoDimensions(self, filePath):
+        """Return width and height of video using FFprobe"""
+        cmd = [
+            self.ffprobePath,
+            "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=width,height",
+            "-of", "csv=p=0:s=x",
+            filePath
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        w, h = map(int, result.stdout.strip().split("x"))
+        return w, h
+
+
+
+class GLVideoWidget(QOpenGLWidget):
+    def __init__(self, parent=None):
+        super(GLVideoWidget, self).__init__(parent)
+        self.frame = None
+
+    def setFrame(self, frame: np.ndarray):
+        self.frame = frame
+
+        if frame is not None:
+            # Get video aspect ratio
+            h, w, _ = frame.shape
+            aspect_ratio = w / h
+
+            # Compute height based on current widget width
+            new_width = self.width()  # current width of the widget/container
+            new_height = int(new_width / aspect_ratio)
+
+            # Set widget height to match the scaled video
+            self.setMinimumHeight(new_height)
+            self.setMaximumHeight(new_height)
+            self.resize(new_width, new_height)
+
+        self.update()
+
+
+    def initializeGL(self):
+        glEnable(GL_TEXTURE_2D)
+        self.texture_id = glGenTextures(1)
+
+
+    def resizeEvent(self, event):
+        if self.frame is not None:
+            h, w, _ = self.frame.shape
+            aspect_ratio = w / h
+            new_width = self.width()
+            new_height = int(new_width / aspect_ratio)
+            self.setMinimumHeight(new_height)
+            self.setMaximumHeight(new_height)
+            self.resize(new_width, new_height)
+        super().resizeEvent(event)
+
+
+    def resizeGL(self, w, h):
+        glViewport(0, 0, w, h)
+
+        if self.frame is not None:
+            vid_h, vid_w, _ = self.frame.shape
+            window_ratio = w / h
+            video_ratio = vid_w / vid_h
+
+            if window_ratio > video_ratio:
+                # window is wider than video
+                scale_w = video_ratio / window_ratio
+                scale_h = 1.0
+            else:
+                # window is taller than video
+                scale_w = 1.0
+                scale_h = window_ratio / video_ratio
+
+            self.scale_w = scale_w
+            self.scale_h = scale_h
+        else:
+            self.scale_w = 1.0
+            self.scale_h = 1.0
+
+
+    def paintGL(self):
+        if self.frame is None:
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+            return
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        h, w, c = self.frame.shape
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+
+        # Convert BGR->RGB if needed
+        img_data = self.frame
+        if c == 3:
+            img_data = np.ascontiguousarray(self.frame[..., ::-1])
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+
+        # Draw quad
+        glBegin(GL_QUADS)
+        glTexCoord2f(0, 0); glVertex2f(-self.scale_w, -self.scale_h)
+        glTexCoord2f(1, 0); glVertex2f(self.scale_w, -self.scale_h)
+        glTexCoord2f(1, 1); glVertex2f(self.scale_w, self.scale_h)
+        glTexCoord2f(0, 1); glVertex2f(-self.scale_w, self.scale_h)
+        glEnd()

@@ -71,7 +71,7 @@ from SourceTab_Models import FileTileMimeData
 logger = logging.getLogger(__name__)
 
 
-class PreviewPlayer(QWidget):
+class PreviewPlayer_CPU(QWidget):
 
     @property
     def cache_threadpool(self):
@@ -79,7 +79,7 @@ class PreviewPlayer(QWidget):
     
     
     def __init__(self, browser):
-        super(PreviewPlayer, self).__init__()
+        super(PreviewPlayer_CPU, self).__init__()
 
         self.sourceBrowser = browser
         self.core = self.sourceBrowser.core
@@ -1076,7 +1076,7 @@ class PreviewPlayer(QWidget):
         funct = lambda: Utils.displayCombinedMetadata(self.tile.getSource_mainfilePath())
         Utils.createMenuAction("Show Metadata (Main File)", sc, rcmenu, self, funct)
 
-        funct = lambda: Utils.displayCombinedMetadata(self.tile.self.tile.getSource_proxyfilePath())
+        funct = lambda: Utils.displayCombinedMetadata(self.tile.getSource_proxyfilePath())
         Utils.createMenuAction("Show Metadata (Proxy File)", sc, rcmenu, self, funct)
 
         return rcmenu
