@@ -224,124 +224,112 @@ class FileInfoWorker(QObject, QRunnable):
         self.core = core
         self.filePath = filePath
 
+
+    @staticmethod
+    def probeFile(filePath, origin, core):
+        """Run FFprobe and Return Metadata."""
+
+        extension = os.path.splitext(Utils.getBasename(filePath))[1].lower()
+
+        frames = 1
+        fps = 0.0
+        secs = 0.0
+        codec = None
+        metadata = {}
+        width = 0
+        height = 0
+
+        if extension not in core.media.supportedFormats:
+            return frames, fps, secs, codec, metadata, width, height
+
+        fileType = origin.fileType
+
+        if fileType in ("Videos", "Images", "Audio"):
+            ffprobePath = Utils.getFFprobePath()
+
+            kwargs = {
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.PIPE,
+                "text": True,
+            }
+            if sys.platform == "win32":
+                kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+            #   Stream Type
+            if fileType in ("Videos", "Images"):
+                stream_type = "v:0"
+            elif fileType == "Audio":
+                stream_type = "a:0"
+            else:
+                return frames, fps, secs, codec, metadata, width, height
+
+            result = subprocess.run(
+                [
+                    ffprobePath,
+                    "-v", "error",
+                    "-select_streams", stream_type,
+                    "-show_entries",
+                    "stream=nb_frames,r_frame_rate,codec_name,profile,codec_tag_string,codec_long_name,width,height:format=duration",
+                    "-of", "default=noprint_wrappers=1",
+                    filePath
+                ],
+                **kwargs
+            )
+
+            if result.returncode != 0:
+                return frames, fps, secs, codec, metadata, width, height
+
+            #   Parse Output
+            output_lines = result.stdout.strip().splitlines()
+            values = {}
+            for line in output_lines:
+                if '=' in line:
+                    k, v = line.strip().split('=', 1)
+                    values[k] = v
+            metadata = values
+
+            frames_str = values.get("nb_frames", "1")
+            fps_str = values.get("r_frame_rate", "0/1")
+            sec_str = values.get("duration", "0")
+            codec = values.get("codec_name")
+            width_str = values.get("width", "0")
+            height_str = values.get("height", "0")
+
+            try:
+                width = int(width_str)
+                height = int(height_str)
+            except Exception:
+                pass
+
+            if '/' in fps_str:
+                try:
+                    num, denom = map(int, fps_str.split('/'))
+                    fps = num / denom if denom else 0.0
+                except Exception:
+                    fps = 0.0
+
+            try:
+                secs = float(sec_str)
+            except Exception:
+                secs = 0.0
+
+            if frames_str == 'N/A' or not frames_str.isdigit():
+                frames = int(round(secs * fps)) if fps > 0 and secs > 0 else 1
+            else:
+                frames = int(frames_str)
+
+        return frames, fps, secs, codec, metadata, width, height
+
+
     @Slot()
     def run(self):
         try:
-            extension = os.path.splitext(Utils.getBasename(self.filePath))[1].lower()
-
-            frames = 1
-            fps = 0.0
-            secs = 0.0
-            codec = None
-            metadata = {}
-
-            if extension not in self.core.media.supportedFormats:
-                return
-
-            fileType = self.origin.fileType
-
-            if fileType in ("Videos", "Images", "Audio"):
-                ffprobePath = Utils.getFFprobePath()
-
-                kwargs = {
-                    "stdout": subprocess.PIPE,
-                    "stderr": subprocess.PIPE,
-                    "text": True,
-                }
-
-                if sys.platform == "win32":
-                    kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-
-                # Determine stream type
-                if fileType in ("Videos", "Images"):
-                    stream_type = "v:0"
-                elif fileType == "Audio":
-                    stream_type = "a:0"
-                else:
-                    logger.debug(f"[FileInfoWorker] Unknown fileType for ffprobe: {fileType}")
-                    self.finished.emit(1, 0.0, 0.0, None, {})
-                    return
-
-                result = subprocess.run(
-                    [
-                        ffprobePath,
-                        "-v", "error",
-                        "-select_streams", stream_type,
-                        "-show_entries",
-                        "stream=nb_frames,r_frame_rate,codec_name,profile,codec_tag_string,codec_long_name,width,height:format=duration",
-                        "-of", "default=noprint_wrappers=1",
-                        self.filePath
-                    ],
-                    **kwargs
-                )
-
-                if result.returncode != 0:
-                    logger.warning(f"[FileInfoWorker] ERROR: FFprobe failed for {self.filePath}:\n{result.stderr}")
-                    self.finished.emit(1, 0.0, 0.0, None, {})
-                    return
-
-                output_lines = result.stdout.strip().splitlines()
-                values = {}
-                for line in output_lines:
-                    if '=' in line:
-                        k, v = line.strip().split('=', 1)
-                        values[k] = v
-
-                metadata = values
-
-                frames_str = values.get("nb_frames", "1")
-                fps_str = values.get("r_frame_rate", "0/1")
-                sec_str = values.get("duration", "0")
-                codec = values.get("codec_name")
-                width_str = values.get("width", "0")
-                height_str = values.get("height", "0")
-
-                #   Parse Resolution
-                try:
-                    width = int(width_str)
-                except Exception:
-                    width = 0
-
-                try:
-                    height = int(height_str)
-                except Exception:
-                    height = 0
-
-                #   Parse FPS
-                if '/' in fps_str:
-                    try:
-                        num, denom = map(int, fps_str.split('/'))
-                        fps = num / denom if denom else 0.0
-                    except Exception:
-                        fps = 0.0
-
-                #   Parse Duration
-                try:
-                    secs = float(sec_str)
-                except Exception:
-                    secs = 0.0
-
-                #   Parse Frames
-                if frames_str == 'N/A' or not frames_str.isdigit():
-                    logger.debug("[FileInfoWorker] FFprobe failed to get Frames Metadata. Estimating.")
-                    frames = int(round(secs * fps)) if fps > 0 and secs > 0 else 1
-                else:
-                    frames = int(frames_str)
-
-                logger.debug(f"[FileInfoWorker] ffprobe complete for {self.filePath}")
-
-            else:
-                logger.debug(f"[FileInfoWorker] Unsupported fileType: {fileType}")
-                self.finished.emit(1, 0.0, 0.0, None, {})
-                return
-
-
-            self.finished.emit(frames, fps, secs, codec, metadata, width, height)
-
+            result = FileInfoWorker.probeFile(self.filePath, self.origin, self.core)
+            self.finished.emit(*result)
+            
         except Exception as e:
             logger.warning(f"[FileInfoWorker] ERROR: {self.filePath} - {e}")
-            self.finished.emit(1, 0.0, 0.0, None, {})
-
+            self.finished.emit(1, 0.0, 0.0, None, {}, 0, 0)
 
 
 

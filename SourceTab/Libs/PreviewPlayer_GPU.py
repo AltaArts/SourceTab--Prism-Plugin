@@ -56,10 +56,13 @@ import traceback
 import shutil
 from functools import partial
 import threading
+from collections import OrderedDict
+import math
 
-
+from PIL import Image
 import numpy as np
 from OpenGL.GL import *
+import av
 
 
 
@@ -73,32 +76,24 @@ from PrismUtils.Decorators import err_catcher
 
 import SourceTab_Utils as Utils
 from SourceTab_Models import FileTileMimeData
+from WorkerThreads import FileInfoWorker
+
 
 logger = logging.getLogger(__name__)
 
 
 
-
-
-
 class PreviewPlayer_GPU(QWidget):
-    frameReady = Signal(np.ndarray)
+    frameReady = Signal(int, np.ndarray)
+    cacheUpdated = Signal()
+
 
     def __init__(self, browser):
         super(PreviewPlayer_GPU, self).__init__()
         self.sourceBrowser = browser
         self.core = browser.core
 
-
-
-
-
-
-        # FFmpeg paths
-        self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
-        self.ffprobePath = Utils.getFFprobePath()
-
-
+        self.PreviewCache = FrameCacheManager(self.core, pWidth=400)
 
         self.iconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
         self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
@@ -108,9 +103,7 @@ class PreviewPlayer_GPU(QWidget):
         self.mediaFiles = []
         self.renderResX = 300
         self.renderResY = 169
-        self.videoPlayers = {}
         self.currentPreviewMedia = None
-        self.previewThreads = []
         self.previewTimeline = None
         self.tlPaused = False
         self.previewSeq = []
@@ -122,28 +115,25 @@ class PreviewPlayer_GPU(QWidget):
         self.pheight = 0
         self.pstart = 0
         self.pend = 0
-        self.openPreviewPlayer = False
-        self.emptypmap = self.createPMap(self.renderResX, self.renderResY)
         self.previewEnabled = True
         self.state = "enabled"
+
+        self.playTimer = QTimer(self)
+        self.playTimer.timeout.connect(self._playNextFrame)
+        self._playFrameIndex = 0
+        self._playBaseOffset = 0
+
+
         self.updateExternalMediaPlayers()
         self.setupUi()
         self.connectEvents()
 
+        self.resetImage()
 
-
-
-        # Timer for playback
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.nextFrame)
-        self.playing = False
-
-        # Thread-safe frame queue
-        self.frameQueue = []
-        self.frameLock = threading.Lock()
 
         # Connect signal to GL widget
         self.frameReady.connect(self.displayWindow.setFrame)
+        self.PreviewCache.firstFrameComplete.connect(self.onFirstFrameReady)
 
 
     @err_catcher(name=__name__)
@@ -151,6 +141,7 @@ class PreviewPlayer_GPU(QWidget):
         return QSize(400, 100)
 
 
+    #   Populate Media Players Based on Prism Version
     @err_catcher(name=__name__)
     def updateExternalMediaPlayers(self):
         #   For Prism 2.0.18+
@@ -182,9 +173,8 @@ class PreviewPlayer_GPU(QWidget):
         self.lo_viewLut.addWidget(self.cb_viewLut)
         self.lo_preview_main.addWidget(self.container_viewLut)
 
-        #   Viewer Image Label
-        # Video widget
-        self.displayWindow = GLVideoWidget()
+        #   Viewer Window
+        self.displayWindow = GLVideoDisplay(self)
         self.lo_preview_main.addWidget(self.displayWindow)
 
         #   Proxy Icon Label
@@ -233,35 +223,18 @@ class PreviewPlayer_GPU(QWidget):
         self.lo_playerCtrls.setContentsMargins(0, 0, 0, 0)
         
         #   Buttons
-        self.b_first = QToolButton()
-        path = os.path.join(self.iconPath, "first.png")
-        icon = self.core.media.getColoredIcon(path)
-        self.b_first.setIcon(icon)
-        self.b_first.setToolTip("First Frame")
+        for name in ["first", "prev", "play", "next", "last"]:
+            btn = QToolButton()
+            path = os.path.join(self.iconPath, f"{name}.png")
+            icon = self.core.media.getColoredIcon(path)
+            btn.setIcon(icon)
+            setattr(self, f"b_{name}", btn)           
 
-        self.b_prev = QToolButton()
-        path = os.path.join(self.iconPath, "prev.png")
-        icon = self.core.media.getColoredIcon(path)
-        self.b_prev.setIcon(icon)
+        self.b_first.setToolTip("Goto First Frame")
         self.b_prev.setToolTip("Previous Frame")
-
-        self.b_play = QToolButton()
-        path = os.path.join(self.iconPath, "play.png")
-        icon = self.core.media.getColoredIcon(path)
-        self.b_play.setIcon(icon)
-        self.b_play.setToolTip("Play")
-
-        self.b_next = QToolButton()
-        path = os.path.join(self.iconPath, "next.png")
-        icon = self.core.media.getColoredIcon(path)
-        self.b_next.setIcon(icon)
+        self.b_play.setToolTip("Play / Pause")
         self.b_next.setToolTip("Next Frame")
-
-        self.b_last = QToolButton()
-        path = os.path.join(self.iconPath, "last.png")
-        icon = self.core.media.getColoredIcon(path)
-        self.b_last.setIcon(icon)
-        self.b_last.setToolTip("Last Frame")
+        self.b_last.setToolTip("Goto Last Frame")
         
         self.lo_playerCtrls.addWidget(self.b_first)
         self.lo_playerCtrls.addStretch()
@@ -272,7 +245,6 @@ class PreviewPlayer_GPU(QWidget):
         self.lo_playerCtrls.addWidget(self.b_last)
         self.lo_preview_main.addWidget(self.w_playerCtrls)
 
-
         self.displayWindow.setMinimumWidth(self.renderResX)
         self.displayWindow.setMinimumHeight(self.renderResY)
         self.displayWindow.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
@@ -280,32 +252,120 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
-        self.displayWindow.mouseReleaseEvent = self.previewClk
-        self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
-
+        # self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
+        # self.displayWindow.mouseReleaseEvent = self.previewClk
+        # self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
         # self.displayWindow.resizeEvent = self.previewResizeEvent
-
-        self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
+        # self.displayWindow.customContextMenuRequested.connect(self.rclPreview)
 
         self.sl_previewImage.valueChanged.connect(self.sliderChanged)
-        self.sl_previewImage.sliderPressed.connect(self.sliderClk)
-        self.sl_previewImage.sliderReleased.connect(self.sliderRls)
-        self.sl_previewImage.origMousePressEvent = self.sl_previewImage.mousePressEvent
-        self.sl_previewImage.mousePressEvent = self.sliderDrag
-        self.sp_current.valueChanged.connect(self.onCurrentChanged)
+        # self.sl_previewImage.sliderPressed.connect(self.sliderClk)
+        # self.sl_previewImage.sliderReleased.connect(self.sliderRls)
+        # self.sl_previewImage.origMousePressEvent = self.sl_previewImage.mousePressEvent
+        # self.sl_previewImage.mousePressEvent = self.sliderDrag
+        # self.sp_current.valueChanged.connect(self.onCurrentChanged)
+
+        self.sp_current.editingFinished.connect(lambda: self.loadFrame(self.sp_current.value()))
 
         self.b_first.clicked.connect(self.onFirstClicked)
         self.b_prev.clicked.connect(self.onPrevClicked)
-
         self.b_play.clicked.connect(self.onPlayClicked)
-
         self.b_next.clicked.connect(self.onNextClicked)
         self.b_last.clicked.connect(self.onLastClicked)
 
 
+        # self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
+        # self.frameCache.cacheComplete.connect(self.onCacheComplete)
 
-####    MOUSE ACTIONS   ####
+        self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
+
+        # self.PreviewCache.cacheComplete.connect(self.onCacheComplete)  # optional
+
+
+
+    @err_catcher(name=__name__)
+    def setPreviewEnabled(self, state):
+        self.previewEnabled = state
+        self.displayWindow.setVisible(state)
+        self.w_timeslider.setVisible(state)
+        self.w_playerCtrls.setVisible(state)
+
+
+    @err_catcher(name=__name__)                                               #   NEEDED ???
+    def previewResizeEvent(self, event):
+        self.displayWindow.resizeEventOrig(event)
+        height = int(self.displayWindow.width()*(self.renderResY/self.renderResX))
+        self.displayWindow.setMinimumHeight(height)
+        self.displayWindow.setMaximumHeight(height)
+        if self.currentPreviewMedia:
+            pmap = self.core.media.scalePixmap(
+                self.currentPreviewMedia, self.getThumbnailWidth(), self.getThumbnailHeight()
+            )
+            self.displayWindow.setPixmap(pmap)
+
+        if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
+            self.moveLoadingLabel()
+
+        text = self.l_info.toolTip()
+        if not text:
+            text = self.l_info.text()
+
+        self.setInfoText(text)
+
+
+    @err_catcher(name=__name__)
+    def updateCacheSlider(self, frame=None, reset=False):
+        if not self.PreviewCache.cache and not reset:
+            return
+        
+        if reset:
+            progress_ratio = 0
+            logger.debug("Reset Cache Slider")
+
+        else:
+            cached_count = sum(1 for f in self.PreviewCache.cache.values() if f is not None)
+            total_frames = len(self.PreviewCache.cache)
+            progress_ratio = cached_count / total_frames if total_frames else 0
+            logger.debug(f"Cache progress: {cached_count}/{total_frames} ({progress_ratio*100:.1f}%)")
+
+        total_segments = 100
+        stops = []
+        for i in range(total_segments + 1):
+            ratio = i / total_segments
+            color = "#465A78" if ratio <= progress_ratio else "transparent"
+            stops.append(f"stop:{ratio} {color}")
+
+        gradient_str = ", ".join(stops)
+
+        style = f"""
+        QSlider::groove:horizontal {{
+            height: 6px;
+            border-radius: 3px;
+            background: qlineargradient(
+                x1:0, y1:0, x2:1, y2:0,
+                {gradient_str}
+            );
+        }}
+        """
+
+        self.sl_previewImage.setStyleSheet(style)
+
+
+
+    @err_catcher(name=__name__)
+    def makeBlackFrame(self):
+        """Generate a black 16:9 frame at the current preview width."""
+        width = self.displayWindow.width()
+        if width <= 0:
+            width = 300
+
+        height = int(width / (16/9))
+        frame = np.zeros((height, width, 3), dtype=np.uint8)
+        return frame
+
+
+###########################################
+###########    MOUSE ACTIONS   ############
 
     #   Checks if Dragged Object is a File Tile
     @err_catcher(name=__name__)
@@ -352,76 +412,229 @@ class PreviewPlayer_GPU(QWidget):
             e.ignore()
 
 
-    @err_catcher(name=__name__)
-    def setPreviewEnabled(self, state):
-        self.previewEnabled = state
-        self.displayWindow.setVisible(state)
-        self.w_timeslider.setVisible(state)
-        self.w_playerCtrls.setVisible(state)
 
 
-    @err_catcher(name=__name__)
-    def onFirstClicked(self):
-        self.previewTimeline.setCurrentTime(0)
 
+###############################################
+###########    PLAYBACK CONTROLS   ############
 
-    @err_catcher(name=__name__)
-    def onPrevClicked(self):
-        time = self.previewTimeline.currentTime() - self.previewTimeline.updateInterval()
-        if time < 0:
-            time = self.previewTimeline.duration() - self.previewTimeline.updateInterval()
+    def resetImage(self):
+        self.displayWindow.setFrame(0, self.makeBlackFrame())
+        self.PreviewCache.clear()
+        self.l_pxyIcon.setVisible(False)
+        self.currentFrameIdx = 0
+        self._playFrameIndex = 0
+        self._playBaseOffset = 0
+        self._pausedOffset = 0
 
-        self.previewTimeline.setCurrentTime(time)
+        self.previewTimeline and self.previewTimeline.setCurrentTime(0)
+        self.sl_previewImage.setValue(0)
+        self.sp_current.setValue(0)
+        self.updateCacheSlider(reset=True)
 
-
-    @err_catcher(name=__name__)
-    def onPlayClicked(self):
-        print(f"*** in onPlayClicked")                                              #    TESTING
-
-        # if not self.previewSeq:
-        #     return
-
-        self.setTimelinePaused(self.previewTimeline.state() == QTimeLine.Running)
 
 
     @err_catcher(name=__name__)
-    def onNextClicked(self):
-        time = self.previewTimeline.currentTime() + self.previewTimeline.updateInterval()
-        time = min(self.previewTimeline.duration(), time)
-        self.previewTimeline.setCurrentTime(time)
-
-
-    @err_catcher(name=__name__)
-    def onLastClicked(self):
-        self.previewTimeline.setCurrentTime(self.previewTimeline.updateInterval() * (self.pduration - 1))
-
-
-    @err_catcher(name=__name__)
-    def sliderChanged(self, val):
-        if not self.previewSeq:
-            return
-
-        time = int(val / self.sl_previewImage.maximum() * self.previewTimeline.duration())
-        if time == self.previewTimeline.duration():
-            time -= 1
-
-        self.previewTimeline.setCurrentTime(time)
-
-        self.loadFrame(time)
-
-
-    @err_catcher(name=__name__)
-    def onCurrentChanged(self, value):
+    def onCurrentChanged(self, frame):
         if not self.previewTimeline:
             return
 
-        time = (value - self.pstart) * self.previewTimeline.updateInterval()
-        self.previewTimeline.setCurrentTime(time)
+        self.sl_previewImage.blockSignals(True)
+        self.sl_previewImage.setValue(frame)
+        self.sl_previewImage.blockSignals(False)
+
+        if self.sp_current.value() != (self.pstart + frame):
+            self.sp_current.blockSignals(True)
+            self.sp_current.setValue((self.pstart + frame))
+            self.sp_current.blockSignals(False)
+
+
+    @err_catcher(name=__name__)
+    def getCurrentFrame(self):
+        if not self.previewTimeline:
+            return
+
+        logger.debug(f"***  CurrFrame:  {self.previewTimeline.currentFrame() + 1}")
+        return self.previewTimeline.currentFrame() + 1
 
 
 
+    def setCurrentFrame(self, frameIdx:int, manual:bool = False, reset:bool = False):
+        """Move the Playhead to a Specific Frame and Update the UI."""
+
+        if not self.PreviewCache.cache:
+            return
+
+        frameIdx = max(0, min(frameIdx, len(self.PreviewCache.cache) - 1))
+        self.currentFrameIdx = frameIdx
+        self._playFrameIndex = frameIdx
+
+        if reset:
+            self._playBaseOffset = frameIdx * getattr(self, "_playInterval", 1000/24)
+            self._pausedOffset = 0
+            if hasattr(self, "_playStartTime"):
+                self._playStartTime.restart()
+
+        elif manual:
+            if hasattr(self, "_playInterval"):
+                self._playBaseOffset = frameIdx * self._playInterval
+            if hasattr(self, "_playStartTime"):
+                self._playStartTime.restart()
+
+        #   UI Sync
+        self.sl_previewImage.blockSignals(True)
+        self.sl_previewImage.setValue(frameIdx)
+        self.sl_previewImage.blockSignals(False)
+
+        self.sp_current.blockSignals(True)
+        self.sp_current.setValue(frameIdx + self.pstart)
+        self.sp_current.blockSignals(False)
+
+        #   Display the Frame
+        frame = self.PreviewCache.cache.get(frameIdx)
+        if frame is not None:
+            self.frameReady.emit(frameIdx, frame)
 
 
+    def sliderChanged(self, frameIdx):
+        if not self.previewSeq or not self.PreviewCache.cache:
+            return
+
+        was_playing = self.isPlaying()
+        if was_playing:
+            self.playTimer.stop()
+
+        self.setCurrentFrame(frameIdx, manual=True, reset=True)
+
+        if was_playing:
+            self._playStartTime.restart()
+            self.playTimer.start(10)
+
+
+
+    @err_catcher(name=__name__)
+    def sliderDrag(self, event):
+        custEvent = QMouseEvent(
+            QEvent.MouseButtonPress,
+            event.pos(),
+            Qt.MidButton,
+            Qt.MidButton,
+            Qt.NoModifier,
+        )
+        self.sl_previewImage.origMousePressEvent(custEvent)
+
+
+    def sliderClk(self):
+        self.slStop = False
+        if self.isPlaying():
+            self.slStop = True
+            self.playTimer.stop()
+
+
+    def sliderRls(self):
+        if self.slStop:
+            self._playStartTime.restart()
+            self.playTimer.start(10)
+
+
+    def isPlaying(self):
+        return hasattr(self, "playTimer") and self.playTimer.isActive()
+
+
+    def onFirstClicked(self):
+        self.setCurrentFrame(0, manual=True, reset=True)
+
+
+    def onPrevClicked(self):
+        self.setCurrentFrame(self.currentFrameIdx - 1, manual=True)
+
+
+    def onPlayClicked(self):
+        if not self.previewSeq or not self.PreviewCache.cache:
+            return
+
+        if self.isPlaying():
+            # Pause
+            self.playTimer.stop()
+            self.setTimelinePaused(True)
+
+            # store current frame offset
+            elapsed_ms = self._playStartTime.elapsed()
+            self._pausedOffset += elapsed_ms
+            return
+
+        #   Resume Playback
+        fps = getattr(self, "fps", 24) or 24
+        self._playInterval = 1000.0 / float(fps)
+
+        if not hasattr(self, "_playStartTime"):
+            self._playStartTime = QElapsedTimer()
+        self._playStartTime.restart()
+
+        self.playTimer.start(10)
+        self.setTimelinePaused(False)
+
+
+    def _playNextFrame(self):
+        if not self.PreviewCache.cache:
+            self.playTimer.stop()
+            return
+
+        elapsed_ms = self._playStartTime.elapsed() + self._playBaseOffset + self._pausedOffset
+        target_frame = int(elapsed_ms / self._playInterval)
+
+        total_frames = len(self.PreviewCache.cache)
+        if total_frames <= 0:
+            return
+        if target_frame >= total_frames:
+            target_frame %= total_frames
+
+        if target_frame != self._playFrameIndex:
+            self.setCurrentFrame(target_frame, manual=False)
+
+
+    def onNextClicked(self):
+        self.setCurrentFrame(self.currentFrameIdx + 1, manual=True)
+
+
+    def onLastClicked(self):
+        self.setCurrentFrame(len(self.PreviewCache.cache) - 1, manual=True, reset=True)
+        
+
+    @err_catcher(name=__name__)
+    def setTimelinePaused(self, state):
+        if self.previewTimeline and self.previewTimeline.state() == QTimeLine.Running:
+            self.previewTimeline.setPaused(state)
+
+        if state:
+            path = os.path.join(self.iconPath, "play.png")
+            icon = self.core.media.getColoredIcon(path)
+            self.b_play.setIcon(icon)
+            self.b_play.setToolTip("Play")
+        else:
+            path = os.path.join(self.iconPath, "pause.png")
+            icon = self.core.media.getColoredIcon(path)
+            self.b_play.setIcon(icon)
+            self.b_play.setToolTip("Pause")
+
+
+
+    @err_catcher(name=__name__)
+    def previewClk(self, event):
+        if (len(self.previewSeq) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
+            if self.previewTimeline.state() == QTimeLine.Paused:
+                self.setTimelinePaused(False)
+
+            else:
+                if self.previewTimeline.state() == QTimeLine.Running:
+                    self.setTimelinePaused(True)
+
+        self.displayWindow.clickEvent(event)
+
+
+
+###########################################
+###########    LOADING MEDIA   ############
 
     #   Entry Point for Media to be Played
     @err_catcher(name=__name__)
@@ -431,21 +644,18 @@ class PreviewPlayer_GPU(QWidget):
         self.isProxy = isProxy
         self.tile = tile
 
-        print(f"*** IN LOAD MEDIA")                                              #    TESTING
-
+        self.resetImage()
         self.updatePreview()
 
 
-
     @err_catcher(name=__name__)
-    def updatePreview(self, regenerateThumb=False):
+    def updatePreview(self):
         if not self.previewEnabled:
             return
         
         self.l_pxyIcon.setVisible(self.isProxy)
 
         if self.previewTimeline:
-            curFrame = self.getCurrentFrame()
 
             if self.previewTimeline.state() != QTimeLine.NotRunning:
                 if self.previewTimeline.state() == QTimeLine.Running:
@@ -456,12 +666,7 @@ class PreviewPlayer_GPU(QWidget):
                 self.previewTimeline.stop()
         else:
             self.tlPaused = True
-            curFrame = 0
 
-
-        prevFrame = self.pstart + curFrame
-        self.sl_previewImage.setValue(0)
-        self.sp_current.setValue(0)
         self.previewSeq = []
         self.prvIsSequence = False
 
@@ -469,37 +674,60 @@ class PreviewPlayer_GPU(QWidget):
             _, extension = os.path.splitext(self.mediaFiles[0])
             extension = extension.lower()
 
+            #   Image Sequence
             if (len(self.mediaFiles) > 1 and extension not in self.core.media.videoFormats):
+                self.fileType = "Images"
                 self.previewSeq = self.mediaFiles
                 self.prvIsSequence = True
 
                 (self.pstart, self.pend,) = self.core.media.getFrameRangeFromSequence(self.mediaFiles)
+                self.pduration = len(self.previewSeq)
 
+            #   Video File
             else:
+                self.fileType = "Videos"
+                self.previewFile = self.mediaFiles[0]
+                self.pstart = 1
                 self.prvIsSequence = False
-                self.previewSeq = self.mediaFiles
+                self.previewSeq = [self.previewFile]
 
-            self.pduration = len(self.previewSeq)
+            iData = FileInfoWorker.probeFile(self.previewFile, self, self.core)
 
-            imgPath = self.mediaFiles[0]
-            if (self.pduration == 1 and os.path.splitext(imgPath)[1].lower() in self.core.media.videoFormats):
+            self.pduration = iData[0]
+            self.pstart = 1
+            self.pend = self.pstart + self.pduration - 1
+            self.fps = round(float(iData[1]), 2)
+            self.codec = iData[3]
+            self.pwidth = iData[5]
+            self.pheight = iData[6]
+
+            self.sl_previewImage.setMaximum(self.pduration - 1)
+
+            if (self.pduration == 1 and os.path.splitext(self.previewFile)[1].lower() in self.core.media.videoFormats):
                 self.vidPrw = "loading"
-                self.updatePrvInfo(imgPath, vidReader="loading", frame=prevFrame)
+                self.updatePrvInfo(self.previewFile)
 
             else:
-                self.updatePrvInfo(imgPath, frame=prevFrame)
+                self.updatePrvInfo(self.previewFile)
+
+            frame_time = int(1000 / self.fps)
+
+            self.previewTimeline = QTimeLine(self.pduration * frame_time, self)
+            self.previewTimeline.setEasingCurve(QEasingCurve.Linear)
+            self.previewTimeline.setLoopCount(0)
+            self.previewTimeline.setUpdateInterval(frame_time)
+
+            # Tell timeline: map time → frames
+            self.previewTimeline.setFrameRange(self.pstart, self.pend)
 
 
-
-            # self.loadFrame(prevFrame)
-
-            # if self.tlPaused:
-            #     self.changeImage_threaded(regenerateThumb=regenerateThumb)
-            # elif self.pduration < 3:
-            #     self.changeImage_threaded(regenerateThumb=regenerateThumb)
+            self.PreviewCache.setMedia(self.previewFile, iData)
+            self.PreviewCache.start()
 
             return True
+        
 
+        #   No Image Loaded
         self.sl_previewImage.setEnabled(False)
         self.l_start.setText("")
         self.l_end.setText("")
@@ -514,10 +742,9 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def updatePrvInfo(self, prvFile="", vidReader=None, seq=None, frame=None):
+    def updatePrvInfo(self, prvFile="", seq=None):
         if seq is not None:
             if self.previewSeq != seq:
-                logger.debug("Exit Preview Info Update")
                 return
 
         if not os.path.exists(prvFile):
@@ -526,33 +753,17 @@ class PreviewPlayer_GPU(QWidget):
             self.displayWindow.setToolTip("")
             return
 
-        if self.state == "disabled" or os.getenv("PRISM_DISPLAY_MEDIA_RESOLUTION") == "0":
-            self.pwidth = "?"
-            self.pheight = "?"
-
-        else:
-            if vidReader == "loading":
-                self.pwidth = "loading..."
-                self.pheight = ""
-            else:
-                self.pwidth = self.metadata.get("source_mainFile_xRez", None)
-                self.pheight = self.metadata.get("source_mainFile_yRez", None)
-
-                if not self.pwidth:
-                    resolution = self.core.media.getMediaResolution(prvFile, videoReader=vidReader)
-                    self.pwidth = resolution["width"]
-                    self.pheight = resolution["height"]
 
         ext = os.path.splitext(prvFile)[1].lower()
-        if ext in self.core.media.videoFormats:
-            if len(self.previewSeq) == 1:
-                duration = self.metadata.get("source_mainFile_frames", None)
-                if not duration:
-                    duration = self.getVideoDuration(prvFile)
-                if not duration:
-                    duration = 1
+        # if ext in self.core.media.videoFormats:
+            # if len(self.previewSeq) == 1:
+            #     duration = self.metadata.get("source_mainFile_frames", None)
+            #     if not duration:
+            #         duration = self.getVideoDuration(prvFile)
+            #     if not duration:
+            #         duration = 1
 
-                self.pduration = int(duration)
+            #     self.pduration = int(duration)
 
         self.pformat = "*" + ext
 
@@ -571,41 +782,15 @@ class PreviewPlayer_GPU(QWidget):
 
         self.l_start.setText(start)
         self.l_end.setText(end)
+
         self.sp_current.setMinimum(int(start))
         self.sp_current.setMaximum(int(end))
+
         self.w_playerCtrls.setEnabled(True)
         self.sp_current.setEnabled(True)
 
         if self.previewTimeline:
             self.previewTimeline.stop()
-
-
-        fps = self.core.projects.getFps() or 25                 #   TODO - FIX FPS playback
-
-
-
-        self.previewTimeline = QTimeLine(int(1000/float(fps)) * self.pduration, self)
-        self.previewTimeline.setEasingCurve(QEasingCurve.Linear)
-        self.previewTimeline.setLoopCount(0)
-        self.previewTimeline.setUpdateInterval(int(1000/float(fps)))
-
-        print(f"*** value: {int(self.previewTimeline.currentValue())}")                                              #    TESTING
-
-        self.previewTimeline.valueChanged.connect(lambda x: self.loadFrame(int(x)))            #   TODO
-
-
-        frame = frame or self.pstart
-
-        if frame != self.sp_current.value():
-            self.sp_current.setValue(frame)
-
-        else:
-            self.onCurrentChanged(self.sp_current.value())
-
-        self.previewTimeline.resume()
-
-        if self.tlPaused or self.state == "disabled":
-            self.setTimelinePaused(True)
 
         if self.pduration == 1:
             frStr = "frame"
@@ -680,72 +865,6 @@ class PreviewPlayer_GPU(QWidget):
         self.l_info.setToolTip(infoStr)
 
 
-
-
-    @err_catcher(name=__name__)
-    def getVideoDuration(self, filePath):
-        frames = 1
-        fps = 0.0
-        duration_sec = 0.0
-
-        kwargs = {
-            "stdout": subprocess.PIPE,
-            "stderr": subprocess.PIPE,
-            "text": True,
-        }
-
-        if sys.platform == "win32":
-            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-
-        #   Quick Method
-        result = subprocess.run(
-            [
-                self.ffprobePath,
-                "-v", "error",
-                "-select_streams", "v:0",
-                "-show_entries", "stream=nb_frames,r_frame_rate:format=duration",
-                "-of", "default=noprint_wrappers=1",
-                filePath
-            ],
-            **kwargs
-        )
-
-        #   Parse Output
-        output_lines = result.stdout.strip().splitlines()
-        values = {}
-        for line in output_lines:
-            if '=' in line:
-                k, v = line.strip().split('=', 1)
-                values[k] = v
-
-        frames_str = values.get("nb_frames", "1")
-        fps_str = values.get("r_frame_rate", "0/1")
-        duration_sec_str = values.get("duration", "0")
-
-        #   Parse FPS
-        if '/' in fps_str:
-            try:
-                num, denom = map(int, fps_str.split('/'))
-                fps = num / denom if denom else 0.0
-            except Exception:
-                fps = 0.0
-
-        #   Parse Duration
-        try:
-            duration_sec = float(duration_sec_str)
-        except Exception:
-            duration_sec = 0.0
-
-        #   Decide on Frames Method
-        if frames_str == 'N/A' or not frames_str.isdigit():
-            logger.debug("FFprobe failed to get Frames Metadata. Calculating Frames.")
-            frames = int(round(duration_sec * fps)) if fps > 0 and duration_sec > 0 else 1
-        else:
-            frames = int(frames_str)
-
-        return frames
-
-
     @err_catcher(name=__name__)
     def setInfoText(self, text):
         metrics = QFontMetrics(self.l_info.font())
@@ -757,84 +876,36 @@ class PreviewPlayer_GPU(QWidget):
         self.l_info.setText("\n".join(lines))
 
 
-    @err_catcher(name=__name__)
-    def createPMap(self, resx, resy):
-        fbFolder = self.core.projects.getFallbackFolder()
-        if resx == 300:
-            imgFile = os.path.join(fbFolder, "noFileBig.jpg")
-        else:
-            imgFile = os.path.join(fbFolder, "noFileSmall.jpg")
-
-        pmap = self.core.media.getPixmapFromPath(imgFile)
-        if not pmap:
-            pmap = QPixmap()
-
-        return pmap
 
 
-    @err_catcher(name=__name__)
-    def moveLoadingLabel(self):
-        geo = QRect()
-        pos = self.displayWindow.parent().mapToGlobal(self.displayWindow.geometry().topLeft())
-        pos = self.mapFromGlobal(pos)
-        geo.setWidth(self.displayWindow.width())
-        geo.setHeight(self.displayWindow.height())
-        geo.moveTopLeft(pos)
-        self.l_loading.setGeometry(geo)
+###########################################
+###########    IMAGE DISPLAY   ############
 
-
+    def onFirstFrameReady(self, frameIdx: int):
+        self.currentFrameIdx = frameIdx
+        self.previewTimeline and self.previewTimeline.setCurrentTime(0)
+        self.sl_previewImage.setValue(0)
+        self.sp_current.setValue(frameIdx)
+        
+        self.loadFrame(frameIdx)
 
 
     @err_catcher(name=__name__)
-    def getThumbnailWidth(self):
-        return self.displayWindow.width()
-
-
-    @err_catcher(name=__name__)
-    def getThumbnailHeight(self):
-        return self.displayWindow.height()
-
-
-    @err_catcher(name=__name__)
-    def getCurrentFrame(self):
-        if not self.previewTimeline:
+    def loadFrame(self, frameIdx):
+        if not self.PreviewCache.cache:
+            logger.debug("No frames in cache yet")
             return
 
-        return int(self.previewTimeline.currentTime() / self.previewTimeline.updateInterval())
+        frameIdx = max(0, min(frameIdx, len(self.PreviewCache.cache)-1))
+        frame = self.PreviewCache.cache.get(frameIdx)
+
+        if frame is not None:
+            self.frameReady.emit(frameIdx, frame)
 
 
 
-
-
-
-
-    @err_catcher(name=__name__)
-    def setTimelinePaused(self, state):
-        self.previewTimeline.setPaused(state)
-        if state:
-            path = os.path.join(self.iconPath, "play.png")
-            icon = self.core.media.getColoredIcon(path)
-            self.b_play.setIcon(icon)
-            self.b_play.setToolTip("Play")
-        else:
-            path = os.path.join(self.iconPath, "pause.png")
-            icon = self.core.media.getColoredIcon(path)
-            self.b_play.setIcon(icon)
-            self.b_play.setToolTip("Pause")
-
-
-    @err_catcher(name=__name__)
-    def previewClk(self, event):
-        if (len(self.previewSeq) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
-            if self.previewTimeline.state() == QTimeLine.Paused:
-                self.setTimelinePaused(False)
-
-            else:
-                if self.previewTimeline.state() == QTimeLine.Running:
-                    self.setTimelinePaused(True)
-
-        self.displayWindow.clickEvent(event)
-
+#######################################
+###########    RCL MENU    ############
 
     @err_catcher(name=__name__)
     def rclPreview(self, pos):
@@ -878,12 +949,8 @@ class PreviewPlayer_GPU(QWidget):
                 funct = lambda x=None, name=player.get("name", ""): self.compare(name)
                 Utils.createMenuAction(player.get("name", ""), sc, playMenu, self, funct)
 
-        pAct = QAction("Default", self)
-        pAct.triggered.connect(
-            lambda: self.compare(prog="default")
-            )
-        playMenu.addAction(pAct)
-        rcmenu.addMenu(playMenu)
+        Utils.createMenuAction("Default", sc, playMenu, self, lambda: self.compare(prog="default"))
+
 
         iconPath = os.path.join(self.iconPath, "refresh.png")
         icon = self.core.media.getColoredIcon(iconPath)
@@ -982,59 +1049,6 @@ class PreviewPlayer_GPU(QWidget):
             destTile.removeFromDestList()
 
 
-    # @err_catcher(name=__name__)                                               #   NEEDED ???
-    # def previewResizeEvent(self, event):
-    #     self.displayWindow.resizeEventOrig(event)
-    #     height = int(self.displayWindow.width()*(self.renderResY/self.renderResX))
-    #     self.displayWindow.setMinimumHeight(height)
-    #     self.displayWindow.setMaximumHeight(height)
-    #     if self.currentPreviewMedia:
-    #         pmap = self.core.media.scalePixmap(
-    #             self.currentPreviewMedia, self.getThumbnailWidth(), self.getThumbnailHeight()
-    #         )
-    #         self.displayWindow.setPixmap(pmap)
-
-    #     if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
-    #         self.moveLoadingLabel()
-
-    #     # QPixmapCache.clear()
-    #     text = self.l_info.toolTip()
-    #     if not text:
-    #         text = self.l_info.text()
-
-    #     self.setInfoText(text)
-
-
-    @err_catcher(name=__name__)
-    def sliderDrag(self, event):
-        custEvent = QMouseEvent(
-            QEvent.MouseButtonPress,
-            event.pos(),
-            Qt.MidButton,
-            Qt.MidButton,
-            Qt.NoModifier,
-        )
-        self.sl_previewImage.origMousePressEvent(custEvent)
-
-
-    @err_catcher(name=__name__)
-    def sliderClk(self):
-        if (
-            self.previewTimeline
-            and self.previewTimeline.state() == QTimeLine.Running
-        ):
-            self.slStop = True
-            self.setTimelinePaused(True)
-        else:
-            self.slStop = False
-
-
-    @err_catcher(name=__name__)
-    def sliderRls(self):
-        if self.slStop:
-            self.setTimelinePaused(False)
-
-
     @err_catcher(name=__name__)
     def compare(self, prog=""):
         if (
@@ -1083,153 +1097,225 @@ class PreviewPlayer_GPU(QWidget):
 
 
 
+############################################
+#######      Frame Cache Worker      #######
+                    
+class FrameCacheWorker(QRunnable):
+    def __init__(self, core, mediaPath, cacheRef, mutex, pWidth, progCallback):
+        super().__init__()
+        self.core = core
+        self.mediaPath = mediaPath
+        self.cacheRef = cacheRef
+        self.mutex = mutex
+        self.pWidth = int(pWidth)
+        self.progCallback = progCallback
+        self._running = True
 
 
+    def stop(self) -> None:
+        '''Stop Frame Cache Worker'''
+        self._running = False
 
 
-
-
-
-
-
-
-    # def togglePlay(self):
-    #     if self.playing:
-    #         self.timer.stop()
-    #         self.playButton.setText("Play")
-    #     else:
-    #         self.timer.start(33)  # ~30 FPS                         #   TODO
-    #         self.playButton.setText("Pause")
-    #     self.playing = not self.playing
-
-
-    def seekFrame(self, frameIdx):
-        # Implementation: extract frame at frameIdx using FFmpeg
-        threading.Thread(target=self.loadFrame, args=(frameIdx,)).start()
-
-
-    def nextFrame(self):
-        # Called by timer to advance frame
-        nextIdx = self.slider.value() + 1
-        self.slider.setValue(nextIdx)
-        self.seekFrame(nextIdx)
-
-
-    def loadFrame(self, frameIdx):
-
-        print(f"*** loadFrame:{frameIdx}")                                              #    TESTING
-
-        if not self.mediaFiles:
-            logger.debug("No media files loaded.")                 #   TODO
-            return
-
-        filePath = self.mediaFiles[0]
-
-        #   Get Image Dimensions
+    def run(self):
         try:
-            w, h = self.getVideoDimensions(filePath)
+            #   Start FFmpeg Player
+            container = av.open(self.mediaPath)
+            stream = container.streams.video[0]
+
+            #   Let FFmpeg Handle Threading
+            try:
+                stream.thread_type = "AUTO"
+            except Exception:
+                pass
+
+            first_frame_emitted = False
+
+            for frame_idx, frame in enumerate(container.decode(stream)):
+                if not self._running:
+                    break
+
+                #   Scale & Flip
+                src_w, src_h = frame.width, frame.height
+                if src_w <= 0 or src_h <= 0:
+                    continue
+
+                scale = self.pWidth / float(src_w)
+                dst_w = self.pWidth
+                dst_h = max(1, int(round(src_h * scale)))
+
+                try:
+                    f2 = frame.reformat(width=dst_w, height=dst_h,
+                                        format='rgb24', interpolation='BILINEAR')
+                    img = f2.to_ndarray()
+
+                except Exception:
+                    img = frame.to_ndarray(format='rgb24')
+                    if img.shape[1] != dst_w or img.shape[0] != dst_h:
+                        img = np.array(Image.fromarray(img).resize((dst_w, dst_h), Image.BILINEAR))
+
+                img = np.flipud(img)
+
+                self.mutex.lock()
+                self.cacheRef[frame_idx] = img
+                self.mutex.unlock()
+
+                #   Emit Wne First Frame Ready
+                if not first_frame_emitted and self.progCallback:
+                    first_frame_emitted = True
+                    self.progCallback(frame_idx, first_frame=True)
+
+                #   Emit Regular Progress
+                if self.progCallback:
+                    self.progCallback(frame_idx, first_frame=False)
+
+            container.close()
 
         except Exception as e:
-            logger.warning(f"ERROR: Failed to get video dimensions: {e}")
+            logger.warning(f"Error in FrameCacheWorker: {e}")
+
+
+
+
+############################################
+#######      Frame Cache Manager     #######
+            
+class FrameCacheManager(QObject):
+    cacheUpdated = Signal(int)
+    cacheComplete = Signal()
+    firstFrameComplete = Signal(int)
+
+
+    def __init__(self, core, pWidth=400):
+        super().__init__()
+        self.core = core
+        self.mediaPath = None
+        self.cache = {}
+        self.threadpool = QThreadPool.globalInstance()
+        self.mutex = QMutex()
+        self.worker = None
+        self.pWidth = int(pWidth)
+        self.total_frames = 0
+        self._firstFrameEmitted = False
+
+
+    def setMedia(self, mediaPath:str, iData:dict) -> None:
+        '''Sets Media to Frame Cache Manager'''
+
+        self.stop()
+        self.clear()
+
+        self.mediaPath = mediaPath
+        self.pduration = iData[0]
+        self.pstart = 1
+        self.pend = self.pstart + self.pduration - 1
+        self.fps = round(float(iData[1]), 2)
+        self.codec = iData[3]
+        self.pwidth = iData[5]
+        self.pheight = iData[6]
+
+
+    def start(self) -> None:
+        '''Starts the Frame Caching'''
+
+        if not self.mediaPath:
             return
+        
+        logger.debug("Frame Caching Started")
 
-        #   Get Frame Size in Bytes (RGB24)
-        frameSize = w * h * 3
+        #   Get Codec and Frame Count
+        container = av.open(self.mediaPath)
+        stream = container.streams.video[0]
+        self.totalFrames = stream.frames if stream.frames else sum(1 for _ in container.decode(stream))
 
-        #   Build FFmpeg command
-        cmd = [
-            self.ffmpegPath,
-            "-i", filePath,
-            "-vf", f"select=eq(n\,{frameIdx})",
-            "-vframes", "1",
-            "-f", "image2pipe",
-            "-pix_fmt", "rgb24",
-            "-vcodec", "rawvideo",
-            "-"
-        ]
+        if not self.codec:
+            self.codec = stream.codec_context.name.lower()
 
-        try:
-            proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            stdout, stderr = proc.communicate(timeout=10)
+        container.close()
 
-            #   Check for FFmpeg Errors
-            if proc.returncode != 0:
-                logger.warning(f"ERROR: FFmpeg error:\n{stderr.decode('utf-8')}")
-                return
+        #   Creates Frame Cache Dict with None's for Each Frame
+        self.cache = {i: None for i in range(self.totalFrames)}
 
-            #   Checks if Returned Bytes Matches Expected Size
-            if len(stdout) < frameSize:
-                logger.warning(f"ERROR: Expected {frameSize} bytes from FFmpeg, got {len(stdout)}")
-                return
-
-            #   Convert Raw Bytes to Numpy Array
-            frame = np.frombuffer(stdout[:frameSize], np.uint8).reshape((h, w, 3))
-
-            #   Flips Image Vertically
-            frame = np.flipud(frame)
-
-            #   Swaps R <-> B Channels
-            frame = frame[..., ::-1]
-
-            # Emit signal
-            self.frameReady.emit(frame)
-
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            print("FFmpeg process timed out!")
-
-        except Exception as e:
-            print(f"Failed to load frame {frameIdx}: {e}")
-            traceback.print_exc()
+        #   Create Worker Instance
+        self.worker = FrameCacheWorker(
+            self.core,
+            self.mediaPath,
+            self.cache,
+            self.mutex,
+            self.pWidth,
+            self._onWorkerProgress,
+        )
+        #   Start Worker
+        self.worker.setAutoDelete(True)
+        self.threadpool.start(self.worker)
 
 
+    def _onWorkerProgress(self, frameIdx, first_frame=False):
+        if first_frame:
+            self.firstFrameComplete.emit(frameIdx)
+            self._firstFrameEmitted = True
+
+        self.cacheUpdated.emit(frameIdx)
+
+        if all(v is not None for v in self.cache.values()):
+            self.cacheComplete.emit()
+            logger.debug("Frame Cache Complete")
 
 
+    def stop(self) -> None:
+        '''Stops the Frame Cache Worker'''
+        if self.worker:
+            self.worker.stop()
+
+        self.worker = None
+        logger.debug("Frame Cache Stopped")
 
 
-
-
-    def getVideoDimensions(self, filePath):
-        """Return width and height of video using FFprobe"""
-        cmd = [
-            self.ffprobePath,
-            "-v", "error",
-            "-select_streams", "v:0",
-            "-show_entries", "stream=width,height",
-            "-of", "csv=p=0:s=x",
-            filePath
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        w, h = map(int, result.stdout.strip().split("x"))
-        return w, h
+    def clear(self) -> None:
+        '''Clears the Current Frame Cache'''
+        self.mutex.lock()
+        self.cache.clear()
+        self.mutex.unlock()
+        logger.debug("Frame Cache Cleared")
 
 
 
-class GLVideoWidget(QOpenGLWidget):
-    def __init__(self, parent=None):
-        super(GLVideoWidget, self).__init__(parent)
+
+############################################
+#######     GL GPU Image Display     #######
+
+class GLVideoDisplay(QOpenGLWidget):
+    def __init__(self, player, parent=None):
+        super(GLVideoDisplay, self).__init__(parent)
+        self.player = player
         self.frame = None
 
-    def setFrame(self, frame: np.ndarray):
+
+    def setFrame(self, frameIdx: int, frame: np.ndarray) -> None:
+        '''Displays the Given Numpy Array Image in the Viewer'''
+
+        self.frameIdx = frameIdx
         self.frame = frame
 
-        if frame is not None:
-            # Get video aspect ratio
-            h, w, _ = frame.shape
-            aspect_ratio = w / h
+        try:
+            if frame is not None:
+                #   Get Frame Rez Sizes
+                h, w, _ = frame.shape
+                aspectRatio = w / h
 
-            # Compute height based on current widget width
-            new_width = self.width()  # current width of the widget/container
-            new_height = int(new_width / aspect_ratio)
+                #   Get Height Based on Widget UI Width
+                new_width = self.width()
+                new_height = int(new_width / aspectRatio)
 
-            # Set widget height to match the scaled video
-            self.setMinimumHeight(new_height)
-            self.setMaximumHeight(new_height)
-            self.resize(new_width, new_height)
+                # Set Sizes
+                self.setMinimumHeight(new_height)
+                self.setMaximumHeight(new_height)
+                self.resize(new_width, new_height)
 
-        self.update()
+            self.update()
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Set Frame {frameIdx}:\n{e}")
 
 
     def initializeGL(self):
@@ -1240,12 +1326,15 @@ class GLVideoWidget(QOpenGLWidget):
     def resizeEvent(self, event):
         if self.frame is not None:
             h, w, _ = self.frame.shape
-            aspect_ratio = w / h
+            aspectRatio = w / h
+
             new_width = self.width()
-            new_height = int(new_width / aspect_ratio)
+            new_height = int(new_width / aspectRatio)
+
             self.setMinimumHeight(new_height)
             self.setMaximumHeight(new_height)
             self.resize(new_width, new_height)
+
         super().resizeEvent(event)
 
 
@@ -1257,44 +1346,52 @@ class GLVideoWidget(QOpenGLWidget):
             window_ratio = w / h
             video_ratio = vid_w / vid_h
 
+            #   Window is Wider than Image
             if window_ratio > video_ratio:
-                # window is wider than video
                 scale_w = video_ratio / window_ratio
                 scale_h = 1.0
+
             else:
-                # window is taller than video
+                #   window is Taller than Image
                 scale_w = 1.0
                 scale_h = window_ratio / video_ratio
 
             self.scale_w = scale_w
             self.scale_h = scale_h
+
         else:
             self.scale_w = 1.0
             self.scale_h = 1.0
 
 
     def paintGL(self):
-        if self.frame is None:
+        try:
+            if self.frame is None:
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+                return
+
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            return
+            h, w, c = self.frame.shape
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        h, w, c = self.frame.shape
-        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+            if c != 3:
+                logger.warning(f"ERROR: Unexpected Channel Count: {c}")
+                return
 
-        # Convert BGR->RGB if needed
-        img_data = self.frame
-        if c == 3:
-            img_data = np.ascontiguousarray(self.frame[..., ::-1])
+            glBindTexture(GL_TEXTURE_2D, self.texture_id)
+            img_data = np.ascontiguousarray(self.frame)
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 
-        # Draw quad
-        glBegin(GL_QUADS)
-        glTexCoord2f(0, 0); glVertex2f(-self.scale_w, -self.scale_h)
-        glTexCoord2f(1, 0); glVertex2f(self.scale_w, -self.scale_h)
-        glTexCoord2f(1, 1); glVertex2f(self.scale_w, self.scale_h)
-        glTexCoord2f(0, 1); glVertex2f(-self.scale_w, self.scale_h)
-        glEnd()
+            glBegin(GL_QUADS)
+            glTexCoord2f(0, 0); glVertex2f(-self.scale_w, -self.scale_h)
+            glTexCoord2f(1, 0); glVertex2f(self.scale_w, -self.scale_h)
+            glTexCoord2f(1, 1); glVertex2f(self.scale_w, self.scale_h)
+            glTexCoord2f(0, 1); glVertex2f(-self.scale_w, self.scale_h)
+            glEnd()
+
+            self.player.onCurrentChanged(self.frameIdx)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Paint the Gl Frame: {e}")

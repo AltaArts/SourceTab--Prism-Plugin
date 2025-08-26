@@ -222,6 +222,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def checkGpuAvailability(self):
         ctx = QOpenGLContext()
         return bool(ctx.create())
+        # return False                                           #   TESTING
     
 
     @err_catcher(name=__name__)
@@ -333,9 +334,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         # Media Player Import
         self.useGPU = self.checkGpuAvailability()
-
-        # self.useGPU = False                                                                             #   TESTING
-
         if self.useGPU:
             logger.status("Initializing GPU PreviewViewer")
 
@@ -1045,6 +1043,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def configureViewLut(self, presets=None):                                       #   TODO
+
+        # self.useViewLuts = True
 
         self.PreviewPlayer.container_viewLut.setVisible(self.useViewLuts)
 
