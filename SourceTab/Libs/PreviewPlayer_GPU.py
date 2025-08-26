@@ -106,7 +106,6 @@ class PreviewPlayer_GPU(QWidget):
         self.currentPreviewMedia = None
         self.previewTimeline = None
         self.tlPaused = False
-        self.previewSeq = []
 
         self.prvIsSequence = False
 
@@ -497,7 +496,7 @@ class PreviewPlayer_GPU(QWidget):
 
 
     def sliderChanged(self, frameIdx):
-        if not self.previewSeq or not self.PreviewCache.cache:
+        if not self.mediaFiles or not self.PreviewCache.cache:
             return
 
         was_playing = self.isPlaying()
@@ -550,7 +549,7 @@ class PreviewPlayer_GPU(QWidget):
 
 
     def onPlayClicked(self):
-        if not self.previewSeq or not self.PreviewCache.cache:
+        if not self.mediaFiles or not self.PreviewCache.cache:
             return
 
         if self.isPlaying():
@@ -621,7 +620,7 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def previewClk(self, event):
-        if (len(self.previewSeq) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
+        if (len(self.mediaFiles) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
             if self.previewTimeline.state() == QTimeLine.Paused:
                 self.setTimelinePaused(False)
 
@@ -645,11 +644,11 @@ class PreviewPlayer_GPU(QWidget):
         self.tile = tile
 
         self.resetImage()
-        self.updatePreview()
+        self.updatePreview(mediaFiles)
 
 
     @err_catcher(name=__name__)
-    def updatePreview(self):
+    def updatePreview(self, mediaFiles):
         if not self.previewEnabled:
             return
         
@@ -667,48 +666,39 @@ class PreviewPlayer_GPU(QWidget):
         else:
             self.tlPaused = True
 
-        self.previewSeq = []
-        self.prvIsSequence = False
-
-        if len(self.mediaFiles) > 0:
-            _, extension = os.path.splitext(self.mediaFiles[0])
+        if len(mediaFiles) > 0:
+            _, extension = os.path.splitext(mediaFiles[0])
             extension = extension.lower()
 
             #   Image Sequence
-            if (len(self.mediaFiles) > 1 and extension not in self.core.media.videoFormats):
+            if (len(mediaFiles) > 1 and extension not in self.core.media.videoFormats):
                 self.fileType = "Images"
-                self.previewSeq = self.mediaFiles
+                iData = FileInfoWorker.probeFile(mediaFiles[0], self, self.core)
                 self.prvIsSequence = True
-
-                (self.pstart, self.pend,) = self.core.media.getFrameRangeFromSequence(self.mediaFiles)
-                self.pduration = len(self.previewSeq)
+                start, end = self.core.media.getFrameRangeFromSequence(mediaFiles)
+                duration = len(mediaFiles)
 
             #   Video File
             else:
                 self.fileType = "Videos"
-                self.previewFile = self.mediaFiles[0]
-                self.pstart = 1
+                iData = FileInfoWorker.probeFile(mediaFiles[0], self, self.core)
+                duration = iData[0]
+                start = 1
+                end = start + duration - 1
                 self.prvIsSequence = False
-                self.previewSeq = [self.previewFile]
 
-            iData = FileInfoWorker.probeFile(self.previewFile, self, self.core)
-
-            self.pduration = iData[0]
-            self.pstart = 1
-            self.pend = self.pstart + self.pduration - 1
+            self.pstart = start
+            self.pend = end
+            self.pduration = duration
             self.fps = round(float(iData[1]), 2)
             self.codec = iData[3]
             self.pwidth = iData[5]
             self.pheight = iData[6]
 
+
             self.sl_previewImage.setMaximum(self.pduration - 1)
 
-            if (self.pduration == 1 and os.path.splitext(self.previewFile)[1].lower() in self.core.media.videoFormats):
-                self.vidPrw = "loading"
-                self.updatePrvInfo(self.previewFile)
-
-            else:
-                self.updatePrvInfo(self.previewFile)
+            self.updatePrvInfo(mediaFiles[0])
 
             frame_time = int(1000 / self.fps)
 
@@ -721,7 +711,17 @@ class PreviewPlayer_GPU(QWidget):
             self.previewTimeline.setFrameRange(self.pstart, self.pend)
 
 
-            self.PreviewCache.setMedia(self.previewFile, iData)
+            prevData = {
+                "start": self.pstart,
+                "end": self.pend,
+                "duration": self.pduration,
+                "fps": self.fps,
+                "codec": self.codec,
+                "width": self.pwidth,
+                "height": self.pheight
+            }
+
+            self.PreviewCache.setMedia(mediaFiles, prevData)
             self.PreviewCache.start()
 
             return True
@@ -734,17 +734,12 @@ class PreviewPlayer_GPU(QWidget):
         self.w_playerCtrls.setEnabled(False)
         self.sp_current.setEnabled(False)
 
-        if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
-            self.l_loading.setVisible(False)
-            self.loadingGif.stop()
-
-
 
 
     @err_catcher(name=__name__)
-    def updatePrvInfo(self, prvFile="", seq=None):
+    def updatePrvInfo(self, prvFile="", seq=None):                      #   TODO - USE DATA ALREADY MADE
         if seq is not None:
-            if self.previewSeq != seq:
+            if self.mediaFiles != seq:
                 return
 
         if not os.path.exists(prvFile):
@@ -813,7 +808,7 @@ class PreviewPlayer_GPU(QWidget):
                 frStr,
             )
 
-        elif len(self.previewSeq) > 1:
+        elif len(self.mediaFiles) > 1:
             infoStr = "%s files %sx%s   %s\n%s" % (
                 self.pduration,
                 width,
@@ -849,7 +844,7 @@ class PreviewPlayer_GPU(QWidget):
         #   Add File Size if Enabled
         if self.core.getConfig("globals", "showFileSizes"):
             size = 0
-            for file in self.previewSeq:
+            for file in self.mediaFiles:
                 if os.path.exists(file):
                     size += Utils.getFileSize(file)
 
@@ -995,10 +990,10 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def clearCurrentThumbnails(self):
-        if not self.previewSeq:
+        if not self.mediaFiles:
             return
 
-        thumbdir = os.path.dirname(self.core.media.getThumbnailPath(self.previewSeq[0]))
+        thumbdir = os.path.dirname(self.core.media.getThumbnailPath(self.mediaFiles[0]))
         if not os.path.exists(thumbdir):
             return
 
@@ -1189,7 +1184,7 @@ class FrameCacheManager(QObject):
     def __init__(self, core, pWidth=400):
         super().__init__()
         self.core = core
-        self.mediaPath = None
+        self.mediaFiles = []
         self.cache = {}
         self.threadpool = QThreadPool.globalInstance()
         self.mutex = QMutex()
@@ -1199,32 +1194,34 @@ class FrameCacheManager(QObject):
         self._firstFrameEmitted = False
 
 
-    def setMedia(self, mediaPath:str, iData:dict) -> None:
+    def setMedia(self, mediaFiles:list, prevData:dict) -> None:
         '''Sets Media to Frame Cache Manager'''
 
         self.stop()
         self.clear()
 
-        self.mediaPath = mediaPath
-        self.pduration = iData[0]
-        self.pstart = 1
-        self.pend = self.pstart + self.pduration - 1
-        self.fps = round(float(iData[1]), 2)
-        self.codec = iData[3]
-        self.pwidth = iData[5]
-        self.pheight = iData[6]
+        self.mediaFiles = mediaFiles[0]           #   TODO
+
+
+        self.pstart = prevData["start"]
+        self.pend = prevData["end"]
+        self.pduration = prevData["duration"]
+        self.fps = prevData["fps"]
+        self.codec = prevData["codec"]
+        self.pwidth = prevData["width"]
+        self.pheight = prevData["height"]
 
 
     def start(self) -> None:
         '''Starts the Frame Caching'''
 
-        if not self.mediaPath:
+        if not self.mediaFiles:
             return
         
         logger.debug("Frame Caching Started")
 
         #   Get Codec and Frame Count
-        container = av.open(self.mediaPath)
+        container = av.open(self.mediaFiles)
         stream = container.streams.video[0]
         self.totalFrames = stream.frames if stream.frames else sum(1 for _ in container.decode(stream))
 
@@ -1239,7 +1236,7 @@ class FrameCacheManager(QObject):
         #   Create Worker Instance
         self.worker = FrameCacheWorker(
             self.core,
-            self.mediaPath,
+            self.mediaFiles,
             self.cache,
             self.mutex,
             self.pWidth,
