@@ -58,11 +58,16 @@ from functools import partial
 import threading
 from collections import OrderedDict
 import math
+import time
 
 from PIL import Image
 import numpy as np
 from OpenGL.GL import *
 import av
+
+
+import PyOpenColorIO as ocio                        #   TODO - Handle MediaExtension
+
 
 
 
@@ -77,6 +82,16 @@ from PrismUtils.Decorators import err_catcher
 import SourceTab_Utils as Utils
 from SourceTab_Models import FileTileMimeData
 from WorkerThreads import FileInfoWorker
+
+
+#   Color names for Beauty/Color pass
+COLORNAMES = ["color", 
+              "beauty",
+              "combined",
+              "diffuse",
+              "diffcolor",
+              "diffusecolor"]
+
 
 
 logger = logging.getLogger(__name__)
@@ -103,7 +118,7 @@ class PreviewPlayer_GPU(QWidget):
         self.mediaFiles = []
         self.renderResX = 300
         self.renderResY = 169
-        self.currentPreviewMedia = None
+        self.currentPreviewMedia = None                     #   NEEDED???
         self.previewTimeline = None
         self.tlPaused = False
 
@@ -121,7 +136,6 @@ class PreviewPlayer_GPU(QWidget):
         self.playTimer.timeout.connect(self._playNextFrame)
         self._playFrameIndex = 0
         self._playBaseOffset = 0
-
 
         self.updateExternalMediaPlayers()
         self.setupUi()
@@ -282,6 +296,7 @@ class PreviewPlayer_GPU(QWidget):
 
 
 
+
     @err_catcher(name=__name__)
     def setPreviewEnabled(self, state):
         self.previewEnabled = state
@@ -350,10 +365,9 @@ class PreviewPlayer_GPU(QWidget):
         self.sl_previewImage.setStyleSheet(style)
 
 
-
+    #   Generate a Black 16:9 Frame at Current Preview Width
     @err_catcher(name=__name__)
     def makeBlackFrame(self):
-        """Generate a black 16:9 frame at the current preview width."""
         width = self.displayWindow.width()
         if width <= 0:
             width = 300
@@ -644,6 +658,7 @@ class PreviewPlayer_GPU(QWidget):
         self.tile = tile
 
         self.resetImage()
+        self.configureOCIO()
         self.updatePreview(mediaFiles)
 
 
@@ -721,7 +736,8 @@ class PreviewPlayer_GPU(QWidget):
                 "height": self.pheight
             }
 
-            self.PreviewCache.setMedia(mediaFiles, prevData)
+            windowWidth = self.displayWindow.width()
+            self.PreviewCache.setMedia(mediaFiles, windowWidth, self.fileType, self.prvIsSequence, prevData)
             self.PreviewCache.start()
 
             return True
@@ -896,6 +912,86 @@ class PreviewPlayer_GPU(QWidget):
 
         if frame is not None:
             self.frameReady.emit(frameIdx, frame)
+
+
+
+
+    @err_catcher(name=__name__)
+    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):
+
+
+        # self.printOcioInfo()                                  #   TESTING
+
+        input_space = "sRGB"
+        # input_space = "Linear Rec.709"
+        # input_space = "Linear ACES - AP0"
+        # input_space = "ARRI LogC4"
+        # input_space = "zCam zLog2 Rec.1886"
+
+        display = "sRGB"
+        # display = "Rec.1886"
+
+        view = "Standard"
+        # view = "AgX"
+        # view = "Filmic"
+        # view = "ACES"
+
+        lut_path = None
+
+        self.displayWindow.configureOCIO(
+            input_space=input_space,
+            display=display,
+            view=view,
+            lut_path=lut_path
+        )
+
+
+
+
+    def printOcioInfo(self):                                                 #   TESTING
+        try:
+            config = ocio.GetCurrentConfig()
+            print("=== OCIO Config Info ===")
+            print(f"Config Name: {config.getName()}")
+            print(f"Search Path: {config.getSearchPath()}")
+            print(f"Working Dir: {config.getWorkingDir()}\n")
+
+            # --- Color Spaces ---
+            print("ColorSpaces:")
+            for cs in config.getColorSpaces():
+                try:
+                    fam = getattr(cs, "getFamilyName", lambda: "")()
+                    print(f"  - {cs.getName()} (family={fam})")
+                except Exception:
+                    print(f"  - {cs.getName()} (family=Unknown)")
+
+            # --- Displays and Views ---
+            print("\nDisplays + Views:")
+            for display in config.getDisplays():
+                print(f"  Display: {display}")
+                for view in config.getViews(display):
+                    print(f"    View: {view}")
+
+            # --- Roles ---
+            print("\nRoles:")
+            try:
+                for role_name in config.getRoles():
+                    cs = None
+                    try:
+                        cs = config.getColorSpace(role_name)
+                        cs_name = cs.getName() if cs else "None"
+                    except Exception:
+                        cs_name = "Unresolved"
+                    print(f"  {role_name} -> {cs_name}")
+            except Exception:
+                print("  (Unable to query roles with this OCIO version)")
+
+            print("\n\n\n")
+
+        except Exception as e:
+            print(f"[OCIO] Failed to query config: {e}")
+
+
 
 
 
@@ -1092,17 +1188,17 @@ class PreviewPlayer_GPU(QWidget):
 
 
 
-############################################
-#######      Frame Cache Worker      #######
+######################################
+#######      Frame Cache       #######
                     
-class FrameCacheWorker(QRunnable):
+class VideoCacheWorker(QRunnable):
     def __init__(self, core, mediaPath, cacheRef, mutex, pWidth, progCallback):
         super().__init__()
         self.core = core
         self.mediaPath = mediaPath
         self.cacheRef = cacheRef
         self.mutex = mutex
-        self.pWidth = int(pWidth)
+        self.pWidth = pWidth
         self.progCallback = progCallback
         self._running = True
 
@@ -1113,6 +1209,7 @@ class FrameCacheWorker(QRunnable):
 
 
     def run(self):
+        '''Start Video Cache Worker'''
         try:
             #   Start FFmpeg Player
             container = av.open(self.mediaPath)
@@ -1124,7 +1221,7 @@ class FrameCacheWorker(QRunnable):
             except Exception:
                 pass
 
-            first_frame_emitted = False
+            firstFrame_signaled = False
 
             for frame_idx, frame in enumerate(container.decode(stream)):
                 if not self._running:
@@ -1151,29 +1248,126 @@ class FrameCacheWorker(QRunnable):
 
                 img = np.flipud(img)
 
+                #   Lock Cache and Load Frame into Cache
                 self.mutex.lock()
                 self.cacheRef[frame_idx] = img
                 self.mutex.unlock()
 
-                #   Emit Wne First Frame Ready
-                if not first_frame_emitted and self.progCallback:
-                    first_frame_emitted = True
-                    self.progCallback(frame_idx, first_frame=True)
+                #   Emit When First Frame Ready
+                if not firstFrame_signaled and self.progCallback:
+                    firstFrame_signaled = True
+                    self.progCallback(frame_idx, firstFrame=True)
 
                 #   Emit Regular Progress
                 if self.progCallback:
-                    self.progCallback(frame_idx, first_frame=False)
+                    self.progCallback(frame_idx, firstFrame=False)
 
             container.close()
 
         except Exception as e:
-            logger.warning(f"Error in FrameCacheWorker: {e}")
+            logger.warning(f"ERROR: Unable to Cache Video File: {e}")
 
 
 
+class ImageCacheWorker(QRunnable):
+    def __init__(self, core, imgPath, frame_idx, cacheRef, mutex, pWidth, progCallback):
+        super().__init__()
+        self.core = core
+        self.imgPath = imgPath
+        self.frame_idx = frame_idx
+        self.cacheRef = cacheRef
+        self.mutex = mutex
+        self.pWidth = int(pWidth)
+        self.progCallback = progCallback
+        self._running = True
 
-############################################
-#######      Frame Cache Manager     #######
+        self.oiio = self.core.media.getOIIO()
+
+
+    def stop(self) -> None:
+        '''Stop Frame Cache Worker'''
+        self._running = False
+
+
+    def getfirstColorLayer(self, layers):
+        for name in COLORNAMES:
+            for layer in layers:
+                if name.lower() in layer.lower():
+                    return layer
+        return None
+
+
+    def run(self):
+        '''Start Image Cache Worker'''
+
+        try:
+            if not self._running:
+                return
+            if not os.path.exists(self.imgPath):
+                return
+
+            #   Get Layer Names from Prism
+            layers = self.core.media.getLayersFromFile(self.imgPath)
+
+            #   Find the First Color/Beauty Layer
+            selected_layer = self.getfirstColorLayer(layers)
+
+            inp = self.oiio.ImageInput.open(self.imgPath)
+            if not inp:
+                return
+
+            spec = inp.spec()
+            channels = spec.channelnames
+
+            img_np = None
+
+            #   If Beauty/Color Layer Found
+            if selected_layer:
+                #   Find RGB Channels for the Selected Layer
+                rgb_channels = [c for c in channels if selected_layer in c and not c.endswith(".A")]
+                if len(rgb_channels) == 3:
+                    chbegin = channels.index(rgb_channels[0])
+                    chend = channels.index(rgb_channels[-1]) + 1
+                    img = inp.read_image(0, 0, chbegin, chend, self.oiio.UINT8)
+                    img_np = np.array(img).reshape(spec.height, spec.width, 3)
+
+            #   Fallback
+            if img_np is None:
+                img = inp.read_image(format=self.oiio.UINT8)
+                img_np = np.array(img).reshape(spec.height, spec.width, spec.nchannels)
+
+                #   If Single Channel, Repeat to Make 3 Channel
+                if img_np.shape[-1] == 1:
+                    img_np = np.repeat(img_np, 3, axis=-1)
+
+                #   Fallback to First 3 Channels
+                else:
+                    img_np = img_np[..., :3]
+
+            inp.close()
+
+            #   Resize
+            src_w, src_h = spec.width, spec.height
+            scale = self.pWidth / float(src_w)
+            dst_w = self.pWidth
+            dst_h = max(1, int(round(src_h * scale)))
+            if (dst_w, dst_h) != (src_w, src_h):
+                img_np = np.array(Image.fromarray(img_np).resize((dst_w, dst_h), Image.BILINEAR))
+
+            img_np = np.flipud(img_np)
+
+            #   Lock Cache and Load Frame into Cache
+            self.mutex.lock()
+            self.cacheRef[self.frame_idx] = img_np
+            self.mutex.unlock()
+
+            if self.progCallback:
+                self.progCallback(self.frame_idx, firstFrame=(self.frame_idx == 0))
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Cache Image: {e}")
+
+
             
 class FrameCacheManager(QObject):
     cacheUpdated = Signal(int)
@@ -1193,22 +1387,27 @@ class FrameCacheManager(QObject):
         self.total_frames = 0
         self._firstFrameEmitted = False
 
+        # self.threadpool.setMaxThreadCount(8)                         #   TODO - Look at adding Max Threads to Settings   
+        # max_threads = self.threadpool.maxThreadCount()
+        # print(f"***  max_threads:  {max_threads}")								#	TESTING
 
-    def setMedia(self, mediaFiles:list, prevData:dict) -> None:
+
+    def setMedia(self, mediaFiles:list, prevWidth:int, fileType:str, isSeq:bool, prevData:dict) -> None:
         '''Sets Media to Frame Cache Manager'''
 
         self.stop()
         self.clear()
 
-        self.mediaFiles = mediaFiles[0]           #   TODO
-
+        self.mediaFiles = mediaFiles
+        self.fileType = fileType
+        self.isSeq = isSeq
 
         self.pstart = prevData["start"]
         self.pend = prevData["end"]
         self.pduration = prevData["duration"]
         self.fps = prevData["fps"]
         self.codec = prevData["codec"]
-        self.pwidth = prevData["width"]
+        self.pwidth = prevWidth
         self.pheight = prevData["height"]
 
 
@@ -1220,43 +1419,70 @@ class FrameCacheManager(QObject):
         
         logger.debug("Frame Caching Started")
 
-        #   Get Codec and Frame Count
-        container = av.open(self.mediaFiles)
-        stream = container.streams.video[0]
-        self.totalFrames = stream.frames if stream.frames else sum(1 for _ in container.decode(stream))
+        #   Record Caching Start Time
+        self._cacheStartTime = time.time()
 
-        if not self.codec:
-            self.codec = stream.codec_context.name.lower()
+        #   Image Sequences
+        if self.isSeq:
+            #   Creates Frame Cache Dict with None's for Each Frame
+            self.totalFrames = len(self.mediaFiles)
+            self.cache = {i: None for i in range(self.totalFrames)}
 
-        container.close()
+            #   Launch Worker per Sequence Image
+            for frame_idx, imgPath in enumerate(self.mediaFiles):
+                worker = ImageCacheWorker(
+                    self.core,
+                    imgPath,
+                    frame_idx,
+                    self.cache,
+                    self.mutex,
+                    self.pWidth,
+                    self._onWorkerProgress
+                )
+                worker.setAutoDelete(True)
+                self.threadpool.start(worker)
 
-        #   Creates Frame Cache Dict with None's for Each Frame
-        self.cache = {i: None for i in range(self.totalFrames)}
+        #   Non-Sequences
+        else:
+            mediaPath = self.mediaFiles[0]
 
-        #   Create Worker Instance
-        self.worker = FrameCacheWorker(
-            self.core,
-            self.mediaFiles,
-            self.cache,
-            self.mutex,
-            self.pWidth,
-            self._onWorkerProgress,
-        )
-        #   Start Worker
-        self.worker.setAutoDelete(True)
-        self.threadpool.start(self.worker)
+            #   Get Codec and Frame Count
+            container = av.open(mediaPath)
+            stream = container.streams.video[0]
+            self.totalFrames = stream.frames if stream.frames else sum(1 for _ in container.decode(stream))
+
+            if not self.codec:
+                self.codec = stream.codec_context.name.lower()
+
+            container.close()
+
+            #   Creates Frame Cache Dict with None's for Each Frame
+            self.cache = {i: None for i in range(self.totalFrames)}
+
+            #   Launch Worker Instance
+            self.worker = VideoCacheWorker(
+                self.core,
+                mediaPath,
+                self.cache,
+                self.mutex,
+                self.pWidth,
+                self._onWorkerProgress,
+            )
+            self.worker.setAutoDelete(True)
+            self.threadpool.start(self.worker)
 
 
-    def _onWorkerProgress(self, frameIdx, first_frame=False):
-        if first_frame:
+    def _onWorkerProgress(self, frameIdx, firstFrame=False):
+        if firstFrame:
             self.firstFrameComplete.emit(frameIdx)
             self._firstFrameEmitted = True
 
         self.cacheUpdated.emit(frameIdx)
 
         if all(v is not None for v in self.cache.values()):
+            elapsed = time.time() - self._cacheStartTime
+            logger.debug(f"Frame Cache Complete in {elapsed:.2f} seconds")
             self.cacheComplete.emit()
-            logger.debug("Frame Cache Complete")
 
 
     def stop(self) -> None:
@@ -1281,114 +1507,199 @@ class FrameCacheManager(QObject):
 ############################################
 #######     GL GPU Image Display     #######
 
+
+
 class GLVideoDisplay(QOpenGLWidget):
     def __init__(self, player, parent=None):
-        super(GLVideoDisplay, self).__init__(parent)
+        super().__init__(parent)
         self.player = player
         self.frame = None
+        self.texture_id = None
+        self.program = None
+        self.vao = None
+        self.scale_w = 1.0
+        self.scale_h = 1.0
+
+        # --- OCIO config + default processor ---
+        self.config = ocio.GetCurrentConfig()
+        self.processor = self.config.getProcessor("lin_srgb", "sRGB")
+        self.gpu_proc = self.processor.getDefaultGPUProcessor()
+
+
+    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):
+        try:
+            config = ocio.GetCurrentConfig()
+
+            disp_view_transform = ocio.DisplayViewTransform(
+                src=input_space or '',
+                display=display or '',
+                view=view or '',
+                looksBypass=False,
+                dataBypass=True
+            )
+
+            final_transform = disp_view_transform
+
+            if lut_path:
+                file_lut = ocio.FileTransform(
+                    lut_path,
+                    interpolation=ocio.Interpolation.INTERP_LINEAR,
+                    direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
+                )
+                group = ocio.GroupTransform()
+                group.appendTransform(disp_view_transform)
+                group.appendTransform(file_lut)
+                final_transform = group
+
+            self.processor = config.getProcessor(final_transform)
+            self.gpu_proc = self.processor.getDefaultGPUProcessor()
+
+            shader_desc = ocio.GpuShaderDesc.CreateShaderDesc()
+            self.gpu_proc.extractGpuShaderInfo(shader_desc)
+            ocio_frag_code = shader_desc.getShaderText()
+
+            # ---- FIX: Replace texture3D with texture ----
+            ocio_frag_code = ocio_frag_code.replace("texture3D", "texture")
+
+            vertex_shader_src = """
+            #version 330
+            in vec2 position;
+            in vec2 texcoord;
+            out vec2 vTexCoord;
+            uniform vec2 uScale;
+            void main() {
+                vTexCoord = texcoord;
+                gl_Position = vec4(position * uScale, 0.0, 1.0);
+            }
+            """
+
+            fragment_shader_src = f"""
+            #version 330
+            uniform sampler2D uTex;
+            in vec2 vTexCoord;
+            out vec4 fragColor;
+
+            {ocio_frag_code}
+
+            void main() {{
+                vec4 col = texture(uTex, vTexCoord);
+                fragColor = OCIOMain(col);
+            }}
+            """
+
+            # --- Compile shader program ---
+            if hasattr(self, "program") and self.program:
+                glDeleteProgram(self.program)
+            self.program = self._compileShaderProgram(vertex_shader_src, fragment_shader_src)
+
+            self.update()
+            print(f"[OCIO] Configured: Input={input_space}, Display={display}, View={view}, LUT={lut_path}")        #   TODO - LOGGING
+
+        except Exception as e:
+            print(f"[OCIO] Failed to set transform: {e}")                                                           #   TODO - LOGGING
+
+
+    def _compileShaderProgram(self, vert_src, frag_src):
+        def compileShader(src, shader_type):
+            shader = glCreateShader(shader_type)
+            glShaderSource(shader, src)
+            glCompileShader(shader)
+            if not glGetShaderiv(shader, GL_COMPILE_STATUS):
+                raise RuntimeError(glGetShaderInfoLog(shader).decode())
+            return shader
+
+        vs = compileShader(vert_src, GL_VERTEX_SHADER)
+        fs = compileShader(frag_src, GL_FRAGMENT_SHADER)
+
+        program = glCreateProgram()
+        glAttachShader(program, vs)
+        glAttachShader(program, fs)
+        glLinkProgram(program)
+        if not glGetProgramiv(program, GL_LINK_STATUS):
+            raise RuntimeError(glGetProgramInfoLog(program).decode())
+        return program
+
 
 
     def setFrame(self, frameIdx: int, frame: np.ndarray) -> None:
-        '''Displays the Given Numpy Array Image in the Viewer'''
-
         self.frameIdx = frameIdx
         self.frame = frame
-
-        try:
-            if frame is not None:
-                #   Get Frame Rez Sizes
-                h, w, _ = frame.shape
-                aspectRatio = w / h
-
-                #   Get Height Based on Widget UI Width
-                new_width = self.width()
-                new_height = int(new_width / aspectRatio)
-
-                # Set Sizes
-                self.setMinimumHeight(new_height)
-                self.setMaximumHeight(new_height)
-                self.resize(new_width, new_height)
-
-            self.update()
-        
-        except Exception as e:
-            logger.warning(f"ERROR: Unable to Set Frame {frameIdx}:\n{e}")
+        self.update()
 
 
     def initializeGL(self):
-        glEnable(GL_TEXTURE_2D)
         self.texture_id = glGenTextures(1)
+        self.configureOCIO()  # configure default OCIO at init
+        self._setupQuad()
 
 
-    def resizeEvent(self, event):
-        if self.frame is not None:
-            h, w, _ = self.frame.shape
-            aspectRatio = w / h
+    def _setupQuad(self):
+        verts = np.array([
+            -1, -1, 0, 0,
+             1, -1, 1, 0,
+             1,  1, 1, 1,
+            -1,  1, 0, 1,
+        ], dtype=np.float32)
 
-            new_width = self.width()
-            new_height = int(new_width / aspectRatio)
+        indices = np.array([0, 1, 2, 2, 3, 0], dtype=np.uint32)
 
-            self.setMinimumHeight(new_height)
-            self.setMaximumHeight(new_height)
-            self.resize(new_width, new_height)
+        self.vao = glGenVertexArrays(1)
+        vbo = glGenBuffers(1)
+        ebo = glGenBuffers(1)
 
-        super().resizeEvent(event)
+        glBindVertexArray(self.vao)
+
+        glBindBuffer(GL_ARRAY_BUFFER, vbo)
+        glBufferData(GL_ARRAY_BUFFER, verts.nbytes, verts, GL_STATIC_DRAW)
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_STATIC_DRAW)
+
+        posLoc = glGetAttribLocation(self.program, "position")
+        texLoc = glGetAttribLocation(self.program, "texcoord")
+
+        glEnableVertexAttribArray(posLoc)
+        glVertexAttribPointer(posLoc, 2, GL_FLOAT, GL_FALSE, 16, ctypes.c_void_p(0))
+
+        glEnableVertexAttribArray(texLoc)
+        glVertexAttribPointer(texLoc, 2, GL_FLOAT, GL_FALSE, 16, ctypes.c_void_p(8))
+
+        glBindVertexArray(0)
 
 
     def resizeGL(self, w, h):
-        glViewport(0, 0, w, h)
-
         if self.frame is not None:
             vid_h, vid_w, _ = self.frame.shape
-            window_ratio = w / h
-            video_ratio = vid_w / vid_h
-
-            #   Window is Wider than Image
-            if window_ratio > video_ratio:
-                scale_w = video_ratio / window_ratio
-                scale_h = 1.0
-
-            else:
-                #   window is Taller than Image
-                scale_w = 1.0
-                scale_h = window_ratio / video_ratio
-
-            self.scale_w = scale_w
-            self.scale_h = scale_h
-
+            aspect = vid_h / vid_w
+            target_h = int(w * aspect)
+            self.setMinimumHeight(target_h)
+            self.resize(w, target_h)
+            glViewport(0, 0, w, target_h)
         else:
-            self.scale_w = 1.0
-            self.scale_h = 1.0
+            glViewport(0, 0, w, h)
 
 
     def paintGL(self):
-        try:
-            if self.frame is None:
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-                return
+        glClear(GL_COLOR_BUFFER_BIT)
+        if self.frame is None:
+            return
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-            h, w, c = self.frame.shape
+        h, w, c = self.frame.shape
+        img_data = np.ascontiguousarray(self.frame)
 
-            if c != 3:
-                logger.warning(f"ERROR: Unexpected Channel Count: {c}")
-                return
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 
-            glBindTexture(GL_TEXTURE_2D, self.texture_id)
-            img_data = np.ascontiguousarray(self.frame)
+        glUseProgram(self.program)
+        loc = glGetUniformLocation(self.program, "uScale")
+        glUniform2f(loc, self.scale_w, self.scale_h)
 
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glBindVertexArray(self.vao)
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
+        glBindVertexArray(0)
 
-            glBegin(GL_QUADS)
-            glTexCoord2f(0, 0); glVertex2f(-self.scale_w, -self.scale_h)
-            glTexCoord2f(1, 0); glVertex2f(self.scale_w, -self.scale_h)
-            glTexCoord2f(1, 1); glVertex2f(self.scale_w, self.scale_h)
-            glTexCoord2f(0, 1); glVertex2f(-self.scale_w, self.scale_h)
-            glEnd()
+        glUseProgram(0)
+        self.player.onCurrentChanged(self.frameIdx)
 
-            self.player.onCurrentChanged(self.frameIdx)
-
-        except Exception as e:
-            logger.warning(f"ERROR: Unable to Paint the Gl Frame: {e}")

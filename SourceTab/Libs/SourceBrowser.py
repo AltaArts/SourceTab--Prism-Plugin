@@ -1044,7 +1044,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def configureViewLut(self, presets=None):                                       #   TODO
 
-        # self.useViewLuts = True
+        self.useViewLuts = True                                                     #   TESTING
 
         self.PreviewPlayer.container_viewLut.setVisible(self.useViewLuts)
 
