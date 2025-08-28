@@ -231,7 +231,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.initialized = True
 
             #   Get OIIO from Core
-            self.oiio = self.core.media.getOIIO()
+            # self.oiio = self.core.media.getOIIO()                     #   NEEDED?
 
             #   Resize Splitter Panels
             QTimer.singleShot(10, lambda: self.setSplitterToThirds())
@@ -868,8 +868,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.useLibImport = settingData ["useLibImport"]
 
             #   Get OCIO View Presets
-            lutPresetData = sData["viewLutPresets"]
-            self.configureViewLut(lutPresetData)                 #   TODO - MOVE
+            # lutPresetData = sData["viewLutPresets"]                       #   TESTING - FOR OCIO Testing
+            # self.configureViewLut(lutPresetData)                 #   TODO - MOVE
 
             #   Get Tab (UI) Settings
             tabData = sData["tabSettings"]

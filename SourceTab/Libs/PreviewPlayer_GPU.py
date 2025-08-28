@@ -141,6 +141,8 @@ class PreviewPlayer_GPU(QWidget):
         self.setupUi()
         self.connectEvents()
 
+        self.tempOCIOLoad()                         #   TESTING
+
         self.resetImage()
 
 
@@ -293,6 +295,11 @@ class PreviewPlayer_GPU(QWidget):
         self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
 
         # self.PreviewCache.cacheComplete.connect(self.onCacheComplete)  # optional
+
+
+    def tempOCIOLoad(self):
+        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam"])
+
 
 
 
@@ -919,31 +926,58 @@ class PreviewPlayer_GPU(QWidget):
     @err_catcher(name=__name__)
     def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):
 
+        match self.cb_viewLut.currentText():
+            case "sRGB":
+                input_space = "sRGB"
+                display = "sRGB"
+                view = "Standard"
+
+            case "Linear":
+                input_space = "Linear Rec.709"
+                display = "sRGB"
+                view = "Standard"
+
+            case "AgX":
+                input_space = "Linear Rec.709"
+                display = "sRGB"
+                view = "AgX"
+
+            case "ACEScg":
+                input_space = "Linear ACES - AP0"
+                display = "sRGB"
+                view = "ACES"
+
+            case "zCam":
+                input_space = "zCam zLog2 Rec.1886"
+                display = "sRGB"
+                view = "Standard"
+
 
         # self.printOcioInfo()                                  #   TESTING
 
-        input_space = "sRGB"
+        # input_space = "sRGB"
         # input_space = "Linear Rec.709"
         # input_space = "Linear ACES - AP0"
         # input_space = "ARRI LogC4"
         # input_space = "zCam zLog2 Rec.1886"
 
-        display = "sRGB"
+        # display = "sRGB"
         # display = "Rec.1886"
 
-        view = "Standard"
+        # view = "Standard"
         # view = "AgX"
         # view = "Filmic"
         # view = "ACES"
 
         lut_path = None
 
-        self.displayWindow.configureOCIO(
-            input_space=input_space,
+        self.displayWindow.setOcioTransforms(
+            inputSpace=input_space,
             display=display,
             view=view,
-            lut_path=lut_path
+            lut=lut_path
         )
+
 
 
 
@@ -1520,93 +1554,28 @@ class GLVideoDisplay(QOpenGLWidget):
         self.scale_w = 1.0
         self.scale_h = 1.0
 
-        # --- OCIO config + default processor ---
+        self.inputSpace = "sRGB"
+        self.display = "sRGB"
+        self.view = "Standard"
+        self.lut_path = None
+
         self.config = ocio.GetCurrentConfig()
         self.processor = self.config.getProcessor("lin_srgb", "sRGB")
         self.gpu_proc = self.processor.getDefaultGPUProcessor()
 
 
-    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):
-        try:
-            config = ocio.GetCurrentConfig()
-
-            disp_view_transform = ocio.DisplayViewTransform(
-                src=input_space or '',
-                display=display or '',
-                view=view or '',
-                looksBypass=False,
-                dataBypass=True
-            )
-
-            final_transform = disp_view_transform
-
-            if lut_path:
-                file_lut = ocio.FileTransform(
-                    lut_path,
-                    interpolation=ocio.Interpolation.INTERP_LINEAR,
-                    direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
-                )
-                group = ocio.GroupTransform()
-                group.appendTransform(disp_view_transform)
-                group.appendTransform(file_lut)
-                final_transform = group
-
-            self.processor = config.getProcessor(final_transform)
-            self.gpu_proc = self.processor.getDefaultGPUProcessor()
-
-            shader_desc = ocio.GpuShaderDesc.CreateShaderDesc()
-            self.gpu_proc.extractGpuShaderInfo(shader_desc)
-            ocio_frag_code = shader_desc.getShaderText()
-
-            # ---- FIX: Replace texture3D with texture ----
-            ocio_frag_code = ocio_frag_code.replace("texture3D", "texture")
-
-            vertex_shader_src = """
-            #version 330
-            in vec2 position;
-            in vec2 texcoord;
-            out vec2 vTexCoord;
-            uniform vec2 uScale;
-            void main() {
-                vTexCoord = texcoord;
-                gl_Position = vec4(position * uScale, 0.0, 1.0);
-            }
-            """
-
-            fragment_shader_src = f"""
-            #version 330
-            uniform sampler2D uTex;
-            in vec2 vTexCoord;
-            out vec4 fragColor;
-
-            {ocio_frag_code}
-
-            void main() {{
-                vec4 col = texture(uTex, vTexCoord);
-                fragColor = OCIOMain(col);
-            }}
-            """
-
-            # --- Compile shader program ---
-            if hasattr(self, "program") and self.program:
-                glDeleteProgram(self.program)
-            self.program = self._compileShaderProgram(vertex_shader_src, fragment_shader_src)
-
-            self.update()
-            print(f"[OCIO] Configured: Input={input_space}, Display={display}, View={view}, LUT={lut_path}")        #   TODO - LOGGING
-
-        except Exception as e:
-            print(f"[OCIO] Failed to set transform: {e}")                                                           #   TODO - LOGGING
-
-
     def _compileShaderProgram(self, vert_src, frag_src):
+
         def compileShader(src, shader_type):
             shader = glCreateShader(shader_type)
             glShaderSource(shader, src)
             glCompileShader(shader)
+
             if not glGetShaderiv(shader, GL_COMPILE_STATUS):
                 raise RuntimeError(glGetShaderInfoLog(shader).decode())
+            
             return shader
+
 
         vs = compileShader(vert_src, GL_VERTEX_SHADER)
         fs = compileShader(frag_src, GL_FRAGMENT_SHADER)
@@ -1615,22 +1584,45 @@ class GLVideoDisplay(QOpenGLWidget):
         glAttachShader(program, vs)
         glAttachShader(program, fs)
         glLinkProgram(program)
+
         if not glGetProgramiv(program, GL_LINK_STATUS):
             raise RuntimeError(glGetProgramInfoLog(program).decode())
+        
         return program
-
-
-
-    def setFrame(self, frameIdx: int, frame: np.ndarray) -> None:
-        self.frameIdx = frameIdx
-        self.frame = frame
-        self.update()
 
 
     def initializeGL(self):
         self.texture_id = glGenTextures(1)
-        self.configureOCIO()  # configure default OCIO at init
+        # Simple pass-through shader program
+        vertex_shader_src = """
+        #version 330
+        in vec2 position;
+        in vec2 texcoord;
+        out vec2 vTexCoord;
+        uniform vec2 uScale;
+        void main() {
+            vTexCoord = texcoord;
+            gl_Position = vec4(position * uScale, 0.0, 1.0);
+        }
+        """
+        fragment_shader_src = """
+        #version 330
+        uniform sampler2D uTex;
+        in vec2 vTexCoord;
+        out vec4 fragColor;
+        void main() {
+            fragColor = texture(uTex, vTexCoord);
+        }
+        """
+        self.program = self._compileShaderProgram(vertex_shader_src, fragment_shader_src)
         self._setupQuad()
+
+
+    def setOcioTransforms(self, inputSpace, display, view, lut):
+        self.inputSpace = inputSpace
+        self.display = display
+        self.view = view
+        self.lut_path = lut
 
 
     def _setupQuad(self):
@@ -1667,6 +1659,7 @@ class GLVideoDisplay(QOpenGLWidget):
         glBindVertexArray(0)
 
 
+
     def resizeGL(self, w, h):
         if self.frame is not None:
             vid_h, vid_w, _ = self.frame.shape
@@ -1679,13 +1672,77 @@ class GLVideoDisplay(QOpenGLWidget):
             glViewport(0, 0, w, h)
 
 
+    def setFrame(self, frameIdx: int, frame: np.ndarray) -> None:
+        self.frameIdx = frameIdx
+        self.frame = frame
+        self.update()
+
+
+    def applyOCIO_CPU(self, img_np, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):
+        if img_np is None or not isinstance(img_np, np.ndarray) or img_np.size == 0:
+            return img_np
+
+        #   Ensure 3-channel RGB
+        if img_np.ndim == 2 or img_np.shape[-1] == 1:
+            img_np = np.repeat(img_np, 3, axis=-1)
+        elif img_np.shape[-1] > 3:
+            img_np = img_np[..., :3]
+
+        #   Convert to Float32 Normalized
+        img_np_f32 = img_np.astype(np.float32)
+        if img_np_f32.max() > 1.0:
+            img_np_f32 /= 255.0
+
+        h, w, c = img_np_f32.shape
+
+        config = ocio.GetCurrentConfig()
+        disp_view_transform = ocio.DisplayViewTransform(
+            src=input_space or '',
+            display=display or '',
+            view=view or '',
+            looksBypass=False,
+            dataBypass=True
+        )
+        final_transform = disp_view_transform
+
+        if lut_path:
+            file_lut = ocio.FileTransform(
+                lut_path,
+                interpolation=ocio.Interpolation.INTERP_LINEAR,
+                direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
+            )
+            group = ocio.GroupTransform()
+            group.appendTransform(disp_view_transform)
+            group.appendTransform(file_lut)
+            final_transform = group
+
+        processor = config.getProcessor(final_transform)
+        cpu_proc = processor.getDefaultCPUProcessor()
+
+        img_desc = ocio.PackedImageDesc(img_np_f32, w, h, 3)
+        cpu_proc.apply(img_desc)
+
+        img_np_out = np.clip(img_np_f32 * 255.0, 0, 255).astype(np.uint8)
+        return img_np_out
+
+
+
     def paintGL(self):
         glClear(GL_COLOR_BUFFER_BIT)
         if self.frame is None:
             return
 
-        h, w, c = self.frame.shape
-        img_data = np.ascontiguousarray(self.frame)
+        #   Apply OCIO
+        try:
+            img_data = self.applyOCIO_CPU(self.frame, self.inputSpace, self.display, self.view, self.lut_path)
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Apply OCIO Transforms: {e}")
+            img_data = self.frame
+
+
+        h, w, c = img_data.shape
+        img_data = np.ascontiguousarray(img_data)
 
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
