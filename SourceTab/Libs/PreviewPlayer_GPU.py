@@ -82,6 +82,7 @@ from PrismUtils.Decorators import err_catcher
 import SourceTab_Utils as Utils
 from SourceTab_Models import FileTileMimeData
 from WorkerThreads import FileInfoWorker
+from PopupWindows import OcioConfigPopup
 
 
 #   Color names for Beauty/Color pass
@@ -118,10 +119,8 @@ class PreviewPlayer_GPU(QWidget):
         self.mediaFiles = []
         self.renderResX = 300
         self.renderResY = 169
-        self.currentPreviewMedia = None                     #   NEEDED???
-        self.previewTimeline = None
-        self.tlPaused = False
 
+        self.tlPaused = False
         self.prvIsSequence = False
 
         self.pduration = 0
@@ -144,6 +143,8 @@ class PreviewPlayer_GPU(QWidget):
         self.tempOCIOLoad()                         #   TESTING
 
         self.resetImage()
+
+        self.enableControls(False)
 
 
         # Connect signal to GL widget
@@ -241,15 +242,18 @@ class PreviewPlayer_GPU(QWidget):
         for name in ["first", "prev", "play", "next", "last"]:
             btn = QToolButton()
             path = os.path.join(self.iconPath, f"{name}.png")
-            icon = self.core.media.getColoredIcon(path)
+            icon = Utils.getIconFromPath(path)
             btn.setIcon(icon)
-            setattr(self, f"b_{name}", btn)           
+            setattr(self, f"b_{name}", btn)
 
-        self.b_first.setToolTip("Goto First Frame")
+        self.playIcon = Utils.getIconFromPath(os.path.join(self.iconPath, "play.png"))
+        self.pauseIcon = Utils.getIconFromPath(os.path.join(self.iconPath, "pause.png"))
+
+        self.b_first.setToolTip("First Frame")
         self.b_prev.setToolTip("Previous Frame")
         self.b_play.setToolTip("Play / Pause")
         self.b_next.setToolTip("Next Frame")
-        self.b_last.setToolTip("Goto Last Frame")
+        self.b_last.setToolTip("Last Frame")
         
         self.lo_playerCtrls.addWidget(self.b_first)
         self.lo_playerCtrls.addStretch()
@@ -288,17 +292,12 @@ class PreviewPlayer_GPU(QWidget):
         self.b_next.clicked.connect(self.onNextClicked)
         self.b_last.clicked.connect(self.onLastClicked)
 
-
-        # self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
-        # self.frameCache.cacheComplete.connect(self.onCacheComplete)
-
         self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
-
-        # self.PreviewCache.cacheComplete.connect(self.onCacheComplete)  # optional
+        self.cb_viewLut.currentIndexChanged.connect(self.onLutChanged)
 
 
     def tempOCIOLoad(self):
-        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam"])
+        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam", "ARRI LogC4", "ARRI LogC3"])
 
 
 
@@ -318,11 +317,6 @@ class PreviewPlayer_GPU(QWidget):
         height = int(self.displayWindow.width()*(self.renderResY/self.renderResX))
         self.displayWindow.setMinimumHeight(height)
         self.displayWindow.setMaximumHeight(height)
-        if self.currentPreviewMedia:
-            pmap = self.core.media.scalePixmap(
-                self.currentPreviewMedia, self.getThumbnailWidth(), self.getThumbnailHeight()
-            )
-            self.displayWindow.setPixmap(pmap)
 
         if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
             self.moveLoadingLabel()
@@ -332,6 +326,11 @@ class PreviewPlayer_GPU(QWidget):
             text = self.l_info.text()
 
         self.setInfoText(text)
+
+    def enableControls(self, enable):
+        self.w_playerCtrls.setEnabled(enable)
+        self.sp_current.setEnabled(enable)
+        self.sl_previewImage.setEnabled(enable)
 
 
     @err_catcher(name=__name__)
@@ -438,6 +437,7 @@ class PreviewPlayer_GPU(QWidget):
 ###############################################
 ###########    PLAYBACK CONTROLS   ############
 
+    @err_catcher(name=__name__)
     def resetImage(self):
         self.displayWindow.setFrame(0, self.makeBlackFrame())
         self.PreviewCache.clear()
@@ -447,7 +447,6 @@ class PreviewPlayer_GPU(QWidget):
         self._playBaseOffset = 0
         self._pausedOffset = 0
 
-        self.previewTimeline and self.previewTimeline.setCurrentTime(0)
         self.sl_previewImage.setValue(0)
         self.sp_current.setValue(0)
         self.updateCacheSlider(reset=True)
@@ -456,7 +455,7 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def onCurrentChanged(self, frame):
-        if not self.previewTimeline:
+        if not self.PreviewCache.cache:
             return
 
         self.sl_previewImage.blockSignals(True)
@@ -470,15 +469,44 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def getCurrentFrame(self):
-        if not self.previewTimeline:
-            return
-
-        logger.debug(f"***  CurrFrame:  {self.previewTimeline.currentFrame() + 1}")
-        return self.previewTimeline.currentFrame() + 1
+    def onLutChanged(self, idx):
+        self.configureOCIO()
+        self.reloadCurrentFrame()
 
 
+    @err_catcher(name=__name__)
+    def setTimelinePaused(self, paused: bool):
+        """Pause or resume playback, update icon and playback timer."""
 
+        if paused:
+            if self.isPlaying():
+                self.playTimer.stop()
+                if hasattr(self, "_playStartTime"):
+                    self._pausedOffset += self._playStartTime.elapsed()
+        else:
+            if not hasattr(self, "_playStartTime"):
+                self._playStartTime = QElapsedTimer()
+            self._playStartTime.restart()
+            self.playTimer.start(10)
+
+        #   Update Button Icon
+        if paused:
+            self.b_play.setIcon(self.playIcon)
+            self.b_play.setToolTip("Play")
+        else:
+            self.b_play.setIcon(self.pauseIcon)
+            self.b_play.setToolTip("Pause")
+
+        #   Set State
+        self.tlPaused = paused
+
+
+    @err_catcher(name=__name__)
+    def isPlaying(self):
+        return hasattr(self, "playTimer") and self.playTimer.isActive()
+
+
+    @err_catcher(name=__name__)
     def setCurrentFrame(self, frameIdx:int, manual:bool = False, reset:bool = False):
         """Move the Playhead to a Specific Frame and Update the UI."""
 
@@ -516,6 +544,65 @@ class PreviewPlayer_GPU(QWidget):
             self.frameReady.emit(frameIdx, frame)
 
 
+    @err_catcher(name=__name__)
+    def reloadCurrentFrame(self):
+        if hasattr(self, "currentFrameIdx"):
+            self.setCurrentFrame(self.currentFrameIdx, manual=True)
+
+
+    @err_catcher(name=__name__)
+    def onFirstClicked(self):
+        self.setCurrentFrame(0, manual=True, reset=True)
+
+
+    @err_catcher(name=__name__)
+    def onPrevClicked(self):
+        self.setCurrentFrame(self.currentFrameIdx - 1, manual=True)
+
+
+    @err_catcher(name=__name__)
+    def onPlayClicked(self):
+        if not self.mediaFiles or not self.PreviewCache.cache:
+            return
+
+        if self.isPlaying():
+            self.setTimelinePaused(True)
+        else:
+            fps = getattr(self, "fps", 24) or 24
+            self._playInterval = 1000.0 / float(fps)
+            self.setTimelinePaused(False)
+
+
+    @err_catcher(name=__name__)
+    def _playNextFrame(self):
+        if not self.PreviewCache.cache:
+            self.playTimer.stop()
+            return
+
+        elapsed_ms = self._playStartTime.elapsed() + self._playBaseOffset + self._pausedOffset
+        target_frame = int(elapsed_ms / self._playInterval)
+
+        total_frames = len(self.PreviewCache.cache)
+        if total_frames <= 0:
+            return
+        if target_frame >= total_frames:
+            target_frame %= total_frames
+
+        if target_frame != self._playFrameIndex:
+            self.setCurrentFrame(target_frame, manual=False)
+
+
+    @err_catcher(name=__name__)
+    def onNextClicked(self):
+        self.setCurrentFrame(self.currentFrameIdx + 1, manual=True)
+
+
+    @err_catcher(name=__name__)
+    def onLastClicked(self):
+        self.setCurrentFrame(len(self.PreviewCache.cache) - 1, manual=True, reset=True)
+
+
+    @err_catcher(name=__name__)
     def sliderChanged(self, frameIdx):
         if not self.mediaFiles or not self.PreviewCache.cache:
             return
@@ -544,6 +631,7 @@ class PreviewPlayer_GPU(QWidget):
         self.sl_previewImage.origMousePressEvent(custEvent)
 
 
+    @err_catcher(name=__name__)
     def sliderClk(self):
         self.slStop = False
         if self.isPlaying():
@@ -551,103 +639,24 @@ class PreviewPlayer_GPU(QWidget):
             self.playTimer.stop()
 
 
+    @err_catcher(name=__name__)
     def sliderRls(self):
         if self.slStop:
             self._playStartTime.restart()
             self.playTimer.start(10)
 
 
-    def isPlaying(self):
-        return hasattr(self, "playTimer") and self.playTimer.isActive()
-
-
-    def onFirstClicked(self):
-        self.setCurrentFrame(0, manual=True, reset=True)
-
-
-    def onPrevClicked(self):
-        self.setCurrentFrame(self.currentFrameIdx - 1, manual=True)
-
-
-    def onPlayClicked(self):
-        if not self.mediaFiles or not self.PreviewCache.cache:
-            return
-
-        if self.isPlaying():
-            # Pause
-            self.playTimer.stop()
-            self.setTimelinePaused(True)
-
-            # store current frame offset
-            elapsed_ms = self._playStartTime.elapsed()
-            self._pausedOffset += elapsed_ms
-            return
-
-        #   Resume Playback
-        fps = getattr(self, "fps", 24) or 24
-        self._playInterval = 1000.0 / float(fps)
-
-        if not hasattr(self, "_playStartTime"):
-            self._playStartTime = QElapsedTimer()
-        self._playStartTime.restart()
-
-        self.playTimer.start(10)
-        self.setTimelinePaused(False)
-
-
-    def _playNextFrame(self):
-        if not self.PreviewCache.cache:
-            self.playTimer.stop()
-            return
-
-        elapsed_ms = self._playStartTime.elapsed() + self._playBaseOffset + self._pausedOffset
-        target_frame = int(elapsed_ms / self._playInterval)
-
-        total_frames = len(self.PreviewCache.cache)
-        if total_frames <= 0:
-            return
-        if target_frame >= total_frames:
-            target_frame %= total_frames
-
-        if target_frame != self._playFrameIndex:
-            self.setCurrentFrame(target_frame, manual=False)
-
-
-    def onNextClicked(self):
-        self.setCurrentFrame(self.currentFrameIdx + 1, manual=True)
-
-
-    def onLastClicked(self):
-        self.setCurrentFrame(len(self.PreviewCache.cache) - 1, manual=True, reset=True)
-        
-
-    @err_catcher(name=__name__)
-    def setTimelinePaused(self, state):
-        if self.previewTimeline and self.previewTimeline.state() == QTimeLine.Running:
-            self.previewTimeline.setPaused(state)
-
-        if state:
-            path = os.path.join(self.iconPath, "play.png")
-            icon = self.core.media.getColoredIcon(path)
-            self.b_play.setIcon(icon)
-            self.b_play.setToolTip("Play")
-        else:
-            path = os.path.join(self.iconPath, "pause.png")
-            icon = self.core.media.getColoredIcon(path)
-            self.b_play.setIcon(icon)
-            self.b_play.setToolTip("Pause")
-
 
 
     @err_catcher(name=__name__)
     def previewClk(self, event):
-        if (len(self.mediaFiles) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
-            if self.previewTimeline.state() == QTimeLine.Paused:
-                self.setTimelinePaused(False)
+        # if (len(self.mediaFiles) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
+        #     if self.previewTimeline.state() == QTimeLine.Paused:
+        #         self.setTimelinePaused(False)
 
-            else:
-                if self.previewTimeline.state() == QTimeLine.Running:
-                    self.setTimelinePaused(True)
+        #     else:
+        #         if self.previewTimeline.state() == QTimeLine.Running:
+        #             self.setTimelinePaused(True)
 
         self.displayWindow.clickEvent(event)
 
@@ -664,8 +673,11 @@ class PreviewPlayer_GPU(QWidget):
         self.isProxy = isProxy
         self.tile = tile
 
+        #   Resets Timeline and Image
         self.resetImage()
+        #   Sets up OCIO                            #   TODO
         self.configureOCIO()
+
         self.updatePreview(mediaFiles)
 
 
@@ -674,19 +686,8 @@ class PreviewPlayer_GPU(QWidget):
         if not self.previewEnabled:
             return
         
+        #   Shows PXY Icon if Proxy
         self.l_pxyIcon.setVisible(self.isProxy)
-
-        if self.previewTimeline:
-
-            if self.previewTimeline.state() != QTimeLine.NotRunning:
-                if self.previewTimeline.state() == QTimeLine.Running:
-                    self.tlPaused = False
-                elif self.previewTimeline.state() == QTimeLine.Paused:
-                    self.tlPaused = True
-
-                self.previewTimeline.stop()
-        else:
-            self.tlPaused = True
 
         if len(mediaFiles) > 0:
             _, extension = os.path.splitext(mediaFiles[0])
@@ -699,6 +700,17 @@ class PreviewPlayer_GPU(QWidget):
                 self.prvIsSequence = True
                 start, end = self.core.media.getFrameRangeFromSequence(mediaFiles)
                 duration = len(mediaFiles)
+                useControls = True
+
+            #   Single Image
+            elif len(mediaFiles) == 1 and extension not in self.core.media.videoFormats:
+                self.fileType = "Images"
+                iData = FileInfoWorker.probeFile(mediaFiles[0], self, self.core)
+                self.prvIsSequence = False
+                start = 1
+                end = 1
+                duration = 1
+                useControls = False
 
             #   Video File
             else:
@@ -708,6 +720,7 @@ class PreviewPlayer_GPU(QWidget):
                 start = 1
                 end = start + duration - 1
                 self.prvIsSequence = False
+                useControls = True
 
             self.pstart = start
             self.pend = end
@@ -717,22 +730,24 @@ class PreviewPlayer_GPU(QWidget):
             self.pwidth = iData[5]
             self.pheight = iData[6]
 
+            #   Sets Framerange on Slider
+            self.l_start.setText(str(self.pstart))
+            self.l_end.setText(str(self.pend))
 
+            #   Sets Up Current Frame Spinbox
+            self.sp_current.setMinimum(int(self.pstart))
+            self.sp_current.setMaximum(int(self.pend))
+
+            #   Sets Slider Max
             self.sl_previewImage.setMaximum(self.pduration - 1)
 
-            self.updatePrvInfo(mediaFiles[0])
+            #   Sets Controls Enabled/Disabled
+            self.enableControls(useControls)
 
-            frame_time = int(1000 / self.fps)
+            #   Updates Preview Info at the Top
+            self.updatePrvInfo()
 
-            self.previewTimeline = QTimeLine(self.pduration * frame_time, self)
-            self.previewTimeline.setEasingCurve(QEasingCurve.Linear)
-            self.previewTimeline.setLoopCount(0)
-            self.previewTimeline.setUpdateInterval(frame_time)
-
-            # Tell timeline: map time → frames
-            self.previewTimeline.setFrameRange(self.pstart, self.pend)
-
-
+            #   Build Dict for Cacheing
             prevData = {
                 "start": self.pstart,
                 "end": self.pend,
@@ -743,126 +758,54 @@ class PreviewPlayer_GPU(QWidget):
                 "height": self.pheight
             }
 
+            #   Get Window Width for Scaling
             windowWidth = self.displayWindow.width()
+
+            #   Set the Media in the Cache System
             self.PreviewCache.setMedia(mediaFiles, windowWidth, self.fileType, self.prvIsSequence, prevData)
+
+            #   Start the Caching                                   #   TODO - ADD TOGGLE TO START/STOP/ENABLE
             self.PreviewCache.start()
 
             return True
-        
 
         #   No Image Loaded
         self.sl_previewImage.setEnabled(False)
         self.l_start.setText("")
         self.l_end.setText("")
-        self.w_playerCtrls.setEnabled(False)
+        self.enableControls(False)
         self.sp_current.setEnabled(False)
 
 
-
     @err_catcher(name=__name__)
-    def updatePrvInfo(self, prvFile="", seq=None):                      #   TODO - USE DATA ALREADY MADE
-        if seq is not None:
-            if self.mediaFiles != seq:
-                return
+    def updatePrvInfo(self):
+        if not self.mediaFiles:
+            return
 
-        if not os.path.exists(prvFile):
+        if not os.path.exists(self.mediaFiles[0]):
             self.l_info.setText("\nNo image found\n")
             self.l_info.setToolTip("")
             self.displayWindow.setToolTip("")
             return
 
-
-        ext = os.path.splitext(prvFile)[1].lower()
-        # if ext in self.core.media.videoFormats:
-            # if len(self.previewSeq) == 1:
-            #     duration = self.metadata.get("source_mainFile_frames", None)
-            #     if not duration:
-            #         duration = self.getVideoDuration(prvFile)
-            #     if not duration:
-            #         duration = 1
-
-            #     self.pduration = int(duration)
-
-        self.pformat = "*" + ext
-
-        pdate = self.core.getFileModificationDate(prvFile)
-        self.sl_previewImage.setEnabled(True)
-        start = "1"
-        end = "1"
-
+        #   Filename (Use Placeholders for Sequences)
         if self.prvIsSequence:
-            start = str(self.pstart)
-            end = str(self.pend)
+            seqs = self.core.media.detectSequences(self.mediaFiles)
+            fileName = Utils.getBasename(list(seqs.keys())[0])
+        else:
+            fileName = Utils.getBasename(self.mediaFiles[0])
 
-        elif ext in self.core.media.videoFormats:
-            if self.pwidth != "?":
-                end = str(int(start) + self.pduration - 1)
-
-        self.l_start.setText(start)
-        self.l_end.setText(end)
-
-        self.sp_current.setMinimum(int(start))
-        self.sp_current.setMaximum(int(end))
-
-        self.w_playerCtrls.setEnabled(True)
-        self.sp_current.setEnabled(True)
-
-        if self.previewTimeline:
-            self.previewTimeline.stop()
+        #   Get File Data
+        pdate = self.core.getFileModificationDate(self.mediaFiles[0])
 
         if self.pduration == 1:
             frStr = "frame"
         else:
             frStr = "frames"
 
-        width = self.pwidth if self.pwidth is not None else "?"
-        height = self.pheight if self.pheight is not None else "?"
-
-        fileName = Utils.getBasename(prvFile)
-
-        if self.prvIsSequence:
-            infoStr = "%sx%s   %s   %s-%s (%s %s)" % (
-                width,
-                height,
-                self.pformat,
-                self.pstart,
-                self.pend,
-                self.pduration,
-                frStr,
-            )
-
-        elif len(self.mediaFiles) > 1:
-            infoStr = "%s files %sx%s   %s\n%s" % (
-                self.pduration,
-                width,
-                height,
-                self.pformat,
-                Utils.getBasename(prvFile),
-            )
-
-        elif ext in self.core.media.videoFormats:
-            if self.pwidth == "?":
-                duration = "?"
-                frStr = "frames"
-            else:
-                duration = self.pduration
-
-                if self.core.isStr(duration) or duration <= 1:
-                    self.sl_previewImage.setEnabled(False)
-                    self.l_start.setText("")
-                    self.l_end.setText("")
-                    self.w_playerCtrls.setEnabled(False)
-                    self.sp_current.setEnabled(False)
-
-        else:
-            self.sl_previewImage.setEnabled(False)
-            self.l_start.setText("")
-            self.l_end.setText("")
-            self.w_playerCtrls.setEnabled(False)
-            self.sp_current.setEnabled(False)
-
+        #   Display String
         infoStr = (f"{fileName}\n"
-                   f"{width} x {height}   -   {self.pduration} {frStr}   -   {pdate}")
+                   f"{self.pwidth} x {self.pheight}   -   {self.pduration} {frStr}   -   {pdate}")
 
         #   Add File Size if Enabled
         if self.core.getConfig("globals", "showFileSizes"):
@@ -872,12 +815,6 @@ class PreviewPlayer_GPU(QWidget):
                     size += Utils.getFileSize(file)
 
             infoStr += f"   -   {Utils.getFileSizeStr(size)}"
-
-        if self.state == "disabled":
-            infoStr += "\nPreview is disabled"
-            self.sl_previewImage.setEnabled(False)
-            self.w_playerCtrls.setEnabled(False)
-            self.sp_current.setEnabled(False)
 
         self.setInfoText(infoStr)
         self.l_info.setToolTip(infoStr)
@@ -901,7 +838,6 @@ class PreviewPlayer_GPU(QWidget):
 
     def onFirstFrameReady(self, frameIdx: int):
         self.currentFrameIdx = frameIdx
-        self.previewTimeline and self.previewTimeline.setCurrentTime(0)
         self.sl_previewImage.setValue(0)
         self.sp_current.setValue(frameIdx)
         
@@ -924,7 +860,7 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):
+    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):                #   TESTING
 
         match self.cb_viewLut.currentText():
             case "sRGB":
@@ -951,6 +887,18 @@ class PreviewPlayer_GPU(QWidget):
                 input_space = "zCam zLog2 Rec.1886"
                 display = "sRGB"
                 view = "Standard"
+
+            case "ARRI LogC4":
+                input_space = "ARRI LogC4"
+                display = "Rec.1886"
+                view = "ARRI ALF2"
+
+            case "ARRI LogC3":
+                input_space = "ARRI LogC3"
+                display = "Rec.1886"
+                view = "ARRI ALF2"
+
+                
 
 
         # self.printOcioInfo()                                  #   TESTING
@@ -990,7 +938,6 @@ class PreviewPlayer_GPU(QWidget):
             print(f"Search Path: {config.getSearchPath()}")
             print(f"Working Dir: {config.getWorkingDir()}\n")
 
-            # --- Color Spaces ---
             print("ColorSpaces:")
             for cs in config.getColorSpaces():
                 try:
@@ -999,14 +946,12 @@ class PreviewPlayer_GPU(QWidget):
                 except Exception:
                     print(f"  - {cs.getName()} (family=Unknown)")
 
-            # --- Displays and Views ---
             print("\nDisplays + Views:")
             for display in config.getDisplays():
                 print(f"  Display: {display}")
                 for view in config.getViews(display):
                     print(f"    View: {view}")
 
-            # --- Roles ---
             print("\nRoles:")
             try:
                 for role_name in config.getRoles():
@@ -1079,7 +1024,7 @@ class PreviewPlayer_GPU(QWidget):
 
         iconPath = os.path.join(self.iconPath, "refresh.png")
         icon = self.core.media.getColoredIcon(iconPath)
-        Utils.createMenuAction("Regenerate Thumbnail", sc, rcmenu, self, self.regenerateThumbnail, icon=icon)
+        Utils.createMenuAction("Reload Cache", sc, rcmenu, self, self.reloadCache, icon=icon)
 
         rcmenu.addAction(_separator())
 
@@ -1109,13 +1054,19 @@ class PreviewPlayer_GPU(QWidget):
         funct = lambda: Utils.displayCombinedMetadata(self.tile.getSource_proxyfilePath())
         Utils.createMenuAction("Show Metadata (Proxy File)", sc, rcmenu, self, funct)
 
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Edit OCIO Presets", sc, rcmenu, self, self.editOcioPresets)
+
         return rcmenu
 
 
     @err_catcher(name=__name__)
-    def regenerateThumbnail(self):
-        self.clearCurrentThumbnails()
-        self.updatePreview(regenerateThumb=True)
+    def reloadCache(self):
+        self.resetImage()
+        self.configureOCIO()
+        self.updatePreview(self.mediaFiles)
+
 
 
     @err_catcher(name=__name__)
@@ -1175,13 +1126,15 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def compare(self, prog=""):
-        if (
-            self.previewTimeline
-            and self.previewTimeline.state() == QTimeLine.Running
-        ):
-            self.setTimelinePaused(True)
+    def editOcioPresets(self):
+        data = {}
+        ocioPresetsWindow = OcioConfigPopup(self, self.core, data)
 
+        ocioPresetsWindow.exec()
+
+
+    @err_catcher(name=__name__)
+    def compare(self, prog=""):
         if prog == "default":
             progPath = ""
         else:
@@ -1562,6 +1515,10 @@ class GLVideoDisplay(QOpenGLWidget):
         self.config = ocio.GetCurrentConfig()
         self.processor = self.config.getProcessor("lin_srgb", "sRGB")
         self.gpu_proc = self.processor.getDefaultGPUProcessor()
+
+        #   Add RCL Menu
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.player.rclPreview)
 
 
     def _compileShaderProgram(self, vert_src, frag_src):

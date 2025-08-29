@@ -207,6 +207,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Add Callback for SourceTab
         self.core.callback(name="onSourceBrowserOpen", args=[self])
 
+
+        #   Callbacks
+        self.core.registerCallback("onProjectBrowserClose", self.onProjectBrowserClose, plugin=self.plugin)
+
+
         if refresh:
             self.entered()
 
@@ -230,9 +235,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if not self.initialized:
             self.initialized = True
 
-            #   Get OIIO from Core
-            # self.oiio = self.core.media.getOIIO()                     #   NEEDED?
-
             #   Resize Splitter Panels
             QTimer.singleShot(10, lambda: self.setSplitterToThirds())
 
@@ -243,6 +245,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         totalWidth = self.splitter.size().width()
         oneThird = totalWidth // 3
         self.splitter.setSizes([oneThird, oneThird, totalWidth - 2 * oneThird])
+
+
+    #   Gets Called with Callback When ProjectBrowser Closes
+    @err_catcher(name=__name__)
+    def onProjectBrowserClose(self, projectBrowser):
+        if hasattr(self, "PreviewPlayer"):
+            self.PreviewPlayer.setTimelinePaused(True)
+
+
 
 
     @err_catcher(name=__name__)
@@ -868,8 +879,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.useLibImport = settingData ["useLibImport"]
 
             #   Get OCIO View Presets
-            # lutPresetData = sData["viewLutPresets"]                       #   TESTING - FOR OCIO Testing
-            # self.configureViewLut(lutPresetData)                 #   TODO - MOVE
+            # lutPresetData = sData["viewLutPresets"]                            #   TESTING - FOR OCIO Testing
+            # self.configureViewLut(lutPresetData)                               #   TODO - MOVE
 
             #   Get Tab (UI) Settings
             tabData = sData["tabSettings"]

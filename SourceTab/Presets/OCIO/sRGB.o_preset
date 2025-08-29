@@ -1,0 +1,18 @@
+############################################################################
+#
+#           This is a Prism Pipeline SourceTab Preset File
+#                           OCIO Preset
+#
+############################################################################
+    
+{
+    "name": "sRGB",
+    "data": {
+        "Description": "sRGB -> sRGB",
+        "Color_Space": "sRGB",
+        "Display": "sRGB",
+        "View": "Standard",
+        "Look": none
+        "LUT": none
+    }
+}

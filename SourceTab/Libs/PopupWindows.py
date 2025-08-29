@@ -303,9 +303,10 @@ class DisplayPopup(QDialog):
             
 
 class OcioConfigPopup(QDialog):
-    def __init__(self, core, data):
+    def __init__(self, player, core, data):
         super().__init__()
 
+        self.player = player
         self.core = core
 
         self.ocioPresets = []
@@ -316,7 +317,7 @@ class OcioConfigPopup(QDialog):
         self.loadUI()
         self.connectEvents()
 
-        self.loadPresets(data)
+        # self.loadPresets(data)
 
 
     def loadUI(self):
@@ -405,12 +406,6 @@ class OcioConfigPopup(QDialog):
         for preset in oData:
             self.addOcioPreset(preset)
 
-
-    @staticmethod
-    def display(core, data, buttons=None):
-        dialog = OcioConfigPopup(core, data)
-        dialog.exec_()
-        return dialog.result
 
 
 
