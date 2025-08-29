@@ -311,15 +311,10 @@ class PreviewPlayer_GPU(QWidget):
         self.w_playerCtrls.setVisible(state)
 
 
-    @err_catcher(name=__name__)                                               #   NEEDED ???
+    @err_catcher(name=__name__)
     def previewResizeEvent(self, event):
         self.displayWindow.resizeEventOrig(event)
-        height = int(self.displayWindow.width()*(self.renderResY/self.renderResX))
-        self.displayWindow.setMinimumHeight(height)
-        self.displayWindow.setMaximumHeight(height)
-
-        if hasattr(self, "loadingGif") and self.loadingGif.state() == QMovie.Running:
-            self.moveLoadingLabel()
+        self.adjustPreviewAspect()
 
         text = self.l_info.toolTip()
         if not text:
@@ -327,6 +322,34 @@ class PreviewPlayer_GPU(QWidget):
 
         self.setInfoText(text)
 
+
+    @err_catcher(name=__name__)
+    def adjustPreviewAspect(self):
+        if self.pwidth > 0 and self.pheight > 0:
+            #   Calculate Preview Size from Window Width and Image Aspect Ration
+            window_width = self.displayWindow.width()
+            aspect = self.pheight / self.pwidth
+            target_height = max(1, int(window_width * aspect))
+
+            #   Resize the Preview Widget
+            self.displayWindow.setMinimumHeight(target_height)
+            self.displayWindow.setMaximumHeight(target_height)
+            self.displayWindow.resize(window_width, target_height)
+
+            #   Resize GL Window
+            if hasattr(self.displayWindow, "scale_w") and hasattr(self.displayWindow, "scale_h"):
+                self.displayWindow.scale_w = 1.0
+                self.displayWindow.scale_h = 1.0
+
+            #   Force GL Widget to Update
+            self.displayWindow.update()
+
+        text = self.l_info.toolTip() or self.l_info.text()
+        self.setInfoText(text)
+
+
+
+    @err_catcher(name=__name__)
     def enableControls(self, enable):
         self.w_playerCtrls.setEnabled(enable)
         self.sp_current.setEnabled(enable)
@@ -379,6 +402,10 @@ class PreviewPlayer_GPU(QWidget):
             width = 300
 
         height = int(width / (16/9))
+
+        self.pwidth = width
+        self.pheight = height
+
         frame = np.zeros((height, width, 3), dtype=np.uint8)
         return frame
 
@@ -440,6 +467,8 @@ class PreviewPlayer_GPU(QWidget):
     @err_catcher(name=__name__)
     def resetImage(self):
         self.displayWindow.setFrame(0, self.makeBlackFrame())
+        self.adjustPreviewAspect()
+
         self.PreviewCache.clear()
         self.l_pxyIcon.setVisible(False)
         self.currentFrameIdx = 0
@@ -668,17 +697,24 @@ class PreviewPlayer_GPU(QWidget):
     #   Entry Point for Media to be Played
     @err_catcher(name=__name__)
     def loadMedia(self, mediaFiles, metadata, isProxy, tile=None):
+        """Entry Point for Media to be Played."""
         self.mediaFiles = mediaFiles
         self.metadata = metadata
         self.isProxy = isProxy
         self.tile = tile
 
-        #   Resets Timeline and Image
+        #   Reset Timeline and Image
         self.resetImage()
-        #   Sets up OCIO                            #   TODO
+
+        #   Configure OCIO                                                  #   TODO
         self.configureOCIO()
 
+        #   Setup Image and Timeline
         self.updatePreview(mediaFiles)
+
+        #   Resize Player for Image
+        self.adjustPreviewAspect()
+
 
 
     @err_catcher(name=__name__)
@@ -1550,7 +1586,7 @@ class GLVideoDisplay(QOpenGLWidget):
 
     def initializeGL(self):
         self.texture_id = glGenTextures(1)
-        # Simple pass-through shader program
+        #   Simple Pass-through Shader
         vertex_shader_src = """
         #version 330
         in vec2 position;
@@ -1622,11 +1658,18 @@ class GLVideoDisplay(QOpenGLWidget):
             vid_h, vid_w, _ = self.frame.shape
             aspect = vid_h / vid_w
             target_h = int(w * aspect)
-            self.setMinimumHeight(target_h)
-            self.resize(w, target_h)
+
+            #   Keep Viewport Matching Widget Size
             glViewport(0, 0, w, target_h)
+
+            #   Ensure Scale Matches Container
+            self.scale_w = 1.0
+            self.scale_h = 1.0
         else:
             glViewport(0, 0, w, h)
+            self.scale_w = 1.0
+            self.scale_h = 1.0
+
 
 
     def setFrame(self, frameIdx: int, frame: np.ndarray) -> None:
