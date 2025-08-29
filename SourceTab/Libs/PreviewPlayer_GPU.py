@@ -284,7 +284,9 @@ class PreviewPlayer_GPU(QWidget):
         # self.sl_previewImage.mousePressEvent = self.sliderDrag
         # self.sp_current.valueChanged.connect(self.onCurrentChanged)
 
-        self.sp_current.editingFinished.connect(lambda: self.loadFrame(self.sp_current.value()))
+        self.sp_current.editingFinished.connect(
+            lambda: self.setCurrentFrame(self.sp_current.value() - 1, manual=True, reset=True)
+            )
 
         self.b_first.clicked.connect(self.onFirstClicked)
         self.b_prev.clicked.connect(self.onPrevClicked)
@@ -586,7 +588,7 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def onPrevClicked(self):
-        self.setCurrentFrame(self.currentFrameIdx - 1, manual=True)
+        self.setCurrentFrame(self.currentFrameIdx - 1, manual=True, reset=True)
 
 
     @err_catcher(name=__name__)
@@ -623,7 +625,7 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def onNextClicked(self):
-        self.setCurrentFrame(self.currentFrameIdx + 1, manual=True)
+        self.setCurrentFrame(self.currentFrameIdx + 1, manual=True, reset=True)
 
 
     @err_catcher(name=__name__)
