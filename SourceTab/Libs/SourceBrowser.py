@@ -957,7 +957,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     continue
 
                 shortcut = QShortcut(qseq, self)
-                shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+                # shortcut.setContext(Qt.WidgetWithChildrenShortcut)                                #   TODO
+                shortcut.setContext(Qt.ApplicationShortcut)
+
                 shortcut.activated.connect(lambda name=action_name: self.onShortcutKey(name))
                 native_text = qseq.toString(QKeySequence.NativeText)
 
@@ -987,10 +989,16 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 mode = "dest"
                 break
 
+            elif (self.w_rightPanelContainer is not None
+                  and self.w_rightPanelContainer.isAncestorOf(parent)):         #   TODO
+                mode = "source"
+                break
+
             parent = parent.parentWidget()
 
         if mode is None:
-            return
+            mode = "source"                                                     #   TODO
+            # return
 
         #   Call Method Based on Shortcut
         match action:

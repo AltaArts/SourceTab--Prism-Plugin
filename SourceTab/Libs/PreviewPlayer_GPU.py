@@ -267,18 +267,17 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        # self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
-        # self.displayWindow.mouseReleaseEvent = self.previewClk
+        self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
+        self.displayWindow.mouseReleaseEvent = self.previewClk
 
         self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
         self.displayWindow.resizeEvent = self.previewResizeEvent
 
+        self.sl_previewImage.origMousePressEvent = self.sl_previewImage.mousePressEvent
+        self.sl_previewImage.mousePressEvent = self.sliderMousePress
         self.sl_previewImage.valueChanged.connect(self.sliderChanged)
-        # self.sl_previewImage.sliderPressed.connect(self.sliderClk)
-        # self.sl_previewImage.sliderReleased.connect(self.sliderRls)
-        # self.sl_previewImage.origMousePressEvent = self.sl_previewImage.mousePressEvent
-        # self.sl_previewImage.mousePressEvent = self.sliderDrag
-        # self.sp_current.valueChanged.connect(self.onCurrentChanged)
+        self.sl_previewImage.sliderPressed.connect(self.onSliderPressed)
+        self.sl_previewImage.sliderReleased.connect(self.onSliderReleased)
 
         self.sp_current.editingFinished.connect(
             lambda: self.setCurrentFrame(self.sp_current.value() - 1, manual=True, reset=True)
@@ -651,43 +650,53 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def sliderDrag(self, event):
-        custEvent = QMouseEvent(
-            QEvent.MouseButtonPress,
-            event.pos(),
-            Qt.MidButton,
-            Qt.MidButton,
-            Qt.NoModifier,
-        )
-        self.sl_previewImage.origMousePressEvent(custEvent)
-
-
-    @err_catcher(name=__name__)
-    def sliderClk(self):
-        self.slStop = False
-        if self.isPlaying():
-            self.slStop = True
+    def onSliderPressed(self):
+        self._resumeAfterDrag = self.isPlaying()
+        if self._resumeAfterDrag:
             self.playTimer.stop()
 
 
     @err_catcher(name=__name__)
-    def sliderRls(self):
-        if self.slStop:
+    def onSliderReleased(self):
+        if self._resumeAfterDrag:
             self._playStartTime.restart()
             self.playTimer.start(10)
+        self._resumeAfterDrag = False
+
+
+    @err_catcher(name=__name__)
+    def sliderMousePress(self, event):
+        if event.button() == Qt.LeftButton:
+            opt = QStyleOptionSlider()
+            self.sl_previewImage.initStyleOption(opt)
+            groove_rect = self.sl_previewImage.style().subControlRect(
+                QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, self.sl_previewImage
+            )
+            handle_rect = self.sl_previewImage.style().subControlRect(
+                QStyle.CC_Slider, opt, QStyle.SC_SliderHandle, self.sl_previewImage
+            )
+
+            if groove_rect.contains(event.pos()) and not handle_rect.contains(event.pos()):
+                new_val = QStyle.sliderValueFromPosition(
+                    self.sl_previewImage.minimum(),
+                    self.sl_previewImage.maximum(),
+                    event.pos().x() - groove_rect.x(),
+                    groove_rect.width()
+                )
+                self.sl_previewImage.setValue(new_val)
+                event.accept()
+                return
+
+        self.sl_previewImage.origMousePressEvent(event)
 
 
     @err_catcher(name=__name__)
     def previewClk(self, event):
-        # if (len(self.mediaFiles) > 1 or self.pduration > 1) and event.button() == Qt.LeftButton:
-        #     if self.previewTimeline.state() == QTimeLine.Paused:
-        #         self.setTimelinePaused(False)
+        if not self.mediaFiles or not self.PreviewCache.cache:
+            return
 
-        #     else:
-        #         if self.previewTimeline.state() == QTimeLine.Running:
-        #             self.setTimelinePaused(True)
-
-        self.displayWindow.clickEvent(event)
+        if event.button() == Qt.LeftButton:
+            self.onPlayClicked()
 
 
 
@@ -1052,10 +1061,14 @@ class PreviewPlayer_GPU(QWidget):
                 Utils.createMenuAction(player.get("name", ""), sc, playMenu, self, funct)
 
         Utils.createMenuAction("Default", sc, playMenu, self, lambda: self.compare(prog="default"))
-
+        
         iconPath = os.path.join(self.iconPath, "refresh.png")
         icon = self.core.media.getColoredIcon(iconPath)
         Utils.createMenuAction("Reload Cache", sc, rcmenu, self, self.reloadCache, icon=icon)
+
+        iconPath = os.path.join(self.sourceBrowser.iconDir, "cache.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Enable Cache", sc, rcmenu, self, self.enableCache, icon=icon)
 
         rcmenu.addAction(_separator())
 
@@ -1090,6 +1103,11 @@ class PreviewPlayer_GPU(QWidget):
         Utils.createMenuAction("Edit OCIO Presets", sc, rcmenu, self, self.editOcioPresets)
 
         return rcmenu
+
+
+    @err_catcher(name=__name__)
+    def enableCache(self):
+        pass
 
 
     @err_catcher(name=__name__)
@@ -1568,36 +1586,70 @@ class GLVideoDisplay(QOpenGLWidget):
         self.customContextMenuRequested.connect(self.player.rclPreview)
 
 
+    #######################
+    ######    API   #######
+
     #   Updates OCIO Transforms
     @err_catcher(name=__name__)
-    def setBackground(self, pixel_size:int = 20, checker_color1:tuple = (0.0, 0.0, 0.0), checker_color2:tuple = (0.1, 0.1, 0.1)):
+    def setBackground(self, pixel_size:int = 20,
+                      checker_color1:tuple = (0.0, 0.0, 0.0),
+                      checker_color2:tuple = (0.1, 0.1, 0.1)
+                      ) -> bool:
         '''Updates Checkboard Background'''
 
-        self.pixel_size = pixel_size
-        self.checker_color1 = checker_color1
-        self.checker_color2 = checker_color2
+        try:
+            self.pixel_size = pixel_size
+            self.checker_color1 = checker_color1
+            self.checker_color2 = checker_color2
+            return True
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Set Background: {e}")
+            return False
 
 
     #   Updates OCIO Transforms
     @err_catcher(name=__name__)
-    def setOcioTransforms(self, inputSpace:str, display:str, view:str, lut:str):
+    def setOcioTransforms(self,
+                          inputSpace:str,
+                          display:str,
+                          view:str,
+                          lut:str
+                          ) -> bool:
         '''Updates OCIO Transforms for Display'''
 
-        self.inputSpace = inputSpace
-        self.display = display
-        self.view = view
-        self.lut_path = lut
+        try:
+            self.inputSpace = inputSpace
+            self.display = display
+            self.view = view
+            self.lut_path = lut
+            return True
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Set OCIO Transforms: {e}")
+            return False
 
 
     #   Displays Frame Numpy Array in Viewer
     @err_catcher(name=__name__)
-    def setFrame(self, frameIdx: int, frame: np.ndarray) -> None:
+    def setFrame(self,
+                 frameIdx: int,
+                 frame: np.ndarray
+                 ) -> bool:
         '''Displays Frame in Viwer'''
 
-        self.frameIdx = frameIdx
-        self.frame = frame
-        self.update()
+        try:
+            self.frameIdx = frameIdx
+            self.frame = frame
+            self.update()
+            return True
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Set Image Frame: {e}")
+            return False
 
+    ###########################
+    ######   INTERNAL   #######
 
     #   Calc Checkboard Squares based on Pixels
     @err_catcher(name=__name__)
@@ -1790,13 +1842,21 @@ class GLVideoDisplay(QOpenGLWidget):
 
         #   Get and Set Transforms
         config = ocio.GetCurrentConfig()
+
+        #   Transform Fallbacks
+        space_name = input_space or "sRGB"
+        display_name = display or config.getDefaultDisplay()
+        view_name = view or config.getDefaultView(display_name)
+
+        #   Build DisplayViewTransform
         disp_view_transform = ocio.DisplayViewTransform(
-            src=input_space or '',
-            display=display or '',
-            view=view or '',
+            src=space_name,
+            display=display_name,
+            view=view_name,
             looksBypass=False,
             dataBypass=True
         )
+
         final_transform = disp_view_transform
 
         #   Apply LUT if Applicable
