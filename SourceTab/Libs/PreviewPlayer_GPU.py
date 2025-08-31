@@ -1704,7 +1704,9 @@ class GLVideoDisplay(QOpenGLWidget):
                 errors.append(errStr)
                 view = fallback_view
 
+
             #   Check LUT File
+            validLuts = []
             if luts:
                 for lut in luts:
                     #   Check if LUT Path Exists
@@ -1712,24 +1714,18 @@ class GLVideoDisplay(QOpenGLWidget):
                         errStr = f"LUT is not a Valid File.  Ignoring LUT"
                         logger.warning(errStr)
                         errors.append(errStr)
-                        lut = None
                     
                     #   Test if LUT is Valid
                     else:
                         try:
-                            #   Try to Load LUT into a Transform
-                            file_lut = ocio.FileTransform(
-                                lut,
-                                interpolation=ocio.Interpolation.INTERP_LINEAR,
-                                direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
-                            )
-
-                            #   Validate by Forcing Temp Processor Creation
-                            ocio.GetCurrentConfig().getProcessor(file_lut)
+                            if self.createLutTransform(lut):
+                                validLuts.append(lut)
+                            else:
+                                raise Exception
 
                         except Exception as e:
                             errStr = f"Invalid LUT file '{lut}': {e}.\n\nIgnoring LUT."
-                            logger.warning(errStr)
+                            # logger.warning(errStr)
                             errors.append(errStr)
                             lut = None
 
@@ -1752,7 +1748,7 @@ class GLVideoDisplay(QOpenGLWidget):
             self.display = display
             self.view = view
             self.look = look
-            self.luts = luts
+            self.luts = validLuts
 
             return True
         
@@ -1971,13 +1967,24 @@ class GLVideoDisplay(QOpenGLWidget):
 
     @err_catcher(name=__name__)
     def createLutTransform(self, lut_path: str):
-        lutTransform = ocio.FileTransform(
-            lut_path,
-            interpolation=ocio.Interpolation.INTERP_LINEAR,
-            direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
-        )
+        if not os.path.isfile(lut_path):
+            logger.warning(f"LUT path not found: {lut_path}")
+            return None
 
-        return lutTransform
+        try:
+            lutTransform = ocio.FileTransform(
+                lut_path,
+                interpolation=ocio.Interpolation.INTERP_LINEAR,
+                direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
+            )
+
+            # Quick validation by trying to create a temporary processor
+            ocio.GetCurrentConfig().getProcessor(lutTransform)
+            return lutTransform
+
+        except Exception as e:
+            logger.warning(f"Invalid LUT file '{lut_path}': {e}")
+            return None
 
 
     #   Apply OCIO Transforms in CPU
@@ -2028,20 +2035,11 @@ class GLVideoDisplay(QOpenGLWidget):
         #   Apply LUT if Applicable
         if luts:
             for lut_path in luts:
-                if not os.path.exists(lut_path):
-                    lutErrStr = f"The LUT path cannot be found: {lut_path}\nIgnoring LUT"
-                    logger.warning(lutErrStr)
-                    self.core.popup(lutErrStr)
-
+                lutTransform = self.createLutTransform(lut_path)
+                if lutTransform is not None:
+                    final_transform.appendTransform(lutTransform)
                 else:
-                    try:
-
-                        lutTransform = self.createLutTransform(lut_path)
-                        final_transform.appendTransform(lutTransform)
-
-
-                    except Exception as e:
-                        logger.warning(f"ERROR: Failed to Load LUT {lut_path}: {e}")
+                    logger.warning(f"Skipping invalid LUT: {lut_path}")
 
 
         #   Create CPU Processor
