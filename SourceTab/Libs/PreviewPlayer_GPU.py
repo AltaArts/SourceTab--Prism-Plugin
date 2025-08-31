@@ -289,8 +289,8 @@ class PreviewPlayer_GPU(QWidget):
 
 
     def tempOCIOLoad(self):
-        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam", "zCam OCIO LUT",
-                                  "ARRI LogC4", "ARRI LogC3", "LUT - sRGB - Grit", "LUT - Linear - Grit",
+        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam", "zCam OCIO LUT", "ARRI LogC4", "ARRI LogC3",
+                                  "LUT - sRGB - Grit", "LUT - Linear - Grit", "LOOK - Filmic - Low Con", "LOOK - Filmic - High Con",
                                   "LOOK - Linear - Greyscale", "ERROR MAKER", "BAD LUT - NO FILE", "BAD LUT - BAD FILE"])
 
 
@@ -962,6 +962,18 @@ class PreviewPlayer_GPU(QWidget):
                 view = "Standard"
                 look = "Greyscale"
 
+            case "LOOK - Filmic - Low Con":
+                input_space = "Linear Rec.709"
+                display = "sRGB"
+                view = "Filmic"
+                look = "Filmic - Very Low Contrast"
+
+            case "LOOK - Filmic - High Con":
+                input_space = "Linear Rec.709"
+                display = "sRGB"
+                view = "Filmic"
+                look = "Filmic - High Contrast"
+
             case "ERROR MAKER":                                        #   TESTING TO MAKE FAIL
                 input_space = "NOTHING"
                 display = "NOTHING"
@@ -1002,6 +1014,7 @@ class PreviewPlayer_GPU(QWidget):
             inputSpace=input_space,
             display=display,
             view=view,
+            look=look,
             luts=luts,
         )
 
@@ -1730,13 +1743,13 @@ class GLVideoDisplay(QOpenGLWidget):
                             lut = None
 
             #   Check Look
-            # if view not in config.getViews(display):
-            #     errStr = f"Invalid OCIO View '{view}' for display '{display}', falling back to '{fallback_view}'"             #   TODO
-            #     logger.warning(errStr)
-            #     errors.append(errStr)
-            #     view = fallback_view
+            if look and look not in config.getLookNames():
+                errStr = f"Invalid OCIO Look '{look}', ignoring."
+                logger.warning(errStr)
+                errors.append(errStr)
+                look = None
 
-            #   Display Errors
+            #   Display Errors in the UI
             if errors:
                 title = "OCIO PRESET ERROR"
                 text = "There are Errors with the Selected OCIO Transforms:\n\n"
@@ -2020,6 +2033,17 @@ class GLVideoDisplay(QOpenGLWidget):
         display_name = display or config.getDefaultDisplay()
         view_name = view or config.getDefaultView(display_name)
 
+        #   Create Transform Group to Hold All Transforms
+        final_transform = ocio.GroupTransform()
+
+        #   Build Look Transform if Exists
+        if self.look:
+            look_transform = ocio.LookTransform()
+            look_transform.setSrc(space_name)
+            look_transform.setDst(space_name)
+            look_transform.setLooks(self.look)
+            final_transform.appendTransform(look_transform)
+
         #   Build DisplayViewTransform
         disp_view_transform = ocio.DisplayViewTransform(
             src=space_name,
@@ -2029,7 +2053,6 @@ class GLVideoDisplay(QOpenGLWidget):
             dataBypass=True
         )
 
-        final_transform = ocio.GroupTransform()
         final_transform.appendTransform(disp_view_transform)
 
         #   Apply LUT if Applicable
