@@ -49,15 +49,9 @@
 
 
 import os
-import sys
 import subprocess
 import logging
-import traceback
 import shutil
-from functools import partial
-import threading
-from collections import OrderedDict
-import math
 import time
 
 from PIL import Image
@@ -186,7 +180,7 @@ class PreviewPlayer_GPU(QWidget):
         self.lo_preview_main.addWidget(self.container_viewLut)
 
         #   Viewer Window
-        self.displayWindow = GLVideoDisplay(self)
+        self.displayWindow = GLVideoDisplay(self, self.core)
         self.lo_preview_main.addWidget(self.displayWindow)
 
         #   Proxy Icon Label
@@ -295,8 +289,9 @@ class PreviewPlayer_GPU(QWidget):
 
 
     def tempOCIOLoad(self):
-        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam", "ARRI LogC4", "ARRI LogC3"])
-
+        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg",
+                                  "zCam", "zCam LUT", "ARRI LogC4", "ARRI LogC3",
+                                  "ERROR MAKER"])
 
 
 
@@ -905,6 +900,10 @@ class PreviewPlayer_GPU(QWidget):
     @err_catcher(name=__name__)
     def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):                #   TESTING
 
+        look = None
+        lut_path = None
+
+
         match self.cb_viewLut.currentText():
             case "sRGB":
                 input_space = "sRGB"
@@ -931,6 +930,12 @@ class PreviewPlayer_GPU(QWidget):
                 display = "sRGB"
                 view = "Standard"
 
+            case "zCam LUT":
+                input_space = "Rec.1886"
+                display = "sRGB"
+                view = "Standard"
+                lut_path = r"D:\Dropbox\Alta Arts\LUTS\Z-Cam\Rec709\Exp 0\zlog2_Rec709_64_normal.cube"
+
             case "ARRI LogC4":
                 input_space = "ARRI LogC4"
                 display = "Rec.1886"
@@ -940,6 +945,12 @@ class PreviewPlayer_GPU(QWidget):
                 input_space = "ARRI LogC3"
                 display = "Rec.1886"
                 view = "ARRI ALF2"
+
+            case "ERROR MAKER":                     #   TESTING TO MAKE FAIL
+                input_space = "NOTHING"
+                display = "NOTHING"
+                view = "NOTHING"
+
 
                 
 
@@ -960,7 +971,6 @@ class PreviewPlayer_GPU(QWidget):
         # view = "Filmic"
         # view = "ACES"
 
-        lut_path = None
 
         self.displayWindow.setOcioTransforms(
             inputSpace=input_space,
@@ -1558,9 +1568,10 @@ class FrameCacheManager(QObject):
 #######     GL GPU Image Display     #######
 
 class GLVideoDisplay(QOpenGLWidget):
-    def __init__(self, player, parent=None):
+    def __init__(self, player, core, parent=None):
         super().__init__(parent)
         self.player = player
+        self.core = core
         self.frame = None
         self.texture_id = None
         self.program = None
@@ -1619,16 +1630,57 @@ class GLVideoDisplay(QOpenGLWidget):
         '''Updates OCIO Transforms for Display'''
 
         try:
+            config = ocio.GetCurrentConfig()
+
+            #   Fallback Defaults
+            fallback_space = config.getColorSpaceNames()[0] if config.getColorSpaceNames() else "sRGB"
+            fallback_display = config.getDefaultDisplay()
+            fallback_view = config.getDefaultView(fallback_display)
+
+            errors = []
+
+            #   Validate Passed Transforms Exist in Config
+            if inputSpace not in config.getColorSpaceNames():
+                errStr = f"Invalid OCIO Input ColorSpace '{inputSpace}', falling back to '{fallback_space}'"
+                logger.warning(errStr)
+                errors.append(errStr)
+                inputSpace = fallback_space
+
+            if display not in config.getDisplays():
+                errStr = f"Invalid OCIO Display '{display}', falling back to '{fallback_display}'"
+                logger.warning(errStr)
+                errors.append(errStr)
+                display = fallback_display
+
+            if view not in config.getViews(display):
+                errStr = f"Invalid OCIO View '{view}' for display '{display}', falling back to '{fallback_view}'"
+                logger.warning(errStr)
+                errors.append(errStr)
+                view = fallback_view
+
+            if errors:
+                title = "OCIO PRESET ERROR"
+                text = "There are Errors with the Selected OCIO Transforms:\n\n"
+                text += "\n".join(f"- {err}\n" for err in errors)
+                self.core.popup(text=text, title=title)
+
+
             self.inputSpace = inputSpace
             self.display = display
             self.view = view
             self.lut_path = lut
+
             return True
         
         except Exception as e:
             logger.warning(f"ERROR: Failed to Set OCIO Transforms: {e}")
+            #   Fallback to Defaults
+            self.inputSpace = "sRGB"
+            self.display = "sRGB"
+            self.view = "Standard"
+            self.lut_path = None
             return False
-
+        
 
     #   Displays Frame Numpy Array in Viewer
     @err_catcher(name=__name__)
@@ -1671,8 +1723,11 @@ class GLVideoDisplay(QOpenGLWidget):
         glLinkProgram(program)
 
         if not glGetProgramiv(program, GL_LINK_STATUS):
-            raise RuntimeError(glGetProgramInfoLog(program).decode())
-        
+            err = glGetProgramInfoLog(program).decode()
+            logger.warning(f"ERROR: GLSL link error: {err}")
+            glDeleteProgram(program)
+            return None
+             
         return program
     
 
@@ -1686,9 +1741,13 @@ class GLVideoDisplay(QOpenGLWidget):
         glCompileShader(shader)
 
         if not glGetShaderiv(shader, GL_COMPILE_STATUS):
-            raise RuntimeError(glGetShaderInfoLog(shader).decode())
+            err = glGetShaderInfoLog(shader).decode()
+            logger.warning(f"ERROR: GLSL compile: [{shader_type}]: {err}")
+            glDeleteShader(shader)
+            return None
         
         return shader
+    
 
     #   Create GL Context and Generate Textures/Shaders
     @err_catcher(name=__name__)
@@ -1745,6 +1804,10 @@ class GLVideoDisplay(QOpenGLWidget):
         #   Compile/link Programs
         self.program_image = self._compileShaderProgram(vertex_shader_src, fragment_shader_src)
         self.program_checker = self._compileShaderProgram(vertex_shader_src, checker_frag_src)
+
+        if not self.program_image or not self.program_checker:
+            logger.error("ERROR: Failed to Compile/Link Shaders")
+            self.program_image = None
 
         #   Setup Quad Geo Buffers/VAO (uses fixed locations 0-1)
         self._setupQuad()
@@ -1926,7 +1989,7 @@ class GLVideoDisplay(QOpenGLWidget):
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
 
         ### Draw Image
-        if self.frame is not None:
+        if self.frame is not None and self.program_image:
             img_data = np.ascontiguousarray(self.frame)
 
             #   Convert Float32 to UINT8 if Needed
