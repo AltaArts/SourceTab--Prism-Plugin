@@ -289,10 +289,9 @@ class PreviewPlayer_GPU(QWidget):
 
 
     def tempOCIOLoad(self):
-        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg",
-                                  "zCam", "zCam LUT", "ARRI LogC4", "ARRI LogC3",
-                                  "ERROR MAKER"])
-
+        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam", "zCam LUT",
+                                  "ARRI LogC4", "ARRI LogC3", "sRGB Grit LUT", "Linear Grit LUT",
+                                  "ERROR MAKER", "BAD LUT - NO FILE", "BAD LUT - BAD FILE"])
 
 
 
@@ -898,10 +897,11 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):                #   TESTING
+    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):                #   TESTING - TEMP HARDCODED
 
         look = None
         lut_path = None
+        lut_process_order = None
 
 
         match self.cb_viewLut.currentText():
@@ -935,6 +935,7 @@ class PreviewPlayer_GPU(QWidget):
                 display = "sRGB"
                 view = "Standard"
                 lut_path = r"D:\Dropbox\Alta Arts\LUTS\Z-Cam\Rec709\Exp 0\zlog2_Rec709_64_normal.cube"
+                lut_process_order = "pre"
 
             case "ARRI LogC4":
                 input_space = "ARRI LogC4"
@@ -946,11 +947,36 @@ class PreviewPlayer_GPU(QWidget):
                 display = "Rec.1886"
                 view = "ARRI ALF2"
 
-            case "ERROR MAKER":                     #   TESTING TO MAKE FAIL
+            case "sRGB Grit LUT":
+                input_space = "Rec.1886"
+                display = "sRGB"
+                view = "Standard"
+                lut_path = r"D:\Dropbox\Alta Arts\LUTS\70 CGC LUTs\Look LUTs\Grit.cube"
+                lut_process_order = "post"
+
+            case "Linear Grit LUT":
+                input_space = "Linear Rec.709"
+                display = "sRGB"
+                view = "Standard"
+                lut_path = r"D:\Dropbox\Alta Arts\LUTS\70 CGC LUTs\Look LUTs\Grit.cube"
+                lut_process_order = "post"
+
+            case "ERROR MAKER":                                        #   TESTING TO MAKE FAIL
                 input_space = "NOTHING"
                 display = "NOTHING"
                 view = "NOTHING"
 
+            case "BAD LUT - NO FILE":                                  #   TESTING TO MAKE FAIL
+                input_space = "sRGB"
+                display = "sRGB"
+                view = "Standard"
+                lut_path = r"C:\Users\Alta Arts\Desktop\NOEXIST.cube"
+
+            case "BAD LUT - BAD FILE":                                 #   TESTING TO MAKE FAIL
+                input_space = "sRGB"
+                display = "sRGB"
+                view = "Standard"
+                lut_path = r"C:\Users\Alta Arts\Desktop\Resolve Processing Order.png"
 
                 
 
@@ -976,7 +1002,8 @@ class PreviewPlayer_GPU(QWidget):
             inputSpace=input_space,
             display=display,
             view=view,
-            lut=lut_path
+            lut=lut_path,
+            lut_process_order=lut_process_order
         )
 
 
@@ -1587,6 +1614,7 @@ class GLVideoDisplay(QOpenGLWidget):
         self.display = "sRGB"
         self.view = "Standard"
         self.lut_path = None
+        self.lut_process_order = "pre"
 
         self.config = ocio.GetCurrentConfig()
         self.processor = self.config.getProcessor("lin_srgb", "sRGB")
@@ -1625,7 +1653,8 @@ class GLVideoDisplay(QOpenGLWidget):
                           inputSpace:str,
                           display:str,
                           view:str,
-                          lut:str
+                          lut:str,
+                          lut_process_order:str
                           ) -> bool:
         '''Updates OCIO Transforms for Display'''
 
@@ -1657,6 +1686,33 @@ class GLVideoDisplay(QOpenGLWidget):
                 logger.warning(errStr)
                 errors.append(errStr)
                 view = fallback_view
+
+            if lut:
+                #   Check if LUT Path Exists
+                if not os.path.isfile(lut):
+                    errStr = f"LUT is not a Valid File.  Ignoring LUT"
+                    logger.warning(errStr)
+                    errors.append(errStr)
+                    lut = None
+                
+                #   Test if LUT is Valid
+                else:
+                    try:
+                        #   Try to Load LUT into a Transform
+                        file_lut = ocio.FileTransform(
+                            lut,
+                            interpolation=ocio.Interpolation.INTERP_LINEAR,
+                            direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
+                        )
+
+                        #   Validate by Forcing Temp Processor Creation
+                        ocio.GetCurrentConfig().getProcessor(file_lut)
+
+                    except Exception as e:
+                        errStr = f"Invalid LUT file '{lut}': {e}.\n\nIgnoring LUT."
+                        logger.warning(errStr)
+                        errors.append(errStr)
+                        lut = None
 
             if errors:
                 title = "OCIO PRESET ERROR"
@@ -1886,7 +1942,14 @@ class GLVideoDisplay(QOpenGLWidget):
 
     #   Apply OCIO Transforms in CPU
     @err_catcher(name=__name__)
-    def applyOCIO_CPU(self, img_np, input_space="sRGB", display="sRGB", view="Standard", lut_path=None):
+    def applyOCIO_CPU(self,
+                      img_np,
+                      input_space="sRGB",
+                      display="sRGB",
+                      view="Standard",
+                      lut_path=None,
+                      lut_process_order="pre"):
+        
         if img_np is None or not isinstance(img_np, np.ndarray) or img_np.size == 0:
             return img_np
 
@@ -1924,15 +1987,33 @@ class GLVideoDisplay(QOpenGLWidget):
 
         #   Apply LUT if Applicable
         if lut_path:
-            file_lut = ocio.FileTransform(
-                lut_path,
-                interpolation=ocio.Interpolation.INTERP_LINEAR,
-                direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
-            )
-            group = ocio.GroupTransform()
-            group.appendTransform(disp_view_transform)
-            group.appendTransform(file_lut)
-            final_transform = group
+            if not os.path.exists(lut_path):
+                lutErrStr = f"The LUT path cannot be found: {lut_path}\nIgnoring LUT"
+                logger.warning(lutErrStr)
+                self.core.popup(lutErrStr)
+
+            else:
+                try:
+                    file_lut = ocio.FileTransform(
+                        lut_path,
+                        interpolation=ocio.Interpolation.INTERP_LINEAR,
+                        direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
+                    )
+                    group = ocio.GroupTransform()
+
+                    if lut_process_order.lower() == "post":
+                        # Post: DisplayView then LUT
+                        group.appendTransform(disp_view_transform)
+                        group.appendTransform(file_lut)
+                    else:
+                        # Typical: LUT before DisplayView
+                        group.appendTransform(file_lut)
+                        group.appendTransform(disp_view_transform)
+
+                    final_transform = group
+
+                except Exception as e:
+                    logger.warning(f"ERROR: Failed to Load LUT {lut_path}: {e}")
 
         #   Create CPU Processor
         processor = config.getProcessor(final_transform)
