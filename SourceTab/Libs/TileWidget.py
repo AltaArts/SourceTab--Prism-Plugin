@@ -927,7 +927,7 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def isCodecSupported(self):
         codec = self.data.get("source_mainFile_codec", "unknown")
-        return codec.lower() in self.browser.supportedCodecs
+        return self.browser.isCodecSupported(codec)
     
 
     #   Returns UUID

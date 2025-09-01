@@ -133,13 +133,17 @@ class PreviewPlayer_GPU(QWidget):
 
         self.tempOCIOLoad()                         #   TESTING
 
+        self.displayWindow.setBackground(pixel_size=20,
+                                         checker_color1=(0.0, 0.0, 0.0),
+                                         checker_color2=(0.1, 0.1, 0.1))                #   TESTING
+
         self.resetImage()
 
         self.enableControls(False)
 
 
-        # Connect signal to GL widget
-        self.frameReady.connect(self.displayWindow.setFrame)
+        # Connect Signal to GL Widget
+        self.frameReady.connect(self.displayWindow.displayFrame)
         self.PreviewCache.firstFrameComplete.connect(self.onFirstFrameReady)
 
 
@@ -290,8 +294,9 @@ class PreviewPlayer_GPU(QWidget):
 
     def tempOCIOLoad(self):
         self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam", "zCam OCIO LUT", "ARRI LogC4", "ARRI LogC3",
-                                  "LUT - sRGB - Grit", "LUT - Linear - Grit", "LOOK - Filmic - Low Con", "LOOK - Filmic - High Con",
-                                  "LOOK - Linear - Greyscale", "ERROR MAKER", "BAD LUT - NO FILE", "BAD LUT - BAD FILE"])
+                                  "LUT - sRGB - Grit", "LUT - Linear - Grit", "LUT - Linear - Film Look", "LOOK - Filmic - Low Con",
+                                  "LOOK - Filmic - High Con", "LOOK - Linear - Greyscale", "ERROR MAKER",
+                                  "BAD LUT - NO FILE", "BAD LUT - BAD FILE"])
 
 
 
@@ -463,7 +468,7 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def resetImage(self):
-        self.displayWindow.setFrame(0, self.makeBlackFrame())
+        self.displayWindow.displayFrame(0, self.makeBlackFrame())
         self.adjustPreviewAspect()
 
         self.PreviewCache.clear()
@@ -701,6 +706,7 @@ class PreviewPlayer_GPU(QWidget):
     @err_catcher(name=__name__)
     def loadMedia(self, mediaFiles, metadata, isProxy, tile=None):
         """Entry Point for Media to be Played."""
+
         self.mediaFiles = mediaFiles
         self.metadata = metadata
         self.isProxy = isProxy
@@ -956,6 +962,12 @@ class PreviewPlayer_GPU(QWidget):
                 view = "Standard"
                 luts = [r"D:\Dropbox\Alta Arts\LUTS\70 CGC LUTs\Look LUTs\Grit.cube"]
 
+            case "LUT - Linear - Film Look":
+                input_space = "Linear Rec.709"
+                display = "sRGB"
+                view = "Standard"
+                luts = [r"D:\Dropbox\Alta Arts\LUTS\Film Emulsion\Retro Film.cube"]
+
             case "LOOK - Linear - Greyscale":
                 input_space = "Linear Rec.709"
                 display = "sRGB"
@@ -1112,6 +1124,17 @@ class PreviewPlayer_GPU(QWidget):
 
         path = self.mediaFiles[0]
 
+        #   Cache
+        iconPath = os.path.join(self.iconPath, "refresh.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Reload Cache", sc, rcmenu, self, self.reloadCache, icon=icon)
+
+        iconPath = os.path.join(self.sourceBrowser.iconDir, "cache.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Enable Cache", sc, rcmenu, self, self.enableCache, icon=icon)
+
+        rcmenu.addAction(_separator())
+
         #   External Player
         playMenu = QMenu("Play in", self)
         iconPath = os.path.join(self.iconPath, "play.png")
@@ -1123,16 +1146,11 @@ class PreviewPlayer_GPU(QWidget):
                 funct = lambda x=None, name=player.get("name", ""): self.compare(name)
                 Utils.createMenuAction(player.get("name", ""), sc, playMenu, self, funct)
 
+        #   Add External Player Menu
+        rcmenu.addMenu(playMenu)
+
         Utils.createMenuAction("Default", sc, playMenu, self, lambda: self.compare(prog="default"))
-        
-        iconPath = os.path.join(self.iconPath, "refresh.png")
-        icon = self.core.media.getColoredIcon(iconPath)
-        Utils.createMenuAction("Reload Cache", sc, rcmenu, self, self.reloadCache, icon=icon)
-
-        iconPath = os.path.join(self.sourceBrowser.iconDir, "cache.png")
-        icon = self.core.media.getColoredIcon(iconPath)
-        Utils.createMenuAction("Enable Cache", sc, rcmenu, self, self.enableCache, icon=icon)
-
+       
         rcmenu.addAction(_separator())
 
         iconPath = os.path.join(self.iconPath, "folder.png")
@@ -1306,6 +1324,7 @@ class VideoCacheWorker(QRunnable):
     @err_catcher(name=__name__)
     def run(self):
         '''Start Video Cache Worker'''
+        
         try:
             #   Start FFmpeg Player
             container = av.open(self.mediaPath)
@@ -1333,20 +1352,17 @@ class VideoCacheWorker(QRunnable):
                 dst_h = max(1, int(round(src_h * scale)))
 
                 try:
-                    # f2 = frame.reformat(width=dst_w, height=dst_h,
-                    #                     format='rgb24', interpolation='BILINEAR') # RGB
-                    # img = f2.to_ndarray()
-
                     f2 = frame.reformat(width=dst_w, height=dst_h,
-                                        format='rgba', interpolation='BILINEAR')    # RGBA
+                                        format='rgba', interpolation='BILINEAR')
                     img = f2.to_ndarray()
 
                 except Exception:
-                    # img = frame.to_ndarray(format='rgb24')    # RGB
-                    img = frame.to_ndarray(format='rgba')   # RGBA
-
+                    #   If Reformat Fails, Fallback to Raw ndarray and Resize
+                    img = frame.to_ndarray(format='rgba')
                     if img.shape[1] != dst_w or img.shape[0] != dst_h:
-                        img = np.array(Image.fromarray(img).resize((dst_w, dst_h), Image.BILINEAR))
+                        img = np.array(
+                            Image.fromarray(img).resize((dst_w, dst_h), Image.BILINEAR)
+                        )
 
                 img = np.flipud(img)
 
@@ -1367,7 +1383,33 @@ class VideoCacheWorker(QRunnable):
             container.close()
 
         except Exception as e:
-            logger.warning(f"ERROR: Unable to Cache Video File: {e}")
+            logger.warning(f"ERROR: Unable to Cache Video File {self.mediaPath}: {e}")
+
+            #   Fallback: Fill Cache with Fallback Images
+            fallbackPath = Utils.getFallBackImage(self.core, filePath=self.mediaPath)
+            try:
+                img = np.array(Image.open(fallbackPath).convert("RGBA"))
+                scale = self.pWidth / float(img.shape[1])
+                dst_w = self.pWidth
+                dst_h = max(1, int(round(img.shape[0] * scale)))
+                img = np.array(
+                    Image.fromarray(img).resize((dst_w, dst_h), Image.BILINEAR)
+                )
+                img = np.flipud(img)
+
+                #   Fill Every Cache Slot with Placeholder
+                self.mutex.lock()
+                for i in self.cacheRef.keys():
+                    self.cacheRef[i] = img
+                self.mutex.unlock()
+
+                #   Signal First Frame Ready
+                if self.progCallback:
+                    self.progCallback(0, firstFrame=True)
+
+            except Exception as fe:
+                logger.error(f"Failed to load fallback image: {fe}")
+
 
 
 
@@ -1387,18 +1429,18 @@ class ImageCacheWorker(QRunnable):
 
 
     @err_catcher(name=__name__)
-    def stop(self) -> None:
-        '''Stop Frame Cache Worker'''
-        self._running = False
-
-
-    @err_catcher(name=__name__)
     def getfirstColorLayer(self, layers):
         for name in COLORNAMES:
             for layer in layers:
                 if name.lower() in layer.lower():
                     return layer
         return None
+
+
+    @err_catcher(name=__name__)
+    def stop(self) -> None:
+        '''Stop Frame Cache Worker'''
+        self._running = False
 
 
     @err_catcher(name=__name__)
@@ -1409,7 +1451,7 @@ class ImageCacheWorker(QRunnable):
             if not self._running:
                 return
             if not os.path.exists(self.imgPath):
-                return
+                raise FileNotFoundError(f"Image not found: {self.imgPath}")
 
             #   Get Layer Names from Prism
             layers = self.core.media.getLayersFromFile(self.imgPath)
@@ -1419,16 +1461,14 @@ class ImageCacheWorker(QRunnable):
 
             inp = self.oiio.ImageInput.open(self.imgPath)
             if not inp:
-                return
+                raise RuntimeError(f"OIIO could not open: {self.imgPath}")
 
             spec = inp.spec()
             channels = spec.channelnames
-
             img_np = None
 
             #   If Beauty/Color Layer Found
             if selected_layer:
-                #   Find RGB Channels for the Selected Layer
                 rgb_channels = [c for c in channels if selected_layer in c and not c.endswith(".A")]
                 if len(rgb_channels) == 3:
                     chbegin = channels.index(rgb_channels[0])
@@ -1436,19 +1476,18 @@ class ImageCacheWorker(QRunnable):
                     img = inp.read_image(0, 0, chbegin, chend, self.oiio.UINT8)
                     img_np = np.array(img).reshape(spec.height, spec.width, 3)
 
-            #   Fallback
+            #   Fallback: Read Whatever is There
             if img_np is None:
                 img = inp.read_image(format=self.oiio.UINT8)
                 img_np = np.array(img).reshape(spec.height, spec.width, spec.nchannels)
 
-                #   If Single Channel, Repeat to Make 3 Channel
+                #   Grayscale (Repeat Channel to RGB)
                 if img_np.shape[-1] == 1:
-                    img_np = np.repeat(img_np, 3, axis=-1)  # grayscale → RGB
-                #   RGBA
+                    img_np = np.repeat(img_np, 3, axis=-1)
+                 #  RGBA
                 elif img_np.shape[-1] >= 4:
                     img_np = img_np[..., :4]
-
-                #   Fallback to First 3 Channels
+                #   RGB
                 else:
                     img_np = img_np[..., :3]
 
@@ -1457,8 +1496,7 @@ class ImageCacheWorker(QRunnable):
             #   Resize
             src_w, src_h = spec.width, spec.height
             scale = self.pWidth / float(src_w)
-            dst_w = self.pWidth
-            dst_h = max(1, int(round(src_h * scale)))
+            dst_w, dst_h = self.pWidth, max(1, int(round(src_h * scale)))
             if (dst_w, dst_h) != (src_w, src_h):
                 img_np = np.array(Image.fromarray(img_np).resize((dst_w, dst_h), Image.BILINEAR))
 
@@ -1473,8 +1511,26 @@ class ImageCacheWorker(QRunnable):
                 self.progCallback(self.frame_idx, firstFrame=(self.frame_idx == 0))
 
         except Exception as e:
-            logger.warning(f"ERROR: Unable to Cache Image: {e}")
+            logger.warning(f"ERROR: Unable to Cache Image {self.imgPath}: {e}")
 
+            #   Fallback: Fill Cache with Fallback Images
+            fallbackPath = Utils.getFallBackImage(self.core, filePath=self.imgPath)
+            try:
+                img = np.array(Image.open(fallbackPath).convert("RGBA"))
+                scale = self.pWidth / float(img.shape[1])
+                dst_w, dst_h = self.pWidth, max(1, int(round(img.shape[0] * scale)))
+                img = np.array(Image.fromarray(img).resize((dst_w, dst_h), Image.BILINEAR))
+                img = np.flipud(img)
+
+                self.mutex.lock()
+                self.cacheRef[self.frame_idx] = img
+                self.mutex.unlock()
+
+                if self.progCallback:
+                    self.progCallback(self.frame_idx, firstFrame=(self.frame_idx == 0))
+
+            except Exception as fe:
+                logger.error(f"Failed to load fallback image: {fe}")
 
             
 class FrameCacheManager(QObject):
@@ -1499,6 +1555,23 @@ class FrameCacheManager(QObject):
         # max_threads = self.threadpool.maxThreadCount()
         # print(f"***  max_threads:  {max_threads}")								#	TESTING
 
+
+    @err_catcher(name=__name__)
+    def _onWorkerProgress(self, frameIdx, firstFrame=False):
+        if firstFrame:
+            self.firstFrameComplete.emit(frameIdx)
+            self._firstFrameEmitted = True
+
+        self.cacheUpdated.emit(frameIdx)
+
+        if all(v is not None for v in self.cache.values()):
+            elapsed = time.time() - self._cacheStartTime
+            logger.debug(f"Frame Cache Complete in {elapsed:.2f} seconds")
+            self.cacheComplete.emit()
+
+
+#########################
+#######   API    ########
 
     @err_catcher(name=__name__)
     def setMedia(self, mediaFiles:list, prevWidth:int, fileType:str, isSeq:bool, prevData:dict) -> None:
@@ -1580,20 +1653,6 @@ class FrameCacheManager(QObject):
             )
             self.worker.setAutoDelete(True)
             self.threadpool.start(self.worker)
-
-
-    @err_catcher(name=__name__)
-    def _onWorkerProgress(self, frameIdx, firstFrame=False):
-        if firstFrame:
-            self.firstFrameComplete.emit(frameIdx)
-            self._firstFrameEmitted = True
-
-        self.cacheUpdated.emit(frameIdx)
-
-        if all(v is not None for v in self.cache.values()):
-            elapsed = time.time() - self._cacheStartTime
-            logger.debug(f"Frame Cache Complete in {elapsed:.2f} seconds")
-            self.cacheComplete.emit()
 
 
     @err_catcher(name=__name__)
@@ -1778,10 +1837,7 @@ class GLVideoDisplay(QOpenGLWidget):
 
     #   Displays Frame Numpy Array in Viewer
     @err_catcher(name=__name__)
-    def setFrame(self,
-                 frameIdx: int,
-                 frame: np.ndarray
-                 ) -> bool:
+    def displayFrame(self, frameIdx: int, frame: np.ndarray) -> bool:
         '''Displays Frame in Viwer'''
 
         try:

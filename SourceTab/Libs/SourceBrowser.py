@@ -1543,6 +1543,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         
         except Exception as e:
             logger.warning(f"ERROR:  isVideo() Failed:\n{e}")
+
+
+    #   Returns Bool if Codec is Supported by FFmpeg
+    @err_catcher(name=__name__)
+    def isCodecSupported(self, codec):
+        return codec.lower() in self.supportedCodecs
     
 
     #   Returns Bool if File is in Audio Formats
