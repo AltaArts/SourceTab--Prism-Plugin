@@ -972,13 +972,17 @@ class BaseTileItem(QWidget):
      #   Get Media Player Enabled State
     @err_catcher(name=__name__)
     def isViewerEnabled(self):
-        return self.browser.chb_enablePlayer.isChecked()
+        # return self.browser.chb_enablePlayer.isChecked()
+        return self.browser.b_enablePlayer.isChecked()
+
 
 
     #   Get Media Player Prefer Proxies State
     @err_catcher(name=__name__)
     def isPreferProxies(self):
-        return self.browser.chb_preferProxies.isChecked()
+        # return self.browser.chb_preferProxies.isChecked()
+        return self.browser.b_preferProxies.isChecked()
+
 
 
     #   Sends the File to the Preview Viewer

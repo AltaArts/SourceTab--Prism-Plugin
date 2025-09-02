@@ -177,7 +177,7 @@ class PreviewPlayer_GPU(QWidget):
         #   View LUT
         self.container_viewLut = QWidget()
         self.lo_viewLut = QHBoxLayout(self.container_viewLut)
-        self.l_viewLut = QLabel("View Lut Preset:")
+        self.l_viewLut = QLabel("OCIO Preset:")
         self.cb_viewLut = QComboBox()
         self.lo_viewLut.addWidget(self.l_viewLut)
         self.lo_viewLut.addWidget(self.cb_viewLut)
@@ -810,7 +810,8 @@ class PreviewPlayer_GPU(QWidget):
             self.PreviewCache.setMedia(mediaFiles, windowWidth, self.fileType, self.prvIsSequence, prevData)
 
             #   Start the Caching                                   #   TODO - ADD TOGGLE TO START/STOP/ENABLE
-            self.PreviewCache.start()
+            if self.sourceBrowser.cacheEnabled:
+                self.PreviewCache.start()
 
             return True
 
@@ -1129,9 +1130,9 @@ class PreviewPlayer_GPU(QWidget):
         icon = self.core.media.getColoredIcon(iconPath)
         Utils.createMenuAction("Reload Cache", sc, rcmenu, self, self.reloadCache, icon=icon)
 
-        iconPath = os.path.join(self.sourceBrowser.iconDir, "cache.png")
-        icon = self.core.media.getColoredIcon(iconPath)
-        Utils.createMenuAction("Enable Cache", sc, rcmenu, self, self.enableCache, icon=icon)
+        # iconPath = os.path.join(self.sourceBrowser.iconDir, "cache.png")
+        # icon = self.core.media.getColoredIcon(iconPath)
+        # Utils.createMenuAction("Enable Cache", sc, rcmenu, self, self.enableCache, icon=icon)
 
         rcmenu.addAction(_separator())
 
@@ -1186,9 +1187,9 @@ class PreviewPlayer_GPU(QWidget):
         return rcmenu
 
 
-    @err_catcher(name=__name__)
-    def enableCache(self):
-        pass
+    # @err_catcher(name=__name__)
+    # def enableCache(self):
+    #     pass
 
 
     @err_catcher(name=__name__)
@@ -1776,7 +1777,6 @@ class GLVideoDisplay(QOpenGLWidget):
                 errors.append(errStr)
                 view = fallback_view
 
-
             #   Check LUT File
             validLuts = []
             if luts:
@@ -1815,7 +1815,6 @@ class GLVideoDisplay(QOpenGLWidget):
                 text += "\n".join(f"- {err}\n" for err in errors)
                 self.core.popup(text=text, title=title)
 
-
             self.inputSpace = inputSpace
             self.display = display
             self.view = view
@@ -1849,6 +1848,7 @@ class GLVideoDisplay(QOpenGLWidget):
         except Exception as e:
             logger.warning(f"ERROR: Failed to Set Image Frame: {e}")
             return False
+
 
     ###########################
     ######   INTERNAL   #######
@@ -2033,7 +2033,6 @@ class GLVideoDisplay(QOpenGLWidget):
         self.setCheckerPixelSize()
 
 
-
     @err_catcher(name=__name__)
     def createLutTransform(self, lut_path: str):
         if not os.path.isfile(lut_path):
@@ -2119,7 +2118,6 @@ class GLVideoDisplay(QOpenGLWidget):
                     final_transform.appendTransform(lutTransform)
                 else:
                     logger.warning(f"Skipping invalid LUT: {lut_path}")
-
 
         #   Create CPU Processor
         processor = config.getProcessor(final_transform)

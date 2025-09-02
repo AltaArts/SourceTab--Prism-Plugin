@@ -171,6 +171,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.initialized = False
         self.closeParm = "closeafterload"
 
+        self.cacheEnabled = True
+
         #   Time to Detect Stalled Worker Threads
         self.stallInterval = 30
         
@@ -281,6 +283,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         durationIcon = Utils.getIconFromPath(os.path.join(iconDir, "duration.png"))
         filtersIcon = Utils.getIconFromPath(os.path.join(iconDir, "filters.png"))
         sequenceIcon = Utils.getIconFromPath(os.path.join(iconDir, "sequence.png"))
+        self.player_on_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_on.png"))
+        self.player_off_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_off.png"))
+        pxyIcon = Utils.getIconFromPath(os.path.join(iconDir, "proxy.png"))
+        cacheIcon = Utils.getIconFromPath(os.path.join(iconDir, "cache.png"))
 
         ##   Source Panel
         #   Set Button Icons
@@ -332,16 +338,36 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.lo_playerToolbar = QHBoxLayout()
 
         #   Player Enable Switch
-        self.chb_enablePlayer = QCheckBox("Enable Media Player")
+        # self.chb_enablePlayer = QCheckBox("Enable Media Player")
+        self.b_enablePlayer = QPushButton()
+        self.b_enablePlayer.setIcon(self.player_on_Icon)
+        self.b_enablePlayer.setCheckable(True)
 
         #   Prefer Proxys Switch
-        self.chb_preferProxies = QCheckBox("Prefer Proxies")
+        # self.chb_preferProxies = QCheckBox("Prefer Proxies")
+        self.b_preferProxies = QPushButton()
+        self.b_preferProxies.setIcon(pxyIcon)
+        self.b_preferProxies.setCheckable(True)
+
+        #   Cache Enable Button
+        self.b_cacheEnabled = QPushButton()
+        self.b_cacheEnabled.setIcon(cacheIcon)
+        self.b_cacheEnabled.setCheckable(True)
 
         #   Add Widgets to PreviewPlayer Toolbar
-        self.lo_playerToolbar.addWidget(self.chb_enablePlayer)
+        # self.lo_playerToolbar.addWidget(self.chb_enablePlayer)
+
+        self.lo_playerToolbar.addWidget(self.b_enablePlayer)
+        
         self.spacer1 = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.lo_playerToolbar.addItem(self.spacer1)
-        self.lo_playerToolbar.addWidget(self.chb_preferProxies)
+
+        # self.lo_playerToolbar.addWidget(self.chb_preferProxies)
+
+        self.lo_playerToolbar.addWidget(self.b_preferProxies)
+
+        self.lo_playerToolbar.addWidget(self.b_cacheEnabled)
+
 
         # Media Player Import
         self.useGPU = self.checkGpuAvailability()
@@ -433,12 +459,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_tips_dest.setToolTip(destTip)
 
         tip = "Enable/Disable Media Player"
-        self.chb_enablePlayer.setToolTip(tip)
+        # self.chb_enablePlayer.setToolTip(tip)
+        self.b_enablePlayer.setToolTip(tip)
+
+
+        
 
         tip = ("Use Proxy file in the Media Player\n"
                "(if the Proxy exists)\n\n"
                "This does not affect the Transfer")
-        self.chb_preferProxies.setToolTip(tip)
+        # self.chb_preferProxies.setToolTip(tip)
+        self.b_preferProxies.setToolTip(tip)
 
 
     @err_catcher(name=__name__)
@@ -478,8 +509,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_tips_dest.clicked.connect(Utils.launchHelpWeb)
 
         #   Media Player
-        self.chb_enablePlayer.toggled.connect(self.togglePreviewPlayer)
-        self.chb_preferProxies.toggled.connect(self.togglePreferProxies)
+        # self.chb_enablePlayer.toggled.connect(self.togglePreviewPlayer)
+        self.b_enablePlayer.toggled.connect(self.togglePreviewPlayer)
+
+        # self.chb_preferProxies.toggled.connect(self.togglePreferProxies)
+        self.b_preferProxies.toggled.connect(self.togglePreferProxies)
+
+        self.b_cacheEnabled.toggled.connect(self.toggleCacheEnable)
 
         #   Functions Panel
         self.sourceFuncts.chb_ovr_proxy.toggled.connect(self.toggleProxy)
@@ -893,11 +929,17 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             #   Media Player Enabled Checkbox
             playerEnabled = tabData["playerEnabled"]
-            self.chb_enablePlayer.setChecked(playerEnabled)
+
+            # self.chb_enablePlayer.setChecked(playerEnabled)
+            self.b_enablePlayer.setChecked(playerEnabled)
+
             self.togglePreviewPlayer(playerEnabled)
+            
             #   Prefer Proxies Checkbox
             preferProxies = tabData["preferProxies"]
-            self.chb_preferProxies.setChecked(preferProxies)
+            # self.chb_preferProxies.setChecked(preferProxies)
+            self.b_preferProxies.setChecked(preferProxies)
+
             self.togglePreferProxies(preferProxies)
             
             #   Proxy Options
@@ -1284,7 +1326,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def togglePreviewPlayer(self, checked):
         self.PreviewPlayer.setVisible(checked)
-        self.chb_preferProxies.setVisible(checked)
+        # self.chb_preferProxies.setVisible(checked)
+        self.b_preferProxies.setVisible(checked)
+
+        if checked:
+            icon = self.player_on_Icon
+        else:
+            icon = self.player_off_Icon
+
+        self.b_enablePlayer.setIcon(icon)
 
 
     #   Sets Prefer Proxies
@@ -1562,6 +1612,19 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             extension = self.getFileExtension()
         
         return extension.lower() in self.audioFormats
+    
+
+    @err_catcher(name=__name__)
+    def toggleCacheEnable(self, enabled):
+        logger.debug(f"Automatic Caching: {enabled}")
+        self.cacheEnabled = enabled
+
+        if hasattr(self.PreviewPlayer, "PreviewCache"):
+            if not enabled:
+                self.PreviewPlayer.PreviewCache.stop()
+                self.PreviewPlayer.PreviewCache.clear()
+            else:
+                self.PreviewPlayer.PreviewCache.start()
 
 
     @err_catcher(name=__name__)
