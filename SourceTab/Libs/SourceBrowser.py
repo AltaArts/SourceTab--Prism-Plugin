@@ -338,13 +338,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.lo_playerToolbar = QHBoxLayout()
 
         #   Player Enable Switch
-        # self.chb_enablePlayer = QCheckBox("Enable Media Player")
         self.b_enablePlayer = QPushButton()
         self.b_enablePlayer.setIcon(self.player_on_Icon)
         self.b_enablePlayer.setCheckable(True)
 
         #   Prefer Proxys Switch
-        # self.chb_preferProxies = QCheckBox("Prefer Proxies")
         self.b_preferProxies = QPushButton()
         self.b_preferProxies.setIcon(pxyIcon)
         self.b_preferProxies.setCheckable(True)
@@ -355,19 +353,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_cacheEnabled.setCheckable(True)
 
         #   Add Widgets to PreviewPlayer Toolbar
-        # self.lo_playerToolbar.addWidget(self.chb_enablePlayer)
-
         self.lo_playerToolbar.addWidget(self.b_enablePlayer)
-        
         self.spacer1 = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.lo_playerToolbar.addItem(self.spacer1)
-
-        # self.lo_playerToolbar.addWidget(self.chb_preferProxies)
-
         self.lo_playerToolbar.addWidget(self.b_preferProxies)
-
         self.lo_playerToolbar.addWidget(self.b_cacheEnabled)
-
 
         # Media Player Import
         self.useGPU = self.checkGpuAvailability()
@@ -376,9 +366,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             self.ocioPresets = QWidget()
             self.lo_ocioPresets = QHBoxLayout(self.ocioPresets)
-            # self.l_ocioPresets = QLabel("OCIO Preset:")
             self.cb_ocioPresets = QComboBox()
-            # self.lo_ocioPresets.addWidget(self.l_ocioPresets)
             self.lo_ocioPresets.addWidget(self.cb_ocioPresets)
             self.lo_playerToolbar.addWidget(self.ocioPresets)
 
@@ -473,7 +461,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         tip = ("Use Proxy file in the Media Player\n"
                "(if the Proxy exists)\n\n"
                "This does not affect the Transfer")
-        # self.chb_preferProxies.setToolTip(tip)
         self.b_preferProxies.setToolTip(tip)
 
         tip = ("PreviewPlayer OCIO View Preset")
@@ -517,16 +504,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_tips_dest.clicked.connect(Utils.launchHelpWeb)
 
         #   Media Player
-        # self.chb_enablePlayer.toggled.connect(self.togglePreviewPlayer)
         self.b_enablePlayer.toggled.connect(self.togglePreviewPlayer)
-
-        # self.chb_preferProxies.toggled.connect(self.togglePreferProxies)
         self.b_preferProxies.toggled.connect(self.togglePreferProxies)
-
         self.b_cacheEnabled.toggled.connect(self.toggleCacheEnable)
-
         self.cb_ocioPresets.currentIndexChanged.connect(self.PreviewPlayer.onOcioChanged)
-
 
         #   Functions Panel
         self.sourceFuncts.chb_ovr_proxy.toggled.connect(self.toggleProxy)
@@ -678,7 +659,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         for key, rb in radioButtons.items():
             if rb.isChecked():
                 return key
-        return "type"  # Fallback
+        return "type"
 
 
     #   Right Click List for Filters
@@ -1209,9 +1190,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             lockItems = [self.sourceFuncts.gb_functions,
                         self.gb_sourceHeader,
-                        # self.gb_sourceFooter,
                         self.gb_destHeader,
-                        # self.gb_destFooter]
             ]
 
             for item in lockItems:
@@ -1337,7 +1316,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def togglePreviewPlayer(self, checked):
         self.PreviewPlayer.setVisible(checked)
-        # self.chb_preferProxies.setVisible(checked)
         self.b_preferProxies.setVisible(checked)
         self.b_cacheEnabled.setVisible(checked)
         self.ocioPresets.setVisible(checked)
@@ -1635,7 +1613,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if hasattr(self.PreviewPlayer, "PreviewCache"):
             if not enabled:
                 self.PreviewPlayer.PreviewCache.stop()
-                self.PreviewPlayer.PreviewCache.clear()
             else:
                 self.PreviewPlayer.PreviewCache.start()
 
@@ -1696,7 +1673,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Group Image Sequences with Seq Number Suffix
     @err_catcher(name=__name__)
     def groupSequences(self, table, sortedList):
-        # Helper to Split Filename into Parts
+
+        #   Helper to Split Filename into Parts
         def _splitFilename(filename):
             name, ext = os.path.splitext(filename)
             match = re.search(r'(\d+)$', name)
@@ -1708,11 +1686,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 frame = ''
             return base, frame, ext
 
+
         filePath_to_item = {}
         seen = set()
         groupedItems = []
 
-        # Collect Files
+        #   Collect Files
         ordered_file_paths = []
         for item in sortedList:
             if item["tileType"] == "file":
@@ -1731,7 +1710,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 ext.lower() in self.core.media.supportedFormats and
                 ext.lower() not in self.core.media.videoFormats
             ):
-                # Build regex pattern for matching sequence files
+                #   Build Regex for Matching Sequence Files
                 pattern = re.escape(base) + r'\d+' + re.escape(ext)
                 regex = re.compile(pattern)
 
@@ -1739,7 +1718,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 for f in ordered_file_paths:
                     if f not in seen and regex.fullmatch(f):
                         matched_dict[f] = None
-                matched_dict[current] = None  # ensure current is included
+                matched_dict[current] = None
 
                 matched = list(matched_dict.keys())
 
@@ -1754,7 +1733,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     baseItem = filePath_to_item[current]
                     groupedData = baseItem["data"].copy()
 
-                    # Remove redundant per-frame fields from main dict
+                    #   Remove Redundant Per-frame Fields from Main Dict
                     for key in [
                         "source_mainFile_path",
                         "source_mainFile_duration",
@@ -1788,7 +1767,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 seen.add(current)
                 groupedItems.append(filePath_to_item[current])
 
-        # Preserve folder order (if any)
+        #   Preserve Folder Order (if any)
         folders = [item for item in sortedList if item["tileType"] == "folder"]
         return folders + groupedItems
 
@@ -1831,8 +1810,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     return data.get("source_mainFile_size_raw", 0)
                 case "date":
                     return data.get("source_mainFile_date_raw", 0)
-                # case "duration":
-                #     return data.get("source_mainFile_frames", 0)
                 case _:
                     return data.get("displayName", "").lower()
 
@@ -2283,12 +2260,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         comd = []
 
-        # fileName = Utils.getBasename(filePath)
-        # baseName, extension = os.path.splitext(fileName)
-
-        ##   Commented Out to Allow All Files to Open   ##
-        # if extension.lower() in self.core.media.supportedFormats:
-
         logger.debug("Opening File in Shell Application")
 
         if not progPath:
@@ -2428,7 +2399,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     #   Return List of Checked Dest File Tiles
-    @err_catcher(name=__name__)                                         #   TODO  Move
+    @err_catcher(name=__name__)                                 #   TODO Move
     def getCopyList(self):
         row_count = self.lw_destination.count()
         self.copyList = []
@@ -2445,7 +2416,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
 
-    @err_catcher(name=__name__)  # TODO Move
+    @err_catcher(name=__name__)                                     # TODO Move
     def getTransferErrors(self):
         #   Collect into Lists
         errors_list = defaultdict(list)
@@ -2575,11 +2546,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             for item in self.copyList:
                 filename = Utils.getBasename(item.getDestMainPath())
                 
-                # Create a separate group for each file
+                #   Create a Separate Group for Each File
                 group_box = QGroupBox(filename)
                 form_layout = QFormLayout()
 
-                # Add individual data items in separate lines
+                #   Add Individual Data Items in Separate Lines
                 form_layout.addRow("Date:", QLabel(item.data.get('source_mainFile_date', 'Unknown')))
                 form_layout.addRow("Path:", QLabel(item.getSource_mainfilePath()))
                 form_layout.addRow("Size:", QLabel(item.data.get('source_mainFile_size', 'Unknown')))
@@ -2594,7 +2565,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 group_box.setLayout(form_layout)
                 file_list.append(group_box)
 
-            # Combine header and file groups into a final data dict
+            #   Combine Header and File Groups
             data = {
                 "Transfer:": header,
                 "Errors:": errors,
@@ -3205,13 +3176,3 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         except Exception as e:
             logger.warning(f"ERROR: Failed to Update Proxy Preset Multiplier:\n{e}")
-
-
-    # @err_catcher(name=__name__)                                                         #   NEEDED ????
-    # def setPreview(self):
-    #     entity = self.getCurrentEntity()
-    #     pm = self.PreviewPlayer.PreviewPlayer.l_preview.pixmap()
-    #     self.core.entities.setEntityPreview(entity, pm)
-    #     self.core.pb.sceneBrowser.refreshEntityInfo()
-    #     self.w_entities.getCurrentPage().refreshEntities(restoreSelection=True)
-

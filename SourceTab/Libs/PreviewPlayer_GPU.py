@@ -174,7 +174,7 @@ class PreviewPlayer_GPU(QWidget):
         self.l_info.setObjectName("l_info")
         self.lo_preview_main.addWidget(self.l_info)
 
-        #   View LUT
+        #   View LUT                                        #   Moved to SourceTab
         # self.container_viewLut = QWidget()
         # self.lo_viewLut = QHBoxLayout(self.container_viewLut)
         # self.l_viewLut = QLabel("OCIO Preset:")
@@ -340,7 +340,6 @@ class PreviewPlayer_GPU(QWidget):
             #   Resize the Preview Widget
             self.displayWindow.setMinimumHeight(target_height)
             self.displayWindow.setMaximumHeight(target_height)
-            # self.displayWindow.resize(window_width, target_height)
 
             #   Resize GL Window
             if hasattr(self.displayWindow, "scale_w") and hasattr(self.displayWindow, "scale_h"):
@@ -364,8 +363,8 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def updateCacheSlider(self, frame=None, reset=False):
-        if not self.PreviewCache.cache and not reset:
-            return
+        # if not self.PreviewCache.cache and not reset:
+        #     return
         
         if reset:
             progress_ratio = 0
@@ -486,8 +485,8 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def onCurrentChanged(self, frame):
-        if not self.PreviewCache.cache:
-            return
+        # if not self.PreviewCache.cache:
+        #     return
 
         self.sl_previewImage.blockSignals(True)
         self.sl_previewImage.setValue(frame)
@@ -541,9 +540,9 @@ class PreviewPlayer_GPU(QWidget):
     def setCurrentFrame(self, frameIdx:int, manual:bool = False, reset:bool = False):
         """Move the Playhead to a Specific Frame and Update the UI."""
 
-        if not self.PreviewCache.cache:
-            return
-
+        # if not self.PreviewCache.cache:
+        #     return
+        
         frameIdx = max(0, min(frameIdx, len(self.PreviewCache.cache) - 1))
         self.currentFrameIdx = frameIdx
         self._playFrameIndex = frameIdx
@@ -570,7 +569,7 @@ class PreviewPlayer_GPU(QWidget):
         self.sp_current.blockSignals(False)
 
         #   Display the Frame
-        frame = self.PreviewCache.cache.get(frameIdx)
+        frame = self.PreviewCache.getFrame(frameIdx)
         if frame is not None:
             self.frameReady.emit(frameIdx, frame)
 
@@ -593,8 +592,8 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def onPlayClicked(self):
-        if not self.mediaFiles or not self.PreviewCache.cache:
-            return
+        # if not self.mediaFiles or not self.PreviewCache.cache:
+        #     return
 
         if self.isPlaying():
             self.setTimelinePaused(True)
@@ -606,9 +605,9 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def _playNextFrame(self):
-        if not self.PreviewCache.cache:
-            self.playTimer.stop()
-            return
+        # if not self.PreviewCache.cache:
+        #     self.playTimer.stop()
+        #     return
 
         elapsed_ms = self._playStartTime.elapsed() + self._playBaseOffset + self._pausedOffset
         target_frame = int(elapsed_ms / self._playInterval)
@@ -635,8 +634,8 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def sliderChanged(self, frameIdx):
-        if not self.mediaFiles or not self.PreviewCache.cache:
-            return
+        # if not self.mediaFiles or not self.PreviewCache.cache:
+        #     return
 
         was_playing = self.isPlaying()
         if was_playing:
@@ -692,8 +691,8 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def previewClk(self, event):
-        if not self.mediaFiles or not self.PreviewCache.cache:
-            return
+        # if not self.mediaFiles or not self.PreviewCache.cache:
+        #     return
 
         if event.button() == Qt.LeftButton:
             self.onPlayClicked()
@@ -893,12 +892,12 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def loadFrame(self, frameIdx):
-        if not self.PreviewCache.cache:
-            logger.debug("No frames in cache yet")
-            return
+        # if not self.PreviewCache.cache:
+        #     logger.debug("No frames in cache yet")
+        #     return
 
         frameIdx = max(0, min(frameIdx, len(self.PreviewCache.cache)-1))
-        frame = self.PreviewCache.cache.get(frameIdx)
+        frame = self.PreviewCache.getFrame(frameIdx)
 
         if frame is not None:
             self.frameReady.emit(frameIdx, frame)
@@ -1571,6 +1570,64 @@ class FrameCacheManager(QObject):
             logger.debug(f"Frame Cache Complete in {elapsed:.2f} seconds")
             self.cacheComplete.emit()
 
+    
+    @err_catcher(name=__name__)
+    def _generateFrame(self, frameIdx):
+        #   Image Sequence
+        if self.isSeq:
+            imgPath = self.mediaFiles[frameIdx]
+            worker = ImageCacheWorker(
+                self.core,
+                imgPath,
+                frameIdx,
+                self.cache,
+                self.mutex,
+                self.pWidth,
+                None,
+            )
+            #   Blocking Decode
+            worker.run()
+            return self.cache.get(frameIdx)
+
+        #   Video
+        else:
+            mediaPath = self.mediaFiles[0]
+            try:
+                container = av.open(mediaPath)
+                stream = container.streams.video[0]
+
+                #   Attempt Direct Seek if Possible (faster)
+                try:
+                    container.seek(frameIdx * stream.time_base.denominator // self.fps)
+                except Exception:
+                    #   Fallback full Decode
+                    pass
+
+                for idx, frame in enumerate(container.decode(stream)):
+                    if idx == frameIdx:
+                        #   Scale and Flip
+                        src_w, src_h = frame.width, frame.height
+                        scale = self.pWidth / float(src_w)
+                        dst_w = self.pWidth
+                        dst_h = max(1, int(round(src_h * scale)))
+
+                        f2 = frame.reformat(width=dst_w, height=dst_h,
+                                            format='rgba', interpolation='BILINEAR')
+                        img = np.flipud(f2.to_ndarray())
+
+                        self.mutex.lock()
+                        self.cache[frameIdx] = img
+                        self.mutex.unlock()
+                        container.close()
+                        return img
+                container.close()
+
+            except Exception as e:
+                logger.warning(f"getFrame() failed for frame {frameIdx}: {e}")
+                return None
+
+        return None
+
 
 #########################
 #######   API    ########
@@ -1660,6 +1717,7 @@ class FrameCacheManager(QObject):
     @err_catcher(name=__name__)
     def stop(self) -> None:
         '''Stops the Frame Cache Worker'''
+
         if self.worker:
             self.worker.stop()
 
@@ -1670,10 +1728,31 @@ class FrameCacheManager(QObject):
     @err_catcher(name=__name__)
     def clear(self) -> None:
         '''Clears the Current Frame Cache'''
+
         self.mutex.lock()
         self.cache.clear()
         self.mutex.unlock()
         logger.debug("Frame Cache Cleared")
+
+
+    @err_catcher(name=__name__)
+    def getFrame(self, frameIdx: int) -> np.array:
+        """
+            Return numpy Array Frame.\n
+            Gets Frame from Cache if Available, or Decode and Insert into Cache.
+        """
+
+        #   Return from Cache if Exists in Cache
+        frame = self.cache.get(frameIdx)
+        if frame is not None:
+            return frame
+
+        if not self.mediaFiles:
+            return None
+        
+        return self._generateFrame(frameIdx)
+
+
 
 
 

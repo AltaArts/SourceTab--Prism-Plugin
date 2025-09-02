@@ -553,8 +553,8 @@ class Prism_SourceTab_Functions(object):
                 tData["source_combineSeq"] = self.sourceBrowser.b_source_sorting_combineSeqs.isChecked()
                 tData["dest_combineSeq"] = self.sourceBrowser.b_dest_sorting_combineSeqs.isChecked()
                 tData["enable_frames"] = self.sourceBrowser.b_source_sorting_duration.isChecked()
-                tData["playerEnabled"] = self.sourceBrowser.chb_enablePlayer.isChecked()
-                tData["preferProxies"] = self.sourceBrowser.chb_preferProxies.isChecked()
+                tData["playerEnabled"] = self.sourceBrowser.b_enablePlayer.isChecked()
+                tData["preferProxies"] = self.sourceBrowser.b_preferProxies.isChecked()
                 tData["proxyMode"] = self.sourceBrowser.proxyMode
 
                 functs = self.sourceBrowser.sourceFuncts
