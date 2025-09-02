@@ -175,13 +175,13 @@ class PreviewPlayer_GPU(QWidget):
         self.lo_preview_main.addWidget(self.l_info)
 
         #   View LUT
-        self.container_viewLut = QWidget()
-        self.lo_viewLut = QHBoxLayout(self.container_viewLut)
-        self.l_viewLut = QLabel("OCIO Preset:")
-        self.cb_viewLut = QComboBox()
-        self.lo_viewLut.addWidget(self.l_viewLut)
-        self.lo_viewLut.addWidget(self.cb_viewLut)
-        self.lo_preview_main.addWidget(self.container_viewLut)
+        # self.container_viewLut = QWidget()
+        # self.lo_viewLut = QHBoxLayout(self.container_viewLut)
+        # self.l_viewLut = QLabel("OCIO Preset:")
+        # self.cb_viewLut = QComboBox()
+        # self.lo_viewLut.addWidget(self.l_viewLut)
+        # self.lo_viewLut.addWidget(self.cb_viewLut)
+        # self.lo_preview_main.addWidget(self.container_viewLut)
 
         #   Viewer Window
         self.displayWindow = GLVideoDisplay(self, self.core)
@@ -288,15 +288,16 @@ class PreviewPlayer_GPU(QWidget):
         self.b_last.clicked.connect(self.onLastClicked)
 
         self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
-        self.cb_viewLut.currentIndexChanged.connect(self.onLutChanged)
+        # self.cb_viewLut.currentIndexChanged.connect(self.onLutChanged)
 
 
 
     def tempOCIOLoad(self):
-        self.cb_viewLut.addItems(["sRGB", "Linear", "AgX", "ACEScg", "zCam", "zCam OCIO LUT", "ARRI LogC4", "ARRI LogC3",
-                                  "LUT - sRGB - Grit", "LUT - Linear - Grit", "LUT - Linear - Film Look", "LOOK - Filmic - Low Con",
-                                  "LOOK - Filmic - High Con", "LOOK - Linear - Greyscale", "ERROR MAKER",
-                                  "BAD LUT - NO FILE", "BAD LUT - BAD FILE"])
+        self.sourceBrowser.cb_ocioPresets.addItems(["sRGB", "Linear", "AgX",
+                "ACEScg", "zCam", "zCam OCIO LUT", "ARRI LogC4", "ARRI LogC3",
+                "LUT - sRGB - Grit", "LUT - Linear - Grit", "LUT - Linear - Film Look", "LOOK - Filmic - Low Con",
+                "LOOK - Filmic - High Con", "LOOK - Linear - Greyscale", "ERROR MAKER",
+                "BAD LUT - NO FILE", "BAD LUT - BAD FILE"])
 
 
 
@@ -499,7 +500,7 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def onLutChanged(self, idx):
+    def onOcioChanged(self, idx):
         self.configureOCIO()
         self.reloadCurrentFrame()
 
@@ -909,7 +910,7 @@ class PreviewPlayer_GPU(QWidget):
         look = None
         luts = []
 
-        match self.cb_viewLut.currentText():
+        match self.sourceBrowser.cb_ocioPresets.currentText():
             case "sRGB":
                 input_space = "sRGB"
                 display = "sRGB"

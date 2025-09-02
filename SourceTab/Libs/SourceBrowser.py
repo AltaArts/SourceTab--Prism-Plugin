@@ -374,6 +374,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if self.useGPU:
             logger.status("Initializing GPU PreviewViewer")
 
+            self.ocioPresets = QWidget()
+            self.lo_ocioPresets = QHBoxLayout(self.ocioPresets)
+            # self.l_ocioPresets = QLabel("OCIO Preset:")
+            self.cb_ocioPresets = QComboBox()
+            # self.lo_ocioPresets.addWidget(self.l_ocioPresets)
+            self.lo_ocioPresets.addWidget(self.cb_ocioPresets)
+            self.lo_playerToolbar.addWidget(self.ocioPresets)
+
             from PreviewPlayer_GPU import PreviewPlayer_GPU
             self.PreviewPlayer = PreviewPlayer_GPU(self)
 
@@ -462,14 +470,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         # self.chb_enablePlayer.setToolTip(tip)
         self.b_enablePlayer.setToolTip(tip)
 
-
-        
-
         tip = ("Use Proxy file in the Media Player\n"
                "(if the Proxy exists)\n\n"
                "This does not affect the Transfer")
         # self.chb_preferProxies.setToolTip(tip)
         self.b_preferProxies.setToolTip(tip)
+
+        tip = ("PreviewPlayer OCIO View Preset")
+        self.ocioPresets.setToolTip(tip)
 
 
     @err_catcher(name=__name__)
@@ -516,6 +524,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_preferProxies.toggled.connect(self.togglePreferProxies)
 
         self.b_cacheEnabled.toggled.connect(self.toggleCacheEnable)
+
+        self.cb_ocioPresets.currentIndexChanged.connect(self.PreviewPlayer.onOcioChanged)
+
 
         #   Functions Panel
         self.sourceFuncts.chb_ovr_proxy.toggled.connect(self.toggleProxy)
@@ -1110,10 +1121,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.PreviewPlayer.container_viewLut.setVisible(self.useViewLuts)
 
         if presets:
-            self.PreviewPlayer.cb_viewLut.clear()
+            self.cb_viewLut.clear()
 
             for preset in presets:
-                self.PreviewPlayer.cb_viewLut.addItem(preset["name"])
+                self.PreviewPlayer.addItem(preset["name"])
 
 
     #   Configures the UI Buttons based on Transfer Status
@@ -1328,6 +1339,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.PreviewPlayer.setVisible(checked)
         # self.chb_preferProxies.setVisible(checked)
         self.b_preferProxies.setVisible(checked)
+        self.b_cacheEnabled.setVisible(checked)
+        self.ocioPresets.setVisible(checked)
 
         if checked:
             icon = self.player_on_Icon
