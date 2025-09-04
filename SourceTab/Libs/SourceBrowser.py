@@ -1814,7 +1814,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 case "name":
                     return data.get("displayName", "").lower()
                 case "size":
-                    return data.get("source_mainFile_size_raw", 0)
+                    if data.get("fileType", "") == "Image Sequence":
+                        return data.get("seqSize", 0)
+                    else:
+                        return data.get("source_mainFile_size_raw", 0)
                 case "date":
                     return data.get("source_mainFile_date_raw", 0)
                 case _:
