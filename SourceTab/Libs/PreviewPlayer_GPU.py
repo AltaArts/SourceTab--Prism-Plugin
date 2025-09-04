@@ -1547,7 +1547,7 @@ class FrameCacheManager(QObject):
         self.cache = {}
         self.threadpool = QThreadPool.globalInstance()
         self.mutex = QMutex()
-        self.worker = None
+        self.workers = []
         self.pWidth = int(pWidth)
         self.total_frames = 0
         self._firstFrameEmitted = False
@@ -1661,6 +1661,8 @@ class FrameCacheManager(QObject):
         
         logger.debug("Frame Caching Started")
 
+        self.workers = []
+
         #   Record Caching Start Time
         self._cacheStartTime = time.time()
 
@@ -1682,6 +1684,7 @@ class FrameCacheManager(QObject):
                     self._onWorkerProgress
                 )
                 worker.setAutoDelete(True)
+                self.workers.append(worker)
                 self.threadpool.start(worker)
 
         #   Non-Sequences
@@ -1702,7 +1705,7 @@ class FrameCacheManager(QObject):
             self.cache = {i: None for i in range(self.totalFrames)}
 
             #   Launch Worker Instance
-            self.worker = VideoCacheWorker(
+            worker = VideoCacheWorker(
                 self.core,
                 mediaPath,
                 self.cache,
@@ -1710,18 +1713,19 @@ class FrameCacheManager(QObject):
                 self.pWidth,
                 self._onWorkerProgress,
             )
-            self.worker.setAutoDelete(True)
-            self.threadpool.start(self.worker)
+            worker.setAutoDelete(True)
+            self.workers.append(worker)
+            self.threadpool.start(worker)
 
 
     @err_catcher(name=__name__)
     def stop(self) -> None:
-        '''Stops the Frame Cache Worker'''
+        '''Stops the Frame Caching'''
 
-        if self.worker:
-            self.worker.stop()
+        for worker in self.workers:
+            worker.stop()
+        self.workers.clear()
 
-        self.worker = None
         logger.debug("Frame Cache Stopped")
 
 
