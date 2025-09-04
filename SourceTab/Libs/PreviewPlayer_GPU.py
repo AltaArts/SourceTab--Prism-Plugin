@@ -363,25 +363,31 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def updateCacheSlider(self, frame=None, reset=False):
-        # if not self.PreviewCache.cache and not reset:
-        #     return
-        
-        if reset:
-            progress_ratio = 0
-            logger.debug("Reset Cache Slider")
-
+        if reset or not self.PreviewCache.cache:
+            total_frames = 1
+            cachedMask = [False]
         else:
-            cached_count = sum(1 for f in self.PreviewCache.cache.values() if f is not None)
             total_frames = len(self.PreviewCache.cache)
-            progress_ratio = cached_count / total_frames if total_frames else 0
-            logger.debug(f"Cache progress: {cached_count}/{total_frames} ({progress_ratio*100:.1f}%)")
+            cachedMask = [self.PreviewCache.cache[i] is not None for i in range(total_frames)]
 
-        total_segments = 100
+        #   Decide Update UI Segment Size
+        if total_frames <= 1000:
+            bucket_size = 1
+        else:
+            bucket_size = max(5, total_frames // 500)
+
+        #   Calculate Segments Based on Frames
         stops = []
-        for i in range(total_segments + 1):
-            ratio = i / total_segments
-            color = "#465A78" if ratio <= progress_ratio else "transparent"
-            stops.append(f"stop:{ratio} {color}")
+        for bucket_start in range(0, total_frames, bucket_size):
+            bucket_end = min(bucket_start + bucket_size, total_frames)
+            ratio_start = bucket_start / total_frames
+            ratio_end   = bucket_end / total_frames
+
+            # Mark bucket cached if ANY frame is cached inside
+            cached = any(cachedMask[bucket_start:bucket_end])
+            color = "#465A78" if cached else "transparent"
+
+            stops.append(f"stop:{ratio_start} {color}, stop:{ratio_end} {color}")
 
         gradient_str = ", ".join(stops)
 
@@ -1543,18 +1549,21 @@ class FrameCacheManager(QObject):
     def __init__(self, core, pWidth=400):
         super().__init__()
         self.core = core
+        self.pWidth = int(pWidth)
+
         self.mediaFiles = []
         self.cache = {}
-        self.threadpool = QThreadPool.globalInstance()
-        self.mutex = QMutex()
         self.workers = []
-        self.pWidth = int(pWidth)
+
         self.total_frames = 0
         self._firstFrameEmitted = False
 
-        # self.threadpool.setMaxThreadCount(8)                         #   TODO - Look at adding Max Threads to Settings   
-        # max_threads = self.threadpool.maxThreadCount()
-        # print(f"***  max_threads:  {max_threads}")								#	TESTING
+        self.threadpool = QThreadPool.globalInstance()
+        self.threadpool.setMaxThreadCount(4)                         #   TODO - Look at adding Max Threads to Settings   
+        max_threads = self.threadpool.maxThreadCount()
+        print(f"***  max_threads:  {max_threads}")								#	TESTING
+
+        self.mutex = QMutex()
 
 
     @err_catcher(name=__name__)
@@ -1567,7 +1576,7 @@ class FrameCacheManager(QObject):
 
         if all(v is not None for v in self.cache.values()):
             elapsed = time.time() - self._cacheStartTime
-            logger.debug(f"Frame Cache Complete in {elapsed:.2f} seconds")
+            logger.warning(f"*** Frame Cache Complete in {elapsed:.2f} seconds")            #   TESTING - set back to debug
             self.cacheComplete.emit()
 
     
@@ -1587,6 +1596,9 @@ class FrameCacheManager(QObject):
             )
             #   Blocking Decode
             worker.run()
+
+            self._onWorkerProgress(frameIdx, firstFrame=False)
+
             return self.cache.get(frameIdx)
 
         #   Video
@@ -1619,6 +1631,8 @@ class FrameCacheManager(QObject):
                         self.cache[frameIdx] = img
                         self.mutex.unlock()
                         container.close()
+
+                        self._onWorkerProgress(frameIdx, firstFrame=False)
                         return img
                 container.close()
 
