@@ -987,7 +987,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             for key_str in keys:
                 qseq = QKeySequence(key_str)
                 if qseq.isEmpty():
-                    print(f"[Warning] Invalid shortcut '{key_str}' for '{action_name}'")
+                    logger.warning(f"[Warning] Invalid shortcut '{key_str}' for '{action_name}'")
                     continue
 
                 shortcut = QShortcut(qseq, self)
@@ -1881,16 +1881,83 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             scrollPos = self.lw_destination.verticalScrollBar().value()
 
             #   Get all Items from the Source Dir
-            allSourceItems = os.listdir(self.sourceDir)
+            allSourceDirItems = os.listdir(self.sourceDir)
 
-            self.sourceDataItems = []
-
-            #   Create Data Item for Each Item in Dir
-            for file in allSourceItems:
-                fullPath = os.path.join(self.sourceDir, file)
+            #   Get File Type Info
+            allEntries = []
+            for entry in allSourceDirItems:                
+                fullPath = os.path.join(self.sourceDir, entry)
                 fileType = self.getFileType(fullPath)
 
-                self.createSourceItem(file, fullPath, fileType)
+                allEntries.append({
+                    "entry": entry,
+                    "displayName": entry,
+                    "fullPath": fullPath,
+                    "fileType": fileType,
+                    "seqFiles": None,
+                    "seqSize": None
+                })
+
+            #   Sort Files by File Type
+            imageEntries = []
+            otherEntries = []
+            for info in allEntries:
+                if os.path.isdir(info["fullPath"]):
+                    otherEntries.append(info)
+
+                elif info["fileType"] == "Images":
+                    imageEntries.append(info)
+
+                else:
+                    otherEntries.append(info)
+
+            #   Group Image Sequences if Enabled
+            if self.b_source_sorting_combineSeqs.isChecked():
+                groupedImages = []
+
+                #   Group Sequences
+                seqs = self.core.media.detectSequences([i["entry"] for i in imageEntries])
+
+                #   Parse Sequences
+                for seq_pattern, files in seqs.items():
+                    if not files:
+                        continue
+
+                    files = sorted(files)
+                    #   Sequences
+                    if len(files) > 1:
+                        rep = files[0]
+                        #   Get Match Info for Sequence
+                        repInfo = next((i for i in imageEntries if i["entry"] == rep), None)
+                        if repInfo:
+                            repInfo["displayName"] = seq_pattern
+                            repInfo["fileType"] = "Image Sequence"
+                            repInfo["seqFiles"] = [os.path.join(self.sourceDir, f) for f in files]
+
+                            seqSize = 0
+                            for file in repInfo["seqFiles"]:
+                                seqSize += Utils.getFileSize(file)
+                            repInfo["seqSize"] = seqSize
+
+                            groupedImages.append(repInfo)
+
+                    #   Single Images
+                    else:
+                        rep = files[0]
+                        repInfo = next((i for i in imageEntries if i["entry"] == rep), None)
+                        if repInfo:
+                            groupedImages.append(repInfo)
+
+                imageEntries = groupedImages
+
+            #   Combine Sequences and Other Files
+            allSourceItems = imageEntries + otherEntries
+
+
+            #   Create Data Item for Each Item in Dir
+            self.sourceDataItems = []
+            for itemData in allSourceItems:
+                self.createSourceItem(itemData)
 
             #   Sort / Filter / Refresh Source Table
             self.refreshSourceTable()
@@ -1903,7 +1970,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         finally:
             QTimer.singleShot(0, WaitPopup.closePopup)
-
 
 
     #   Sort / Filter / Refresh Source Table
@@ -1942,13 +2008,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     rowHeight = SOURCE_DIR_HEIGHT
 
                 else:
-                    #   Get SeqData if Exists
-                    if "sequenceItems" in data:
-                        uuid = data["uuid"] = Utils.createUUID()
-                        fileItem = TileWidget.SourceFileItem(self, passedData=data)
-
-                    else:
-                        fileItem = dataItem["tile"]
+                    fileItem = dataItem["tile"]
 
                     itemTile = TileWidget.SourceFileTile(fileItem, fileType)
                     rowHeight = SOURCE_ITEM_HEIGHT
@@ -2111,36 +2171,39 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     #   Create Source Data Item (this is the class that will calculate and hold all the data)
     @err_catcher(name=__name__)
-    def createSourceItem(self, file, fullPath, fileType):
+    def createSourceItem(self, itemData):
         try:
             #   Separate Folders and Files
+            fileType = itemData["fileType"]
             tileType = "folder" if fileType == "Folders" else "file"
             
             #   Create Data
             data = {}
-            data["displayName"] = file
+            data["displayName"] = itemData["displayName"]
             data["tileType"] = tileType
             data["fileType"] = fileType
+            data["seqFiles"] = itemData["seqFiles"]
+            data["seqSize"] = itemData["seqSize"]
             data["uuid"] = Utils.createUUID()
 
             if fileType == "Folders":
                 #    Create Folder Data Item
-                data["dirPath"] = fullPath
+                data["dirPath"] = itemData["fullPath"]
                 dataItem = TileWidget.FolderItem(self, data)
 
             else:
                 #    Create File Data Item
-                data["source_mainFile_path"] = fullPath
+                data["source_mainFile_path"] = itemData["fullPath"]
                 dataItem = TileWidget.SourceFileItem(self, data)
 
             #   Get Item Data and Add to the List
             fData = dataItem.getData()
             self.sourceDataItems.append({"tile": dataItem, "tileType": tileType, "data": fData})
 
-            logger.debug(f"Created Source Data Item for: {file}")
+            logger.debug(f"Created Source Data Item for: {itemData['displayName']}")
         
         except Exception as e:
-            logger.warning(f"ERROR:  Failed to Create Source Data Item for:{file}\n{e}")
+            logger.warning(f"ERROR:  Failed to Create Source Data Item\n{e}")
 
 
     #   Create Dest Data Item (this is the class that will calculate and hold all the data)
@@ -2529,7 +2592,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 "Destination Path": self.destDir,
                 "Available Drive Space": availspace_str,
                 "Number of Files": len(self.copyList),
-                "Total Transfer Size": Utils.getFileSizeStr(self.total_transferSize),                #   TODO - Get Actual Size
+                "Total Transfer Size": Utils.getFileSizeStr(self.total_transferSize),
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
                 "Proxy Mode": proxy_str,
                 "File Name Mods": "Disabled" if not self.sourceFuncts.chb_ovr_fileNaming.isChecked() else "Enabled",
@@ -2552,8 +2615,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
                 #   Add Individual Data Items in Separate Lines
                 form_layout.addRow("Date:", QLabel(item.data.get('source_mainFile_date', 'Unknown')))
-                form_layout.addRow("Path:", QLabel(item.getSource_mainfilePath()))
+                form_layout.addRow("Source:", QLabel(item.getSource_mainfilePath()))
                 form_layout.addRow("Size:", QLabel(item.data.get('source_mainFile_size', 'Unknown')))
+
+                if item.isSequence:
+                    seqNumber = str(len(item.getSequenceFiles()))
+                    form_layout.addRow("Sequence Files:", QLabel(seqNumber))
 
                 if item.data.get('hasProxy'):
                     proxyPath = item.getSource_proxyfilePath()
@@ -2570,6 +2637,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 "Transfer:": header,
                 "Errors:": errors,
                 "Warnings": warnings,
+                "": "",
                 "Files": file_list
             }
 
@@ -3064,16 +3132,19 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 for item in reportData:
                     if item.fileType == "Image Sequence":
                         isSeq = True
+                        iData = item.data
                         baseName = item.data["displayName"]
+                        sourceDir = os.path.dirname(iData['source_mainFile_path'])
+                        sourceName = os.path.join(sourceDir, baseName)
                         mainFile_result = item.data["mainFile_result"]
-                        seqNumber = len(item.data["sequenceItems"])
-                        iData = item.data["sequenceItems"][0]["data"]
+                        seqNumber = len(item.getSequenceFiles())
                         hasProxy = False
 
                     else:
                         isSeq = False
                         iData = item.data
                         baseName = iData["displayName"]
+                        sourceName = iData['source_mainFile_path']
                         mainFile_result = iData["mainFile_result"]
                         hasProxy = iData["hasProxy"]
 
@@ -3087,7 +3158,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                         ("Transfer Time:",      Utils.getFormattedTimeStr(item.data['transferTime'])),
                         ("Date:",               iData['source_mainFile_date']),
                         ("Main File:",          iData['mainFile_result']),
-                        ("    Source:",         iData['source_mainFile_path']),
+                        ("    Source:",         sourceName),
                         ("    Hash:",           iData['source_mainFile_hash']),
                         ("    Destination:",    iData['dest_mainFile_path']),
                         ("    Hash:",           iData['dest_mainFile_hash']),

@@ -52,7 +52,6 @@ import os
 import sys
 import logging
 import re
-import json
 from pathlib import Path
 
 
@@ -310,12 +309,12 @@ class BaseTileItem(QWidget):
                 self.browser.selectedTiles.discard(self)
                 return
 
-            # SHIFT: Select Range
+            #   SHIFT: Select Range
             if modifiers & Qt.ShiftModifier and self.browser.lastClickedTile:
                 self._selectRange()
                 return
 
-            # CTRL: Toggle Selection
+            #   CTRL: Toggle Selection
             elif modifiers & Qt.ControlModifier:
                 if self in self.browser.selectedTiles:
                     self.deselect()
@@ -329,7 +328,7 @@ class BaseTileItem(QWidget):
                 self.browser.lastClickedTile = self
                 return
 
-            # Additive Mode: Add Without Clearing
+            #   Additive Mode: Add Without Clearing
             if additive:
                 self.state = "selected"
                 self.applyStyle(self.state)
@@ -339,7 +338,7 @@ class BaseTileItem(QWidget):
                 self.browser.lastClickedTile = self
                 return
 
-            # Default: Clear and Select Only This
+            #   Default: Clear and Select Only This
             for tile in list(self.browser.selectedTiles):
                 tile.deselect()
             self.browser.selectedTiles.clear()
@@ -554,28 +553,15 @@ class BaseTileItem(QWidget):
     ####    ^^^^^^^^^^^^^    ####
     
   
-
+    #   Returns List of All Sequence Files
     @err_catcher(name=__name__)
-    def getSequenceItems(self):
-        return self.data["sequenceItems"]
+    def getSequenceFiles(self):
+        return self.data["seqFiles"]
     
 
     @err_catcher(name=__name__)
-    def getFirstSeqData(self):
-        return self.getSequenceItems()[0]["data"]
-    
-
-    #   Returns Total Size of Image Sequence
-    @err_catcher(name=__name__)
-    def getSequenceSize(self, seqItems):
-        totalSize_raw = 0
-        
-        for item in seqItems:
-            size = item.get("data", {}).get("source_mainFile_size_raw")
-            if isinstance(size, (int, float)):
-                totalSize_raw += size
-
-        return totalSize_raw
+    def getFirstSeqFile(self):
+        return self.getSequenceFiles()[0]
     
 
     #   Returns the Filepath
@@ -583,7 +569,7 @@ class BaseTileItem(QWidget):
     def getSource_mainfilePath(self):
         try:
             if getattr(self, "isSequence", False):
-                return self.getFirstSeqData()["source_mainFile_path"]
+                return self.getFirstSeqFile()
             else:
                 return self.data.get("source_mainFile_path")
             
@@ -628,13 +614,13 @@ class BaseTileItem(QWidget):
         try:
             if self.isSequence:
                 #   Get Image Sequence Size
-                total_size = self.getSequenceSize(self.data.get("sequenceItems", []))
+                total_size = self.data["seqSize"]
             else:
                 #   Or Get the Main File Size
                 total_size = self.data["source_mainFile_size_raw"]
 
+        #   Fallback
         except KeyError:
-            #   Fallback
             total_size = Utils.getFileSize(self.getSource_mainfilePath())
 
         #   Add Proxy Size (or estimated) if this is a Video or Image Sequence
@@ -682,7 +668,7 @@ class BaseTileItem(QWidget):
 
     @err_catcher(name=__name__)
     def setMainHash(self, error=None):
-        if not self.isSequence and hasattr(self, "l_fileSize"):
+        if hasattr(self, "l_fileSize"):
             if not error:
                 tip = f"Hash: {self.data['source_mainFile_hash']}"
             else:
@@ -786,10 +772,7 @@ class BaseTileItem(QWidget):
     #   Adds Thumbnail to FileTile Label
     @err_catcher(name=__name__)
     def setThumbnail(self):
-        if self.isSequence:
-            thumb = self.getFirstSeqData().get("source_mainFile_thumbnail")
-        else:
-            thumb = self.data.get("source_mainFile_thumbnail")
+        thumb = self.data.get("source_mainFile_thumbnail")
 
         self.l_preview.setAlignment(Qt.AlignCenter)
         self.l_preview.setPixmap(thumb)
@@ -835,11 +818,7 @@ class BaseTileItem(QWidget):
     #   Populates Duration when ready from Thread
     @err_catcher(name=__name__)
     def setDuration(self):
-        #   Abort if All Items have not been Generated
-        if self.isSequence:
-            sData = self.getFirstSeqData()
-        else:
-            sData = self.data
+        sData = self.data
 
         for key in ["source_mainFile_frames",
                     "source_mainFile_fps",
@@ -859,7 +838,7 @@ class BaseTileItem(QWidget):
                 dur_str = time
 
         elif self.isSequence:
-            dur_str = str(len(self.data["sequenceItems"]))
+            dur_str = str(len(self.data["seqFiles"]))
 
         else:
             dur_str = str(self.data["source_mainFile_frames"])
@@ -873,11 +852,7 @@ class BaseTileItem(QWidget):
     @err_catcher(name=__name__)
     def setIconTooltip(self):
         if hasattr(self, "l_icon"):
-            if self.isSequence:
-                iData = self.getFirstSeqData()
-            else:
-                iData = self.data
-
+            iData = self.data
 
             #   Get Data Items
             xRez = iData.get("source_mainFile_xRez", "?")
@@ -885,7 +860,7 @@ class BaseTileItem(QWidget):
             resolution = f"{xRez} x {yRez}"
 
             if self.isSequence:
-                frames = len(self.data["sequenceItems"])
+                frames = len(self.getSequenceFiles())
             else:
                 frames = iData.get("source_mainFile_frames", "?")
 
@@ -1013,11 +988,7 @@ class BaseTileItem(QWidget):
 
             elif self.fileType == "Image Sequence":
                 isProxy = False
-
-                sendFiles = []
-                seqItems = self.data["sequenceItems"]
-                for item in seqItems:
-                    sendFiles.append(item["data"]["source_mainFile_path"])
+                sendFiles = self.getSequenceFiles()
             
             elif self.fileType == "Audio":
                 self.core.popup("Audio not Supported in the Preview Viewer, yet")
@@ -1031,10 +1002,7 @@ class BaseTileItem(QWidget):
                 logger.warning(f"ERROR:  File Type Not Supported in the Preview Viewer")
                 return
 
-            if self.isSequence:
-                metadata = self.getFirstSeqData()
-            else:
-                metadata = self.data
+            metadata = self.data
 
 
             logger.debug("Sending Image(s) to Media Viewer")
@@ -1144,6 +1112,13 @@ class SourceFileItem(BaseTileItem):
 
         self.tile = None
 
+        self.updateCallbacks = {
+            "duration": [],
+            "thumbnail": [],
+            "hash": [],
+            "proxy": []
+        }
+
         if passedData:
             self.data = passedData
 
@@ -1154,15 +1129,17 @@ class SourceFileItem(BaseTileItem):
             self.data["hasProxy"] = False
             
             self.fileType = self.data["fileType"]
-            self.isSequence = False
-            self.generateData()
 
-        self.updateCallbacks = {
-            "duration": [],
-            "thumbnail": [],
-            "hash": [],
-            "proxy": []
-        }
+            if self.fileType == "Image Sequence":
+                self.isSequence = True
+                self.seqFiles = self.data["seqFiles"]
+                self.data["source_mainFile_frames"] = len(self.seqFiles)
+
+            else:
+                self.isSequence = False
+                self.seqFiles = None
+
+            self.generateData()
 
         logger.debug("Loaded SourceFileItem")
 
@@ -1177,7 +1154,10 @@ class SourceFileItem(BaseTileItem):
             self.getFileInfo(filePath, self.onMainfileInfoReady)
 
         #   Main File Hash
-        self.setFileHash(filePath, self.onMainfileHashReady)
+        if self.isSequence:
+            self.setFileHash(self.getSequenceFiles(), self.onMainfileHashReady)
+        else:
+            self.setFileHash(filePath, self.onMainfileHashReady)
 
         #   Icon
         icon = self.getIconByType(filePath)
@@ -1206,7 +1186,8 @@ class SourceFileItem(BaseTileItem):
         self.data["sourceTile"] = tile
 
         for field in self.updateCallbacks:
-            if self.data.get(f"source_mainFile_{field}") is not None:
+            ready = self.data.get(f"source_mainFile_{field}") is not None
+            if ready:
                 tile.updateField(field)
             else:
                 self.updateCallbacks[field].append(tile.updateField)
@@ -1393,12 +1374,7 @@ class SourceFileTile(BaseTileItem):
         self.setupUi()
         self.refreshUi()
 
-        #   Register Tile (UI) to Item Callbacks
-        if self.isSequence:
-            seq_item = self.data["sequenceItems"][0]
-            seq_item["tile"].registerTile(self)
-        else:
-            self.item.registerTile(self)
+        self.item.registerTile(self)
 
         logger.debug("Loaded SourceFileTile")
 
@@ -1534,20 +1510,13 @@ class SourceFileTile(BaseTileItem):
             else:
                 self.setIcon(self.data["icon"])
 
-            # Date
-            date_str = (
-                self.getFirstSeqData()["source_mainFile_date"]
-                if self.isSequence
-                else self.data["source_mainFile_date"]
-            )
-            self.l_date.setText(date_str)
+            self.l_date.setText(self.data["source_mainFile_date"])
 
             # File Size
             self.setFileSize()
 
             # Hash tooltip placeholder
-            if not self.isSequence:
-                self.l_fileSize.setToolTip("Calculating file hash…")
+            self.l_fileSize.setToolTip("Calculating file hash…")
 
             # Proxy Icon
             if not self.isSequence:
@@ -1563,7 +1532,7 @@ class SourceFileTile(BaseTileItem):
 
     #   Gets Called From FileItem Callbacks to Update when Ready
     @err_catcher(name=__name__)
-    def updateField(self, field):
+    def updateField(self, field):        
         if field == "duration":
             self.setDuration()
         elif field == "thumbnail":
@@ -1577,7 +1546,7 @@ class SourceFileTile(BaseTileItem):
     @err_catcher(name=__name__)
     def setFileSize(self):
         if self.isSequence:
-            totalSize_raw = self.getSequenceSize(self.data.get("sequenceItems", []))
+            totalSize_raw = self.data["seqSize"]
             totalSize_str = Utils.getFileSizeStr(totalSize_raw)
         else:
             totalSize_str = self.data["source_mainFile_size"]
@@ -1713,13 +1682,7 @@ class DestFileTile(BaseTileItem):
 
         self.setupUi()
         self.refreshUi()
-
-        #   Register Tile (UI) to Item Callbacks
-        if self.isSequence:
-            seq_item = self.data["sequenceItems"][0]
-            seq_item["tile"].registerTile(self)
-        else:
-            self.item.registerTile(self)
+        self.item.registerTile(self)
 
         logger.debug("Loaded DestFileTile")
 
@@ -1893,17 +1856,10 @@ class DestFileTile(BaseTileItem):
     def setModifiedName(self):
         try:
             dest_mainFile_dir = self.getDestPath()
-
-            # #   Set Display Name
-            if self.isSequence:
-                source_mainFile_path = self.getFirstSeqData()["source_mainFile_path"]
-                displayName = self.data["displayName"]
-            else:
-                source_mainFile_path = self.getSource_mainfilePath()
-                displayName = Utils.getBasename(source_mainFile_path)
+            source_mainFile_path = self.getSource_mainfilePath()
 
             #   Get Modified Name
-            name = self.getModifiedName(displayName)
+            name = self.getModifiedName(self.data["displayName"])
 
             #    Set Name and Path
             self.data["dest_mainFile_path"] = os.path.join(dest_mainFile_dir, name)
@@ -2145,11 +2101,11 @@ class DestFileTile(BaseTileItem):
 
         #   Gets Frames and File Size of Sequence
         if self.isSequence:
-            totalSize_raw = self.getSequenceSize(self.getSequenceItems())
+            totalSize_raw = self.data["seqSize"]
             self.data["totalSeqSize"] = totalSize_raw
             mainSize = Utils.getFileSizeStr(totalSize_raw)
 
-            duration = str(len(self.data["sequenceItems"]))
+            duration = str(len(self.getSequenceFiles()))
             self.data["seqDuration"] = duration
             
         #   Get Frames and File Size of Non-Sequences
@@ -2216,7 +2172,6 @@ class DestFileTile(BaseTileItem):
         rcmenu.addAction(_separator())
 
         Utils.createMenuAction("Set Selected", sc, rcmenu, self.browser, lambda: self.setChecked(True))
-
         Utils.createMenuAction("Un-Select", sc, rcmenu, self.browser, lambda: self.setChecked(False))
 
         rcmenu.addAction(_separator())
@@ -2385,15 +2340,14 @@ class DestFileTile(BaseTileItem):
 
         if self.isSequence:
             transferList = []
-            for item in self.data.get("sequenceItems", []):
-                iData = item["data"]
-                name = self.getModifiedName(iData["displayName"])
-                sourcePath = iData["source_mainFile_path"]
+            for file in self.getSequenceFiles():
+                basename = Utils.getBasename(file)
+                name = self.getModifiedName(basename)
                 destPath = os.path.join(self.getDestPath(), name)
-                iData["dest_mainFile_path"] = destPath
 
-                transferList.append({"sourcePath": sourcePath,
+                transferList.append({"sourcePath": file,
                                      "destPath": destPath})
+
         else:
             transferList = [{"sourcePath": sourcePath,
                             "destPath": destPath}]
@@ -2403,7 +2357,7 @@ class DestFileTile(BaseTileItem):
                              "proxyAction": None}
 
         ##  IF PROXY IS ENABLED ##
-        if proxyEnabled and self.isVideo() and self.isCodecSupported():         #   TODO - HANDLE PROXY FOR NON-VIDEO
+        if proxyEnabled and self.isVideo() and self.isCodecSupported():
             proxySettings = options["proxySettings"]
             self.transferData["proxyMode"] = proxyMode
             self.transferData["proxySettings"] = proxySettings
@@ -2543,10 +2497,12 @@ class DestFileTile(BaseTileItem):
                 destFiles = []
 
                 if self.isSequence:
-                    transferItems = self.getSequenceItems()
+                    for file in self.getSequenceFiles():
+                        basename = Utils.getBasename(file)
+                        name = self.getModifiedName(basename)
+                        destPath = os.path.join(self.getDestPath(), name)
+                        destFiles.append(destPath)
 
-                    for transItem in transferItems:
-                        destFiles.append(transItem["data"]["dest_mainFile_path"])
                 else:
                     destFiles.append(destMainPath)
 
@@ -2602,20 +2558,20 @@ class DestFileTile(BaseTileItem):
     def generateDestHashs(self):
         self._pending_tiles = set()
         self._hash_results = {}
+        dummy_tile = QObject()
 
         if self.isSequence:
-            for transItem in self.getSequenceItems():
-                tile = transItem["tile"]
-                destPath = transItem["data"]["dest_mainFile_path"]
+            destFiles = []
+            for file in self.getSequenceFiles():
+                basename = Utils.getBasename(file)
+                name = self.getModifiedName(basename)
+                destPath = os.path.join(self.getDestPath(), name)
+                destFiles.append(destPath)
 
-                self._pending_tiles.add(tile)
-                tile.setFileHash(destPath, self.setDestHash, mainTile=self, seqTile=tile)
+            self.setFileHash(destFiles, self.onDestHashReady, mainTile=dummy_tile)
 
         else:
-            #   Calls for Hash Generation with Callback
-            dummy_tile = QObject()
             self._pending_tiles.add(dummy_tile)
-
             self.setFileHash(self.getDestMainPath(), self.onDestHashReady, mainTile=dummy_tile)
 
 

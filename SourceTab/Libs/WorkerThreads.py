@@ -174,40 +174,73 @@ class ThumbnailWorker(QObject, QRunnable):
 class FileHashWorker(QObject, QRunnable):
     finished = Signal(str, QObject)
 
-    def __init__(self, filePath, tile=None):
+    def __init__(self, filePaths, tile=None):
         QObject.__init__(self)
         QRunnable.__init__(self)
 
-        self.filePath = filePath
+        #   Filepath is Either a Filepath Str or List of Filepaths (Image Seq)
+        if isinstance(filePaths, str):
+            self.filePaths = [filePaths]
+        else:
+            self.filePaths = filePaths
+
         self.tile = tile
 
 
     @Slot()
     def run(self):
+        '''
+        Custom Hash Generator\n
+        Uses Hash of first chunk, last chunk, and file size
+        '''
         try:
             chunk_size = 8192
             hash_func = hashlib.sha256()
-            file_size = os.path.getsize(self.filePath)
 
-            with open(self.filePath, "rb") as f:
-                if file_size <= chunk_size * 2:
-                    #   File is Small, Read it All
-                    hash_func.update(f.read())
-                else:
-                    #   Large File, First and Last chunks
-                    hash_func.update(f.read(chunk_size))
-                    f.seek(-chunk_size, os.SEEK_END)
-                    hash_func.update(f.read(chunk_size))
+            #   Single Filepath
+            if len(self.filePaths) == 1:
+                filePath = self.filePaths[0]
+                file_size = os.path.getsize(filePath)
 
-            #   Always include file size in hash
-            hash_func.update(str(file_size).encode())
+                #   Get First and Last Chunks
+                with open(filePath, "rb") as f:
+                    if file_size <= chunk_size * 2:
+                        hash_func.update(f.read())
+                    else:
+                        hash_func.update(f.read(chunk_size))
+                        f.seek(-chunk_size, os.SEEK_END)
+                        hash_func.update(f.read(chunk_size))
+
+                #   Include Filesize
+                hash_func.update(str(file_size).encode())
+
+            #   List of Paths (Image Seq)
+            else:
+                #   Total Filesize
+                total_size = sum(os.path.getsize(f) for f in self.filePaths)
+                hash_func.update(str(total_size).encode())
+
+                #   Hybrid Hash of First File
+                first_file = self.filePaths[0]
+                first_size = os.path.getsize(first_file)
+
+                with open(first_file, "rb") as f:
+                    if first_size <= chunk_size * 2:
+                        hash_func.update(f.read())
+                    else:
+                        hash_func.update(f.read(chunk_size))
+                        f.seek(-chunk_size, os.SEEK_END)
+                        hash_func.update(f.read(chunk_size))
+
+                #   Include Filesize
+                hash_func.update(str(first_size).encode())
+
             result_hash = hash_func.hexdigest()
-
-            logger.debug(f"[FileHashWorker] Hash Generated for {self.filePath}")
+            logger.debug(f"[FileHashWorker] Hash Generated for {self.filePaths}")
             self.finished.emit(result_hash, self.tile)
 
         except Exception as e:
-            logger.warning(f"[FileHashWorker] Error hashing {self.filePath} - {e}")
+            logger.warning(f"[FileHashWorker] Error hashing {self.filePaths} - {e}")
             self.finished.emit("Error", self.tile)
 
 
@@ -229,8 +262,6 @@ class FileInfoWorker(QObject, QRunnable):
     def probeFile(filePath, origin, core):
         """Run FFprobe and Return Metadata."""
 
-        extension = os.path.splitext(Utils.getBasename(filePath))[1].lower()
-
         frames = 1
         fps = 0.0
         secs = 0.0
@@ -239,12 +270,14 @@ class FileInfoWorker(QObject, QRunnable):
         width = 0
         height = 0
 
+        extension = Utils.getFileExtension(filePath=filePath)
+
         if extension not in core.media.supportedFormats:
             return frames, fps, secs, codec, metadata, width, height
 
         fileType = origin.fileType
 
-        if fileType in ("Videos", "Images", "Audio"):
+        if fileType in ("Videos", "Images", "Image Sequence", "Audio"):
             ffprobePath = Utils.getFFprobePath()
 
             kwargs = {
@@ -256,7 +289,7 @@ class FileInfoWorker(QObject, QRunnable):
                 kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
             #   Stream Type
-            if fileType in ("Videos", "Images"):
+            if fileType in ("Videos", "Images", "Image Sequence"):
                 stream_type = "v:0"
             elif fileType == "Audio":
                 stream_type = "a:0"
@@ -324,7 +357,7 @@ class FileInfoWorker(QObject, QRunnable):
     @Slot()
     def run(self):
         try:
-            result = FileInfoWorker.probeFile(self.filePath, self.origin, self.core)
+            result = FileInfoWorker.probeFile(self.filePath, self.origin, self.core)   
             self.finished.emit(*result)
             
         except Exception as e:
