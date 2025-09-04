@@ -2625,12 +2625,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
                 #   Add Individual Data Items in Separate Lines
                 form_layout.addRow("Date:", QLabel(item.data.get('source_mainFile_date', 'Unknown')))
-                form_layout.addRow("Source:", QLabel(item.getSource_mainfilePath()))
-                form_layout.addRow("Size:", QLabel(item.data.get('source_mainFile_size', 'Unknown')))
 
                 if item.isSequence:
                     seqNumber = str(len(item.getSequenceFiles()))
+                    sourceDir = os.path.dirname(item.getSource_mainfilePath())
+                    sourceName = os.path.join(sourceDir, item.data.get("displayName", '####'))
+                    seqSize = Utils.getFileSizeStr(item.data.get('seqSize', 0))
+
+                    form_layout.addRow("Source:", QLabel(sourceName))
                     form_layout.addRow("Sequence Files:", QLabel(seqNumber))
+                    form_layout.addRow("Size:", QLabel(seqSize))
+
+                else:
+                    form_layout.addRow("Source:", QLabel(item.getSource_mainfilePath()))
+                    form_layout.addRow("Size:", QLabel(item.data.get('source_mainFile_size', 'Unknown')))
+
 
                 if item.data.get('hasProxy'):
                     proxyPath = item.getSource_proxyfilePath()
@@ -3148,6 +3157,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                         sourceName = os.path.join(sourceDir, baseName)
                         mainFile_result = item.data["mainFile_result"]
                         seqNumber = len(item.getSequenceFiles())
+                        mainSize = Utils.getFileSizeStr(item.data.get("seqSize", 0))
                         hasProxy = False
 
                     else:
@@ -3156,6 +3166,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                         baseName = iData["displayName"]
                         sourceName = iData['source_mainFile_path']
                         mainFile_result = iData["mainFile_result"]
+                        mainSize = iData['source_mainFile_size']
                         hasProxy = iData["hasProxy"]
 
                     proxyAction = item.transferData["proxyAction"]
@@ -3172,7 +3183,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                         ("    Hash:",           iData['source_mainFile_hash']),
                         ("    Destination:",    iData['dest_mainFile_path']),
                         ("    Hash:",           iData['dest_mainFile_hash']),
-                        ("    Size:",           iData['source_mainFile_size']),
+                        ("    Size:",           mainSize),
                         ("    Proxy present:",  str(hasProxy)),
                         *([("Proxy File:",      iData.get('proxyFile_result', ""))] if proxyAction else []),
                         *([("    Source:",      iData.get('source_proxyFile_path', ''))] if (hasProxy and proxyAction) else []),
