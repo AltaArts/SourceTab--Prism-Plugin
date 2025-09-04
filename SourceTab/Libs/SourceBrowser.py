@@ -143,6 +143,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.filterStates_source = {
                                     "Videos": True,
+                                    "Sequences": True,
                                     "Images": True,
                                     "Audio": True,
                                     "Folders": True,
@@ -150,6 +151,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                     }
         self.filterStates_dest = {
                                   "Videos": True,
+                                  "Sequences": True,
                                   "Images": True,
                                   "Audio": True,
                                   "Other": True,
@@ -1649,7 +1651,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             else:
                 #   Fallback Return Original List
                 return sortedList
-
+            
             #   If Filters Not Enabled, Skip Filtering
             if not filterEnabled:
                 return sortedList
@@ -1659,6 +1661,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             for item in sortedList:
                 data = item.get("data", {})
                 fileType = data.get("fileType", "Other").capitalize()
+
+                #   Small Hack to Cover UI Naming
+                if fileType == "Image sequence":
+                    fileType = "Sequences"
+
                 if filterStates.get(fileType, True):
                     filteredList.append(item)
 
@@ -1670,7 +1677,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             return sortedList
 
 
-    #   Group Image Sequences with Seq Number Suffix
+    #   Group Image Sequences with Seq Number Suffix                    #   TODO - NEEDED ANYMORE????
     @err_catcher(name=__name__)
     def groupSequences(self, table, sortedList):
 
