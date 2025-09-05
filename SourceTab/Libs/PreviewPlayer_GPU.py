@@ -146,6 +146,10 @@ class PreviewPlayer_GPU(QWidget):
         self.frameReady.connect(self.displayWindow.displayFrame)
         self.PreviewCache.firstFrameComplete.connect(self.onFirstFrameReady)
 
+        self.core.registerCallback("onProjectBrowserClose",
+                                   self.onProjectBrowserClose,
+                                   plugin=self.sourceBrowser.plugin)
+
 
     @err_catcher(name=__name__)
     def sizeHint(self):
@@ -165,6 +169,15 @@ class PreviewPlayer_GPU(QWidget):
             self.externalMediaPlayers = [player]
 
 
+    #   Called When ProjectBrowser Closes
+    @err_catcher(name=__name__)
+    def onProjectBrowserClose(self, projectBrowser):
+        #   Stop Running Cache Worker Threads
+        if getattr(self, "PreviewCache", None):
+            self.PreviewCache.stop()
+            self.PreviewCache.threadpool.waitForDone(1000)
+
+
     @err_catcher(name=__name__)
     def setupUi(self):
         self.lo_preview_main = QVBoxLayout(self)
@@ -173,15 +186,6 @@ class PreviewPlayer_GPU(QWidget):
         self.l_info.setText("")
         self.l_info.setObjectName("l_info")
         self.lo_preview_main.addWidget(self.l_info)
-
-        #   View LUT                                        #   Moved to SourceTab
-        # self.container_viewLut = QWidget()
-        # self.lo_viewLut = QHBoxLayout(self.container_viewLut)
-        # self.l_viewLut = QLabel("OCIO Preset:")
-        # self.cb_viewLut = QComboBox()
-        # self.lo_viewLut.addWidget(self.l_viewLut)
-        # self.lo_viewLut.addWidget(self.cb_viewLut)
-        # self.lo_preview_main.addWidget(self.container_viewLut)
 
         #   Viewer Window
         self.displayWindow = GLVideoDisplay(self, self.core)
@@ -288,8 +292,6 @@ class PreviewPlayer_GPU(QWidget):
         self.b_last.clicked.connect(self.onLastClicked)
 
         self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
-        # self.cb_viewLut.currentIndexChanged.connect(self.onLutChanged)
-
 
 
     def tempOCIOLoad(self):
@@ -370,30 +372,32 @@ class PreviewPlayer_GPU(QWidget):
             total_frames = len(self.PreviewCache.cache)
             cachedMask = [self.PreviewCache.cache[i] is not None for i in range(total_frames)]
 
-        #   Decide Update UI Segment Size
-        if total_frames <= 1000:
-            bucket_size = 1
-        else:
-            bucket_size = max(5, total_frames // 500)
+        slider_width = max(1, self.sl_previewImage.width())
+        slider_height = 6
+        min_segment_px = 5  # Minimum width of a frame segment in pixels
 
-        #   Calculate Segments Based on Frames
         stops = []
-        for bucket_start in range(0, total_frames, bucket_size):
-            bucket_end = min(bucket_start + bucket_size, total_frames)
-            ratio_start = bucket_start / total_frames
-            ratio_end   = bucket_end / total_frames
 
-            # Mark bucket cached if ANY frame is cached inside
-            cached = any(cachedMask[bucket_start:bucket_end])
-            color = "#465A78" if cached else "transparent"
+        for i in range(total_frames):
+            # Pixel range for this frame
+            x_start_px = int(i / total_frames * slider_width)
+            x_end_px   = int((i + 1) / total_frames * slider_width)
+            if x_end_px - x_start_px < min_segment_px:
+                x_end_px = x_start_px + min_segment_px
+            x_end_px = min(x_end_px, slider_width)  # Clamp to slider width
 
-            stops.append(f"stop:{ratio_start} {color}, stop:{ratio_end} {color}")
+            color = "#465A78" if cachedMask[i] else "transparent"
+
+            # Add a stop for each pixel in the frame range
+            for px in range(x_start_px, x_end_px):
+                ratio = px / slider_width
+                stops.append(f"stop:{ratio} {color}")
 
         gradient_str = ", ".join(stops)
 
         style = f"""
         QSlider::groove:horizontal {{
-            height: 6px;
+            height: {slider_height}px;
             border-radius: 3px;
             background: qlineargradient(
                 x1:0, y1:0, x2:1, y2:0,
@@ -401,8 +405,19 @@ class PreviewPlayer_GPU(QWidget):
             );
         }}
         """
-
         self.sl_previewImage.setStyleSheet(style)
+
+        cached = sum(cachedMask)
+        if cached < total_frames:
+            tip = f"Caching: {cached} of {total_frames} frames"
+        elif cached == total_frames:
+            tip = f"Cache Complete: {total_frames} frames"
+
+
+        self.sl_previewImage.setToolTip(tip)
+
+
+
 
 
     #   Generate a Black 16:9 Frame at Current Preview Width
@@ -1561,7 +1576,6 @@ class FrameCacheManager(QObject):
         self.threadpool = QThreadPool.globalInstance()
         self.threadpool.setMaxThreadCount(4)                         #   TODO - Look at adding Max Threads to Settings   
         max_threads = self.threadpool.maxThreadCount()
-        print(f"***  max_threads:  {max_threads}")								#	TESTING
 
         self.mutex = QMutex()
 
@@ -1575,8 +1589,7 @@ class FrameCacheManager(QObject):
         self.cacheUpdated.emit(frameIdx)
 
         if all(v is not None for v in self.cache.values()):
-            elapsed = time.time() - self._cacheStartTime
-            logger.warning(f"*** Frame Cache Complete in {elapsed:.2f} seconds")            #   TESTING - set back to debug
+            logger.debug("Frame Cache Complete")
             self.cacheComplete.emit()
 
     
@@ -1665,6 +1678,22 @@ class FrameCacheManager(QObject):
         self.pwidth = prevWidth
         self.pheight = prevData["height"]
 
+        #   Initialize Cache Dict with None for each Frame
+        if self.isSeq:
+            self.totalFrames = len(self.mediaFiles)
+
+        else:
+            mediaPath = self.mediaFiles[0]
+            container = av.open(mediaPath)
+            stream = container.streams.video[0]
+            self.totalFrames = stream.frames if stream.frames else sum(1 for _ in container.decode(stream))
+            if not self.codec:
+                self.codec = stream.codec_context.name.lower()
+
+            container.close()
+
+        self.cache = {i: None for i in range(self.totalFrames)}
+
 
     @err_catcher(name=__name__)
     def start(self) -> None:
@@ -1677,59 +1706,42 @@ class FrameCacheManager(QObject):
 
         self.workers = []
 
-        #   Record Caching Start Time
-        self._cacheStartTime = time.time()
-
         #   Image Sequences
         if self.isSeq:
-            #   Creates Frame Cache Dict with None's for Each Frame
-            self.totalFrames = len(self.mediaFiles)
-            self.cache = {i: None for i in range(self.totalFrames)}
-
             #   Launch Worker per Sequence Image
             for frame_idx, imgPath in enumerate(self.mediaFiles):
-                worker = ImageCacheWorker(
-                    self.core,
-                    imgPath,
-                    frame_idx,
-                    self.cache,
-                    self.mutex,
-                    self.pWidth,
-                    self._onWorkerProgress
-                )
-                worker.setAutoDelete(True)
-                self.workers.append(worker)
-                self.threadpool.start(worker)
+                if self.cache.get(frame_idx) is None:
+                    worker = ImageCacheWorker(
+                        self.core,
+                        imgPath,
+                        frame_idx,
+                        self.cache,
+                        self.mutex,
+                        self.pWidth,
+                        self._onWorkerProgress
+                    )
+                    worker.setAutoDelete(True)
+                    self.workers.append(worker)
+                    self.threadpool.start(worker)
 
         #   Non-Sequences
         else:
             mediaPath = self.mediaFiles[0]
+            worker_needed = any(v is None for v in self.cache.values())
 
-            #   Get Codec and Frame Count
-            container = av.open(mediaPath)
-            stream = container.streams.video[0]
-            self.totalFrames = stream.frames if stream.frames else sum(1 for _ in container.decode(stream))
-
-            if not self.codec:
-                self.codec = stream.codec_context.name.lower()
-
-            container.close()
-
-            #   Creates Frame Cache Dict with None's for Each Frame
-            self.cache = {i: None for i in range(self.totalFrames)}
-
-            #   Launch Worker Instance
-            worker = VideoCacheWorker(
-                self.core,
-                mediaPath,
-                self.cache,
-                self.mutex,
-                self.pWidth,
-                self._onWorkerProgress,
-            )
-            worker.setAutoDelete(True)
-            self.workers.append(worker)
-            self.threadpool.start(worker)
+            if worker_needed:
+                #   Launch Worker Instance
+                worker = VideoCacheWorker(
+                    self.core,
+                    mediaPath,
+                    self.cache,
+                    self.mutex,
+                    self.pWidth,
+                    self._onWorkerProgress,
+                )
+                worker.setAutoDelete(True)
+                self.workers.append(worker)
+                self.threadpool.start(worker)
 
 
     @err_catcher(name=__name__)

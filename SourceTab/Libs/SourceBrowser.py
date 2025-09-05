@@ -213,7 +213,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
         #   Callbacks
-        self.core.registerCallback("onProjectBrowserClose", self.onProjectBrowserClose, plugin=self.plugin)
+        self.core.registerCallback("onProjectBrowserClose",
+                                   self.onProjectBrowserClose,
+                                   plugin=self.plugin)
 
 
         if refresh:
