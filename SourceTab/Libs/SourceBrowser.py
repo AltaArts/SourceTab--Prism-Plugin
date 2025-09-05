@@ -2392,32 +2392,58 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         return self.copyList
 
 
-
-    @err_catcher(name=__name__)                                     # TODO Move
+    #   Performs Several Sanity Checks
+    @err_catcher(name=__name__)
     def getTransferErrors(self):
-        #   Collect into Lists
         errors_list = defaultdict(list)
         warnings_list = defaultdict(list)
 
-        ##   CHECK DRIVE SPACE AVAILABLE
+        #   Run Sanity Checks
+        self._checkDriveSpace(errors_list, warnings_list)
+        self._checkFileExists(errors_list, warnings_list)
+        self._checkFileNameCollisions(errors_list)
+        self._checkProxyCollisions(errors_list)
+        self._checkProxySupport(errors_list, warnings_list)
+
+        #   Convert Lists to Single Strings
+        errors = {k: "\n".join(v) for k, v in errors_list.items()}
+        warnings = {k: "\n".join(v) for k, v in warnings_list.items()}
+        hasErrors = bool(errors)
+
+        #   Add None if there are No Errors/Warnings
+        if not errors:
+            errors["None"] = ""
+        if not warnings:
+            warnings["None"] = ""
+
+        #   Save to Vars
+        self.transferErrors = errors.copy()
+        self.transferWarnings = warnings.copy()
+
+        return errors, warnings, hasErrors
+
+
+    #   Check if Available Space Exists or Close to Max
+    @err_catcher(name=__name__)
+    def _checkDriveSpace(self, errors_list, warnings_list):
         spaceAvail = Utils.getDriveSpace(os.path.normpath(self.destDir))
         transferSize = self.getTotalTransferSize()
 
         if transferSize >= spaceAvail:
-            transSize_str = Utils.getFileSizeStr(transferSize)
-            spaceAvail_str = Utils.getFileSizeStr(spaceAvail)
             errors_list["Not Enough Storage Space:"].append(
-                f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+                f"Transfer: {Utils.getFileSizeStr(transferSize)} - "
+                f"Available: {Utils.getFileSizeStr(spaceAvail)}"
             )
-
         elif (spaceAvail - transferSize) < 100 * 1024 * 1024:  # 100 MB
-            transSize_str = Utils.getFileSizeStr(transferSize)
-            spaceAvail_str = Utils.getFileSizeStr(spaceAvail)
             warnings_list["Storage Space Low:"].append(
-                f"Transfer: {transSize_str} - Available: {spaceAvail_str}"
+                f"Transfer: {Utils.getFileSizeStr(transferSize)} - "
+                f"Available: {Utils.getFileSizeStr(spaceAvail)}"
             )
 
-        ##  FILE EXISTS / OVERWRITE
+
+    #   Check is File Exists in Destination
+    @err_catcher(name=__name__)
+    def _checkFileExists(self, errors_list, warnings_list):
         for fileTile in self.copyList:
             basename = Utils.getBasename(fileTile.getDestMainPath())
             if fileTile.destFileExists():
@@ -2426,31 +2452,62 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 else:
                     errors_list[basename].append("File Exists in Destination")
 
-        ##  FILE NAME COLLISIONS
-        
 
-        ##  CODEC NOT SUPPORTED and PROXY FILENAME CONFLICT
+    #   Check if Transfer Names will Collide (for example if Name Modded)
+    @err_catcher(name=__name__)
+    def _checkFileNameCollisions(self, errors_list):
+        seen = set()
+        collisions = set()
+
+        for fileTile in self.copyList:
+            if fileTile.isSequence:
+                for file in fileTile.data["seqFiles"]:
+                    modName = fileTile.getModifiedName(Utils.getBasename(file))
+                    if modName in seen:
+                        collisions.add(modName)
+                    seen.add(modName)
+            else:
+                modName = fileTile.getModifiedName(fileTile.data["displayName"])
+                if modName in seen:
+                    collisions.add(modName)
+                seen.add(modName)
+
+        for name in collisions:
+            errors_list[name].append(
+                f"Filename Collision Detected for '{name}'"
+            )
+
+
+    #   Check if Proxy File will Collide with Main File (if Same Dir and Same Name)
+    @err_catcher(name=__name__)
+    def _checkProxyCollisions(self, errors_list):
+        if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
+            for fileTile in (ft for ft in self.copyList if ft.isVideo()):
+                if fileTile.isCodecSupported() and not fileTile.data["hasProxy"]:
+                    mainPath = Path(fileTile.getDestMainPath()).resolve()
+                    proxyPath = Path(fileTile.getDestProxyFilepath()).resolve()
+                    if mainPath == proxyPath:
+                        basename = Utils.getBasename(mainPath)
+                        errors_list[basename].append(
+                            "Main File and Proxy File have the Same File Path and will Conflict"
+                        )
+
+
+    #   Check if a Proxy can be Generated from the Codec Type (FFmpeg limitations)
+    @err_catcher(name=__name__)
+    def _checkProxySupport(self, errors_list, warnings_list):
         if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
             for fileTile in (ft for ft in self.copyList if ft.isVideo()):
                 basename = Utils.getBasename(fileTile.getDestMainPath())
 
-                #   Unsupported Format for Proxy Generation
+                #   Unsupported Codec
                 if not fileTile.isCodecSupported():
                     codec = fileTile.data.get("source_mainFile_codec", "unknown")
                     warnings_list[basename].append(
                         f"Proxy Generation not supported for '{codec}' format"
                     )
 
-                #   Proxy Filename Conflict
-                elif fileTile.isCodecSupported() and not fileTile.data["hasProxy"]:
-                    mainPath = Path(fileTile.getDestMainPath()).resolve()
-                    proxyPath = Path(fileTile.getDestProxyFilepath()).resolve()
-                    if mainPath == proxyPath:
-                        errors_list[basename].append(
-                            "Main File and Proxy File have the Same File Path and will Conflict"
-                        )
-
-                #   DNxHD Resolution and Scale Check
+                #   DNxHD Resolution / Scale Restrictions
                 if "dnxhd" in self.proxySettings.get("proxyPreset", "").lower():
                     xRez = int(fileTile.data["source_mainFile_xRez"])
                     yRez = int(fileTile.data["source_mainFile_yRez"])
@@ -2462,25 +2519,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                         errors_list[basename].append(
                             "Proxy Scale must be 100% for DNxHD Proxy Generation"
                         )
-
-        #   Convert Lists to Single Strings
-        errors = {k: "\n".join(v) for k, v in errors_list.items()}
-        warnings = {k: "\n".join(v) for k, v in warnings_list.items()}
-
-        hasErrors = bool(errors)
-
-        #   Add None if there are No Errors/Warnings
-        if not errors:
-            errors["None"] = ""
-        if not warnings:
-            warnings["None"] = ""
-
-        #   Save to Instance Vars
-        self.transferErrors = errors.copy()
-        self.transferWarnings = warnings.copy()
-
-        return errors, warnings, hasErrors
-
 
 
     @err_catcher(name=__name__)                                         #   TODO  Move
@@ -2562,6 +2600,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             data = {
                 "Transfer:": header,
                 "Errors:": errors,
+                "": "",
                 "Warnings": warnings,
                 "": "",
                 "Files": file_list
