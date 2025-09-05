@@ -260,7 +260,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.PreviewPlayer.setTimelinePaused(True)
 
 
-
+##########################
+########    UI   #########
 
     @err_catcher(name=__name__)
     def setupIcons(self):
@@ -466,6 +467,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                "(if the Proxy exists)\n\n"
                "This does not affect the Transfer")
         self.b_preferProxies.setToolTip(tip)
+
+        tip = ("Enabled/Disable Automatic Frame Caching")
+        self.b_cacheEnabled.setToolTip(tip)
 
         tip = ("PreviewPlayer OCIO View Preset")
         self.ocioPresets.setToolTip(tip)
@@ -925,19 +929,19 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             #   Media Player Enabled Checkbox
             playerEnabled = tabData["playerEnabled"]
-
-            # self.chb_enablePlayer.setChecked(playerEnabled)
             self.b_enablePlayer.setChecked(playerEnabled)
-
             self.togglePreviewPlayer(playerEnabled)
             
             #   Prefer Proxies Checkbox
             preferProxies = tabData["preferProxies"]
-            # self.chb_preferProxies.setChecked(preferProxies)
             self.b_preferProxies.setChecked(preferProxies)
-
             self.togglePreferProxies(preferProxies)
-            
+
+            #   Caching
+            cacheEnabled = tabData["cacheEnabled"]
+            self.b_cacheEnabled.setChecked(cacheEnabled)
+            self.toggleCacheEnable(cacheEnabled) 
+
             #   Proxy Options
             self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_proxy"])
             self.proxyEnabled = tabData["enable_proxy"]
