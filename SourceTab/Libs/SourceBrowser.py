@@ -288,10 +288,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         durationIcon = Utils.getIconFromPath(os.path.join(iconDir, "duration.png"))
         filtersIcon = Utils.getIconFromPath(os.path.join(iconDir, "filters.png"))
         sequenceIcon = Utils.getIconFromPath(os.path.join(iconDir, "sequence.png"))
-        self.player_on_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_on.png"))
-        self.player_off_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_off.png"))
-        pxyIcon = Utils.getIconFromPath(os.path.join(iconDir, "proxy.png"))
-        cacheIcon = Utils.getIconFromPath(os.path.join(iconDir, "cache.png"))
+        self.player_on_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_on.png"), 0.75)
+        self.player_off_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_off.png"), 0.75)
+        pxyIcon = Utils.getIconFromPath(os.path.join(iconDir, "proxy.png"), 0.75)
+        cacheIcon = Utils.getIconFromPath(os.path.join(iconDir, "cache.png"), 0.75)
 
         ##   Source Panel
         #   Set Button Icons
@@ -346,23 +346,29 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_enablePlayer = QPushButton()
         self.b_enablePlayer.setIcon(self.player_on_Icon)
         self.b_enablePlayer.setCheckable(True)
+        self.b_enablePlayer.setFixedSize(32,32)
+        self.b_enablePlayer.setIconSize(QSize(22, 22))
 
         #   Prefer Proxys Switch
         self.b_preferProxies = QPushButton()
         self.b_preferProxies.setIcon(pxyIcon)
         self.b_preferProxies.setCheckable(True)
+        self.b_preferProxies.setFixedSize(32,32)
+        self.b_preferProxies.setIconSize(QSize(28, 28))
 
         #   Cache Enable Button
         self.b_cacheEnabled = QPushButton()
         self.b_cacheEnabled.setIcon(cacheIcon)
         self.b_cacheEnabled.setCheckable(True)
+        self.b_cacheEnabled.setFixedSize(32,32)
+        self.b_cacheEnabled.setIconSize(QSize(22, 22))
 
         #   Add Widgets to PreviewPlayer Toolbar
         self.lo_playerToolbar.addWidget(self.b_enablePlayer)
-        self.spacer1 = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.lo_playerToolbar.addItem(self.spacer1)
         self.lo_playerToolbar.addWidget(self.b_preferProxies)
         self.lo_playerToolbar.addWidget(self.b_cacheEnabled)
+        self.spacer1 = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.lo_playerToolbar.addItem(self.spacer1)
 
         # Media Player Import
         self.useGPU = self.checkGpuAvailability()
@@ -1683,108 +1689,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             return sortedList
 
 
-    #   Group Image Sequences with Seq Number Suffix                    #   TODO - NEEDED ANYMORE????
-    @err_catcher(name=__name__)
-    def groupSequences(self, table, sortedList):
-
-        #   Helper to Split Filename into Parts
-        def _splitFilename(filename):
-            name, ext = os.path.splitext(filename)
-            match = re.search(r'(\d+)$', name)
-            if match:
-                frame = match.group(1)
-                base = name[:match.start(1)]
-            else:
-                base = name
-                frame = ''
-            return base, frame, ext
-
-
-        filePath_to_item = {}
-        seen = set()
-        groupedItems = []
-
-        #   Collect Files
-        ordered_file_paths = []
-        for item in sortedList:
-            if item["tileType"] == "file":
-                path = item["data"]["source_mainFile_path"]
-                filePath_to_item[path] = item
-                ordered_file_paths.append(path)
-
-        for current in ordered_file_paths:
-            if current in seen:
-                continue
-
-            base, frame, ext = _splitFilename(current)
-
-            if (
-                frame and
-                ext.lower() in self.core.media.supportedFormats and
-                ext.lower() not in self.core.media.videoFormats
-            ):
-                #   Build Regex for Matching Sequence Files
-                pattern = re.escape(base) + r'\d+' + re.escape(ext)
-                regex = re.compile(pattern)
-
-                matched_dict = OrderedDict()
-                for f in ordered_file_paths:
-                    if f not in seen and regex.fullmatch(f):
-                        matched_dict[f] = None
-                matched_dict[current] = None
-
-                matched = list(matched_dict.keys())
-
-                if len(matched) > 1:
-                    seen.update(matched)
-                    padded = "#" * len(frame)
-                    display_name = Utils.getBasename(f"{base}{padded}{ext}")
-
-                    matchedItems = [filePath_to_item[f] for f in matched]
-                    uuid_list = [item["data"]["uuid"] for item in matchedItems]
-
-                    baseItem = filePath_to_item[current]
-                    groupedData = baseItem["data"].copy()
-
-                    #   Remove Redundant Per-frame Fields from Main Dict
-                    for key in [
-                        "source_mainFile_path",
-                        "source_mainFile_duration",
-                        "source_mainFile_hash",
-                        "hasProxy",
-                        "icon",
-                        "source_mainFile_date_raw",
-                        "source_mainFile_date",
-                        "source_mainFile_size_raw",
-                        "source_mainFile_size"
-                    ]:
-                        groupedData.pop(key, None)
-
-                    groupedData["displayName"] = display_name
-                    groupedData["fileType"] = "Image Sequence"
-                    groupedData["sequenceItems"] = matchedItems
-                    groupedData["sequenceUUIDs"] = uuid_list
-
-
-                    groupedItems.append({
-                        "tile": baseItem["tile"],
-                        "tileType": "file",
-                        "data": groupedData
-                    })
-
-                else:
-                    seen.add(current)
-                    groupedItems.append(filePath_to_item[current])
-
-            else:
-                seen.add(current)
-                groupedItems.append(filePath_to_item[current])
-
-        #   Preserve Folder Order (if any)
-        folders = [item for item in sortedList if item["tileType"] == "folder"]
-        return folders + groupedItems
-
-
     #   Sort Items According to User Selection
     @err_catcher(name=__name__)
     def applySorting(self, table, origList):
@@ -1863,12 +1767,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             (table == "destination" and self.b_dest_sorting_filtersEnable.isChecked())):
 
             sortedList = self.applyTableFilters(table, sortedList)
-
-        #   Combine Image Sequences
-        if ((table == "source" and self.b_source_sorting_combineSeqs.isChecked()) or
-            (table == "destination" and self.b_dest_sorting_combineSeqs.isChecked())):
-
-            sortedList = self.groupSequences(table, sortedList)
 
         return sortedList
 
@@ -2527,6 +2425,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     warnings_list[basename].append("File Exists in Destination")
                 else:
                     errors_list[basename].append("File Exists in Destination")
+
+        ##  FILE NAME COLLISIONS
+        
 
         ##  CODEC NOT SUPPORTED and PROXY FILENAME CONFLICT
         if self.proxyEnabled and self.proxyMode in ["generate", "missing"]:
