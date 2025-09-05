@@ -244,6 +244,9 @@ class PreviewPlayer_GPU(QWidget):
         self.playIcon = Utils.getIconFromPath(os.path.join(self.iconPath, "play.png"))
         self.pauseIcon = Utils.getIconFromPath(os.path.join(self.iconPath, "pause.png"))
 
+
+        self.sl_previewImage.setToolTip("Cache: Idle")
+
         self.b_first.setToolTip("First Frame")
         self.b_prev.setToolTip("Previous Frame")
         self.b_play.setToolTip("Play / Pause")
@@ -391,6 +394,7 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def updateCacheSlider(self, frame=None, reset=False):
+        #   Reset and Calc Frames
         if reset or not self.PreviewCache.cache:
             total_frames = 1
             cachedMask = [False]
@@ -398,27 +402,32 @@ class PreviewPlayer_GPU(QWidget):
             total_frames = len(self.PreviewCache.cache)
             cachedMask = [self.PreviewCache.cache[i] is not None for i in range(total_frames)]
 
+        #   Set Sizing
         slider_width = max(1, self.sl_previewImage.width())
         slider_height = 6
-        min_segment_px = 5  # Minimum width of a frame segment in pixels
+        min_segment_px = 5  # Min Width of a Frame segment (pix)
 
         stops = []
 
+        #   Calculate Range and Segments
         for i in range(total_frames):
-            # Pixel range for this frame
+            #   Pixel Range for this Frame
             x_start_px = int(i / total_frames * slider_width)
             x_end_px   = int((i + 1) / total_frames * slider_width)
             if x_end_px - x_start_px < min_segment_px:
                 x_end_px = x_start_px + min_segment_px
-            x_end_px = min(x_end_px, slider_width)  # Clamp to slider width
+            #   Clamp to Slider Width
+            x_end_px = min(x_end_px, slider_width)
 
+            #   Cache Colors (color and transparent)
             color = "#465A78" if cachedMask[i] else "transparent"
 
-            # Add a stop for each pixel in the frame range
+            #   Add a Stop for each Pixel in the Frame Range
             for px in range(x_start_px, x_end_px):
                 ratio = px / slider_width
                 stops.append(f"stop:{ratio} {color}")
 
+        #   Make Stylesheet
         gradient_str = ", ".join(stops)
 
         style = f"""
@@ -432,18 +441,25 @@ class PreviewPlayer_GPU(QWidget):
         }}
         """
         self.sl_previewImage.setStyleSheet(style)
+        
+        #   Update Tooltip
+        cached = max(0, sum(cachedMask))
 
-        cached = sum(cachedMask)
-        if cached < total_frames:
-            tip = f"Caching: {cached} of {total_frames} frames"
-        elif cached == total_frames:
-            tip = f"Cache Complete: {total_frames} frames"
-
+        if self.sourceBrowser.b_cacheEnabled.isChecked():
+            if self.PreviewCache.isRunning:
+                status = "ACTIVE"
+            elif cached == total_frames:
+                status = "COMPLETE"
+            elif cached < total_frames:
+                status = "IDLE"
+            else:
+                status = "UNKNOWN"
+            tip = f"Cache: {status} ({cached} of {total_frames} frames in memory)" if status != "UNKNOWN" else "Cache: UNKNOWN"
+        else:
+            status = "DISABLED"
+            tip = f"Cache: {status} ({cached} of {total_frames} frames in memory)" if cached > 0 else "Cache: DISABLED"
 
         self.sl_previewImage.setToolTip(tip)
-
-
-
 
 
     #   Generate a Black 16:9 Frame at Current Preview Width
@@ -1585,6 +1601,7 @@ class FrameCacheManager(QObject):
 
         self.total_frames = 0
         self._firstFrameEmitted = False
+        self.isRunning = False
 
         self.mutex = QMutex()
 
@@ -1649,6 +1666,7 @@ class FrameCacheManager(QObject):
         logger.debug("Frame Caching Started")
 
         self.workers = []
+        self.isRunning = True
 
         #   Image Sequences
         if self.isSeq:
@@ -1691,6 +1709,8 @@ class FrameCacheManager(QObject):
     @err_catcher(name=__name__)
     def stop(self) -> None:
         '''Stops the Frame Caching'''
+
+        self.isRunning = False
 
         for worker in self.workers:
             worker.stop()
@@ -1739,6 +1759,7 @@ class FrameCacheManager(QObject):
         self.cacheUpdated.emit(frameIdx)
 
         if all(v is not None for v in self.cache.values()):
+            self.isRunning = False
             logger.debug("Frame Cache Complete")
             self.cacheComplete.emit()
 
