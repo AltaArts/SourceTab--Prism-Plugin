@@ -59,7 +59,7 @@ import numpy as np
 from OpenGL.GL import *
 import av
 
-import PyOpenColorIO as ocio                        #   TODO - Handle MediaExtension
+import PyOpenColorIO as ocio
 
 
 from qtpy.QtCore import *
@@ -133,10 +133,7 @@ class PreviewPlayer_GPU(QWidget):
 
         self.tempOCIOLoad()                         #   TESTING
 
-        self.displayWindow.setBackground(pixel_size=20,
-                                         checker_color1=(0.0, 0.0, 0.0),
-                                         checker_color2=(0.1, 0.1, 0.1))                #   TESTING
-
+        self.loadSettings()
         self.resetImage()
 
         self.enableControls(False)
@@ -292,6 +289,35 @@ class PreviewPlayer_GPU(QWidget):
         self.b_last.clicked.connect(self.onLastClicked)
 
         self.PreviewCache.cacheUpdated.connect(self.updateCacheSlider)
+
+
+    #   Loads Player Settings
+    @err_catcher(name=__name__)
+    def loadSettings(self, pData=None):
+
+        #   Gets Saved User Config if not Passed
+        if not pData:
+            pData = self.core.getConfig("browser", "mediaPlayerSettings")
+
+            #   Create and Save New Default Data if it Does Not Exist
+            if not pData:
+                pData = {
+                    "cacheThreads": 4,
+                    "check_size": 20,
+                    "check_color1": (0.0, 0.0, 0.0),
+                    "check_color2": (0.1, 0.1, 0.1)
+                    }
+                
+                #   Save Settings
+                self.core.setConfig("browser", "mediaPlayerSettings", pData)
+
+        #   Set Cache Max Threads
+        self.PreviewCache.setThreadpool(pData["cacheThreads"])
+
+        #   Set Viewer Settings
+        self.displayWindow.setBackground(pData["check_size"],
+                                            pData["check_color1"],
+                                            pData["check_color2"])
 
 
     def tempOCIOLoad(self):
@@ -527,8 +553,6 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def setTimelinePaused(self, paused: bool):
-        """Pause or resume playback, update icon and playback timer."""
-
         if paused:
             if self.isPlaying():
                 self.playTimer.stop()
@@ -560,9 +584,6 @@ class PreviewPlayer_GPU(QWidget):
     @err_catcher(name=__name__)
     def setCurrentFrame(self, frameIdx:int, manual:bool = False, reset:bool = False):
         """Move the Playhead to a Specific Frame and Update the UI."""
-
-        # if not self.PreviewCache.cache:
-        #     return
         
         frameIdx = max(0, min(frameIdx, len(self.PreviewCache.cache) - 1))
         self.currentFrameIdx = frameIdx
@@ -613,9 +634,6 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def onPlayClicked(self):
-        # if not self.mediaFiles or not self.PreviewCache.cache:
-        #     return
-
         if self.isPlaying():
             self.setTimelinePaused(True)
         else:
@@ -626,10 +644,6 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def _playNextFrame(self):
-        # if not self.PreviewCache.cache:
-        #     self.playTimer.stop()
-        #     return
-
         elapsed_ms = self._playStartTime.elapsed() + self._playBaseOffset + self._pausedOffset
         target_frame = int(elapsed_ms / self._playInterval)
 
@@ -655,9 +669,6 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def sliderChanged(self, frameIdx):
-        # if not self.mediaFiles or not self.PreviewCache.cache:
-        #     return
-
         was_playing = self.isPlaying()
         if was_playing:
             self.playTimer.stop()
@@ -712,9 +723,6 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def previewClk(self, event):
-        # if not self.mediaFiles or not self.PreviewCache.cache:
-        #     return
-
         if event.button() == Qt.LeftButton:
             self.onPlayClicked()
 
@@ -830,7 +838,7 @@ class PreviewPlayer_GPU(QWidget):
             #   Set the Media in the Cache System
             self.PreviewCache.setMedia(mediaFiles, windowWidth, self.fileType, self.prvIsSequence, prevData)
 
-            #   Start the Caching                                   #   TODO - ADD TOGGLE TO START/STOP/ENABLE
+            #   Start the Caching
             if self.sourceBrowser.cacheEnabled:
                 self.PreviewCache.start()
 
@@ -924,8 +932,8 @@ class PreviewPlayer_GPU(QWidget):
             self.frameReady.emit(frameIdx, frame)
 
 
-    @err_catcher(name=__name__)
-    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", luts=None):                #   TESTING - TEMP HARDCODED
+    @err_catcher(name=__name__)                                                            #   TESTING - TEMP HARDCODED
+    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", luts=None):
 
         look = None
         luts = []
@@ -1054,6 +1062,7 @@ class PreviewPlayer_GPU(QWidget):
 
 
 
+    ########    DELETE AFTER TESTING    #########
 
     @err_catcher(name=__name__)
     def printOcioInfo(self):                                                                              # TESTING
@@ -1109,6 +1118,8 @@ class PreviewPlayer_GPU(QWidget):
         except Exception as e:
             print(f"[OCIO] Failed to query config: {e}")
 
+################################
+
 
 
 
@@ -1150,10 +1161,6 @@ class PreviewPlayer_GPU(QWidget):
         iconPath = os.path.join(self.iconPath, "refresh.png")
         icon = self.core.media.getColoredIcon(iconPath)
         Utils.createMenuAction("Reload Cache", sc, rcmenu, self, self.reloadCache, icon=icon)
-
-        # iconPath = os.path.join(self.sourceBrowser.iconDir, "cache.png")
-        # icon = self.core.media.getColoredIcon(iconPath)
-        # Utils.createMenuAction("Enable Cache", sc, rcmenu, self, self.enableCache, icon=icon)
 
         rcmenu.addAction(_separator())
 
@@ -1203,14 +1210,14 @@ class PreviewPlayer_GPU(QWidget):
 
         rcmenu.addAction(_separator())
 
+        iconPath = os.path.join(self.iconPath, "configure.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Player Settings", sc, rcmenu, self, self.editPlayerSettings, icon=icon)
+
         Utils.createMenuAction("Edit OCIO Presets", sc, rcmenu, self, self.editOcioPresets)
 
         return rcmenu
 
-
-    # @err_catcher(name=__name__)
-    # def enableCache(self):
-    #     pass
 
 
     @err_catcher(name=__name__)
@@ -1218,21 +1225,6 @@ class PreviewPlayer_GPU(QWidget):
         self.resetImage()
         self.configureOCIO()
         self.updatePreview(self.mediaFiles)
-
-
-    @err_catcher(name=__name__)
-    def clearCurrentThumbnails(self):
-        if not self.mediaFiles:
-            return
-
-        thumbdir = os.path.dirname(self.core.media.getThumbnailPath(self.mediaFiles[0]))
-        if not os.path.exists(thumbdir):
-            return
-
-        try:
-            shutil.rmtree(thumbdir)
-        except Exception as e:
-            logger.warning("Failed to remove thumbnail: %s" % e)
 
 
     @err_catcher(name=__name__)
@@ -1274,6 +1266,27 @@ class PreviewPlayer_GPU(QWidget):
 
         if self.tileExists(destTile):
             destTile.removeFromDestList()
+
+
+    @err_catcher(name=__name__)
+    def editPlayerSettings(self):
+        #   Get Settings from User Config (Prism.json)
+        pData = self.core.getConfig("browser", "mediaPlayerSettings")
+
+        #   Create and Load UI Window
+        playerConfigWindow = PlayerConfigPopup(self, self.core)
+        playerConfigWindow.loadSettings(pData)
+
+        result = playerConfigWindow.exec()
+
+        if result == QDialog.Accepted:
+            #   Get Settings from UI
+            pData = playerConfigWindow.getSettings()
+
+            #   Save to Local Prism User Settings (Prism.json)
+            self.core.setConfig("browser", "mediaPlayerSettings", pData)
+
+            self.loadSettings(pData)
 
 
     @err_catcher(name=__name__)
@@ -1434,7 +1447,6 @@ class VideoCacheWorker(QRunnable):
 
 
 
-
 class ImageCacheWorker(QRunnable):
     def __init__(self, core, imgPath, frame_idx, cacheRef, mutex, pWidth, progCallback):
         super().__init__()
@@ -1554,6 +1566,7 @@ class ImageCacheWorker(QRunnable):
             except Exception as fe:
                 logger.error(f"Failed to load fallback image: {fe}")
 
+
             
 class FrameCacheManager(QObject):
     cacheUpdated = Signal(int)
@@ -1573,91 +1586,22 @@ class FrameCacheManager(QObject):
         self.total_frames = 0
         self._firstFrameEmitted = False
 
-        self.threadpool = QThreadPool.globalInstance()
-        self.threadpool.setMaxThreadCount(4)                         #   TODO - Look at adding Max Threads to Settings   
-        max_threads = self.threadpool.maxThreadCount()
-
         self.mutex = QMutex()
 
 
+    #########################
+    #######   API    ########
+
+
     @err_catcher(name=__name__)
-    def _onWorkerProgress(self, frameIdx, firstFrame=False):
-        if firstFrame:
-            self.firstFrameComplete.emit(frameIdx)
-            self._firstFrameEmitted = True
+    def setThreadpool(self, threadNum:int) -> None:
+        '''Updates Cache Threadpool Max Workers'''
 
-        self.cacheUpdated.emit(frameIdx)
+        self.threadpool = QThreadPool(self)
+        self.threadpool.setMaxThreadCount(threadNum)
 
-        if all(v is not None for v in self.cache.values()):
-            logger.debug("Frame Cache Complete")
-            self.cacheComplete.emit()
+        logger.debug(f"Cache Threads set to {threadNum}")
 
-    
-    @err_catcher(name=__name__)
-    def _generateFrame(self, frameIdx):
-        #   Image Sequence
-        if self.isSeq:
-            imgPath = self.mediaFiles[frameIdx]
-            worker = ImageCacheWorker(
-                self.core,
-                imgPath,
-                frameIdx,
-                self.cache,
-                self.mutex,
-                self.pWidth,
-                None,
-            )
-            #   Blocking Decode
-            worker.run()
-
-            self._onWorkerProgress(frameIdx, firstFrame=False)
-
-            return self.cache.get(frameIdx)
-
-        #   Video
-        else:
-            mediaPath = self.mediaFiles[0]
-            try:
-                container = av.open(mediaPath)
-                stream = container.streams.video[0]
-
-                #   Attempt Direct Seek if Possible (faster)
-                try:
-                    container.seek(frameIdx * stream.time_base.denominator // self.fps)
-                except Exception:
-                    #   Fallback full Decode
-                    pass
-
-                for idx, frame in enumerate(container.decode(stream)):
-                    if idx == frameIdx:
-                        #   Scale and Flip
-                        src_w, src_h = frame.width, frame.height
-                        scale = self.pWidth / float(src_w)
-                        dst_w = self.pWidth
-                        dst_h = max(1, int(round(src_h * scale)))
-
-                        f2 = frame.reformat(width=dst_w, height=dst_h,
-                                            format='rgba', interpolation='BILINEAR')
-                        img = np.flipud(f2.to_ndarray())
-
-                        self.mutex.lock()
-                        self.cache[frameIdx] = img
-                        self.mutex.unlock()
-                        container.close()
-
-                        self._onWorkerProgress(frameIdx, firstFrame=False)
-                        return img
-                container.close()
-
-            except Exception as e:
-                logger.warning(f"getFrame() failed for frame {frameIdx}: {e}")
-                return None
-
-        return None
-
-
-#########################
-#######   API    ########
 
     @err_catcher(name=__name__)
     def setMedia(self, mediaFiles:list, prevWidth:int, fileType:str, isSeq:bool, prevData:dict) -> None:
@@ -1783,6 +1727,83 @@ class FrameCacheManager(QObject):
         return self._generateFrame(frameIdx)
 
 
+    ##############################
+    #######   INTERNAL    ########
+
+    @err_catcher(name=__name__)
+    def _onWorkerProgress(self, frameIdx, firstFrame=False):
+        if firstFrame:
+            self.firstFrameComplete.emit(frameIdx)
+            self._firstFrameEmitted = True
+
+        self.cacheUpdated.emit(frameIdx)
+
+        if all(v is not None for v in self.cache.values()):
+            logger.debug("Frame Cache Complete")
+            self.cacheComplete.emit()
+
+    
+    @err_catcher(name=__name__)
+    def _generateFrame(self, frameIdx):
+        #   Image Sequence
+        if self.isSeq:
+            imgPath = self.mediaFiles[frameIdx]
+            worker = ImageCacheWorker(
+                self.core,
+                imgPath,
+                frameIdx,
+                self.cache,
+                self.mutex,
+                self.pWidth,
+                None,
+            )
+            #   Blocking Decode
+            worker.run()
+
+            self._onWorkerProgress(frameIdx, firstFrame=False)
+
+            return self.cache.get(frameIdx)
+
+        #   Video
+        else:
+            mediaPath = self.mediaFiles[0]
+            try:
+                container = av.open(mediaPath)
+                stream = container.streams.video[0]
+
+                #   Attempt Direct Seek if Possible (faster)
+                try:
+                    container.seek(frameIdx * stream.time_base.denominator // self.fps)
+                except Exception:
+                    #   Fallback full Decode
+                    pass
+
+                for idx, frame in enumerate(container.decode(stream)):
+                    if idx == frameIdx:
+                        #   Scale and Flip
+                        src_w, src_h = frame.width, frame.height
+                        scale = self.pWidth / float(src_w)
+                        dst_w = self.pWidth
+                        dst_h = max(1, int(round(src_h * scale)))
+
+                        f2 = frame.reformat(width=dst_w, height=dst_h,
+                                            format='rgba', interpolation='BILINEAR')
+                        img = np.flipud(f2.to_ndarray())
+
+                        self.mutex.lock()
+                        self.cache[frameIdx] = img
+                        self.mutex.unlock()
+                        container.close()
+
+                        self._onWorkerProgress(frameIdx, firstFrame=False)
+                        return img
+                container.close()
+
+            except Exception as e:
+                logger.warning(f"getFrame() failed for frame {frameIdx}: {e}")
+                return None
+
+        return None
 
 
 
@@ -1836,6 +1857,13 @@ class GLVideoDisplay(QOpenGLWidget):
             self.pixel_size = pixel_size
             self.checker_color1 = checker_color1
             self.checker_color2 = checker_color2
+
+            #   Update Checksize Calc
+            self.setCheckerPixelSize()
+
+            #   Refresh Viewer
+            self.update()
+
             return True
         
         except Exception as e:
@@ -2366,3 +2394,249 @@ class GLVideoDisplay(QOpenGLWidget):
 
         #   Unbiond VAO
         glBindVertexArray(0)
+
+
+
+############################################
+#######     PLAYER SETTINGS UI      ########
+    
+
+class PlayerConfigPopup(QDialog):
+    def __init__(self, player, core):
+        super().__init__()
+
+        self.player = player
+        self.core = core
+
+        #   Defaults
+        self.cacheThreads = 4
+        self.pixel_size = 20
+        self.checker_color1 = (0.0, 0.0, 0.0)
+        self.checker_color2 = (0.1, 0.1, 0.1)
+
+        self.result = None
+        self.setWindowTitle("Media Player Configuration")
+
+        self.loadUI()
+        self.connectEvents()
+
+
+    @err_catcher(name=__name__)
+    def loadUI(self):
+        #   Set up Sizing and Position
+        screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        width   = screen_geometry.width() // 4
+        height  = screen_geometry.height() // 3
+        x_pos   = (screen_geometry.width() - width) // 2
+        y_pos   = (screen_geometry.height() - height) // 2
+        self.setGeometry(x_pos, y_pos, width, height)
+
+        lo_main = QVBoxLayout(self)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+
+
+        ##   PERFORMACE
+        gb_performance = QGroupBox("Performace")
+
+        #   Layout for Margins
+        lo_margins = QVBoxLayout(gb_performance)
+
+        #   Inner Layout
+        checkContainer = QWidget()
+        lo_performace = QVBoxLayout(checkContainer)
+        lo_performace.setContentsMargins(20, 5, 20, 5)
+
+        #   Cache Threads
+        lo_threads = QHBoxLayout()
+        l_threads = QLabel("Frame Cache Threads")
+        self.sp_threads = QSpinBox()
+        self.sp_threads.setRange(1, 50)
+        self.sp_threads.setValue(4)
+
+        lo_threads.addWidget(l_threads)
+        lo_threads.addStretch()
+        lo_threads.addWidget(self.sp_threads)
+        lo_performace.addLayout(lo_threads)
+
+        lo_margins.addWidget(checkContainer)
+        scroll_layout.addWidget(gb_performance)
+
+
+        ##  Checker Background
+        gb_checkerBG = QGroupBox("Checker Background")
+
+        #   Layout for Margins
+        lo_margins = QVBoxLayout(gb_checkerBG)
+
+        #   Inner Layout
+        checkContainer = QWidget()
+        lo_checker = QVBoxLayout(checkContainer)
+        lo_checker.setContentsMargins(20, 5, 20, 5)
+
+        # Checker Size
+        lo_checkSize = QHBoxLayout()
+        l_checkSize = QLabel("Checker Size (pix)")
+        self.sp_checkSize = QSpinBox()
+        self.sp_checkSize.setRange(1, 50)
+        self.sp_checkSize.setValue(20)
+
+        lo_checkSize.addWidget(l_checkSize)
+        lo_checkSize.addStretch()
+        lo_checkSize.addWidget(self.sp_checkSize)
+        lo_checker.addLayout(lo_checkSize)
+
+        #   Color 1
+        row1, self._swatch_checker_color1 = self.makeColorRow(
+            "Checker Color 1", (0, 0, 0), lambda c: setattr(self, "checker_color1", c)
+        )
+        lo_checker.addLayout(row1)
+
+        #   Color 2
+        row2, self._swatch_checker_color2 = self.makeColorRow(
+            "Checker Color 2", (25, 25, 25), lambda c: setattr(self, "checker_color2", c)
+        )
+        lo_checker.addLayout(row2)
+
+        lo_margins.addWidget(checkContainer)
+        scroll_layout.addWidget(gb_checkerBG)
+
+
+        scroll_layout.addStretch(1)
+        scroll_area.setWidget(scroll_widget)
+        lo_main.addWidget(scroll_area)
+
+        # Bottom Buttons
+        lo_buttons = QHBoxLayout()
+
+        self.b_save = QPushButton("Save")
+        self.b_close = QPushButton("Close")
+
+        lo_buttons.addStretch()
+        lo_buttons.addWidget(self.b_save)
+        lo_buttons.addWidget(self.b_close)
+
+        lo_main.addLayout(lo_buttons)
+
+
+    @err_catcher(name=__name__)
+    def connectEvents(self):
+        self.b_save.clicked.connect(self.onSaveClicked)
+        self.b_close.clicked.connect(self.onCloseClicked)
+
+
+    @err_catcher(name=__name__)
+    def loadSettings(self, data):
+        self.sp_threads.setValue(data.get("cacheThreads", 4))
+        self.sp_checkSize.setValue(data.get("check_size", 20))
+
+        #   Convert Lists to Tuples
+        color1 = tuple(data.get("check_color1", (0.0, 0.0, 0.0)))
+        color2 = tuple(data.get("check_color2", (0.1, 0.1, 0.1)))
+
+        #   Update Vars
+        self.checker_color1 = color1
+        self.checker_color2 = color2
+
+        #   Update Swatches
+        self.setSwatchColor(self._swatch_checker_color1, color1)
+        self.setSwatchColor(self._swatch_checker_color2, color2)
+
+
+    @err_catcher(name=__name__)
+    def getSettings(self):
+        return {
+            "cacheThreads": self.sp_threads.value(),
+            "check_size": self.sp_checkSize.value(),
+            "check_color1": self.checker_color1,
+            "check_color2": self.checker_color2,
+        }
+
+
+    @err_catcher(name=__name__)
+    def makeColorRow(self, label_text, default_color, callback=None):
+        layout = QHBoxLayout()
+
+        #   Name Label
+        lbl = QLabel(label_text)
+
+        #   Swatch (QFrame with Background Color)
+        swatch = QFrame()
+        swatch.setObjectName("checkerSwatch")
+
+        swatch.setFixedSize(40, 25)
+        swatch.setFrameShape(QFrame.Box)
+        swatch.setFrameShadow(QFrame.Plain)
+        swatch.setStyleSheet(f"""
+            QFrame#checkerSwatch {{
+                background-color: rgb{default_color};
+                border: 2px solid #454545;
+                border-radius: 2px;
+            }}
+        """)
+        swatch.setProperty("color", tuple(c/255 for c in default_color))
+
+        #   Button
+        btn = QPushButton("Choose...")
+        btn.clicked.connect(lambda: self.pickColor(swatch, callback))
+
+        layout.addWidget(lbl)
+        layout.addStretch()
+        layout.addWidget(swatch)
+        layout.addWidget(btn)
+
+        return layout, swatch
+
+
+    @err_catcher(name=__name__)
+    def pickColor(self, swatch, callback=None):
+        initial = swatch.palette().window().color()
+        color = QColorDialog.getColor(initial, self, "Select Color")
+        if color.isValid():
+            r, g, b, _ = color.getRgb()
+            swatch.setStyleSheet(f"background-color: rgb({r},{g},{b}); border: 1px solid #444;")
+            normalized = (round(r/255,3), round(g/255,3), round(b/255,3))
+            swatch.setProperty("color", normalized)
+            if callback:
+                callback(normalized)
+
+
+    # Get current color from swatch
+    @err_catcher(name=__name__)
+    def getSwatchColor(self, swatch):
+        return swatch.property("color")  # returns (r, g, b) in 0–1 range
+
+
+    # Set swatch color programmatically
+    @err_catcher(name=__name__)
+    def setSwatchColor(self, swatch, rgb):
+        """rgb can be (0–1 floats) or (0–255 ints)."""
+        if all(0 <= c <= 1 for c in rgb):
+            r, g, b = [int(c*255) for c in rgb]
+            # Clamp floats to 3 decimal places
+            normalized = tuple(round(c, 3) for c in rgb)
+        else:
+            r, g, b = rgb
+            normalized = tuple(round(c/255, 3) for c in rgb)
+
+        swatch.setStyleSheet(f"background-color: rgb({r},{g},{b}); border: 1px solid #444;")
+        swatch.setProperty("color", normalized)
+
+
+
+
+
+    @err_catcher(name=__name__)
+    def onSaveClicked(self):
+        self.result = self.getSettings()
+        self.accept()
+
+
+    @err_catcher(name=__name__)
+    def onCloseClicked(self):
+        self.reject()
+
