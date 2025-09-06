@@ -67,7 +67,6 @@ sys.path.append(os.path.join(PLUGINPATH, "Libs"))
 
 
 import SourceBrowser as SourceBrowser
-from PopupWindows import OcioConfigPopup
 import SourceTab_Utils as Utils
 
 
@@ -310,16 +309,6 @@ class Prism_SourceTab_Functions(object):
         projectSettings.lo_customIcon.addWidget(projectSettings.b_customIconPath)
         projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_customIcon)
 
-
-        # #   View Lut                                                                      #   TODO - IMPLEMENT
-        # projectSettings.lo_viewLut = QHBoxLayout()
-        # projectSettings.chb_useViewLut = QCheckBox("Use View Lut Presets:", projectSettings.w_config)
-        # projectSettings.b_configureOcioPresets = QPushButton("Configure OCIO Presets", projectSettings.w_config)
-        # projectSettings.lo_viewLut.addWidget(projectSettings.chb_useViewLut)
-        # projectSettings.lo_viewLut.addStretch()
-        # projectSettings.lo_viewLut.addWidget(projectSettings.b_configureOcioPresets)
-        # projectSettings.lo_sourceTabOptions.addLayout(projectSettings.lo_viewLut)
-
         # #   Custom Thumbnail Path option                                                      #   TODO - DO WE WANT THIS ???
         # projectSettings.lo_customThumbPath = QHBoxLayout()
         # projectSettings.chb_useCustomThumbPath = QCheckBox("Use Custom Thumbnail Path", projectSettings.w_config)
@@ -405,7 +394,6 @@ class Prism_SourceTab_Functions(object):
         #   CONNECTIONS
         projectSettings.chb_useCustomIcon.toggled.connect(lambda: self.configureSettingsUI(projectSettings))
         projectSettings.b_customIconPath.clicked.connect(lambda: self.selectCustomIconPath(projectSettings))
-        # projectSettings.b_configureOcioPresets.clicked.connect(self.openOcioPresets)
 
         logger.debug("Added Settings UI to Prism Project Settings")
 
@@ -492,8 +480,6 @@ class Prism_SourceTab_Functions(object):
 
 
             #####   UNUSED RIGHT NOW        #########################
-                # if "useViewLut" in sData:
-                #     origin.chb_useViewLut.setChecked(sData["useViewLut"])						
                 # if "useCustomThumbPath" in sData:
                 #     origin.chb_useCustomThumbPath.setChecked(sData["useCustomThumbPath"])
                 # if "customThumbPath" in sData:
@@ -530,7 +516,6 @@ class Prism_SourceTab_Functions(object):
                 "useLibImport": origin.chb_useLibImport.isChecked(),
                 "customIconPath": origin.le_customIconPath.text().strip().strip('\'"'),
                 
-                # "useViewLut": origin.chb_useViewLut.isChecked(),
                 # "useCustomThumbPath": origin.chb_useCustomThumbPath.isChecked(),
                 # "customThumbPath": origin.le_customThumbPath.text().strip().strip('\'"')
                 }
@@ -568,6 +553,9 @@ class Prism_SourceTab_Functions(object):
 
             elif key == "sortOptions":
                 self.core.setConfig(cat="sourceTab", param="sortOptions", val=data, config="project")
+
+            elif key == "ocioSettings":
+                self.core.setConfig(cat="sourceTab", param="ocioSettings", val=data, config="project")
 
             elif key == "proxySettings":
                 pData = self.sourceBrowser.proxySettings
@@ -644,7 +632,6 @@ class Prism_SourceTab_Functions(object):
                     "useTransferReport": True,
                     "useCustomIcon": False,
                     "customIconPath": "", 
-                    "useViewLut": False,
                     "tabPosition": "1",
                     "useLibImport": True,
                     "useCustomThumbPath": False,
@@ -674,6 +661,10 @@ class Prism_SourceTab_Functions(object):
                         "sortType": "name",
                         "ascending": True
                     }
+                },
+                "ocioSettings": {
+                    "currOcioPreset": None,
+                    "ocioPresetOrder": []
                 },
                 "proxySettings": {
                     "fallback_proxyDir": ".\\proxy",
@@ -706,21 +697,7 @@ class Prism_SourceTab_Functions(object):
                     "@MAINFILEDIR@\\..\\proxies\\@MAINFILENAME@",
                     "@MAINFILEDIR@\\..\\proxys\\@MAINFILENAME@",
                     "@MAINFILEDIR@_proxy\\@MAINFILENAME@"
-                    ],
-                "viewLutPresets": [
-                    {
-                    "name": "Linear to Rec70924",
-                    "transform_input": "Rec709Linear",
-                    "transform_output": "Rec70924",
-                    "look": "None"
-                    },
-                    {
-                    "name": "ACEScg to Rec70924",
-                    "transform_input": "ACEScg",
-                    "transform_output": "Rec70924",
-                    "look": "None"
-                    },
-                ]
+                    ]
             }
 
         #   Return Specific Key Default
@@ -733,36 +710,3 @@ class Prism_SourceTab_Functions(object):
             logger.debug("Loaded Default Settings")
             return sData
     
-
-
-    #   Default Settings File Data
-    @err_catcher(name=__name__)
-    def openOcioPresets(self):
-        sData = self.loadSettings()
-        oData = sData["viewLutPresets"]
-
-        OcioConfigPopup.display(self.core, oData)
-
-        # mediaEx = self.core.getPlugin("MediaExtension")
-        # entity = mediaEx
-
-        # import inspect
-        # print("########################")
-        # print(f"{entity} > Type: {str(type(entity))}")
-        # print("----")
-        # methods = [func for func in dir(entity) if callable(getattr(entity, func)) and not func.startswith("__")]
-        # for method in methods:
-        #     func = getattr(entity, method)
-        #     try:
-        #         sig = inspect.signature(func)
-        #         print(f"Method: {method}, Arguments: {sig}")
-        #     except:
-        #         print(f"Method: {method}")
-        # for attribute_name, attribute in entity.__dict__.items():
-        #     print(f"Attribute: {attribute_name} | {str(type(attribute))}")
-        # print("########################")
-
-
-        # ocio = mediaEx.browseOcioConfig(self)
-
-        # self.core.popup(ocio)

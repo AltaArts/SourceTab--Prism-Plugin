@@ -72,7 +72,7 @@ from PrismUtils.Decorators import err_catcher
 import SourceTab_Utils as Utils
 from SourceTab_Models import FileTileMimeData
 from WorkerThreads import FileInfoWorker
-from PopupWindows import OcioConfigPopup
+from PopupWindows import OcioPresetsEditor
 
 
 #   Color names for Beauty/Color pass
@@ -129,9 +129,6 @@ class PreviewPlayer_GPU(QWidget):
         self.updateExternalMediaPlayers()
         self.setupUi()
         self.connectEvents()
-
-        self.tempOCIOLoad()                         #   TESTING
-
         self.loadSettings()
         self.resetImage()
 
@@ -172,6 +169,9 @@ class PreviewPlayer_GPU(QWidget):
         if getattr(self, "PreviewCache", None):
             self.PreviewCache.stop()
             self.PreviewCache.threadpool.waitForDone(1000)
+
+        #   Save Current OCIO Settings
+        self.saveOcioSettings()
 
 
     @err_catcher(name=__name__)
@@ -322,6 +322,18 @@ class PreviewPlayer_GPU(QWidget):
                                             pData["check_color2"])
 
 
+    #   Saves Current OCIO Settings to Project Config
+    @err_catcher(name=__name__)
+    def saveOcioSettings(self):
+        mData = {
+            "currOcioPreset": self.sourceBrowser.ocioPresets.currentPreset,
+            "ocioPresetOrder": self.sourceBrowser.ocioPresets.presetOrder,
+            }
+
+        #   Save to Project Config
+        self.sourceBrowser.plugin.saveSettings(key="ocioSettings", data=mData)
+
+
     #   Returns Good Initial Number for Cache Threads based on CPUs
     @err_catcher(name=__name__)
     def getDefaultCacheThreads(self):
@@ -337,16 +349,6 @@ class PreviewPlayer_GPU(QWidget):
             return numProcs - 4
         else:
             return min(8, numProcs // 2)
-
-
-
-    def tempOCIOLoad(self):
-        self.sourceBrowser.cb_ocioPresets.addItems(["sRGB", "Linear", "AgX",
-                "ACEScg", "zCam", "zCam OCIO LUT", "ARRI LogC4", "ARRI LogC3",
-                "LUT - sRGB - Grit", "LUT - Linear - Grit", "LUT - Linear - Film Look", "LOOK - Filmic - Low Con",
-                "LOOK - Filmic - High Con", "LOOK - Linear - Greyscale", "ERROR MAKER",
-                "BAD LUT - NO FILE", "BAD LUT - BAD FILE"])
-
 
 
     @err_catcher(name=__name__)
@@ -580,6 +582,8 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def onOcioChanged(self, idx):
+        presetName = self.sourceBrowser.cb_ocioPresets.currentText()
+        self.sourceBrowser.ocioPresets.currentPreset = presetName
         self.configureOCIO()
         self.reloadCurrentFrame()
 
@@ -777,7 +781,7 @@ class PreviewPlayer_GPU(QWidget):
         #   Reset Timeline and Image
         self.resetImage()
 
-        #   Configure OCIO                                                  #   TODO
+        #   Configure OCIO 
         self.configureOCIO()
 
         #   Setup Image and Timeline
@@ -965,125 +969,16 @@ class PreviewPlayer_GPU(QWidget):
             self.frameReady.emit(frameIdx, frame)
 
 
-    @err_catcher(name=__name__)                                                            #   TESTING - TEMP HARDCODED
-    def configureOCIO(self, input_space="sRGB", display="sRGB", view="Standard", luts=None):
+    @err_catcher(name=__name__)
+    def configureOCIO(self):                                                 #   TODO - ADD FALLBACKS
+        pName = self.sourceBrowser.ocioPresets.currentPreset
+        oData = self.sourceBrowser.ocioPresets.getPresetData(pName)
 
-        look = None
-        luts = []
-
-        match self.sourceBrowser.cb_ocioPresets.currentText():
-            case "sRGB":
-                input_space = "sRGB"
-                display = "sRGB"
-                view = "Standard"
-
-            case "Linear":
-                input_space = "Linear Rec.709"
-                display = "sRGB"
-                view = "Standard"
-
-            case "AgX":
-                input_space = "Linear Rec.709"
-                display = "sRGB"
-                view = "AgX"
-
-            case "ACEScg":
-                input_space = "Linear ACES - AP0"
-                display = "sRGB"
-                view = "ACES"
-
-            case "zCam":
-                input_space = "zCam zLog2 Rec.1886"
-                display = "sRGB"
-                view = "Standard"
-
-            case "zCam OCIO LUT":
-                input_space = "Rec.1886"
-                display = "sRGB"
-                view = "Standard"
-                luts = [r"D:\Dropbox\Alta Arts\LUTS\Z-Cam\Rec709\Exp 0\zlog2_Rec709_64_normal.cube"]
-
-            case "ARRI LogC4":
-                input_space = "ARRI LogC4"
-                display = "Rec.1886"
-                view = "ARRI ALF2"
-
-            case "ARRI LogC3":
-                input_space = "ARRI LogC3"
-                display = "Rec.1886"
-                view = "ARRI ALF2"
-
-            case "LUT - sRGB - Grit":
-                input_space = "Rec.1886"
-                display = "sRGB"
-                view = "Standard"
-                luts = [r"D:\Dropbox\Alta Arts\LUTS\70 CGC LUTs\Look LUTs\Grit.cube"]
-
-            case "LUT - Linear - Grit":
-                input_space = "Linear Rec.709"
-                display = "sRGB"
-                view = "Standard"
-                luts = [r"D:\Dropbox\Alta Arts\LUTS\70 CGC LUTs\Look LUTs\Grit.cube"]
-
-            case "LUT - Linear - Film Look":
-                input_space = "Linear Rec.709"
-                display = "sRGB"
-                view = "Standard"
-                luts = [r"D:\Dropbox\Alta Arts\LUTS\Film Emulsion\Retro Film.cube"]
-
-            case "LOOK - Linear - Greyscale":
-                input_space = "Linear Rec.709"
-                display = "sRGB"
-                view = "Standard"
-                look = "Greyscale"
-
-            case "LOOK - Filmic - Low Con":
-                input_space = "Linear Rec.709"
-                display = "sRGB"
-                view = "Filmic"
-                look = "Filmic - Very Low Contrast"
-
-            case "LOOK - Filmic - High Con":
-                input_space = "Linear Rec.709"
-                display = "sRGB"
-                view = "Filmic"
-                look = "Filmic - High Contrast"
-
-            case "ERROR MAKER":                                        #   TESTING TO MAKE FAIL
-                input_space = "NOTHING"
-                display = "NOTHING"
-                view = "NOTHING"
-
-            case "BAD LUT - NO FILE":                                  #   TESTING TO MAKE FAIL
-                input_space = "sRGB"
-                display = "sRGB"
-                view = "Standard"
-                luts = [r"C:\Users\Alta Arts\Desktop\NOEXIST.cube"]
-
-            case "BAD LUT - BAD FILE":                                 #   TESTING TO MAKE FAIL
-                input_space = "sRGB"
-                display = "sRGB"
-                view = "Standard"
-                luts = [r"C:\Users\Alta Arts\Desktop\Resolve Processing Order.png"]
-
-
-
-        # self.printOcioInfo()                                  #   TESTING
-
-        # input_space = "sRGB"
-        # input_space = "Linear Rec.709"
-        # input_space = "Linear ACES - AP0"
-        # input_space = "ARRI LogC4"
-        # input_space = "zCam zLog2 Rec.1886"
-
-        # display = "sRGB"
-        # display = "Rec.1886"
-
-        # view = "Standard"
-        # view = "AgX"
-        # view = "Filmic"
-        # view = "ACES"
-
+        input_space = oData["Color_Space"]
+        display = oData["Display"]
+        view = oData["View"]
+        look = oData["Look"]
+        luts = oData["LUT"]
 
         self.displayWindow.setOcioTransforms(
             inputSpace=input_space,
@@ -1324,9 +1219,57 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def editOcioPresets(self):
-        data = {}
-        ocioPresetsWindow = OcioConfigPopup(self, self.core, data)
-        ocioPresetsWindow.exec()
+        currPreset = self.sourceBrowser.cb_ocioPresets.currentText()
+        self.sourceBrowser.ocioPresets.currentPreset = currPreset
+
+        editWindow = OcioPresetsEditor(self.core, self)
+        logger.debug("Opening OCIO Presets Editor")
+        editWindow.exec_()
+
+        if editWindow.result() == "Save":
+            try:
+                presetData, presetOrder = editWindow.getPresets()
+
+                #   Detect Newly Added or Modified Presets
+                existingNames = set(self.sourceBrowser.ocioPresets.getPresetNames())
+
+                #   Capture Original Data for Comparison
+                originalDataMap = {
+                    name: Utils.normalizeData(self.sourceBrowser.ocioPresets.getPresetData(name))
+                    for name in existingNames
+                }
+
+                #   Clear and Re-add Presets
+                self.sourceBrowser.ocioPresets.clear()
+
+                for name in presetOrder:
+                    data = presetData.get(name, {})
+
+                    self.sourceBrowser.ocioPresets.addPreset(name, data)
+
+                    normalizedData = Utils.normalizeData(data)
+
+                    originalData = originalDataMap.get(name)
+
+                    #   Save if New or Modified
+                    if name not in existingNames or normalizedData != originalData:
+                        pData = {"name": name, "data": data}
+                        Utils.savePreset(self.core, "ocio", name, pData, project=True, checkExists=False)
+                        logger.debug(f"Saved preset '{name}' to project")
+
+
+                self.sourceBrowser.ocioPresets.presetOrder = presetOrder
+
+                self.saveOcioSettings()
+
+                self.sourceBrowser.loadOcioCombo()
+
+
+                logger.debug("Saved OCIO Presets")
+
+            except Exception as e:
+                logger.warning(f"ERROR: Failed to Save OCIO Presets:\n{e}")
+
 
 
     @err_catcher(name=__name__)

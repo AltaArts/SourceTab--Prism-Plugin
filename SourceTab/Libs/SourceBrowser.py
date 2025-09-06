@@ -374,12 +374,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.useGPU = self.checkGpuAvailability()
         if self.useGPU:
             logger.status("Initializing GPU PreviewViewer")
-
-            self.ocioPresets = QWidget()
-            self.lo_ocioPresets = QHBoxLayout(self.ocioPresets)
             self.cb_ocioPresets = QComboBox()
-            self.lo_ocioPresets.addWidget(self.cb_ocioPresets)
-            self.lo_playerToolbar.addWidget(self.ocioPresets)
+            self.lo_playerToolbar.addWidget(self.cb_ocioPresets)
 
             from PreviewPlayer_GPU import PreviewPlayer_GPU
             self.PreviewPlayer = PreviewPlayer_GPU(self)
@@ -466,7 +462,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_tips_dest.setToolTip(destTip)
 
         tip = "Enable/Disable Media Player"
-        # self.chb_enablePlayer.setToolTip(tip)
         self.b_enablePlayer.setToolTip(tip)
 
         tip = ("Use Proxy file in the Media Player\n"
@@ -478,7 +473,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_cacheEnabled.setToolTip(tip)
 
         tip = ("PreviewPlayer OCIO View Preset")
-        self.ocioPresets.setToolTip(tip)
+        self.cb_ocioPresets.setToolTip(tip)
 
 
     @err_catcher(name=__name__)
@@ -863,11 +858,26 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         if not os.path.exists(Utils.getProjectPresetDir(self.core, "proxy")):
             self.plugin.copyPresets()
 
+        #   Load OCIO Presets
+        self.loadOcioPresets()
+
         #   Load Proxy Presets
         self.loadProxyPresets()
 
         #   Load Metadata Presets
         self.loadMetadataPresets()
+
+
+    @err_catcher(name=__name__)
+    def loadOcioPresets(self):
+        try:
+            self.ocioPresets = PresetsCollection("ocio")
+            presetDir = Utils.getProjectPresetDir(self.core, "ocio")
+            Utils.loadPresets(presetDir, self.ocioPresets, ".o_preset")
+            logger.debug("Loaded OCIO Presets")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Load OCIO Presets: {e}")
 
 
     @err_catcher(name=__name__)
@@ -915,14 +925,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.tabPos = settingData["tabPosition"]
             self.useCustomIcon = settingData["useCustomIcon"]
             self.customIconPath = os.path.normpath(settingData["customIconPath"].strip().strip('\'"'))
-            self.useViewLuts = settingData["useViewLut"]
             self.useCustomThumbPath = settingData["useCustomThumbPath"]
             self.customThumbPath = settingData ["customThumbPath"]
             self.useLibImport = settingData ["useLibImport"]
-
-            #   Get OCIO View Presets
-            # lutPresetData = sData["viewLutPresets"]                            #   TESTING - FOR OCIO Testing
-            # self.configureViewLut(lutPresetData)                               #   TODO - MOVE
 
             #   Get Tab (UI) Settings
             tabData = sData["tabSettings"]
@@ -933,20 +938,27 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.b_source_sorting_combineSeqs.setChecked(tabData["source_combineSeq"]) 
             self.b_dest_sorting_combineSeqs.setChecked(tabData["dest_combineSeq"]) 
 
-            #   Media Player Enabled Checkbox
+            #   Media Player Enabled Button
             playerEnabled = tabData["playerEnabled"]
             self.b_enablePlayer.setChecked(playerEnabled)
             self.togglePreviewPlayer(playerEnabled)
             
-            #   Prefer Proxies Checkbox
+            #   Prefer Proxies Button
             preferProxies = tabData["preferProxies"]
             self.b_preferProxies.setChecked(preferProxies)
             self.togglePreferProxies(preferProxies)
 
-            #   Caching
+            #   Caching Button
             cacheEnabled = tabData["cacheEnabled"]
             self.b_cacheEnabled.setChecked(cacheEnabled)
             self.toggleCacheEnable(cacheEnabled) 
+
+            #   OCIO Options
+            if "ocioSettings" in sData:
+                oData = sData["ocioSettings"]
+                self.ocioPresets.currentPreset = oData["currOcioPreset"]
+                self.ocioPresets.presetOrder = oData["ocioPresetOrder"]
+                self.loadOcioCombo()
 
             #   Proxy Options
             self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_proxy"])
@@ -978,6 +990,22 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Load SourceTab Settings:\n{e}")
+
+
+    @err_catcher(name=__name__)
+    def loadOcioCombo(self):
+        try:
+            self.cb_ocioPresets.blockSignals(True)
+            self.cb_ocioPresets.clear()
+            self.cb_ocioPresets.addItems(self.ocioPresets.getOrderedPresetNames())
+            idx = self.cb_ocioPresets.findText(self.ocioPresets.currentPreset)
+            if idx != -1:
+                self.cb_ocioPresets.setCurrentIndex(idx)
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Populate OCIO Combo: {e}")
+
+        finally:
+            self.cb_ocioPresets.blockSignals(False)
 
 
     #   Initializes Keyboard Shortcuts
@@ -1085,8 +1113,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 self.PreviewPlayer.onLastClicked()
 
 
-
-
     #   Initializes Worker Threadpools and Semaphore Slots
     @err_catcher(name=__name__)
     def setupThreadpools(self):
@@ -1106,20 +1132,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         except Exception as e:
             logger.warning(f"ERROR:  Failed to Set Threadpools:\n{e}")
-
-
-    @err_catcher(name=__name__)
-    def configureViewLut(self, presets=None):                                       #   TODO
-
-        self.useViewLuts = True                                                     #   TESTING
-
-        self.PreviewPlayer.container_viewLut.setVisible(self.useViewLuts)
-
-        if presets:
-            self.cb_viewLut.clear()
-
-            for preset in presets:
-                self.PreviewPlayer.addItem(preset["name"])
 
 
     #   Configures the UI Buttons based on Transfer Status
@@ -1332,7 +1344,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.PreviewPlayer.setVisible(checked)
         self.b_preferProxies.setVisible(checked)
         self.b_cacheEnabled.setVisible(checked)
-        self.ocioPresets.setVisible(checked)
+        self.cb_ocioPresets.setVisible(checked)
 
         if checked:
             icon = self.player_on_Icon

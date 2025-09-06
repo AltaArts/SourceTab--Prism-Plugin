@@ -139,13 +139,13 @@ class PreviewPlayer_CPU(QWidget):
         self.lo_preview_main.addWidget(self.l_info)
 
         #   View LUT
-        self.container_viewLut = QWidget()
-        self.lo_viewLut = QHBoxLayout(self.container_viewLut)
-        self.l_viewLut = QLabel("View Lut Preset:")
-        self.cb_viewLut = QComboBox()
-        self.lo_viewLut.addWidget(self.l_viewLut)
-        self.lo_viewLut.addWidget(self.cb_viewLut)
-        self.lo_preview_main.addWidget(self.container_viewLut)
+        # self.container_viewLut = QWidget()
+        # self.lo_viewLut = QHBoxLayout(self.container_viewLut)
+        # self.l_viewLut = QLabel("View Lut Preset:")
+        # self.cb_viewLut = QComboBox()
+        # self.lo_viewLut.addWidget(self.l_viewLut)
+        # self.lo_viewLut.addWidget(self.cb_viewLut)
+        # self.lo_preview_main.addWidget(self.container_viewLut)
 
         #   Viewer Image Label
         self.displayWindow = QLabel(self)

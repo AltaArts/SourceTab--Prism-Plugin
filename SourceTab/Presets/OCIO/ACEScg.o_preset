@@ -6,12 +6,12 @@
 ############################################################################
     
 {
-    "name": "sRGB",
+    "name": "ACEScg",
     "data": {
-        "Description": "sRGB -> sRGB",
-        "Color_Space": "sRGB",
+        "Description": "Linear AP1 -> sRGB",
+        "Color_Space": "Linear ACES - AP1",
         "Display": "sRGB",
-        "View": "Standard",
+        "View": "ACES",
         "Look": "",
         "LUT": ""
     }
