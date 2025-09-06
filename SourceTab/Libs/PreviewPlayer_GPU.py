@@ -51,8 +51,7 @@
 import os
 import subprocess
 import logging
-import shutil
-import time
+from multiprocessing import cpu_count as MP_cpu_count
 
 from PIL import Image
 import numpy as np
@@ -305,7 +304,7 @@ class PreviewPlayer_GPU(QWidget):
             #   Create and Save New Default Data if it Does Not Exist
             if not pData:
                 pData = {
-                    "cacheThreads": 4,
+                    "cacheThreads": self.getDefaultCacheThreads(),
                     "check_size": 20,
                     "check_color1": (0.0, 0.0, 0.0),
                     "check_color2": (0.1, 0.1, 0.1)
@@ -321,6 +320,24 @@ class PreviewPlayer_GPU(QWidget):
         self.displayWindow.setBackground(pData["check_size"],
                                             pData["check_color1"],
                                             pData["check_color2"])
+
+
+    #   Returns Good Initial Number for Cache Threads based on CPUs
+    @err_catcher(name=__name__)
+    def getDefaultCacheThreads(self):
+        numProcs = MP_cpu_count()
+
+        if numProcs <= 2:
+            return 1
+        elif numProcs <= 4:
+            return 2
+        elif numProcs <= 8:
+            return numProcs - 2
+        elif numProcs <= 16:
+            return numProcs - 4
+        else:
+            return min(8, numProcs // 2)
+
 
 
     def tempOCIOLoad(self):
@@ -2503,7 +2520,7 @@ class PlayerConfigPopup(QDialog):
         lo_checkSize = QHBoxLayout()
         l_checkSize = QLabel("Checker Size (pix)")
         self.sp_checkSize = QSpinBox()
-        self.sp_checkSize.setRange(1, 50)
+        self.sp_checkSize.setRange(1, 100)
         self.sp_checkSize.setValue(20)
 
         lo_checkSize.addWidget(l_checkSize)
