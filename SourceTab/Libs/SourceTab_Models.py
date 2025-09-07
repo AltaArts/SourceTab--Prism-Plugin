@@ -192,13 +192,38 @@ class PresetsCollection:
     
 
     def getPresetData(self, presetName: str) -> dict:
-        """Returns Preset Data for a Preset Name"""
+        '''Returns Preset Data for a Preset Name'''
 
         for preset in self.presets:
             if preset.name == presetName:
                 return preset.data
         return {}
 
+
+    def getTooltip(self) -> str:
+        '''Returns HTML Tooltip with Each Preset Listed'''
+        try:
+            #   Start HTML with div wrapper
+            tooltip_html = "<div style='min-width: 400px;'>"
+            tooltip_html += "<table>"
+
+            for preset in self.getOrderedPresets():
+                desc = preset.data.get("Description", "")
+                tooltip_html += f"""
+                    <tr>
+                        <td style="white-space: nowrap;"><b>{preset.name}</b></td>
+                        <td style="padding-left: 10px; white-space: nowrap;">{desc}</td>
+                    </tr>
+                    <tr><td colspan='2' style='height: 10px;'>&nbsp;</td></tr>  <!-- spacer row -->
+                """
+
+            tooltip_html += "</table></div>"
+            return tooltip_html
+        
+        except Exception as e:
+            logger.warning(f"ERROR:  Failed to Create Presets Tooltip:\n{e}")
+            return ""
+        
 
     def setCurrPreset(self, presetName: str) -> None:
         '''Sets Current Preset'''

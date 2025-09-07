@@ -1082,6 +1082,8 @@ def getPresetExt(pType:str) -> str:
         ext = ".p_preset"
     elif pType == "metadata":
         ext = ".m_preset"
+    elif pType == "ocio":
+        ext = ".o_preset"
     else:
         ext = ""
 

@@ -51,6 +51,7 @@
 import os
 import subprocess
 import logging
+import re
 from multiprocessing import cpu_count as MP_cpu_count
 
 from PIL import Image
@@ -72,7 +73,7 @@ from PrismUtils.Decorators import err_catcher
 import SourceTab_Utils as Utils
 from SourceTab_Models import FileTileMimeData
 from WorkerThreads import FileInfoWorker
-from PopupWindows import OcioPresetsEditor
+from PopupWindows import DisplayPopup
 
 
 #   Color names for Beauty/Color pass
@@ -136,13 +137,37 @@ class PreviewPlayer_GPU(QWidget):
 
 
         # Connect Signal to GL Widget
-        self.frameReady.connect(self.displayWindow.displayFrame)
+        self.frameReady.connect(self.DisplayWindow.displayFrame)
         self.PreviewCache.firstFrameComplete.connect(self.onFirstFrameReady)
 
         self.core.registerCallback("onProjectBrowserClose",
                                    self.onProjectBrowserClose,
                                    plugin=self.sourceBrowser.plugin)
 
+
+
+    #   PRISM CONFIG            #   TESTING ###################
+        # filePath = r"C:\ProgramData\Prism2\plugins\MediaExtension\Configs\prism-cg-config-v1.0.0_aces-v1.3_ocio-v2.1.ocio"
+        # self.ocioConfig = ocio.Config.CreateFromFile(filePath)                #   TESTING
+        # ocio.SetCurrentConfig(self.ocioConfig)
+
+
+        # self.ocioConfig = ocio.GetCurrentConfig()
+
+        # color_spaces = [cs.getName() for cs in self.ocioConfig.getColorSpaces()]
+        # print(f"***  currConfig:  {color_spaces}")								#	TESTING
+
+        # default_display = self.ocioConfig.getDefaultDisplay()
+        # print(f"***  default_display:  {default_display}")								#	TESTING
+
+        # default_view = self.ocioConfig.getDefaultView(default_display)
+        # print(f"*** default_view:  {default_view}")                                              #    TESTING
+
+
+    @property
+    def ocioEnabled(self):
+        return self.sourceBrowser.ocioEnabled
+    
 
     @err_catcher(name=__name__)
     def sizeHint(self):
@@ -184,11 +209,11 @@ class PreviewPlayer_GPU(QWidget):
         self.lo_preview_main.addWidget(self.l_info)
 
         #   Viewer Window
-        self.displayWindow = GLVideoDisplay(self, self.core)
-        self.lo_preview_main.addWidget(self.displayWindow)
+        self.DisplayWindow = GLVideoDisplay(self, self.core)
+        self.lo_preview_main.addWidget(self.DisplayWindow)
 
         #   Proxy Icon Label
-        self.l_pxyIcon = QLabel(self.displayWindow)
+        self.l_pxyIcon = QLabel(self.DisplayWindow)
         self.l_pxyIcon.setPixmap(self.sourceBrowser.icon_proxy.pixmap(40, 40))
         self.l_pxyIcon.setStyleSheet("background-color: rgba(0,0,0,0);")
         self.l_pxyIcon.setVisible(False)
@@ -261,18 +286,18 @@ class PreviewPlayer_GPU(QWidget):
         self.lo_playerCtrls.addWidget(self.b_last)
         self.lo_preview_main.addWidget(self.w_playerCtrls)
 
-        self.displayWindow.setMinimumWidth(self.renderResX)
-        self.displayWindow.setMinimumHeight(self.renderResY)
-        self.displayWindow.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.DisplayWindow.setMinimumWidth(self.renderResX)
+        self.DisplayWindow.setMinimumHeight(self.renderResY)
+        self.DisplayWindow.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
 
 
     @err_catcher(name=__name__)
     def connectEvents(self):
-        self.displayWindow.clickEvent = self.displayWindow.mouseReleaseEvent
-        self.displayWindow.mouseReleaseEvent = self.previewClk
+        self.DisplayWindow.clickEvent = self.DisplayWindow.mouseReleaseEvent
+        self.DisplayWindow.mouseReleaseEvent = self.previewClk
 
-        self.displayWindow.resizeEventOrig = self.displayWindow.resizeEvent
-        self.displayWindow.resizeEvent = self.previewResizeEvent
+        self.DisplayWindow.resizeEventOrig = self.DisplayWindow.resizeEvent
+        self.DisplayWindow.resizeEvent = self.previewResizeEvent
 
         self.sl_previewImage.origMousePressEvent = self.sl_previewImage.mousePressEvent
         self.sl_previewImage.mousePressEvent = self.sliderMousePress
@@ -317,7 +342,7 @@ class PreviewPlayer_GPU(QWidget):
         self.PreviewCache.setThreadpool(pData["cacheThreads"])
 
         #   Set Viewer Settings
-        self.displayWindow.setBackground(pData["check_size"],
+        self.DisplayWindow.setBackground(pData["check_size"],
                                             pData["check_color1"],
                                             pData["check_color2"])
 
@@ -354,7 +379,7 @@ class PreviewPlayer_GPU(QWidget):
     @err_catcher(name=__name__)
     def setPreviewEnabled(self, state):
         self.previewEnabled = state
-        self.displayWindow.setVisible(state)
+        self.DisplayWindow.setVisible(state)
         self.w_timeslider.setVisible(state)
         self.w_playerCtrls.setVisible(state)
 
@@ -362,42 +387,42 @@ class PreviewPlayer_GPU(QWidget):
     @err_catcher(name=__name__)
     def previewResizeEvent(self, event):
         #   Call Original Resize
-        if hasattr(self.displayWindow, "resizeEventOrig"):
-            self.displayWindow.resizeEventOrig(event)
+        if hasattr(self.DisplayWindow, "resizeEventOrig"):
+            self.DisplayWindow.resizeEventOrig(event)
 
         #   Update Aspect for Current Media
         self.adjustPreviewAspect()
 
         #   Resize GL Widget
-        if hasattr(self.displayWindow, "frame") and self.pwidth > 0 and self.pheight > 0:
-            container_width = self.displayWindow.width()
+        if hasattr(self.DisplayWindow, "frame") and self.pwidth > 0 and self.pheight > 0:
+            container_width = self.DisplayWindow.width()
             aspect = self.pheight / self.pwidth
             target_height = int(container_width * aspect)
-            self.displayWindow.resize(container_width, target_height)
+            self.DisplayWindow.resize(container_width, target_height)
 
             #   Update GL Viewport
-            self.displayWindow.update()
+            self.DisplayWindow.update()
 
 
     @err_catcher(name=__name__)
     def adjustPreviewAspect(self):
         if self.pwidth > 0 and self.pheight > 0:
             #   Calculate Preview Size from Window Width and Image Aspect Ration
-            window_width = self.displayWindow.width()
+            window_width = self.DisplayWindow.width()
             aspect = self.pheight / self.pwidth
             target_height = max(1, int(window_width * aspect))
 
             #   Resize the Preview Widget
-            self.displayWindow.setMinimumHeight(target_height)
-            self.displayWindow.setMaximumHeight(target_height)
+            self.DisplayWindow.setMinimumHeight(target_height)
+            self.DisplayWindow.setMaximumHeight(target_height)
 
             #   Resize GL Window
-            if hasattr(self.displayWindow, "scale_w") and hasattr(self.displayWindow, "scale_h"):
-                self.displayWindow.scale_w = 1.0
-                self.displayWindow.scale_h = 1.0
+            if hasattr(self.DisplayWindow, "scale_w") and hasattr(self.DisplayWindow, "scale_h"):
+                self.DisplayWindow.scale_w = 1.0
+                self.DisplayWindow.scale_h = 1.0
 
             #   Force GL Widget to Update
-            self.displayWindow.update()
+            self.DisplayWindow.update()
 
         text = self.l_info.toolTip() or self.l_info.text()
         self.setInfoText(text)
@@ -409,6 +434,34 @@ class PreviewPlayer_GPU(QWidget):
         self.w_playerCtrls.setEnabled(enable)
         self.sp_current.setEnabled(enable)
         self.sl_previewImage.setEnabled(enable)
+
+
+    @err_catcher(name=__name__)
+    def setOcioStatus(self, status):
+        if not status:
+            stylesheet = """
+                QComboBox {
+                    border: 1px solid #cc6666;
+                    border-radius: 4px;
+                    padding: 1px 18px 1px 3px; /* leave space for the arrow */
+                }
+                QComboBox::drop-down {
+                    border-right: 1px solid #cc6666;
+                    width: 18px;
+                }
+                QComboBox::drop-down {
+                    border-top: 1px solid #cc6666;
+                    width: 18px;
+                }
+                QComboBox::drop-down {
+                    border-bottom: 1px solid #cc6666;
+                    width: 18px;
+                }
+            """
+        else:
+            stylesheet = ""
+
+        self.sourceBrowser.cb_ocioPresets.setStyleSheet(stylesheet)
 
 
     @err_catcher(name=__name__)
@@ -484,7 +537,7 @@ class PreviewPlayer_GPU(QWidget):
     #   Generate a Black 16:9 Frame at Current Preview Width
     @err_catcher(name=__name__)
     def makeBlackFrame(self):
-        width = self.displayWindow.width()
+        width = self.DisplayWindow.width()
         if width <= 0:
             width = 300
 
@@ -550,7 +603,7 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def resetImage(self):
-        self.displayWindow.displayFrame(0, self.makeBlackFrame())
+        self.DisplayWindow.displayFrame(0, self.makeBlackFrame(), useOCIO=False)
         self.adjustPreviewAspect()
 
         self.PreviewCache.clear()
@@ -870,7 +923,7 @@ class PreviewPlayer_GPU(QWidget):
             }
 
             #   Get Window Width for Scaling
-            windowWidth = self.displayWindow.width()
+            windowWidth = self.DisplayWindow.width()
 
             #   Set the Media in the Cache System
             self.PreviewCache.setMedia(mediaFiles, windowWidth, self.fileType, self.prvIsSequence, prevData)
@@ -897,7 +950,7 @@ class PreviewPlayer_GPU(QWidget):
         if not os.path.exists(self.mediaFiles[0]):
             self.l_info.setText("\nNo image found\n")
             self.l_info.setToolTip("")
-            self.displayWindow.setToolTip("")
+            self.DisplayWindow.setToolTip("")
             return
 
         #   Filename (Use Placeholders for Sequences)
@@ -937,7 +990,7 @@ class PreviewPlayer_GPU(QWidget):
         metrics = QFontMetrics(self.l_info.font())
         lines = []
         for line in text.split("\n"):
-            elidedText = metrics.elidedText(line, Qt.ElideRight, self.displayWindow.width()-20)
+            elidedText = metrics.elidedText(line, Qt.ElideRight, self.DisplayWindow.width()-20)
             lines.append(elidedText)
 
         self.l_info.setText("\n".join(lines))
@@ -958,10 +1011,6 @@ class PreviewPlayer_GPU(QWidget):
 
     @err_catcher(name=__name__)
     def loadFrame(self, frameIdx):
-        # if not self.PreviewCache.cache:
-        #     logger.debug("No frames in cache yet")
-        #     return
-
         frameIdx = max(0, min(frameIdx, len(self.PreviewCache.cache)-1))
         frame = self.PreviewCache.getFrame(frameIdx)
 
@@ -970,84 +1019,27 @@ class PreviewPlayer_GPU(QWidget):
 
 
     @err_catcher(name=__name__)
-    def configureOCIO(self):                                                 #   TODO - ADD FALLBACKS
+    def configureOCIO(self):
         pName = self.sourceBrowser.ocioPresets.currentPreset
         oData = self.sourceBrowser.ocioPresets.getPresetData(pName)
 
-        input_space = oData["Color_Space"]
-        display = oData["Display"]
-        view = oData["View"]
-        look = oData["Look"]
-        luts = oData["LUT"]
+        input_space = oData.get("Color_Space", "")
+        display = oData.get("Display", "")
+        view = oData.get("View", "")
+        look = oData.get("Look", "")
+        lut_value = oData.get("LUT", "").strip()
+        luts = [lut_value] if lut_value else []
 
-        self.displayWindow.setOcioTransforms(
-            inputSpace=input_space,
-            display=display,
-            view=view,
-            look=look,
-            luts=luts,
-        )
+        result = self.DisplayWindow.setOcioTransforms(
+                                        inputSpace=input_space,
+                                        display=display,
+                                        view=view,
+                                        look=look,
+                                        luts=luts,
+                                    )
 
-
-
-    ########    DELETE AFTER TESTING    #########
-
-    @err_catcher(name=__name__)
-    def printOcioInfo(self):                                                                              # TESTING
-        try:
-            config = ocio.GetCurrentConfig()
-            print("=== OCIO Config Info ===")
-            print(f"Config Name: {config.getName()}")
-            print(f"Search Path: {config.getSearchPath()}")
-            print(f"Working Dir: {config.getWorkingDir()}\n")
-
-            print("ColorSpaces:")
-            for cs in config.getColorSpaces():
-                try:
-                    fam = getattr(cs, "getFamilyName", lambda: "")()
-                    print(f"  - {cs.getName()} (family={fam})")
-                except Exception:
-                    print(f"  - {cs.getName()} (family=Unknown)")
-
-            print("\nDisplays + Views:")
-            for display in config.getDisplays():
-                print(f"  Display: {display}")
-                for view in config.getViews(display):
-                    print(f"    View: {view}")
-
-            print("\nRoles:")
-            try:
-                for role_name in config.getRoles():
-                    cs = None
-                    try:
-                        cs = config.getColorSpace(role_name)
-                        cs_name = cs.getName() if cs else "None"
-                    except Exception:
-                        cs_name = "Unresolved"
-                    print(f"  {role_name} -> {cs_name}")
-            except Exception:
-                print("  (Unable to query roles with this OCIO version)")
-
-            print("\nLooks:")
-            try:
-                for look in config.getLooks():
-                    try:
-                        name = look.getName()
-                        process_space = look.getProcessSpace()
-                        transform = look.getTransform()
-                        print(f"  - {name} (processSpace={process_space}, transform={transform})")
-                    except Exception as e:
-                        print(f"  - <Failed to query look: {e}>")
-            except Exception:
-                print("  (No looks found in this config)")
-
-            print("\n\n\n")
-
-        except Exception as e:
-            print(f"[OCIO] Failed to query config: {e}")
-
-################################
-
+        #   Color OCIO Presets Combo if Any Errors
+        self.setOcioStatus(result)
 
 
 
@@ -1089,6 +1081,14 @@ class PreviewPlayer_GPU(QWidget):
         iconPath = os.path.join(self.iconPath, "refresh.png")
         icon = self.core.media.getColoredIcon(iconPath)
         Utils.createMenuAction("Reload Cache", sc, rcmenu, self, self.reloadCache, icon=icon)
+
+        iconPath = os.path.join(self.iconPath, "configure.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Player Settings", sc, rcmenu, self, self.editPlayerSettings, icon=icon)
+
+        iconPath = os.path.join(self.sourceBrowser.iconDir, "ocio.png")
+        icon = self.core.media.getColoredIcon(iconPath)
+        Utils.createMenuAction("Edit OCIO Presets", sc, rcmenu, self, self.editOcioPresets, icon=icon)
 
         rcmenu.addAction(_separator())
 
@@ -1134,18 +1134,9 @@ class PreviewPlayer_GPU(QWidget):
         Utils.createMenuAction("Show Metadata (Main File)", sc, rcmenu, self, funct)
 
         funct = lambda: Utils.displayCombinedMetadata(self.tile.getSource_proxyfilePath())
-        Utils.createMenuAction("Show Metadata (Proxy File)", sc, rcmenu, self, funct)
-
-        rcmenu.addAction(_separator())
-
-        iconPath = os.path.join(self.iconPath, "configure.png")
-        icon = self.core.media.getColoredIcon(iconPath)
-        Utils.createMenuAction("Player Settings", sc, rcmenu, self, self.editPlayerSettings, icon=icon)
-
-        Utils.createMenuAction("Edit OCIO Presets", sc, rcmenu, self, self.editOcioPresets)
+        Utils.createMenuAction("Show Metadata (Proxy File)", sc, rcmenu, self, funct, enabled=hasProxy)
 
         return rcmenu
-
 
 
     @err_catcher(name=__name__)
@@ -1196,6 +1187,7 @@ class PreviewPlayer_GPU(QWidget):
             destTile.removeFromDestList()
 
 
+    #   Opens Player Config Window
     @err_catcher(name=__name__)
     def editPlayerSettings(self):
         #   Get Settings from User Config (Prism.json)
@@ -1217,11 +1209,14 @@ class PreviewPlayer_GPU(QWidget):
             self.loadSettings(pData)
 
 
+    #   Opens OCIO Presets Editor
     @err_catcher(name=__name__)
     def editOcioPresets(self):
+        #   Captures Current Preset
         currPreset = self.sourceBrowser.cb_ocioPresets.currentText()
         self.sourceBrowser.ocioPresets.currentPreset = currPreset
 
+        #   Create and Display Window
         editWindow = OcioPresetsEditor(self.core, self)
         logger.debug("Opening OCIO Presets Editor")
         editWindow.exec_()
@@ -1244,11 +1239,8 @@ class PreviewPlayer_GPU(QWidget):
 
                 for name in presetOrder:
                     data = presetData.get(name, {})
-
                     self.sourceBrowser.ocioPresets.addPreset(name, data)
-
                     normalizedData = Utils.normalizeData(data)
-
                     originalData = originalDataMap.get(name)
 
                     #   Save if New or Modified
@@ -1257,19 +1249,14 @@ class PreviewPlayer_GPU(QWidget):
                         Utils.savePreset(self.core, "ocio", name, pData, project=True, checkExists=False)
                         logger.debug(f"Saved preset '{name}' to project")
 
-
                 self.sourceBrowser.ocioPresets.presetOrder = presetOrder
-
                 self.saveOcioSettings()
-
                 self.sourceBrowser.loadOcioCombo()
-
-
+                
                 logger.debug("Saved OCIO Presets")
 
             except Exception as e:
                 logger.warning(f"ERROR: Failed to Save OCIO Presets:\n{e}")
-
 
 
     @err_catcher(name=__name__)
@@ -1808,15 +1795,13 @@ class GLVideoDisplay(QOpenGLWidget):
         self.checker_color1 = (0.0, 0.0, 0.0) # black
         self.checker_color2 = (0.1, 0.1, 0.1) # grey
 
-        self.inputSpace = "sRGB"
-        self.display = "sRGB"
-        self.view = "Standard"
+        self.inputSpace = ""
+        self.display = ""
+        self.view = ""
         self.look = None
         self.luts = None
 
         self.config = ocio.GetCurrentConfig()
-        self.processor = self.config.getProcessor("lin_srgb", "sRGB")
-        self.gpu_proc = self.processor.getDefaultGPUProcessor()
 
         #   Add RCL Menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1866,40 +1851,37 @@ class GLVideoDisplay(QOpenGLWidget):
         try:
             config = ocio.GetCurrentConfig()
 
-            #   Fallback Defaults
-            fallback_space = config.getColorSpaceNames()[0] if config.getColorSpaceNames() else "sRGB"
-            fallback_display = config.getDefaultDisplay()
-            fallback_view = config.getDefaultView(fallback_display)
-
             errors = []
 
             ##   Validate Passed Transforms Exist in Config
 
             #   Check Input Colorspace
             if inputSpace not in config.getColorSpaceNames():
-                errStr = f"Invalid OCIO Input ColorSpace '{inputSpace}', falling back to '{fallback_space}'"
+                errStr = f"Invalid OCIO Input ColorSpace '{inputSpace}'"
                 logger.warning(errStr)
                 errors.append(errStr)
-                inputSpace = fallback_space
 
             #   Check Display
             if display not in config.getDisplays():
-                errStr = f"Invalid OCIO Display '{display}', falling back to '{fallback_display}'"
+                errStr = f"Invalid OCIO Display '{display}'"
                 logger.warning(errStr)
                 errors.append(errStr)
-                display = fallback_display
 
             #   Check View
             if view not in config.getViews(display):
-                errStr = f"Invalid OCIO View '{view}' for display '{display}', falling back to '{fallback_view}'"
+                errStr = f"Invalid OCIO View '{view}' for display '{display}'"
                 logger.warning(errStr)
                 errors.append(errStr)
-                view = fallback_view
 
             #   Check LUT File
             validLuts = []
+
             if luts:
                 for lut in luts:
+                    #   Skip empty Items
+                    if not lut:
+                        continue
+
                     #   Check if LUT Path Exists
                     if not os.path.isfile(lut):
                         errStr = f"LUT is not a Valid File.  Ignoring LUT"
@@ -1916,7 +1898,7 @@ class GLVideoDisplay(QOpenGLWidget):
 
                         except Exception as e:
                             errStr = f"Invalid LUT file '{lut}': {e}.\n\nIgnoring LUT."
-                            # logger.warning(errStr)
+                            logger.warning(errStr)
                             errors.append(errStr)
                             lut = None
 
@@ -1928,11 +1910,11 @@ class GLVideoDisplay(QOpenGLWidget):
                 look = None
 
             #   Display Errors in the UI
-            if errors:
-                title = "OCIO PRESET ERROR"
-                text = "There are Errors with the Selected OCIO Transforms:\n\n"
-                text += "\n".join(f"- {err}\n" for err in errors)
-                self.core.popup(text=text, title=title)
+            # if errors:
+            #     title = "OCIO PRESET ERROR"
+            #     text = "There are Errors with the Selected OCIO Transforms:\n\n"
+            #     text += "\n".join(f"- {err}\n" for err in errors)
+            #     self.core.popup(text=text, title=title)
 
             self.inputSpace = inputSpace
             self.display = display
@@ -1940,27 +1922,31 @@ class GLVideoDisplay(QOpenGLWidget):
             self.look = look
             self.luts = validLuts
 
+            if errors:
+                return False
             return True
         
         except Exception as e:
             logger.warning(f"ERROR: Failed to Set OCIO Transforms: {e}")
             #   Fallback to Defaults
-            self.inputSpace = "sRGB"
-            self.display = "sRGB"
-            self.view = "Standard"
-            self.luts = []
+            self.inputSpace = ""
+            self.display = ""
+            self.view = ""
             self.look = None
+            self.luts = []
+
             return False
         
 
     #   Displays Frame Numpy Array in Viewer
     @err_catcher(name=__name__)
-    def displayFrame(self, frameIdx: int, frame: np.ndarray) -> bool:
+    def displayFrame(self, frameIdx: int, frame: np.ndarray, useOCIO=True) -> bool:
         '''Displays Frame in Viwer'''
 
         try:
             self.frameIdx = frameIdx
             self.frame = frame
+            self.useOCIO = useOCIO
             self.update()
             return True
         
@@ -2178,77 +2164,78 @@ class GLVideoDisplay(QOpenGLWidget):
     @err_catcher(name=__name__)
     def applyOCIO_CPU(self,
                       img_np,
-                      input_space="sRGB",
-                      display="sRGB",
-                      view="Standard",
+                      input_space,
+                      display,
+                      view,
+                      look=None,
                       luts=None):
         
         if img_np is None or not isinstance(img_np, np.ndarray) or img_np.size == 0:
             return img_np
 
-        #   Ensure 3-channel RGB
-        if img_np.ndim == 2 or img_np.shape[-1] == 1:
-            img_np = np.repeat(img_np, 3, axis=-1)
-        elif img_np.shape[-1] > 3:
-            img_np = img_np[..., :3]
+        try:
+            #   Ensure 3-channel RGB
+            if img_np.ndim == 2 or img_np.shape[-1] == 1:
+                img_np = np.repeat(img_np, 3, axis=-1)
+            elif img_np.shape[-1] > 3:
+                img_np = img_np[..., :3]
 
-        #   Convert to Float32 Normalized
-        img_np_f32 = img_np.astype(np.float32)
-        if img_np_f32.max() > 1.0:
-            img_np_f32 /= 255.0
+            #   Convert to Float32 Normalized
+            img_np_f32 = img_np.astype(np.float32)
+            if img_np_f32.max() > 1.0:
+                img_np_f32 /= 255.0
 
-        h, w, c = img_np_f32.shape
+            h, w, c = img_np_f32.shape
 
-        #   Get and Set Transforms
-        config = ocio.GetCurrentConfig()
+            #   Get and Set Transforms
+            config = ocio.GetCurrentConfig()
 
-        #   Transform Fallbacks
-        space_name = input_space or "sRGB"
-        display_name = display or config.getDefaultDisplay()
-        view_name = view or config.getDefaultView(display_name)
+            #   Create Transform Group to Hold All Transforms
+            final_transform = ocio.GroupTransform()
 
-        #   Create Transform Group to Hold All Transforms
-        final_transform = ocio.GroupTransform()
+            #   Build Look Transform if Exists
+            if look:
+                look_transform = ocio.LookTransform()
+                look_transform.setSrc(input_space)
+                look_transform.setDst(input_space)
+                look_transform.setLooks(look)
+                final_transform.appendTransform(look_transform)
 
-        #   Build Look Transform if Exists
-        if self.look:
-            look_transform = ocio.LookTransform()
-            look_transform.setSrc(space_name)
-            look_transform.setDst(space_name)
-            look_transform.setLooks(self.look)
-            final_transform.appendTransform(look_transform)
+            #   Build DisplayViewTransform
+            disp_view_transform = ocio.DisplayViewTransform(
+                src=input_space,
+                display=display,
+                view=view,
+                looksBypass=False,
+                dataBypass=True
+            )
 
-        #   Build DisplayViewTransform
-        disp_view_transform = ocio.DisplayViewTransform(
-            src=space_name,
-            display=display_name,
-            view=view_name,
-            looksBypass=False,
-            dataBypass=True
-        )
+            final_transform.appendTransform(disp_view_transform)
 
-        final_transform.appendTransform(disp_view_transform)
+            #   Apply LUT if Applicable
+            if luts:
+                for lut_path in luts:
+                    lutTransform = self.createLutTransform(lut_path)
+                    if lutTransform is not None:
+                        final_transform.appendTransform(lutTransform)
+                    else:
+                        logger.warning(f"Skipping invalid LUT: {lut_path}")
 
-        #   Apply LUT if Applicable
-        if luts:
-            for lut_path in luts:
-                lutTransform = self.createLutTransform(lut_path)
-                if lutTransform is not None:
-                    final_transform.appendTransform(lutTransform)
-                else:
-                    logger.warning(f"Skipping invalid LUT: {lut_path}")
+            #   Create CPU Processor
+            processor = config.getProcessor(final_transform)
+            cpu_proc = processor.getDefaultCPUProcessor()
 
-        #   Create CPU Processor
-        processor = config.getProcessor(final_transform)
-        cpu_proc = processor.getDefaultCPUProcessor()
+            #   Apply Transform
+            img_desc = ocio.PackedImageDesc(img_np_f32, w, h, 3)
+            cpu_proc.apply(img_desc)
 
-        #   Apply Transform
-        img_desc = ocio.PackedImageDesc(img_np_f32, w, h, 3)
-        cpu_proc.apply(img_desc)
+            img_np_out = np.clip(img_np_f32 * 255.0, 0, 255).astype(np.uint8)
 
-        img_np_out = np.clip(img_np_f32 * 255.0, 0, 255).astype(np.uint8)
-
-        return img_np_out
+            return img_np_out
+    
+        except Exception as e:
+            logger.debug(f"ERROR: Failed to Apply OCIO: {e}")
+            return img_np
 
 
     #   Paint the Image to the GL Window
@@ -2311,7 +2298,10 @@ class GLVideoDisplay(QOpenGLWidget):
                     alpha = src[..., 3:].copy()
 
                     #   Apply OCIO
-                    rgb_out = self.applyOCIO_CPU(rgb, self.inputSpace, self.display, self.view, self.luts)
+                    if self.useOCIO and self.player.ocioEnabled:
+                        rgb_out = self.applyOCIO_CPU(rgb, self.inputSpace, self.display, self.view, self.look, self.luts)
+                    else:
+                        rgb_out = rgb
 
                     if rgb_out.dtype != np.uint8:
                         rgb_out = rgb_out.astype(np.uint8)
@@ -2322,8 +2312,11 @@ class GLVideoDisplay(QOpenGLWidget):
                 #   RGB Image
                 else:
                     #   Apply OCIO
-                    rgb_out = self.applyOCIO_CPU(src, self.inputSpace, self.display, self.view, self.luts)
-
+                    if self.useOCIO and self.player.ocioEnabled:
+                        rgb_out = self.applyOCIO_CPU(src, self.inputSpace, self.display, self.view, self.look, self.luts)
+                    else:
+                        rgb_out = src
+                    
                     if rgb_out.ndim == 2:
                         rgb_out = np.repeat(rgb_out[..., None], 3, axis=2)
 
@@ -2511,34 +2504,6 @@ class PlayerConfigPopup(QDialog):
 
 
     @err_catcher(name=__name__)
-    def loadSettings(self, data):
-        self.sp_threads.setValue(data.get("cacheThreads", 4))
-        self.sp_checkSize.setValue(data.get("check_size", 20))
-
-        #   Convert Lists to Tuples
-        color1 = tuple(data.get("check_color1", (0.0, 0.0, 0.0)))
-        color2 = tuple(data.get("check_color2", (0.1, 0.1, 0.1)))
-
-        #   Update Vars
-        self.checker_color1 = color1
-        self.checker_color2 = color2
-
-        #   Update Swatches
-        self.setSwatchColor(self._swatch_checker_color1, color1)
-        self.setSwatchColor(self._swatch_checker_color2, color2)
-
-
-    @err_catcher(name=__name__)
-    def getSettings(self):
-        return {
-            "cacheThreads": self.sp_threads.value(),
-            "check_size": self.sp_checkSize.value(),
-            "check_color1": self.checker_color1,
-            "check_color2": self.checker_color2,
-        }
-
-
-    @err_catcher(name=__name__)
     def makeColorRow(self, label_text, default_color, callback=None):
         layout = QHBoxLayout()
 
@@ -2608,9 +2573,6 @@ class PlayerConfigPopup(QDialog):
         swatch.setProperty("color", normalized)
 
 
-
-
-
     @err_catcher(name=__name__)
     def onSaveClicked(self):
         self.result = self.getSettings()
@@ -2621,3 +2583,795 @@ class PlayerConfigPopup(QDialog):
     def onCloseClicked(self):
         self.reject()
 
+
+    @err_catcher(name=__name__)
+    def loadSettings(self, data:dict) -> bool:
+        '''Loads Player Config Settings into Editor'''
+
+        try:
+            self.sp_threads.setValue(data.get("cacheThreads", 4))
+            self.sp_checkSize.setValue(data.get("check_size", 20))
+
+            #   Convert Lists to Tuples
+            color1 = tuple(data.get("check_color1", (0.0, 0.0, 0.0)))
+            color2 = tuple(data.get("check_color2", (0.1, 0.1, 0.1)))
+
+            #   Update Vars
+            self.checker_color1 = color1
+            self.checker_color2 = color2
+
+            #   Update Swatches
+            self.setSwatchColor(self._swatch_checker_color1, color1)
+            self.setSwatchColor(self._swatch_checker_color2, color2)
+
+            return True
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Load Settings: {e}")
+            return False
+
+
+    @err_catcher(name=__name__)
+    def getSettings(self) -> dict:
+        '''Returns Dict of Settings Values'''
+        try:
+            return {
+                "cacheThreads": self.sp_threads.value(),
+                "check_size": self.sp_checkSize.value(),
+                "check_color1": self.checker_color1,
+                "check_color2": self.checker_color2,
+            }
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to get Settings: {e}")
+            return {}
+
+
+
+#################################################
+###############    OCIO    ######################
+            
+
+class OcioPresetsEditor(QDialog):
+    def __init__(self, core, player):
+        super().__init__()
+
+        self.core = core
+        self.player = player
+
+        self.ocioPresets = self.player.sourceBrowser.ocioPresets
+        presetDir = Utils.getProjectPresetDir(self.core, "ocio")
+        Utils.loadPresets(presetDir, self.ocioPresets, ".o_preset")
+
+        self._editingRow = None
+        self._action = None
+
+        self.setWindowTitle("OCIO Preset Editor")
+
+        self.setupUI()
+        self.connectEvents()
+        self.buildTransforms()
+        self.populateTable()
+
+        logger.debug("Loaded OCIO Presets Editor")
+
+
+
+    def setupUI(self):
+        #   Set up Sizing and Position
+        screen = QGuiApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        calc_width = screen_geometry.width() // 1.5
+        width = max(1700, min(2500, calc_width))
+        height = screen_geometry.height() // 2
+        x_pos = (screen_geometry.width() - width) // 2
+        y_pos = (screen_geometry.height() - height) // 2
+        self.setGeometry(x_pos, y_pos, width, height)
+
+        #   Create Main Layout
+        lo_main = QVBoxLayout(self)
+
+        #   Create table
+        self.headers = self.ocioPresets.getHeaders()
+        rows = self.ocioPresets.getNumberPresets()
+        self.tw_presets = QTableWidget(rows, len(self.headers), self)
+        self.tw_presets.setHorizontalHeaderLabels(self.headers)
+        self.tw_presets.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tw_presets.setSelectionBehavior(QTableWidget.SelectRows)
+        self.tw_presets.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.tw_presets.setShowGrid(False)
+        self.tw_presets.setStyleSheet("""
+            QTableView::item {
+                border-right: 1px solid grey;
+            }
+        """)
+
+        #   Footer Buttons
+        lo_buttonBox    = QHBoxLayout()
+        self.b_moveup   = QPushButton("Move Up")
+        self.b_moveDn   = QPushButton("Move Down")
+        self.b_test     = QPushButton("Validate Preset")
+        self.b_save     = QPushButton("Save")
+        self.b_cancel   = QPushButton("Cancel")
+
+        lo_buttonBox.addWidget(self.b_moveup)
+        lo_buttonBox.addWidget(self.b_moveDn)
+        lo_buttonBox.addStretch()
+        lo_buttonBox.addWidget(self.b_test)
+        lo_buttonBox.addStretch()
+        lo_buttonBox.addWidget(self.b_save)
+        lo_buttonBox.addWidget(self.b_cancel)
+
+        #   Add to Main Layout
+        lo_main.addWidget(self.tw_presets)
+        lo_main.addLayout(lo_buttonBox)
+
+        #   Stretch Columns over Entire Width
+        self.tw_presets.horizontalHeader().setStretchLastSection(False)
+        self.tw_presets.horizontalHeader().setSectionResizeMode(QHeaderView.Fixed)
+
+        ##   ToolTips
+        tip = """
+        Run a quick test on the Preset to validate.
+
+        This will check various points such as:
+        - Acceptable Preset Name
+        - Transforms are in the Current OCIO Config
+        - View and Look are in the Applcable Display
+        - Selected Lut exists
+        """
+        self.b_test.setToolTip(tip)
+
+        self.b_moveup.setToolTip("Move Selected Preset Up One Row")
+        self.b_moveDn.setToolTip("Move Selected Preset Down One Row")
+        self.b_save.setToolTip("Save Changes and Close Window")
+        self.b_cancel.setToolTip("Discard Changes and Close Window")
+
+
+    #   Make Signal Connections
+    def connectEvents(self):
+        self.tw_presets.customContextMenuRequested.connect(lambda x: self.rclList(x, self.tw_presets))
+
+        self.b_test.clicked.connect(self._onValidate)
+        self.b_moveup.clicked.connect(self._onMoveUp)
+        self.b_moveDn.clicked.connect(self._onMoveDown)
+
+        self.tw_presets.itemSelectionChanged.connect(self._onRowChanged)
+
+        self.b_save.clicked.connect(lambda: self._onFinish("Save"))
+        self.b_cancel.clicked.connect(lambda: self._onFinish("Cancel"))
+
+
+    #   Retrieve and Create OCIO Transforms Data Object
+    def buildTransforms(self):
+        import PyOpenColorIO as ocio
+
+        self.ocioConfig = ocio.GetCurrentConfig()
+        self.OcioTransforms = OcioTransforms(self.core, self.ocioConfig)
+
+
+    def rclList(self, pos, lw):
+        cpos = QCursor.pos()
+        item = lw.itemAt(pos)
+
+        rcmenu = QMenu(self)
+        sc = self.player.sourceBrowser.shortcutsByAction
+
+        #   Dummy Separator
+        def _separator():
+            gb = QGroupBox()
+            gb.setFlat(False)
+            gb.setFixedHeight(15)
+            action = QWidgetAction(self)
+            action.setDefaultWidget(gb)
+            return action
+
+        #   If Called from Item
+        if item:
+            row = item.row()
+            nameItem = self.tw_presets.item(row, 0)
+
+            Utils.createMenuAction("Edit Preset", sc, rcmenu, self, lambda: self.editPreset(item=nameItem))
+
+            rcmenu.addAction(_separator())
+
+            Utils.createMenuAction("Export Preset to File", sc, rcmenu, self, lambda: self.exportPreset(item=nameItem))
+            Utils.createMenuAction("Save Preset to Local Machine", sc, rcmenu, self, lambda: self.saveToLocal(item=nameItem))
+
+            rcmenu.addAction(_separator())
+
+            Utils.createMenuAction("Delete Preset", sc, rcmenu, self, lambda: self.deletePreset(item=nameItem))
+
+            rcmenu.addAction(_separator())
+
+        #   Always Displayed
+        Utils.createMenuAction("Create New Preset", sc, rcmenu, self, lambda: self.editPreset(addNew=True))
+
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Import Preset from File", sc, rcmenu, self, lambda: self.importPreset())
+        Utils.createMenuAction("Import Preset from Local Directory", sc, rcmenu, self, lambda: self.importPreset(local=True))
+
+        rcmenu.addAction(_separator())
+
+        Utils.createMenuAction("Open Project Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=True))
+        Utils.createMenuAction("Open Local Presets Directory", sc, rcmenu, self, lambda: self.openPresetsDir(project=False))
+
+        if rcmenu.isEmpty():
+            return False
+
+        rcmenu.exec_(cpos)
+
+
+    #   Gets Called when Window is Displayed
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(0, self.adjustColumnWidths)
+
+
+    #   Adjusts Column Widths to fit Window
+    def adjustColumnWidths(self):
+        total_width = self.tw_presets.viewport().width()
+
+        #   Column weights (column index → weight)
+        weights = {
+            0: 1.0,  # Name
+            1: 2.0,  # Description
+            2: 1.5,  # Color Space
+            3: 1.5,  # Display
+            4: 1.5,  # View
+            5: 1.5,  # Look
+            6: 3.0   # Luts
+        }
+
+        total_weight = sum(weights.values())
+        #   Iterate and Set Widths
+        for col in range(self.tw_presets.columnCount()):
+            weight = weights.get(col, 1)
+            col_width = int((weight / total_weight) * total_width)
+            self.tw_presets.setColumnWidth(col, col_width)
+
+
+    #   Add Preset Items into Table
+    def populateTable(self):
+        try:
+            #   Clear Table
+            self.tw_presets.setRowCount(0)
+            #   Add Each Preset
+            for preset in self.ocioPresets.getOrderedPresets():
+                row = self.tw_presets.rowCount()
+                self.tw_presets.insertRow(row)
+                self.tw_presets.setItem(row, 0, QTableWidgetItem(preset.name))
+                
+                for col, key in enumerate(self.headers[1:], start=1):
+                    value = preset.data.get(key, "")
+                    item = QTableWidgetItem(str(value))
+                    item.setToolTip(value)
+                    self.tw_presets.setItem(row, col, item)
+                    #   Re-Apply Widths
+                    QTimer.singleShot(0, self.adjustColumnWidths)
+                    
+        except Exception as e:
+            logger.warning(f"ERROR: Failed to Populate Proxy Presets Table:\n{e}")
+
+
+    #   Opens File Explorer to Preset Dir (Project or Local Plugin)
+    def openPresetsDir(self, project):
+        if project:
+            presetDir = Utils.getProjectPresetDir(self.core, "ocio")
+        else:
+            presetDir = Utils.getLocalPresetDir("ocio")
+
+        Utils.openInExplorer(self.core, presetDir)
+
+
+    #   Import Preset from File
+    def importPreset(self, local=False):
+        try:
+            importData = Utils.importPreset(self.core, "ocio", local=local)
+
+            if importData:
+                presetName = importData["name"]
+                self.ocioPresets.addPreset(presetName, importData["data"])
+
+                self.populateTable()
+                logger.debug(f"Imported Preset '{presetName}'")
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Import Preset: {e}")
+
+
+    #   Export Preset to Selected Location
+    def exportPreset(self, item):
+        try:
+            #   Get Preset Name and Data
+            pName = item.text()
+            pData = self.ocioPresets.getPresetData(item.text())
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
+            return
+
+        Utils.exportPreset(self.core, "ocio", pName, pData)
+        logger.debug(f"Exported Preset {pName}")
+
+
+    #   Saves Preset to Local Plugin Dir (to be used for all Projects)
+    def saveToLocal(self, item):
+        try:
+            pName = item.text()
+            currData = self.ocioPresets.getPresetData(pName)
+
+            pData = {"name": pName,
+                     "data": currData}
+
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Get Preset Data for Export: {e}")
+            return
+        
+        Utils.savePreset(self.core, "ocio", pName, pData, project=False)
+
+
+    #   Gets Selected Preset Data and Displays Preset Editor
+    def editPreset(self, addNew=False, item=None):
+        row = self.tw_presets.currentRow()
+
+        if addNew:
+            #   Create New Empty Row
+            row = max(0, row + 1)
+            self.tw_presets.insertRow(row)
+            for col in range(self.tw_presets.columnCount()):
+                self.tw_presets.setItem(row, col, QTableWidgetItem(""))
+            self.tw_presets.selectRow(row)
+
+        if row < 0:
+            return
+
+        #   Change Row Cells to Editable Widgets
+        headers = self.headers
+
+        for col, key in enumerate(headers):
+            match key:
+
+                #   Preset Name
+                case "Name":
+                    editor = QLineEdit()
+                    editor.setText(self.tw_presets.item(row, col).text() if self.tw_presets.item(row, col) else "")
+                    self.tw_presets.setCellWidget(row, col, editor)
+
+                #   Preset Description
+                case "Description":
+                    editor = QLineEdit()
+                    editor.setText(self.tw_presets.item(row, col).text() if self.tw_presets.item(row, col) else "")
+                    self.tw_presets.setCellWidget(row, col, editor)
+
+                case "Color_Space":
+                    transformItems = self.OcioTransforms.getColorSpaces()
+
+                    # Utils.debug_recursive_print(transformItems, "ColorSpaces")                              #    TESTING
+
+                    self._createComboCell(row, col, transformItems)
+
+                case "Display":
+                    transformItems = self.OcioTransforms.getDisplays()
+
+                    Utils.debug_recursive_print(transformItems, "Displays")                              #    TESTING
+
+                    self._createComboCell(row, col, transformItems)
+
+                case "View":
+                    transformItems = self.OcioTransforms.getViews()
+
+                    Utils.debug_recursive_print(transformItems, "Views")                              #    TESTING
+
+                    self._createComboCell(row, col, transformItems)
+
+                case "Look":
+                    transformItems = self.OcioTransforms.getComboItems_forLook()
+                    self._createComboCell(row, col, transformItems)
+
+                case "Lut":
+                    lo = QHBoxLayout()
+                    lo.setContentsMargins(0, 0, 0, 0)
+
+                    line = QLineEdit()
+                    line.setReadOnly(True)
+                    line.setText(self.tw_presets.item(row, col).text() if self.tw_presets.item(row, col) else "")
+
+                    btn = QPushButton("...")
+                    btn.setFixedWidth(30)
+
+                    def choose_file():
+                        fname, _ = QFileDialog.getOpenFileName(self, "Select LUT File", "", "LUT Files (*.cube *.3dl *.lut);;All Files (*)")
+                        if fname:
+                            line.setText(fname)
+
+                    btn.clicked.connect(choose_file)
+
+                    container = QWidget()
+                    lo.addWidget(line)
+                    lo.addWidget(btn)
+                    container.setLayout(lo)
+
+                    self.tw_presets.setCellWidget(row, col, container)
+
+                case _:
+                    #   Fallback – Leave as Text
+                    item = self.tw_presets.item(row, col)
+                    if not item:
+                        item = QTableWidgetItem("")
+                        self.tw_presets.setItem(row, col, item)
+
+
+    #   Creates Combo Box for the OCIO Items
+    def _createComboCell(self, row, col, items):
+        editor = QComboBox()
+
+        #   Add Empty String at the Top
+        editor.addItem("")
+
+        #   Add Items and Handle Header-Style Entries
+        for item in items:
+            text = str(item)
+            editor.addItem(text)
+            if text.startswith("**"):
+                idx = editor.count() - 1
+                editor.setItemData(idx, 0, Qt.UserRole - 1)   # disable selection
+                editor.setItemData(idx, QFont("Arial", weight=QFont.Bold), Qt.FontRole)
+
+        #   Auto-expand Popup Width to Fit Longest Item
+        font_metrics = editor.fontMetrics()
+        max_width = max(font_metrics.horizontalAdvance(editor.itemText(i)) for i in range(editor.count())) + 50
+        editor.view().setMinimumWidth(max_width)
+
+        #   Get Current Cell Value
+        current_value = self.tw_presets.item(row, col).text() if self.tw_presets.item(row, col) else ""
+
+        #   Match Current Value in Combo
+        idx = editor.findText(current_value)
+        if idx >= 0:
+            editor.setCurrentIndex(idx)
+        else:
+            #   If Value Not in the list, Add it Temporarily
+            if current_value.strip():
+                editor.insertItem(0, current_value)
+                editor.setCurrentIndex(0)
+
+        #   Clear Original Text (to stop being superimposed)
+        self.tw_presets.setItem(row, col, QTableWidgetItem(""))
+
+        #   Set Combo box in the Cell
+        self.tw_presets.setCellWidget(row, col, editor)
+
+
+    #   Called to Set Cells Back to Text
+    def _commitRowEdits(self, row):
+        headers = self.headers
+        for col, key in enumerate(headers):
+            widget = self.tw_presets.cellWidget(row, col)
+            if widget is None:
+                continue
+
+            #   Get Value Based on Widget Type
+            if isinstance(widget, QLineEdit):
+                value = widget.text()
+
+            elif isinstance(widget, QComboBox):
+                value = widget.currentText()
+
+            elif isinstance(widget, QWidget):
+                line_edit = widget.findChild(QLineEdit)
+                value = line_edit.text() if line_edit else ""
+            else:
+                value = ""
+
+            #   Replace Widget with a QTableWidgetItem
+            self.tw_presets.removeCellWidget(row, col)
+            self.tw_presets.setItem(row, col, QTableWidgetItem(value))
+
+
+    #   Remove Selected Preset
+    def deletePreset(self, item):
+        row = item.row()
+
+        #   Get Selected Preset Name
+        presetItem = self.tw_presets.item(row, 0)
+        presetName = presetItem.text() if presetItem else "Unknown"
+
+        #   Confirmation Dialogue
+        title = "Delete Preset"
+        text = f"Would you like to remove the Preset:\n\n{presetName}"
+        buttons = ["Remove", "Cancel"]
+        result = self.core.popupQuestion(text=text, title=title, buttons=buttons)
+
+        if result == "Remove":
+            self.tw_presets.removeRow(row)
+            Utils.deletePreset(self.core, "ocio", presetName)
+            self.ocioPresets.removePreset(presetName)
+
+
+    #   Handle Tests for Preset
+    def _onValidate(self):
+        row = self.tw_presets.currentRow()
+        if row == -1:
+            self.core.popup(title="No Selection", text="Please Select a Preset to Validate.")
+            return
+
+        #   Get data from the table
+        name        = self.tw_presets.item(row, 0).text()
+        colorSpace  = self.tw_presets.item(row, 2).text()
+        display     = self.tw_presets.item(row, 3).text()
+        view        = self.tw_presets.item(row, 4).text()
+        look        = self.tw_presets.item(row, 5).text()
+        lut         = self.tw_presets.item(row, 6).text()
+
+        results = []
+        
+        #   Preset Name Check
+        valid_name_pattern = re.compile(
+            r'^[A-Za-z0-9 \-!@#$%^&()_+=.,;{}\[\]~`^]{1,20}$'
+        )
+
+        if not name:
+            results.append(("Preset Name", False, "Preset name cannot be blank."))
+
+        elif not valid_name_pattern.match(name):
+            results.append((
+                "Preset Name", 
+                False, 
+                f"'{name}' is not valid.\n\n"
+                "           Allowed characters: letters, numbers, spaces, dashes, underscores, and common symbols.\n\n"
+                "           Length: 1-20 characters.\n\n"
+                "           Not allowed: \\ / : * ? \" < > |"
+            ))
+        else:
+            results.append(("Preset Name", True, ""))
+
+        #   Check Colorspace
+        if self.ocioConfig.getColorSpace(colorSpace):
+            results.append(("ColorSpace", True, ""))
+        else:
+            results.append(("ColorSpace", False, f"'{colorSpace}' not found in config"))
+
+        #   Check Display + View
+        if display in self.ocioConfig.getDisplays():
+            if view in self.ocioConfig.getViews(display):
+                results.append(("Display/View", True, ""))
+            else:
+                results.append(("Display/View", False, f"View '{view}' not found in display '{display}'"))
+        else:
+            results.append(("Display", False, f"Display '{display}' not found in config"))
+
+        #   Check Look
+        if look:
+            if self.ocioConfig.getLook(look):
+                results.append(("Look", True, ""))
+            else:
+                results.append(("Look", False, f"Look '{look}' not found in config"))
+        else:
+            results.append(("Look", True, "(not set)"))
+
+        #   Check LUT
+        if lut:
+            if os.path.isfile(lut):
+                results.append(("LUT", True, ""))
+            else:
+                results.append(("LUT", False, f"LUT file '{lut}' does not exist"))
+        else:
+            results.append(("LUT", True, "(not set)"))
+
+
+        #   Format Output
+        lines = [f"Preset '{name}' Validation Report:\n"]
+
+        for label, passed, msg in results:
+            if passed:
+                lines.append(f"{label} — Passed")
+                lines.append("")
+            else:
+                lines.append(f"{label} — Failed: {msg}")
+                lines.append("")
+
+        #   Show Popup
+        title="Preset Validation Results"
+        text="\n".join(lines)
+        DisplayPopup.display(text, title, xScale=4, yScale=3)
+
+
+    #   Called When Row Changed (used to commit edit changes)
+    def _onRowChanged(self):
+        new_row = self.tw_presets.currentRow()
+        if self._editingRow is not None and self._editingRow != new_row:
+            self._commitRowEdits(self._editingRow)
+
+        self._editingRow = new_row
+
+
+    def _onMoveUp(self):
+        row = self.tw_presets.currentRow()
+        if row > 0:
+            self._swapRows(row, row-1)
+            self.tw_presets.selectRow(row-1)
+
+
+    def _onMoveDown(self):
+        row = self.tw_presets.currentRow()
+        if row < self.tw_presets.rowCount() - 1:
+            self._swapRows(row, row+1)
+            self.tw_presets.selectRow(row+1)
+
+
+    def _swapRows(self, r1, r2):
+        for c in range(self.tw_presets.columnCount()):
+            t1 = self.tw_presets.takeItem(r1, c)
+            t2 = self.tw_presets.takeItem(r2, c)
+            self.tw_presets.setItem(r1, c, t2)
+            self.tw_presets.setItem(r2, c, t1)
+
+
+    def _onFinish(self, action):
+        self._action = action
+        if action == "Save":
+            try:
+                self.presetData = {}
+                self.presetOrder = []
+
+                data_keys = self.headers[1:]
+
+                for row in range(self.tw_presets.rowCount()):
+                    name_item = self.tw_presets.item(row, 0)
+                    if not name_item:
+                        continue
+
+                    name = name_item.text().strip()
+                    self.presetOrder.append(name)
+
+                    data = {}
+                    for c, key in enumerate(data_keys, start=1):
+                        item = self.tw_presets.item(row, c)
+                        data[key] = item.text().strip() if item else ""
+
+                    self.presetData[name] = data
+
+                logger.debug("OCIO Presets data collected successfully.")
+
+            except Exception as e:
+                logger.warning(f"ERROR: Failed to Save OCIO Presets:\n{e}")
+
+        self.accept()
+
+
+    def result(self):
+        return self._action
+
+
+    def getPresets(self):
+        return self.presetData, self.presetOrder
+    
+
+
+class OcioTransforms():
+    '''Object to Hold OCIO Config Transforms'''
+    def __init__(self, core, ocioConfig: ocio.Config):
+        self.core = core
+        self.ocioConfig = ocioConfig
+
+
+    def getColorSpaces(self) -> list:
+        '''Return a List of all Color Space Names.'''
+
+        return [cs.getName() for cs in self.ocioConfig.getColorSpaces()]
+
+
+    def getInputColorSpaces(self) -> list:
+        '''Return only 'scene-referred' input color spaces (role-based)'''
+
+        return [
+            cs.getName()
+            for cs in self.ocioConfig.getColorSpaces()
+            if cs.getFamily().lower() == "input" or "input" in cs.getName().lower()
+        ]
+
+    def getDisplays(self) -> list:
+        '''Return all display names.'''
+
+        return list(self.ocioConfig.getDisplays())
+
+
+    def getViews(self, display:str = None) -> list:
+        '''Return all views for a given display, or all views if display is None.'''
+
+        if display:
+            return list(self.ocioConfig.getViews(display))
+        else:
+            # flatten all views across all displays
+            views = []
+            for d in self.ocioConfig.getDisplays():
+                views.extend(self.ocioConfig.getViews(d))
+            return list(set(views))  # dedupe
+
+
+    def getLooks(self) -> list:
+        '''Return all looks.'''
+
+        return [lk.getName() for lk in self.ocioConfig.getLooks()]
+
+    def getLooksForDisplayView(self, display:str, view:str) -> list:
+        '''Return looks used by a given display/view, if defined.'''
+
+        # In OCIO v2, views can carry looks
+        view_type = self.ocioConfig.getView(display, view)
+        looks = view_type.getLooks() if view_type else ""
+        if looks:
+            return [lk.strip() for lk in looks.split(",")]
+        return []
+
+
+    def getAllTransforms(self) -> dict:
+        '''Return transforms defined in the config.'''
+
+        # OCIO doesn’t expose them as a single flat list,
+        # but you can enumerate roles, displays, views, looks, etc.
+        transforms = {
+            # "roles": list(self.ocioConfig.getRoles()),
+            "colorSpaces": self.getColorSpaces(),
+            "displays": self.getDisplays(),
+            "looks": self.getLooks(),
+        }
+        return transforms
+    
+
+    def getAllTransforms_flat(self) -> list:
+        '''
+        Return a flat list of all transforms in the config.
+        Grouped with dummy header items like '** Displays **'.
+        '''
+        transforms = []
+
+        # Color Spaces
+        transforms.append("** Color Spaces **")
+        for cs in self.ocioConfig.getColorSpaces():
+            transforms.append(str(cs.getName()))
+
+        # Displays + Views
+        transforms.append("** Displays / Views **")
+        for display in self.ocioConfig.getDisplays():
+            for view in self.ocioConfig.getViews(display):
+                transforms.append(f"{display} / {view}")
+
+        # Looks
+        transforms.append("** Looks **")
+        for look in self.ocioConfig.getLooks():
+            transforms.append(str(look.getName()))
+
+        return transforms
+
+
+    def getComboItems_forColorspace(self) -> list:
+        """Return items for the Color Space combo: empty + likely + all + header."""
+        items = [""]
+        items.extend(self.getColorSpaces())
+        # items.append("** -- All --  **")
+        # items.extend(self.getAllTransforms_flat())
+        return items
+
+    def getComboItems_forDisplay(self) -> list:
+        items = [""]
+        items.append("** All Displays **")
+        items.extend(self.getDisplays())
+        return items
+
+    def getComboItems_forView(self, display: str = None) -> list:
+        items = [""]
+        items.append("** Views **")
+        items.extend(self.getViews(display))
+        return items
+
+    def getComboItems_forLook(self, display: str = None, view: str = None) -> list:
+        items = [""]
+        items.append("** Looks for Display/View **")
+        if display and view:
+            items.extend(self.getLooksForDisplayView(display, view))
+        items.append("** All Looks **")
+        items.extend(self.getLooks())
+        return items

@@ -291,6 +291,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.player_on_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_on.png"), 0.75)
         self.player_off_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_off.png"), 0.75)
         pxyIcon = Utils.getIconFromPath(os.path.join(iconDir, "proxy.png"), 0.75)
+        ocioIcon = Utils.getIconFromPath(os.path.join(iconDir, "ocio.png"), 0.75)
         cacheIcon = Utils.getIconFromPath(os.path.join(iconDir, "cache.png"), 0.75)
 
         ##   Source Panel
@@ -339,8 +340,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         ##  Right Side Panel
         self.lo_rightPanel = QVBoxLayout()
 
-        #   PreviewPlayer Toolbar
-        self.lo_playerToolbar = QHBoxLayout()
+        #   PreviewPlayer Topbar
+        self.lo_playerTopbar = QHBoxLayout()
 
         #   Player Enable Switch
         self.b_enablePlayer = QPushButton()
@@ -348,6 +349,12 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_enablePlayer.setCheckable(True)
         self.b_enablePlayer.setFixedSize(32,32)
         self.b_enablePlayer.setIconSize(QSize(22, 22))
+        #   Add to Topbat
+        self.lo_playerTopbar.addWidget(self.b_enablePlayer)
+
+        #   Player Toolbar
+        self.playerToolbar = QWidget()
+        lo_playerToolbar = QHBoxLayout(self.playerToolbar)
 
         #   Prefer Proxys Switch
         self.b_preferProxies = QPushButton()
@@ -363,19 +370,28 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_cacheEnabled.setFixedSize(32,32)
         self.b_cacheEnabled.setIconSize(QSize(22, 22))
 
+        #   OCIO Enable Button
+        self.b_ocioEnabled = QPushButton()
+        self.b_ocioEnabled.setIcon(ocioIcon)
+        self.b_ocioEnabled.setCheckable(True)
+        self.b_ocioEnabled.setFixedSize(32,32)
+        self.b_ocioEnabled.setIconSize(QSize(22, 22))
+
         #   Add Widgets to PreviewPlayer Toolbar
-        self.lo_playerToolbar.addWidget(self.b_enablePlayer)
-        self.lo_playerToolbar.addWidget(self.b_preferProxies)
-        self.lo_playerToolbar.addWidget(self.b_cacheEnabled)
+        lo_playerToolbar.addWidget(self.b_preferProxies)
+        lo_playerToolbar.addWidget(self.b_cacheEnabled)
+        lo_playerToolbar.addWidget(self.b_ocioEnabled)
         self.spacer1 = QSpacerItem(40, 0, QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.lo_playerToolbar.addItem(self.spacer1)
+        lo_playerToolbar.addItem(self.spacer1)
 
         # Media Player Import
         self.useGPU = self.checkGpuAvailability()
         if self.useGPU:
             logger.status("Initializing GPU PreviewViewer")
             self.cb_ocioPresets = QComboBox()
-            self.lo_playerToolbar.addWidget(self.cb_ocioPresets)
+            self.cb_ocioPresets.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.cb_ocioPresets.setMinimumWidth(300)
+            lo_playerToolbar.addWidget(self.cb_ocioPresets)
 
             from PreviewPlayer_GPU import PreviewPlayer_GPU
             self.PreviewPlayer = PreviewPlayer_GPU(self)
@@ -386,11 +402,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             from PreviewPlayer_CPU import PreviewPlayer_CPU
             self.PreviewPlayer = PreviewPlayer_CPU(self)
 
+
+        self.lo_playerTopbar.addWidget(self.playerToolbar)
+
         #   Functions Import
         self.sourceFuncts = SourceFunctions(self.core, self)
 
         #   Add Panels to the Right Panel
-        self.lo_rightPanel.addLayout(self.lo_playerToolbar)
+        self.lo_rightPanel.addLayout(self.lo_playerTopbar)
         self.lo_rightPanel.addWidget(self.PreviewPlayer)
         self.lo_rightPanel.addWidget(self.sourceFuncts)
 
@@ -472,8 +491,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         tip = ("Enabled/Disable Automatic Frame Caching")
         self.b_cacheEnabled.setToolTip(tip)
 
-        tip = ("PreviewPlayer OCIO View Preset")
-        self.cb_ocioPresets.setToolTip(tip)
+        tip = ("Enabled/Disable OCIO View Transforms")
+        self.b_ocioEnabled.setToolTip(tip)
 
 
     @err_catcher(name=__name__)
@@ -516,6 +535,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_enablePlayer.toggled.connect(self.togglePreviewPlayer)
         self.b_preferProxies.toggled.connect(self.togglePreferProxies)
         self.b_cacheEnabled.toggled.connect(self.toggleCacheEnable)
+        self.b_ocioEnabled.toggled.connect(self.toggleOcioEnable)
         self.cb_ocioPresets.currentIndexChanged.connect(self.PreviewPlayer.onOcioChanged)
 
         #   Functions Panel
@@ -904,7 +924,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR: Failed to Load Metadata Presets")
 
 
-
     #   Configures UI from Saved Settings
     @err_catcher(name=__name__)
     def loadSettings(self):
@@ -953,6 +972,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             self.b_cacheEnabled.setChecked(cacheEnabled)
             self.toggleCacheEnable(cacheEnabled) 
 
+            #   OCIO Button
+            ocioEnabled = tabData["ocioEnabled"]
+            self.b_ocioEnabled.setChecked(ocioEnabled)
+            self.toggleOcioEnable(ocioEnabled) 
+
             #   OCIO Options
             if "ocioSettings" in sData:
                 oData = sData["ocioSettings"]
@@ -992,6 +1016,49 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             logger.warning(f"ERROR:  Failed to Load SourceTab Settings:\n{e}")
 
 
+    #   Toggles Media Player Visibility
+    @err_catcher(name=__name__)
+    def togglePreviewPlayer(self, checked):
+        self.PreviewPlayer.setVisible(checked)
+        self.playerToolbar.setVisible(checked)
+
+        if checked:
+            icon = self.player_on_Icon
+        else:
+            icon = self.player_off_Icon
+
+        self.b_enablePlayer.setIcon(icon)
+
+
+    #   Sets Prefer Proxies
+    @err_catcher(name=__name__)
+    def togglePreferProxies(self, checked):
+        self.preferProxies = checked
+
+
+    @err_catcher(name=__name__)
+    def toggleCacheEnable(self, enabled):
+        logger.debug(f"Automatic Caching: {enabled}")
+        self.cacheEnabled = enabled
+
+        if hasattr(self.PreviewPlayer, "PreviewCache"):
+            if not enabled:
+                self.PreviewPlayer.PreviewCache.stop()
+            else:
+                self.PreviewPlayer.PreviewCache.start()
+
+
+    @err_catcher(name=__name__)
+    def toggleOcioEnable(self, enabled):
+        logger.debug(f"OCIO Enabled: {enabled}")
+        self.ocioEnabled = enabled
+        self.cb_ocioPresets.setVisible(enabled)
+
+        if hasattr(self.PreviewPlayer, "DisplayWindow"):
+            self.PreviewPlayer.DisplayWindow.update()
+
+
+
     @err_catcher(name=__name__)
     def loadOcioCombo(self):
         try:
@@ -1001,6 +1068,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             idx = self.cb_ocioPresets.findText(self.ocioPresets.currentPreset)
             if idx != -1:
                 self.cb_ocioPresets.setCurrentIndex(idx)
+
+            #   Update Tooltip
+            tip = self.ocioPresets.getTooltip()
+            self.cb_ocioPresets.setToolTip(tip)    
+
         except Exception as e:
             logger.warning(f"ERROR: Failed to Populate OCIO Combo: {e}")
 
@@ -1338,28 +1410,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.refreshStatus = "valid"
 
 
-    #   Toggles Media Player Visibility
-    @err_catcher(name=__name__)
-    def togglePreviewPlayer(self, checked):
-        self.PreviewPlayer.setVisible(checked)
-        self.b_preferProxies.setVisible(checked)
-        self.b_cacheEnabled.setVisible(checked)
-        self.cb_ocioPresets.setVisible(checked)
-
-        if checked:
-            icon = self.player_on_Icon
-        else:
-            icon = self.player_off_Icon
-
-        self.b_enablePlayer.setIcon(icon)
-
-
-    #   Sets Prefer Proxies
-    @err_catcher(name=__name__)
-    def togglePreferProxies(self, checked):
-        self.preferProxies = checked
-
-
     @err_catcher(name=__name__)
     def getAllSourceTiles(self):
         tiles = []
@@ -1629,18 +1679,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
             extension = self.getFileExtension()
         
         return extension.lower() in self.audioFormats
-    
-
-    @err_catcher(name=__name__)
-    def toggleCacheEnable(self, enabled):
-        logger.debug(f"Automatic Caching: {enabled}")
-        self.cacheEnabled = enabled
-
-        if hasattr(self.PreviewPlayer, "PreviewCache"):
-            if not enabled:
-                self.PreviewPlayer.PreviewCache.stop()
-            else:
-                self.PreviewPlayer.PreviewCache.start()
 
 
     @err_catcher(name=__name__)

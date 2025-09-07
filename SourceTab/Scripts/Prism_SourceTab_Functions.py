@@ -541,6 +541,7 @@ class Prism_SourceTab_Functions(object):
                 tData["playerEnabled"] = self.sourceBrowser.b_enablePlayer.isChecked()
                 tData["preferProxies"] = self.sourceBrowser.b_preferProxies.isChecked()
                 tData["cacheEnabled"] = self.sourceBrowser.b_cacheEnabled.isChecked()
+                tData["ocioEnabled"] = self.sourceBrowser.b_ocioEnabled.isChecked()
                 tData["proxyMode"] = self.sourceBrowser.proxyMode
 
                 functs = self.sourceBrowser.sourceFuncts
@@ -643,8 +644,9 @@ class Prism_SourceTab_Functions(object):
                     "dest_combineSeq": False,
                     "playerEnabled": True,
                     "preferProxies": True,
-                    "cacheEnabled": True,
                     "enable_proxy": False,
+                    "cacheEnabled": True,
+                    "ocioEnabled": True,
                     "proxyMode": "None",
                     "enable_fileNaming": False,
                     "enable_metadata": False,
