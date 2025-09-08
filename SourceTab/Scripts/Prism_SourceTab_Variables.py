@@ -52,7 +52,7 @@ import os
 
 class Prism_SourceTab_Variables(object):
     def __init__(self, core, plugin):
-        self.version = "v0.2"
+        self.version = "v0.9 beta"
         self.pluginName = "SourceTab"
         self.pluginType = "Custom"
         self.platforms = ["Windows", "Linux", "Darwin"]
