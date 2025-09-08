@@ -178,11 +178,11 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Time to Detect Stalled Worker Threads
         self.stallInterval = 30
         
-        #   Controls the "Smoothness" of the Estimated Transfer Time Remaining
-        #   (1st value is Min samples at the start, 2nd is the Max Samples at the end)
-        # self.adaptiveProgUpdate = [5, 10]   #   Sensitive - for small files
-        self.adaptiveProgUpdate = [20, 60]  #   Medium - for normal files
-        # self.adaptiveProgUpdate = [30, 100] #   Smoother - for large files
+        ##   Controls the "Smoothness" of the Estimated Transfer Time Remaining             ##
+        ##   (1st value is Min samples at the start, 2nd is the Max Samples at the end)     ##
+        # self.adaptiveProgUpdate = [5, 10]     #   Sensitive - for small files
+        self.adaptiveProgUpdate = [20, 60]      #   Medium - for normal files
+        # self.adaptiveProgUpdate = [30, 100]   #   Smoother - for large files
 
         self.setupIcons()
 
@@ -425,7 +425,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         logger.debug("Loaded SourceTab UI")
 
 
-    @err_catcher(name=__name__)                                                     #   TODO - FINISH
+    @err_catcher(name=__name__)
     def setToolTips(self):
         tip = "Go to Parent Directory"
         self.b_sourcePathUp.setToolTip(tip)
@@ -769,7 +769,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def onDragEnterEvent(self, mode, e):
 
-        # URLs are fine anywhere
+        #   URLs are fine anywhere
         if e.mimeData().hasUrls():
             e.acceptProposedAction()
             return
@@ -1090,12 +1090,13 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.shortcuts = {}         # key: "ActionName:Shortcut", value: (QShortcut, NativeText)
         self.shortcutsByAction = {} # key: "ActionName", value: list of shortcut native strings
 
-        # Clear old shortcuts
+        #   Clear Old Shortcuts
         for sc in self.shortcuts.values():
             sc[0].deleteLater()
         self.shortcuts.clear()
         self.shortcutsByAction.clear()
 
+        #   Load and Bind Shortcuts
         for action_name, keys in mapping.items():
             self.shortcutsByAction[action_name] = []
             for key_str in keys:
@@ -1105,7 +1106,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                     continue
 
                 shortcut = QShortcut(qseq, self)
-                # shortcut.setContext(Qt.WidgetWithChildrenShortcut)                                #   TODO
                 shortcut.setContext(Qt.ApplicationShortcut)
 
                 shortcut.activated.connect(lambda name=action_name: self.onShortcutKey(name))
@@ -1138,15 +1138,14 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 break
 
             elif (self.w_rightPanelContainer is not None
-                  and self.w_rightPanelContainer.isAncestorOf(parent)):         #   TODO
+                  and self.w_rightPanelContainer.isAncestorOf(parent)):
                 mode = "source"
                 break
 
             parent = parent.parentWidget()
 
         if mode is None:
-            mode = "source"                                                     #   TODO
-            # return
+            mode = "source"
 
         #   Call Method Based on Shortcut
         match action:
@@ -1397,7 +1396,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
     @err_catcher(name=__name__)
     def refreshUI(self):
-        self.core.media.invalidateOiioCache()                               #   TODO
+        self.core.media.invalidateOiioCache()
 
         if hasattr(self, "sourceDir"):
             self.le_sourcePath.setText(self.sourceDir)
@@ -1783,7 +1782,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 case _:
                     return data.get("displayName", "").lower()
 
-        #   Flat sort
+        #   Flat Sort
         if not groupTypes:
             sortedFiles = sorted(fileList, key=get_sort_key, reverse=reverse)
 
@@ -2426,7 +2425,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
 
     #   Return List of Checked Dest File Tiles
-    @err_catcher(name=__name__)                                 #   TODO Move
+    @err_catcher(name=__name__)
     def getCopyList(self):
         row_count = self.lw_destination.count()
         self.copyList = []
@@ -2571,7 +2570,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                         )
 
 
-    @err_catcher(name=__name__)                                         #   TODO  Move
+    @err_catcher(name=__name__)
     def generateTransferPopup(self):
         try:
             ##  HEADER SECTION
