@@ -1,17 +1,17 @@
 ############################################################################
 #
 #           This is a Prism Pipeline SourceTab Preset File
-#                           OCIO Preset
+#                           Ocio Preset
 #
 ############################################################################
-    
+
 {
     "name": "ACEScg",
     "data": {
-        "Description": "Linear AP1 -> sRGB",
-        "Color_Space": "Linear ACES - AP1",
-        "Display": "sRGB",
-        "View": "ACES",
+        "Description": "ACES Linear AP1 -> sRGB",
+        "Color_Space": "ACEScg",
+        "Display": "sRGB - Display",
+        "View": "ACES 1.0 - SDR Video",
         "Look": "",
         "LUT": ""
     }

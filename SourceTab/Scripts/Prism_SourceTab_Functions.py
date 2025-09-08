@@ -640,8 +640,8 @@ class Prism_SourceTab_Functions(object):
                 },
                 "tabSettings": {
                     "enable_frames": False,
-                    "source_combineSeq": False,
-                    "dest_combineSeq": False,
+                    "source_combineSeq": True,
+                    "dest_combineSeq": True,
                     "playerEnabled": True,
                     "preferProxies": True,
                     "enable_proxy": False,

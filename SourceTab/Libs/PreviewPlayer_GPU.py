@@ -143,7 +143,7 @@ class PreviewPlayer_GPU(QWidget):
         self.core.registerCallback("onProjectBrowserClose",
                                    self.onProjectBrowserClose,
                                    plugin=self.sourceBrowser.plugin)
-
+        
 
     @property
     def ocioEnabled(self):

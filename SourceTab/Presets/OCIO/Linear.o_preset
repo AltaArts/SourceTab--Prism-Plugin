@@ -1,17 +1,17 @@
 ############################################################################
 #
 #           This is a Prism Pipeline SourceTab Preset File
-#                           OCIO Preset
+#                           Ocio Preset
 #
 ############################################################################
-    
+
 {
     "name": "Linear",
     "data": {
         "Description": "Linear Rec709 -> sRGB",
-        "Color_Space": "Linear Rec.709",
-        "Display": "sRGB",
-        "View": "Standard",
+        "Color_Space": "Linear Rec.709 (sRGB)",
+        "Display": "sRGB - Display",
+        "View": "Un-tone-mapped",
         "Look": "",
         "LUT": ""
     }
