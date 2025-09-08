@@ -952,9 +952,14 @@ class PreviewPlayer_GPU(QWidget):
             #   Set the Media in the Cache System
             self.PreviewCache.setMedia(mediaFiles, windowWidth, self.fileType, self.prvIsSequence, prevData)
 
-            #   Start the Caching
+            #   Start the Caching if Enabled
             if self.sourceBrowser.cacheEnabled:
                 self.PreviewCache.start()
+
+            #   Just Display 1st Frame
+            else:
+                # self.setCurrentFrame(self.pstart-1, manual=True, reset=False)
+                self.setCurrentFrame(0, manual=True, reset=False)
 
             return True
 
