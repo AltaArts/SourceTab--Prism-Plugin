@@ -1214,7 +1214,7 @@ class SourceFileItem(BaseTileItem):
             self.data["source_mainFile_time"] = Utils.getFormattedTimeStr(time)
             self.data["source_mainFile_codec"] = codec
             self.data["source_mainFile_codecMetadata"] = codecMetadata
-
+            
             self._notify("duration")
 
         except Exception as e:

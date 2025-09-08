@@ -259,8 +259,20 @@ class FileInfoWorker(QObject, QRunnable):
 
 
     @staticmethod
-    def probeFile(filePath, origin, core):
-        """Run FFprobe and Return Metadata."""
+    def probeFile(filePath:str, origin:object, core) -> tuple:
+        '''Extracts Metadata from the File Using FFprobe or OIIO'''
+
+        if origin.fileType in ("Videos", "Audio"):
+            return FileInfoWorker.probeVideo(filePath, origin, core)
+        elif origin.fileType in ("Images", "Image Sequence"):
+            return FileInfoWorker.probeImage(filePath, origin, core)
+        else:
+            return 1, 0.0, 0.0, None, {}, 0, 0
+
+
+    @staticmethod
+    def probeVideo(filePath:str, origin:object, core) -> tuple:
+        '''Run FFprobe and Return Metadata.'''
 
         frames = 1
         fps = 0.0
@@ -350,6 +362,48 @@ class FileInfoWorker(QObject, QRunnable):
                 frames = int(round(secs * fps)) if fps > 0 and secs > 0 else 1
             else:
                 frames = int(frames_str)
+
+        return frames, fps, secs, codec, metadata, width, height
+
+
+    @staticmethod
+    def probeImage(filePath:str, origin:object, core) -> tuple:
+        '''Use OpenImageIO to Extract Image Metadata.'''
+
+        frames = 1
+        fps = 0.0
+        secs = 0.0
+        codec = None
+        metadata = {}
+        width = 0
+        height = 0
+
+        oiio = core.media.getOIIO()
+
+        try:
+            inp = oiio.ImageInput.open(filePath)
+            if not inp:
+                return frames, fps, secs, codec, metadata, width, height
+
+            spec = inp.spec()
+            width = spec.width
+            height = spec.height
+
+            #   Use Extension as Codec Fallback (oiio doesn't expose "codec")
+            codec = oiio.geterror() or Utils.getFileExtension(filePath)
+
+            #   Collect Channel Names and Format
+            metadata["channels"] = spec.channelnames
+            metadata["format"] = str(spec.format)
+
+            #   Store All Other Attributes OIIO Exposes
+            for param in spec.extra_attribs:
+                metadata[param.name] = str(param.value)
+
+            inp.close()
+
+        except Exception as e:
+            logger.warning(f"[probeImage] Failed to probe {filePath}: {e}")
 
         return frames, fps, secs, codec, metadata, width, height
 
