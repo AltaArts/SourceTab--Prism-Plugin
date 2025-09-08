@@ -86,7 +86,6 @@ COLORNAMES = ["color",
               "diffusecolor"]
 
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -825,13 +824,18 @@ class PreviewPlayer_GPU(QWidget):
         #   Stop Cache
         self.PreviewCache.stop()
 
+        #   Reset Timeline and Image
+        self.resetImage()
+
+        #   Ensure Filetype and Codec are Supported
+        supported, fallbackMedia = self.checkMedia(mediaFiles, metadata)
+        if not supported:
+            mediaFiles = fallbackMedia
+
         self.mediaFiles = mediaFiles
         self.metadata = metadata
         self.isProxy = isProxy
         self.tile = tile
-
-        #   Reset Timeline and Image
-        self.resetImage()
 
         #   Configure OCIO 
         self.configureOCIO()
@@ -843,6 +847,27 @@ class PreviewPlayer_GPU(QWidget):
         self.adjustPreviewAspect()
 
 
+    #   Check is Media in Prism Supported Formats and FFmpeg Codecs
+    @err_catcher(name=__name__)
+    def checkMedia(self, mediaFiles, metadata):
+        ext = Utils.getFileExtension(mediaFiles[0])
+
+        codec = metadata["source_mainFile_codecMetadata"].get("codec_name", "")
+
+        if ext not in self.core.media.supportedFormats:
+            logger.warning(f"Filetype is not Supported in the Preview Player: '{ext}'")
+            fallbackPath = Utils.getFallBackImage(self.core, extension=ext)
+
+            return False, [fallbackPath]
+        
+        if ext in self.core.media.videoFormats and not Utils.isCodecSupported(codec):
+            logger.warning(f"ERROR: Media Codec is Not Supported '{codec}'")
+            fallbackPath = Utils.getFallBackImage(self.core, extension=ext)
+            return False, [fallbackPath]
+
+        else:
+            return True, ""
+        
 
     @err_catcher(name=__name__)
     def updatePreview(self, mediaFiles):

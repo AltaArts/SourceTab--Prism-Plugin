@@ -153,6 +153,15 @@ def getFileExtension(filePath=None, fileName=None):
     return extension.lower()
 
 
+def isCodecSupported(codec:str) -> bool:
+    '''Returns Bool if Codec is Supported by FFmpeg'''
+    
+    supportedCodecs = ["h264", "hevc", "mpeg4", "mpeg2video", "prores",
+                       "dnxhd", "dnxhr", "mjpeg", "jpeg2000", "rawvideo",
+                       "vp8","vp9","av1"]
+    return codec.lower() in supportedCodecs
+
+
 def createUUID(simple:bool=False, length:int=8) -> str:
     '''Creates Custom UUID String'''
 

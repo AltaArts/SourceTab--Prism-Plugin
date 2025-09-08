@@ -134,10 +134,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         self.core.parentWindow(self)
 
-        self.supportedCodecs = ["h264", "hevc", "mpeg4", "mpeg2video", "prores",
-                                "dnxhd", "dnxhr", "mjpeg", "jpeg2000", "rawvideo",
-                                "vp8","vp9","av1"]
-
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff",
                              ".flac", ".alac", ".ogg", ".wma"]
 
@@ -1660,12 +1656,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         except Exception as e:
             logger.warning(f"ERROR:  isVideo() Failed:\n{e}")
 
-
-    #   Returns Bool if Codec is Supported by FFmpeg
-    @err_catcher(name=__name__)
-    def isCodecSupported(self, codec):
-        return codec.lower() in self.supportedCodecs
-    
 
     #   Returns Bool if File is in Audio Formats
     @err_catcher(name=__name__)
