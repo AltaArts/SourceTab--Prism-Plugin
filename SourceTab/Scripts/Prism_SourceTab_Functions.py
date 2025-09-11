@@ -679,10 +679,7 @@ class Prism_SourceTab_Functions(object):
                 "metadataSettings": {
                     "currMetaPreset": None,
                     "metaPresetOrder": [],
-                    "sidecarStates":{
-                              "Resolve (.csv)": True,
-                              "Avid (.ale)": True
-                              }
+                    "sidecarStates":{}
                 },
                 "proxySearch": [
                     "@MAINFILEDIR@\\proxy\\@MAINFILENAME@",

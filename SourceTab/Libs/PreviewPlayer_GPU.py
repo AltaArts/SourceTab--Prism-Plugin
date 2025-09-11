@@ -68,7 +68,6 @@ from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
 
-
 from PrismUtils.Decorators import err_catcher
 
 import SourceTab_Utils as Utils
@@ -332,14 +331,16 @@ class PreviewPlayer_GPU(QWidget):
                     "check_color2": (0.1, 0.1, 0.1)
                     }
                 self.core.setConfig("browser", "mediaPlayerSettings", pData)
+                logger.warning("Player Settings not found.  Creating default")
 
         #   Set Cache Max Threads
-        self.PreviewCache.setThreadpool(pData["cacheThreads"])
+        self.PreviewCache.setThreadpool(pData.get("cacheThreads", 4))
 
         #   Set Viewer Settings
-        self.DisplayWindow.setBackground(pData["check_size"],
-                                         pData["check_color1"],
-                                         pData["check_color2"])
+        self.DisplayWindow.setBackground(pData.get("check_size", 20),
+                                         pData.get("check_color1", (0.0, 0.0, 0.0)),
+                                         pData.get("check_color2", (0.1, 0.1, 0.1))
+                                        )
 
 
     #   Saves Current OCIO Settings to Project Config
@@ -357,18 +358,23 @@ class PreviewPlayer_GPU(QWidget):
     #   Returns Good Initial Number for Cache Threads based on CPUs
     @err_catcher(name=__name__)
     def getDefaultCacheThreads(self):
-        numProcs = MP_cpu_count()
+        try:
+            numProcs = MP_cpu_count()
 
-        if numProcs <= 2:
-            return 1
-        elif numProcs <= 4:
-            return 2
-        elif numProcs <= 8:
-            return numProcs - 2
-        elif numProcs <= 16:
-            return numProcs - 4
-        else:
-            return min(8, numProcs // 2)
+            if numProcs <= 2:
+                return 1
+            elif numProcs <= 4:
+                return 2
+            elif numProcs <= 8:
+                return numProcs - 2
+            elif numProcs <= 16:
+                return numProcs - 4
+            else:
+                return min(8, numProcs // 2)
+        
+        except Exception as e:
+            logger.warning(f"ERROR: Unable to Resolve Number of CPUs on the System.  Using Fallback. {e}")
+            return 4
 
 
     @err_catcher(name=__name__)
@@ -2778,8 +2784,6 @@ class OcioPresetsEditor(QDialog):
 
     #   Retrieve and Create OCIO Transforms Data Object
     def buildTransforms(self):
-        import PyOpenColorIO as ocio
-
         self.ocioConfig = ocio.GetCurrentConfig()
         self.OcioTransforms = OcioTransforms(self.core, self.ocioConfig)
 
@@ -2886,7 +2890,7 @@ class OcioPresetsEditor(QDialog):
                     QTimer.singleShot(0, self.adjustColumnWidths)
                     
         except Exception as e:
-            logger.warning(f"ERROR: Failed to Populate Proxy Presets Table:\n{e}")
+            logger.warning(f"ERROR: Failed to Populate OCIO Presets Table:\n{e}")
 
 
     #   Opens File Explorer to Preset Dir (Project or Local Plugin)

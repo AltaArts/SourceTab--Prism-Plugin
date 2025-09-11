@@ -53,11 +53,10 @@ import sys
 import subprocess
 import logging
 import json
-from collections import OrderedDict, deque, defaultdict
+from collections import deque, defaultdict
 from datetime import datetime
 from time import time
 from functools import partial
-import re
 from pathlib import Path
 
 
@@ -68,7 +67,7 @@ from qtpy.QtWidgets import *
 
 prismRoot = os.getenv("PRISM_ROOT")
 
-rootScripts = os.path.join(prismRoot, "Scripts")                                    #   TODO - CLEANUP
+rootScripts = os.path.join(prismRoot, "Scripts")
 pluginPath = os.path.dirname(os.path.dirname(__file__))
 pyLibsPath = os.path.join(pluginPath, "PythonLibs", "Python311")
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
@@ -88,7 +87,6 @@ from reportlab.lib.utils import ImageReader
 
 
 #   Prism Libs
-from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 
@@ -153,7 +151,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   "Other": True,
                                   }
         
-        self.sidecarStates = {}
+        self.sortOptions = {}
+        
+        self.sidecarStates = {"Resolve (.csv)": True,
+                              "Avid (.ale)": True}
         
         self.sourceDir = ""
         self.destDir = ""
@@ -929,80 +930,80 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             #   Get Main Settings
             settingData = sData["globals"]
-            self.max_thumbThreads = settingData["max_thumbThreads"]
-            self.max_copyThreads = settingData["max_copyThreads"]
-            self.size_copyChunk = settingData["size_copyChunk"]
-            self.max_proxyThreads = settingData["max_proxyThreads"]
-            self.progUpdateInterval = settingData["updateInterval"]
-            self.useCompletePopup = settingData["useCompletePopup"]
-            self.useCompleteSound = settingData["useCompleteSound"]
-            self.useTransferReport = settingData["useTransferReport"]
-            self.tabPos = settingData["tabPosition"]
-            self.useCustomIcon = settingData["useCustomIcon"]
-            self.customIconPath = os.path.normpath(settingData["customIconPath"].strip().strip('\'"'))
-            self.useCustomThumbPath = settingData["useCustomThumbPath"]
-            self.customThumbPath = settingData ["customThumbPath"]
-            self.useLibImport = settingData ["useLibImport"]
+            self.max_thumbThreads = settingData.get("max_thumbThreads", 6)
+            self.max_copyThreads = settingData.get("max_copyThreads", 6)
+            self.size_copyChunk = settingData.get("size_copyChunk", 2)
+            self.max_proxyThreads = settingData.get("max_proxyThreads", 2)
+            self.progUpdateInterval = settingData.get("updateInterval", 1.0)
+            self.useCompletePopup = settingData.get("useCompletePopup", True)
+            self.useCompleteSound = settingData.get("useCompleteSound", True)
+            self.useTransferReport = settingData.get("useTransferReport", True)
+            self.tabPos = settingData.get("tabPosition", 0)
+            self.useCustomIcon = settingData.get("useCustomIcon", False)
+            self.customIconPath = os.path.normpath(settingData.get("customIconPath", "").strip().strip('\'"'))
+            self.useCustomThumbPath = settingData.get("useCustomThumbPath", False)
+            self.customThumbPath = settingData.get("customThumbPath", "")
+            self.useLibImport = settingData.get("useLibImport", True)
 
             #   Get Tab (UI) Settings
             tabData = sData["tabSettings"]
 
             #   Sorting Options
-            self.sortOptions = sData["sortOptions"]
-            self.b_source_sorting_duration.setChecked(tabData["enable_frames"])
-            self.b_source_sorting_combineSeqs.setChecked(tabData["source_combineSeq"]) 
-            self.b_dest_sorting_combineSeqs.setChecked(tabData["dest_combineSeq"]) 
+            self.sortOptions = sData.get("sortOptions", {})
+            self.b_source_sorting_duration.setChecked(tabData.get("enable_frames", False))
+            self.b_source_sorting_combineSeqs.setChecked(tabData.get("source_combineSeq", True)) 
+            self.b_dest_sorting_combineSeqs.setChecked(tabData.get("dest_combineSeq", True)) 
 
             #   Media Player Enabled Button
-            playerEnabled = tabData["playerEnabled"]
+            playerEnabled = tabData.get("playerEnabled", True)
             self.b_enablePlayer.setChecked(playerEnabled)
             self.togglePreviewPlayer(playerEnabled)
             
             #   Prefer Proxies Button
-            preferProxies = tabData["preferProxies"]
+            preferProxies = tabData.get("preferProxies", True)
             self.b_preferProxies.setChecked(preferProxies)
             self.togglePreferProxies(preferProxies)
 
             #   Caching Button
-            cacheEnabled = tabData["cacheEnabled"]
+            cacheEnabled = tabData.get("cacheEnabled", True)
             self.b_cacheEnabled.setChecked(cacheEnabled)
             self.toggleCacheEnable(cacheEnabled) 
 
             #   OCIO Button
-            ocioEnabled = tabData["ocioEnabled"]
+            ocioEnabled = tabData.get("ocioEnabled", True)
             self.b_ocioEnabled.setChecked(ocioEnabled)
             self.toggleOcioEnable(ocioEnabled) 
 
             #   OCIO Options
             if "ocioSettings" in sData:
                 oData = sData["ocioSettings"]
-                self.ocioPresets.currentPreset = oData["currOcioPreset"]
-                self.ocioPresets.presetOrder = oData["ocioPresetOrder"]
+                self.ocioPresets.currentPreset = oData.get("currOcioPreset", "")
+                self.ocioPresets.presetOrder = oData.get("ocioPresetOrder", [])
                 self.loadOcioCombo()
 
             #   Proxy Options
-            self.sourceFuncts.chb_ovr_proxy.setChecked(tabData["enable_proxy"])
-            self.proxyEnabled = tabData["enable_proxy"]
-            self.proxyMode = tabData["proxyMode"]
+            self.sourceFuncts.chb_ovr_proxy.setChecked(tabData.get("enable_proxy", False))
+            self.proxyEnabled = tabData.get("enable_proxy", False)
+            self.proxyMode = tabData.get("proxyMode", None)
             if "proxySettings" in sData:
                 self.proxySettings = sData["proxySettings"]
-                self.proxyPresets.presetOrder = self.proxySettings["proxyPresetOrder"]
+                self.proxyPresets.presetOrder = self.proxySettings.get("proxyPresetOrder", [])
 
             #   Name Mods
-            self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData["enable_fileNaming"])
+            self.sourceFuncts.chb_ovr_fileNaming.setChecked(tabData.get("enable_fileNaming", False))
             if "activeNameMods" in sData:
-                self.nameMods = sData["activeNameMods"]
+                self.nameMods = sData.get("activeNameMods", [])
 
             #   Metadata Options
-            self.sourceFuncts.chb_ovr_metadata.setChecked(tabData["enable_metadata"])
+            self.sourceFuncts.chb_ovr_metadata.setChecked(tabData.get("enable_metadata", False))
             if "metadataSettings" in sData:
                 metadataSettings = sData["metadataSettings"]
-                self.metaPresets.presetOrder = metadataSettings["metaPresetOrder"]
-                self.metaPresets.currentPreset = metadataSettings["currMetaPreset"]
-                self.sidecarStates = metadataSettings["sidecarStates"]
+                self.metaPresets.presetOrder = metadataSettings.get("metaPresetOrder", [])
+                self.metaPresets.currentPreset = metadataSettings.get("currMetaPreset", "")
+                self.sidecarStates = metadataSettings.get("sidecarStates", {})
 
             #   Overwrite Option
-            self.sourceFuncts.chb_overwrite.setChecked(tabData["enable_overwrite"])
+            self.sourceFuncts.chb_overwrite.setChecked(tabData.get("enable_overwrite", False))
 
             self.sourceFuncts.updateUI()
 
