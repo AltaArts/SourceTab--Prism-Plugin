@@ -306,7 +306,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   Source Table setup
         self.lw_source.setObjectName("sourceTable")
-
         self.lw_source.setDragEnabled(True)
         self.lw_source.setDefaultDropAction(Qt.CopyAction)
         self.lw_source.setAcceptDrops(True)
@@ -327,7 +326,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   Destination Table setup
         self.lw_destination.setObjectName("destTable")
-
         self.lw_destination.setDragEnabled(True)
         self.lw_destination.setDragDropMode(QAbstractItemView.DropOnly)
         self.lw_destination.setAcceptDrops(True)
@@ -348,7 +346,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.b_enablePlayer.setCheckable(True)
         self.b_enablePlayer.setFixedSize(32,32)
         self.b_enablePlayer.setIconSize(QSize(22, 22))
-        #   Add to Topbat
         self.lo_playerTopbar.addWidget(self.b_enablePlayer)
 
         #   Player Toolbar
@@ -394,13 +391,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             from PreviewPlayer_GPU import PreviewPlayer_GPU
             self.PreviewPlayer = PreviewPlayer_GPU(self)
-
         else:
             logger.status("Initializing CPU PreviewViewer")
-
             from PreviewPlayer_CPU import PreviewPlayer_CPU
             self.PreviewPlayer = PreviewPlayer_CPU(self)
-
 
         self.lo_playerTopbar.addWidget(self.playerToolbar)
 
@@ -414,14 +408,21 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   Create Container to hold the Right Panel
         self.w_rightPanelContainer = QWidget()
+        self.w_rightPanelContainer.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.w_rightPanelContainer.setLayout(self.lo_rightPanel)
 
-        #   Add Right Panel Container to the Splitter
-        self.splitter.addWidget(self.w_rightPanelContainer)
+        #   Wrap Right Panel in a ScrollArea
+        self.scrollRightPanel = QScrollArea()
+        self.scrollRightPanel.setWidgetResizable(True)
+        self.scrollRightPanel.setWidget(self.w_rightPanelContainer)
+
+        #   Add Scrollable Right Panel to the Splitter
+        self.splitter.addWidget(self.scrollRightPanel)
 
         self.setToolTips()
 
         logger.debug("Loaded SourceTab UI")
+
 
 
     @err_catcher(name=__name__)

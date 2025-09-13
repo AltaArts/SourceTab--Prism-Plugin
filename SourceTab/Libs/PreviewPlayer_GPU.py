@@ -120,7 +120,6 @@ class PreviewPlayer_GPU(QWidget):
         self.pstart = 0
         self.pend = 0
         self.previewEnabled = True
-        # self.state = "enabled"
 
         self.playTimer = QTimer(self)
         self.playTimer.timeout.connect(self._playNextFrame)
@@ -136,14 +135,14 @@ class PreviewPlayer_GPU(QWidget):
         self.enableControls(False)
 
 
-        # Connect Signal to GL Widget
+        #   Connect Signal to Update Display
         self.frameReady.connect(self.DisplayWindow.displayFrame)
         self.PreviewCache.firstFrameComplete.connect(self.onFirstFrameReady)
 
         self.core.registerCallback("onProjectBrowserClose",
                                    self.onProjectBrowserClose,
                                    plugin=self.sourceBrowser.plugin)
-        
+
 
     @property
     def ocioEnabled(self):
@@ -408,8 +407,8 @@ class PreviewPlayer_GPU(QWidget):
             target_height = max(1, int(window_width * aspect))
 
             #   Resize the Preview Widget
-            self.DisplayWindow.setMinimumHeight(target_height)
-            self.DisplayWindow.setMaximumHeight(target_height)
+            if self.DisplayWindow.height() != target_height:
+                self.DisplayWindow.setFixedHeight(target_height)
 
             #   Resize GL Window
             if hasattr(self.DisplayWindow, "scale_w") and hasattr(self.DisplayWindow, "scale_h"):
@@ -544,7 +543,7 @@ class PreviewPlayer_GPU(QWidget):
     def makeBlackFrame(self):
         width = self.DisplayWindow.width()
         if width <= 0:
-            width = 300
+            width = 100
 
         height = int(width / (16/9))
 
