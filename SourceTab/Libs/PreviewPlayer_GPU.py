@@ -68,6 +68,7 @@ from qtpy.QtGui import *
 from qtpy.QtWidgets import *
 
 
+
 from PrismUtils.Decorators import err_catcher
 
 import SourceTab_Utils as Utils
@@ -2784,6 +2785,8 @@ class OcioPresetsEditor(QDialog):
 
     #   Retrieve and Create OCIO Transforms Data Object
     def buildTransforms(self):
+        # import PyOpenColorIO as ocio
+
         self.ocioConfig = ocio.GetCurrentConfig()
         self.OcioTransforms = OcioTransforms(self.core, self.ocioConfig)
 

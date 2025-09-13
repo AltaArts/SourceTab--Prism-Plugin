@@ -53,10 +53,11 @@ import sys
 import subprocess
 import logging
 import json
-from collections import deque, defaultdict
+from collections import OrderedDict, deque, defaultdict
 from datetime import datetime
 from time import time
 from functools import partial
+import re
 from pathlib import Path
 
 
@@ -67,7 +68,7 @@ from qtpy.QtWidgets import *
 
 prismRoot = os.getenv("PRISM_ROOT")
 
-rootScripts = os.path.join(prismRoot, "Scripts")
+rootScripts = os.path.join(prismRoot, "Scripts")                                    #   TODO - CLEANUP
 pluginPath = os.path.dirname(os.path.dirname(__file__))
 pyLibsPath = os.path.join(pluginPath, "PythonLibs", "Python311")
 uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
@@ -87,6 +88,7 @@ from reportlab.lib.utils import ImageReader
 
 
 #   Prism Libs
+# from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 
@@ -135,6 +137,9 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.audioFormats = [".wav", ".aac", ".mp3", ".pcm", ".aiff",
                              ".flac", ".alac", ".ogg", ".wma"]
 
+        self.sidecarStates = {"Resolve (.csv)": True,
+                              "Avid (.ale)": True}
+
         self.filterStates_source = {
                                     "Videos": True,
                                     "Sequences": True,
@@ -152,9 +157,6 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                                   }
         
         self.sortOptions = {}
-        
-        self.sidecarStates = {"Resolve (.csv)": True,
-                              "Avid (.ale)": True}
         
         self.sourceDir = ""
         self.destDir = ""
@@ -1000,7 +1002,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
                 metadataSettings = sData["metadataSettings"]
                 self.metaPresets.presetOrder = metadataSettings.get("metaPresetOrder", [])
                 self.metaPresets.currentPreset = metadataSettings.get("currMetaPreset", "")
-                self.sidecarStates = metadataSettings.get("sidecarStates", {})
+                saved = metadataSettings.get("sidecarStates") or {}
+                self.sidecarStates = {**self.sidecarStates, **saved}
 
             #   Overwrite Option
             self.sourceFuncts.chb_overwrite.setChecked(tabData.get("enable_overwrite", False))
@@ -1016,6 +1019,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     #   Toggles Media Player Visibility
     @err_catcher(name=__name__)
     def togglePreviewPlayer(self, checked):
+
+        checked = True                                          #   TESTING
         self.PreviewPlayer.setVisible(checked)
         self.playerToolbar.setVisible(checked)
 
@@ -2566,7 +2571,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         try:
             ##  HEADER SECTION
             availSpace = Utils.getDriveSpace(os.path.normpath(self.destDir))
-            availspace_str = Utils.getFileSizeStr(availSpace)
+            availSpace_str = Utils.getFileSizeStr(availSpace)
 
             if self.proxyEnabled:
                 presetName = self.proxySettings.get("proxyPreset", "")
@@ -2585,7 +2590,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             header = {
                 "Destination Path": self.destDir,
-                "Available Drive Space": availspace_str,
+                "Available Drive Space": availSpace_str,
                 "Number of Files": len(self.copyList),
                 "Total Transfer Size": Utils.getFileSizeStr(self.total_transferSize),
                 "Allow Overwrite": self.sourceFuncts.chb_overwrite.isChecked(),
