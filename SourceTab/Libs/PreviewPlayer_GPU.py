@@ -134,7 +134,6 @@ class PreviewPlayer_GPU(QWidget):
 
         self.enableControls(False)
 
-
         #   Connect Signal to Update Display
         self.frameReady.connect(self.DisplayWindow.displayFrame)
         self.PreviewCache.firstFrameComplete.connect(self.onFirstFrameReady)
@@ -317,7 +316,6 @@ class PreviewPlayer_GPU(QWidget):
     #   Loads Player Settings
     @err_catcher(name=__name__)
     def loadSettings(self, pData=None):
-
         #   Gets Saved User Config if not Passed
         if not pData:
             pData = self.core.getConfig("browser", "mediaPlayerSettings")
@@ -383,43 +381,6 @@ class PreviewPlayer_GPU(QWidget):
         self.DisplayWindow.setVisible(state)
         self.w_timeslider.setVisible(state)
         self.w_playerCtrls.setVisible(state)
-
-
-    @err_catcher(name=__name__)
-    def displayResizeEvent(self, event):
-        # Update overlay geometry
-        self.dragOverlay.setGeometry(self.DisplayWindow.rect())
-
-        # Run your preview aspect adjustments
-        self.adjustPreviewAspect()
-
-        # Call the original Qt resizeEvent
-        if hasattr(self.DisplayWindow, "resizeEventOrig"):
-            self.DisplayWindow.resizeEventOrig(event)
-
-
-    @err_catcher(name=__name__)
-    def adjustPreviewAspect(self):
-        if self.pwidth > 0 and self.pheight > 0:
-            #   Calculate Preview Size from Window Width and Image Aspect Ration
-            window_width = self.DisplayWindow.width()
-            aspect = self.pheight / self.pwidth
-            target_height = max(1, int(window_width * aspect))
-
-            #   Resize the Preview Widget
-            if self.DisplayWindow.height() != target_height:
-                self.DisplayWindow.setFixedHeight(target_height)
-
-            #   Resize GL Window
-            if hasattr(self.DisplayWindow, "scale_w") and hasattr(self.DisplayWindow, "scale_h"):
-                self.DisplayWindow.scale_w = 1.0
-                self.DisplayWindow.scale_h = 1.0
-
-            #   Force GL Widget to Update
-            self.DisplayWindow.update()
-
-        text = self.l_info.toolTip() or self.l_info.text()
-        self.setInfoText(text)
 
 
     @err_catcher(name=__name__)
@@ -538,21 +499,6 @@ class PreviewPlayer_GPU(QWidget):
         self.sl_previewImage.setToolTip(tip)
 
 
-    #   Generate a Black 16:9 Frame at Current Preview Width
-    @err_catcher(name=__name__)
-    def makeBlackFrame(self):
-        width = self.DisplayWindow.width()
-        if width <= 0:
-            width = 100
-
-        height = int(width / (16/9))
-
-        self.pwidth = width
-        self.pheight = height
-
-        frame = np.zeros((height, width, 3), dtype=np.uint8)
-        return frame
-
 
 ###########################################
 ###########    MOUSE ACTIONS   ############
@@ -604,22 +550,6 @@ class PreviewPlayer_GPU(QWidget):
 
 ###############################################
 ###########    PLAYBACK CONTROLS   ############
-
-    @err_catcher(name=__name__)
-    def resetImage(self):
-        self.DisplayWindow.displayFrame(0, self.makeBlackFrame(), useOCIO=False)
-        self.adjustPreviewAspect()
-
-        self.PreviewCache.clear()
-        self.l_pxyIcon.setVisible(False)
-        self.currentFrameIdx = 0
-        self._playFrameIndex = 0
-        self._playBaseOffset = 0
-        self._pausedOffset = 0
-
-        self.sl_previewImage.setValue(0)
-        self.sp_current.setValue(0)
-        self.updateCacheSlider(reset=True)
 
 
     @err_catcher(name=__name__)
@@ -818,7 +748,6 @@ class PreviewPlayer_GPU(QWidget):
             self.onPlayClicked()
 
 
-
 ###########################################
 ###########    LOADING MEDIA   ############
 
@@ -850,10 +779,10 @@ class PreviewPlayer_GPU(QWidget):
         self.updatePreview(mediaFiles)
 
         #   Resize Player for Image
-        self.adjustPreviewAspect()
+        self.resizeDisplay(self.pwidth, self.pheight)
 
 
-    #   Check is Media in Prism Supported Formats and FFmpeg Codecs
+    #   Check if Media in Prism Supported Formats and FFmpeg Codecs
     @err_catcher(name=__name__)
     def checkMedia(self, mediaFiles, metadata):
         ext = Utils.getFileExtension(mediaFiles[0])
@@ -1034,6 +963,88 @@ class PreviewPlayer_GPU(QWidget):
 
 ###########################################
 ###########    IMAGE DISPLAY   ############
+
+    #   Handle Resize Event
+    @err_catcher(name=__name__)
+    def displayResizeEvent(self, event):
+        #   Call for Window Resize
+        self.resizeDisplay(self.pwidth, self.pheight)
+
+        #   Call Original Qt resizeEvent if it Exists
+        if hasattr(self.DisplayWindow, "resizeEventOrig"):
+            self.DisplayWindow.resizeEventOrig(event)
+
+
+    #   Resizes All Elements of the Display (Widget, Gl Window, Drag Overlay)
+    @err_catcher(name=__name__)
+    def resizeDisplay(self, img_w: int, img_h: int):
+        if img_w <= 0 or img_h <= 0:
+            return
+
+        #   Set Gl Window Size
+        self.DisplayWindow.setMediaSize(img_w, img_h)
+
+        # Determine current display width
+        display_width = self.DisplayWindow.width()
+        if display_width <= 0:
+            display_width = 100
+
+        #   Calculate Aspect Ratio
+        aspect = img_w / float(img_h)
+        target_height = max(1, int(display_width / aspect))
+
+        #   Resize the DisplayWindow Widget
+        self.DisplayWindow.setFixedHeight(target_height)
+        self.DisplayWindow.resize(display_width, target_height)
+
+        #   Resize Drag Overlay Geo
+        self.dragOverlay.setGeometry(self.DisplayWindow.rect())
+
+        #   Update Info Text if Needed
+        text = self.l_info.toolTip() or self.l_info.text()
+        self.setInfoText(text)
+
+        #   Call for Repaint
+        self.DisplayWindow.update()
+
+
+    #   Generate a Black 16:9 Frame at Current Preview Width
+    @err_catcher(name=__name__)
+    def makeBlackFrame(self):
+        width = self.DisplayWindow.width()
+        if width <= 0:
+            width = 100
+
+        height = int(width / (16/9))
+
+        self.pwidth = width
+        self.pheight = height
+
+        frame = np.zeros((height, width, 3), dtype=np.uint8)
+        return frame
+
+
+    #   Resets Display Image and Timeline
+    @err_catcher(name=__name__)
+    def resetImage(self):
+        #   Generate a Black Frame and Display It
+        self.DisplayWindow.displayFrame(0, self.makeBlackFrame(), useOCIO=False)
+        #   Calls Resize
+        QTimer.singleShot(0, lambda: self.resizeDisplay(self.pwidth, self.pheight))
+
+        #   Reset Timeline and Cache
+        self.PreviewCache.clear()
+        self.l_pxyIcon.setVisible(False)
+        self.currentFrameIdx = 0
+        self._playFrameIndex = 0
+        self._playBaseOffset = 0
+        self._pausedOffset = 0
+
+        self.sl_previewImage.setValue(0)
+        self.sp_current.setValue(0)
+        self.updateCacheSlider(reset=True)
+
+
 
     @err_catcher(name=__name__)
     def onFirstFrameReady(self, frameIdx: int):
@@ -1818,10 +1829,14 @@ class GLVideoDisplay(QOpenGLWidget):
         super().__init__(parent)
         self.player = player
         self.core = core
+
         self.frame = None
         self.texture_id = None
         self.program = None
         self.vao = None
+
+        self.image_w = 1
+        self.image_h = 1
         self.scale_w = 1.0
         self.scale_h = 1.0
 
@@ -1845,7 +1860,6 @@ class GLVideoDisplay(QOpenGLWidget):
     #######################
     ######    API   #######
 
-    #   Updates OCIO Transforms
     @err_catcher(name=__name__)
     def setBackground(self, pixel_size:int = 20,
                       checker_color1:tuple = (0.0, 0.0, 0.0),
@@ -1871,7 +1885,6 @@ class GLVideoDisplay(QOpenGLWidget):
             return False
 
 
-    #   Updates OCIO Transforms
     @err_catcher(name=__name__)
     def setOcioTransforms(self,
                           inputSpace: str,
@@ -1968,12 +1981,22 @@ class GLVideoDisplay(QOpenGLWidget):
             self.luts = []
 
             return "OCIO Error"
-        
 
-    #   Displays Frame Numpy Array in Viewer
+
+    @err_catcher(name=__name__)
+    def setMediaSize(self, w:int, h:int) -> None:
+        """Computes Gl Window Size based on Passed Widget Size"""
+
+        self.image_w = w
+        self.image_h = h
+
+        self.recomputeScale(self.width(), self.height())
+        self.update()
+
+
     @err_catcher(name=__name__)
     def displayFrame(self, frameIdx: int, frame: np.ndarray, useOCIO=True) -> bool:
-        '''Displays Frame in Viwer'''
+        '''Displays Frame Numpy Array in Viwer'''
 
         try:
             self.frameIdx = frameIdx
@@ -2023,6 +2046,7 @@ class GLVideoDisplay(QOpenGLWidget):
     def compileShader(self, src, shader_type):
         #   Create Empty Shader
         shader = glCreateShader(shader_type)
+
         #   Compile Using Shader Code
         glShaderSource(shader, src)
         glCompileShader(shader)
@@ -2078,8 +2102,8 @@ class GLVideoDisplay(QOpenGLWidget):
         uniform float uAspect; // width / height
 
         void main() {
-            float cx = floor(vTexCoord.x * uCheckerCount * uAspect);
-            float cy = floor(vTexCoord.y * uCheckerCount);
+            float cx = floor((1.0 - vTexCoord.x) * uCheckerCount * uAspect);
+            float cy = floor((1.0 - vTexCoord.y) * uCheckerCount);   
 
             if (mod(cx + cy, 2.0) < 1.0)
                 fragColor = vec4(uColor1, 1.0);
@@ -2147,14 +2171,18 @@ class GLVideoDisplay(QOpenGLWidget):
         glBindVertexArray(0)
 
 
-    #   Resize GL Window and Recalc Checkboard
-    @err_catcher(name=__name__)
+    #   Resize Gl Window
     def resizeGL(self, w, h):
+        self.recomputeScale(w, h)
+
+
+    #   Computes Normalized Gl Window Size
+    def recomputeScale(self, w, h):
         glViewport(0, 0, max(1, w), max(1, h))
-        if self.frame is not None:
-            vid_h, vid_w = self.frame.shape[:2]
-            img_aspect = vid_w / float(vid_h) if vid_h != 0 else 1.0
-            widget_aspect = w / float(h) if h != 0 else 1.0
+
+        if self.image_w > 0 and self.image_h > 0:
+            img_aspect = self.image_w / float(self.image_h)
+            widget_aspect = w / float(h) if h > 0 else 1.0
 
             if widget_aspect > img_aspect:
                 self.scale_w = img_aspect / widget_aspect
@@ -2181,9 +2209,9 @@ class GLVideoDisplay(QOpenGLWidget):
                 lut_path,
                 interpolation=ocio.Interpolation.INTERP_LINEAR,
                 direction=ocio.TransformDirection.TRANSFORM_DIR_FORWARD
-            )
+                )
 
-            # Quick validation by trying to create a temporary processor
+            #   Quick Validation by Creating a Temp Processor
             ocio.GetCurrentConfig().getProcessor(lutTransform)
             return lutTransform
 
@@ -2270,26 +2298,18 @@ class GLVideoDisplay(QOpenGLWidget):
             return img_np
 
 
-    #   Paint the Image to the GL Window
+    #   Draw The Checkerboard Background Layer
     @err_catcher(name=__name__)
-    def paintGL(self):
-        #   Clear Window
-        glClearColor(0.0, 0.0, 0.0, 1.0)
-        glClear(GL_COLOR_BUFFER_BIT)
-        glDisable(GL_DEPTH_TEST)
-        glEnable(GL_BLEND)
-
-        #   Bind VAO Quad
-        glBindVertexArray(self.vao)
-
-        ###   Draw Checkerboard
+    def drawCheckerBg(self):
+        #	Use Checkerboard Shader Program
         glUseProgram(self.program_checker)
 
-        #   Get Variables
+        #	Set Checker Count Uniform
         checkerLoc = glGetUniformLocation(self.program_checker, "uCheckerCount")
         if checkerLoc != -1:
             glUniform1f(checkerLoc, self.checker_count)
 
+        #	Set Checker Colors Uniforms
         color1Loc = glGetUniformLocation(self.program_checker, "uColor1")
         color2Loc = glGetUniformLocation(self.program_checker, "uColor2")
         if color1Loc != -1:
@@ -2297,109 +2317,142 @@ class GLVideoDisplay(QOpenGLWidget):
         if color2Loc != -1:
             glUniform3f(color2Loc, *self.checker_color2)
 
+        #	Set Scale Uniform To Identity
         scaleLoc = glGetUniformLocation(self.program_checker, "uScale")
         if scaleLoc != -1:
             glUniform2f(scaleLoc, 1.0, 1.0)
 
-        #   Calculate Aspect Ratio
+        #	Calculate Aspect Ratio Of Widget
         aspect = self.width() / max(1, self.height())
 
+        #	Set Aspect Uniform
         aspectLoc = glGetUniformLocation(self.program_checker, "uAspect")
         if aspectLoc != -1:
             glUniform1f(aspectLoc, aspect)
 
-        #   Paint Checkboard Quad
+        #	Draw Checkerboard Quad
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4)
 
-        ### Draw Image
-        if self.frame is not None and self.program_image:
-            img_data = np.ascontiguousarray(self.frame)
 
-            #   Convert Float32 to UINT8 if Needed
-            if img_data.dtype in (np.float32, np.float64):
-                img_data = np.clip(img_data * 255.0, 0, 255).astype(np.uint8)
 
-            #   Apply OCIO CPU Transform on Image
-            try:
-                src = img_data
+    #   Draw the Media Image Layer
+    @err_catcher(name=__name__)
+    def drawImage(self):
+        if self.frame is None or not self.program_image:
+            return
 
-                #   RGBA Image
-                if src.ndim == 3 and src.shape[2] == 4:
-                    #   Strip Alpha if Applicable
-                    rgb = src[..., :3].copy()
-                    alpha = src[..., 3:].copy()
+	    #	Convert Frame To Contiguous Numpy Array
+        img_data = np.ascontiguousarray(self.frame)
 
-                    #   Apply OCIO
-                    if self.useOCIO and self.player.ocioEnabled:
-                        rgb_out = self.applyOCIO_CPU(rgb, self.inputSpace, self.display, self.view, self.look, self.luts)
-                    else:
-                        rgb_out = rgb
+        #   Convert to uInt8 if Needed
+        if img_data.dtype in (np.float32, np.float64):
+            img_data = np.clip(img_data * 255.0, 0, 255).astype(np.uint8)
 
-                    if rgb_out.dtype != np.uint8:
-                        rgb_out = rgb_out.astype(np.uint8)
+        try:
+            src = img_data
 
-                    #   Re-attach Alpha to RGB
-                    img_data = np.concatenate([rgb_out, alpha], axis=-1)
+            #	Process RGBA Image
+            if src.ndim == 3 and src.shape[2] == 4:
+                #	Split RGB And Alpha Channels
+                rgb = src[..., :3].copy()
+                alpha = src[..., 3:].copy()
 
-                #   RGB Image
+                #	Apply OCIO Transform If Enabled
+                if self.useOCIO and self.player.ocioEnabled:
+                    rgb_out = self.applyOCIO_CPU(rgb, self.inputSpace, self.display, self.view, self.look, self.luts)
                 else:
-                    #   Apply OCIO
-                    if self.useOCIO and self.player.ocioEnabled:
-                        rgb_out = self.applyOCIO_CPU(src, self.inputSpace, self.display, self.view, self.look, self.luts)
-                    else:
-                        rgb_out = src
-                    
-                    if rgb_out.ndim == 2:
-                        rgb_out = np.repeat(rgb_out[..., None], 3, axis=2)
+                    rgb_out = rgb
 
-                    if rgb_out.dtype != np.uint8:
-                        rgb_out = rgb_out.astype(np.uint8)
+                #	Ensure uInt8 Format
+                if rgb_out.dtype != np.uint8:
+                    rgb_out = rgb_out.astype(np.uint8)
 
-                    img_data = rgb_out
+                #	Reattach Alpha Channel
+                img_data = np.concatenate([rgb_out, alpha], axis=-1)
 
-            except Exception as e:
-                logger.warning(f"ERROR: Unable to Apply OCIO transform: {e}")
-                img_data = self.frame
-
-            #   Prepare Texture Upload
-            h, w = img_data.shape[:2]
-            channels = img_data.shape[2] if img_data.ndim == 3 else 1
-
-            glBindTexture(GL_TEXTURE_2D, self.texture_id)
-
-            if channels == 4:
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-
+            #	Process RGB Image
             else:
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
-                glBlendFunc(GL_ONE, GL_ZERO)
+                #	Apply OCIO Transform If Enabled
+                if self.useOCIO and self.player.ocioEnabled:
+                    rgb_out = self.applyOCIO_CPU(src, self.inputSpace, self.display, self.view, self.look, self.luts)
+                else:
+                    rgb_out = src
 
-            #   Set Filtering
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+                #	Convert Grayscale To RGB
+                if rgb_out.ndim == 2:
+                    rgb_out = np.repeat(rgb_out[..., None], 3, axis=2)
 
-            #   Draw the Image Quad
-            glUseProgram(self.program_image)
+                #	Ensure UInt8 Format
+                if rgb_out.dtype != np.uint8:
+                    rgb_out = rgb_out.astype(np.uint8)
 
-            #   Set Scale
-            scaleLoc = glGetUniformLocation(self.program_image, "uScale")
-            if scaleLoc != -1:
-                glUniform2f(scaleLoc, self.scale_w, self.scale_h)
+                img_data = rgb_out
 
-            #   Bind Texture to Sampler
-            texLoc = glGetUniformLocation(self.program_image, "uTex")
-            if texLoc != -1:
-                glActiveTexture(GL_TEXTURE0)
-                glBindTexture(GL_TEXTURE_2D, self.texture_id)
-                glUniform1i(texLoc, 0)
+        except Exception as e:
+            #	Fallback To Original Frame On Error
+            logger.warning(f"ERROR: Unable to Apply OCIO transform: {e}")
+            img_data = self.frame
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+        #	Get Image Dimensions And Channel Count
+        h, w = img_data.shape[:2]
+        channels = img_data.shape[2] if img_data.ndim == 3 else 1
 
-        #   Unbiond VAO
+        #	Bind Texture
+        glBindTexture(GL_TEXTURE_2D, self.texture_id)
+    
+        #	Upload Texture Data
+        if channels == 4:
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        else:
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, img_data)
+            glBlendFunc(GL_ONE, GL_ZERO)
+
+        #	Set Texture Filtering (Linear for Speed)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+
+        #	Use Image Shader Program
+        glUseProgram(self.program_image)
+
+        #	Set Scale Uniform
+        scaleLoc = glGetUniformLocation(self.program_image, "uScale")
+        if scaleLoc != -1:
+            glUniform2f(scaleLoc, self.scale_w, self.scale_h)
+
+        #	Bind Texture To Sampler Uniform
+        texLoc = glGetUniformLocation(self.program_image, "uTex")
+        if texLoc != -1:
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(GL_TEXTURE_2D, self.texture_id)
+            glUniform1i(texLoc, 0)
+
+        #	Draw Quad With EBO
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.ebo)
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+
+
+
+    #   Paint the Image to the GL Window
+    @err_catcher(name=__name__)
+    def paintGL(self):
+        #   Clear and Set Window Blending
+        glClearColor(0.0, 0.0, 0.0, 1.0)
+        glClear(GL_COLOR_BUFFER_BIT)
+        glDisable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+        
+        #   Bind VAO Quad
+        glBindVertexArray(self.vao)
+
+        ##  Draw Layers
+        self.drawCheckerBg()
+        self.drawImage()
+
+        #   Unbind VAO
         glBindVertexArray(0)
+
 
 
 
