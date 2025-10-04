@@ -1257,12 +1257,19 @@ class PreviewPlayer_GPU(QWidget):
     #   Opens OCIO Presets Editor
     @err_catcher(name=__name__)
     def editOcioPresets(self):
+        if not self.DisplayWindow.ocioConfig:
+            errStr = "There does not seem to be a System OCIO Config set"
+            logger.warning(errStr)
+            self.core.popup(errStr)
+            return
+        
         #   Captures Current Preset
         currPreset = self.sourceBrowser.cb_ocioPresets.currentText()
         self.sourceBrowser.ocioPresets.currentPreset = currPreset
 
         #   Create and Display Window
         editWindow = OcioPresetsEditor(self.core, self)
+
         logger.debug("Opening OCIO Presets Editor")
         editWindow.exec_()
 
@@ -1844,13 +1851,12 @@ class GLVideoDisplay(QOpenGLWidget):
         self.checker_color1 = (0.0, 0.0, 0.0) # black
         self.checker_color2 = (0.1, 0.1, 0.1) # grey
 
+        self.ocioConfig = None
         self.inputSpace = ""
         self.display = ""
         self.view = ""
         self.look = None
         self.luts = None
-
-        self.config = ocio.GetCurrentConfig()
 
         #   Add RCL Menu
         self.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -1896,26 +1902,40 @@ class GLVideoDisplay(QOpenGLWidget):
         '''Updates OCIO Transforms for Display'''
 
         try:
-            config = ocio.GetCurrentConfig()
+            self.ocioConfig = ocio.GetCurrentConfig()
 
+        except ocio.ExceptionMissingFile as e:
+            logger.warning(f"OCIO Config file missing: {e}")
+            return f"OCIO Config file missing:\n\n{e}"
+        
+        except ocio.Exception as e:
+            logger.warning(f"OCIO Config error: {e}")
+            return f"Unable to get OCIO Config:\n\n{e}"
+
+        except Exception as e:
+            errorsStr = "Unable to get OCIO Config:\n\n"
+            errorsStr += e
+            return errorsStr
+
+        try:
             errors = []
 
             ##   Validate Passed Transforms Exist in Config
 
             #   Check Input Colorspace
-            if inputSpace not in config.getColorSpaceNames():
+            if inputSpace not in self.ocioConfig.getColorSpaceNames():
                 errStr = f"Invalid OCIO Input ColorSpace '{inputSpace}'"
                 logger.warning(errStr)
                 errors.append(errStr)
 
             #   Check Display
-            if display not in config.getDisplays():
+            if display not in self.ocioConfig.getDisplays():
                 errStr = f"Invalid OCIO Display '{display}'"
                 logger.warning(errStr)
                 errors.append(errStr)
 
             #   Check View
-            if view not in config.getViews(display):
+            if view not in self.ocioConfig.getViews(display):
                 errStr = f"Invalid OCIO View '{view}' for display '{display}'"
                 logger.warning(errStr)
                 errors.append(errStr)
@@ -1950,7 +1970,7 @@ class GLVideoDisplay(QOpenGLWidget):
                             lut = None
 
             #   Check Look
-            if look and look not in config.getLookNames():
+            if look and look not in self.ocioConfig.getLookNames():
                 errStr = f"Invalid OCIO Look '{look}', ignoring."
                 logger.warning(errStr)
                 errors.append(errStr)
@@ -1966,7 +1986,6 @@ class GLVideoDisplay(QOpenGLWidget):
                 # title = "OCIO PRESET ERROR"
                 errorsStr = "There are Errors with the Selected OCIO Transforms:\n\n"
                 errorsStr += "\n".join(f"- {err}\n" for err in errors)
-                # self.core.popup(text=text, title=title)
                 return errorsStr
             
             return True
@@ -2212,7 +2231,7 @@ class GLVideoDisplay(QOpenGLWidget):
                 )
 
             #   Quick Validation by Creating a Temp Processor
-            ocio.GetCurrentConfig().getProcessor(lutTransform)
+            self.ocioConfig.getProcessor(lutTransform)
             return lutTransform
 
         except Exception as e:
@@ -2247,9 +2266,6 @@ class GLVideoDisplay(QOpenGLWidget):
 
             h, w, c = img_np_f32.shape
 
-            #   Get and Set Transforms
-            config = ocio.GetCurrentConfig()
-
             #   Create Transform Group to Hold All Transforms
             final_transform = ocio.GroupTransform()
 
@@ -2282,7 +2298,7 @@ class GLVideoDisplay(QOpenGLWidget):
                         logger.warning(f"Skipping invalid LUT: {lut_path}")
 
             #   Create CPU Processor
-            processor = config.getProcessor(final_transform)
+            processor = self.ocioConfig.getProcessor(final_transform)
             cpu_proc = processor.getDefaultCPUProcessor()
 
             #   Apply Transform
@@ -2837,8 +2853,6 @@ class OcioPresetsEditor(QDialog):
 
     #   Retrieve and Create OCIO Transforms Data Object
     def buildTransforms(self):
-        # import PyOpenColorIO as ocio
-
         self.ocioConfig = ocio.GetCurrentConfig()
         self.OcioTransforms = OcioTransforms(self.core, self.ocioConfig)
 
