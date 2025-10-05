@@ -18,7 +18,7 @@ You can find more information on the website:
 - Allows quick viewing of a directory of clips with thumbnail and metadata display.
 - Drag/drop UI interface for File Tiles ([see **Drag/Drop**](Docs/Doc-Interface.md/#drag--drop))
 - Keyboard shortcuts (hotkeys) are provided for common actions ([see **Shortcuts**](Docs/Doc-Interface.md/#keyboard-shortcuts-hotkeys)).
-- Mini Preview Viewer for quick review of clips ([see **Preview Player**](Docs/Doc-Interface.md/#preview-viewer)).
+- Mini Preview Viewer for quick review of clips ([see **Preview Player**](Docs/Doc-Interface.md/#preview-player)).
 - Transfer Report generated during transfer ([see **Transfer Report**](Docs/Doc-Interface.md/#transfer-report)).
 - Metadata sidecar files generation ([see **Sidecars**](Docs/Doc-Metadata.md/#sidecar-generation))
 - Automated Proxy search/transfer/generation ([see **Proxys**](Docs/Doc-Proxys.md)).
