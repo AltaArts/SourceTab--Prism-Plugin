@@ -19,7 +19,9 @@
 [**File Tile**](Doc-Interface.md/#file-tiles)<br>
 [**Functions Panel**](Doc-Interface.md/#functions-panel)<br>
 [**Keyboard Shortcuts**](Doc-Interface.md/#keyboard-shortcuts-hotkeys)<br>
-[**Preview Player**](Doc-Interface.md/#preview-viewer)<br>
+[**Preview Player**](Doc-Interface.md/#preview-player)<br>
+[**Preview Player Settings**](Doc-Interface.md/#player-settings)<br>
+[**OCIO Presets**](Doc-Interface.md/#ocio-presets)<br>
 [**Sidecar Files**](Doc-Interface.md/#sidecar-files)<br>
 [**Source Browser**](Doc-Interface.md/#source-browser)<br>
 [**Transfer Popup**](Doc-Interface.md/#transfer-popup)<br>

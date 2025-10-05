@@ -60,13 +60,17 @@ import numpy as np
 from OpenGL.GL import *
 import av
 
-import PyOpenColorIO as ocio
 
+#   Import OCIO from Media Extension or SourceTab Dir
+try:
+    import PyOpenColorIO as ocio
+except ModuleNotFoundError:
+    import ocio.PyOpenColorIO as ocio
+    
 
 from qtpy.QtCore import *
 from qtpy.QtGui import *
 from qtpy.QtWidgets import *
-
 
 
 from PrismUtils.Decorators import err_catcher
@@ -893,7 +897,6 @@ class PreviewPlayer_GPU(QWidget):
 
             #   Just Display 1st Frame
             else:
-                # self.setCurrentFrame(self.pstart-1, manual=True, reset=False)
                 self.setCurrentFrame(0, manual=True, reset=False)
 
             return True
