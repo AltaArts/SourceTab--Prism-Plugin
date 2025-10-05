@@ -984,6 +984,11 @@ class PreviewPlayer_GPU(QWidget):
         if img_w <= 0 or img_h <= 0:
             return
 
+        # If the GL Widget Hasn't Yet Been Created, Postpone Resize
+        if not self.DisplayWindow.isValid() or self.DisplayWindow.width() == 0:
+            QTimer.singleShot(100, lambda: self.resizeDisplay(img_w, img_h))
+            return
+
         #   Set Gl Window Size
         self.DisplayWindow.setMediaSize(img_w, img_h)
 
@@ -2200,6 +2205,10 @@ class GLVideoDisplay(QOpenGLWidget):
 
     #   Computes Normalized Gl Window Size
     def recomputeScale(self, w, h):
+        #   Ensure Valid GL Context
+        if glGetString(GL_VERSION) is None:
+            return
+        
         glViewport(0, 0, max(1, w), max(1, h))
 
         if self.image_w > 0 and self.image_h > 0:
