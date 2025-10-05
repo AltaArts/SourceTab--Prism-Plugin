@@ -391,6 +391,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
             from PreviewPlayer_GPU import PreviewPlayer_GPU
             self.PreviewPlayer = PreviewPlayer_GPU(self)
+            
         else:
             logger.status("Initializing CPU PreviewViewer")
             from PreviewPlayer_CPU import PreviewPlayer_CPU

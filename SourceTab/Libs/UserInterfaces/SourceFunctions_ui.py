@@ -17,7 +17,7 @@ class Ui_w_sourceFunctions(object):
         if not w_sourceFunctions.objectName():
             w_sourceFunctions.setObjectName(u"w_sourceFunctions")
         w_sourceFunctions.resize(617, 480)
-        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        sizePolicy = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(w_sourceFunctions.sizePolicy().hasHeightForWidth())
@@ -26,10 +26,9 @@ class Ui_w_sourceFunctions(object):
         self.horizontalLayout.setObjectName(u"horizontalLayout")
         self.splitter = QSplitter(w_sourceFunctions)
         self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Orientation.Horizontal)
         self.w_functions = QWidget(self.splitter)
         self.w_functions.setObjectName(u"w_functions")
-        sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy1 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
         sizePolicy1.setHorizontalStretch(8)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.w_functions.sizePolicy().hasHeightForWidth())
@@ -46,7 +45,7 @@ class Ui_w_sourceFunctions(object):
         self.lo_ovr_proxy.setObjectName(u"lo_ovr_proxy")
         self.chb_ovr_proxy = QCheckBox(self.gb_functions)
         self.chb_ovr_proxy.setObjectName(u"chb_ovr_proxy")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sizePolicy2 = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         sizePolicy2.setHorizontalStretch(0)
         sizePolicy2.setVerticalStretch(0)
         sizePolicy2.setHeightForWidth(self.chb_ovr_proxy.sizePolicy().hasHeightForWidth())
@@ -129,7 +128,7 @@ class Ui_w_sourceFunctions(object):
 
         self.gb_lo_functions.addLayout(self.lo_ovr_metadata)
 
-        self.verticalSpacer = QSpacerItem(50, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        self.verticalSpacer = QSpacerItem(20, 500, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
         self.gb_lo_functions.addItem(self.verticalSpacer)
 
@@ -216,7 +215,7 @@ class Ui_w_sourceFunctions(object):
 
         self.lo_transferStats.addWidget(self.l_time_remainText)
 
-        self.horizontalSpacer = QSpacerItem(40, 10, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalSpacer = QSpacerItem(10, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
         self.lo_transferStats.addItem(self.horizontalSpacer)
 
