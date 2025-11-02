@@ -597,8 +597,10 @@ class Prism_SourceTab_Functions(object):
                     logger.debug(f"Loaded Settings for {key}")
                     return sData[key]
                 else:
-                    logger.warning(f"ERROR:  Key '{key}' does not Exist in the Settings.")
-                    return {}
+                    logger.warning(f"ERROR:  Key '{key}' does not Exist in the Settings. Using Default Setting.")
+                    sData = self.getDefaultSettings(key=key)
+                    self.core.setConfig(cat="sourceTab", param=key, val=sData, config="project")
+                    return sData
             else:
                 logger.debug("Loaded Global Settings")
                 return sData

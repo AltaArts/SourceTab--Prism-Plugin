@@ -556,7 +556,10 @@ class ProxyPopup(QDialog):
             self.populatePresetCombo()
 
             #   Preset Settings
-            pSettings = self.sourceBrowser.proxySettings
+            pSettings = getattr(self.sourceBrowser, "proxySettings", None)
+            if not pSettings:
+                pSettings = self.sourceBrowser.plugin.getDefaultSettings(key="proxySettings")
+
             if "fallback_proxyDir" in pSettings:
                 self.le_fallbackDir.setText(pSettings["fallback_proxyDir"])
 
