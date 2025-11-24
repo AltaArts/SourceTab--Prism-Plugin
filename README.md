@@ -41,6 +41,8 @@ This plugin is for Windows only, as Prism2 only supports Windows at this time.
 - You can either download the latest stable release version from: [Latest Release](https://github.com/AltaArts/SourceTab--Prism-Plugin/releases/latest)
 
 - Or download the current code zipfile from the green "Code" button above or on [Github](https://github.com/AltaArts/SourceTab--Prism-Plugin)
+- Prism versions prior to 2.1.0 (Python 3.11), use the SourceTab v1.0.x release
+- Prism versions 2.1.0+ (Python3.13), use the SourceTab 1.1.x release
 
 <br/>
 
