@@ -62,7 +62,38 @@ from qtpy.QtWidgets import *
 from PrismUtils.Decorators import err_catcher_plugin as err_catcher
 
 PLUGINPATH = os.path.dirname(os.path.dirname(__file__))
+
+#   Handle Python Libraries
+if sys.version_info.minor == 13:
+    pyLibsPath = os.path.join(PLUGINPATH, "PythonLibs", "Python313")
+elif sys.version_info.minor == 11:
+    pyLibsPath = os.path.join(PLUGINPATH, "PythonLibs", "Python311")
+else:
+    pyLibsPath = None
+
+if pyLibsPath is None:
+    QMessageBox.critical(
+        None,
+        "Plugin Load Error",
+        f"Unsupported Python version: {sys.version_info.major}.{sys.version_info.minor}\n"
+        "This plugin supports only Python 3.11 or 3.13."
+        )
+    raise RuntimeError("Unsupported Python version")
+
+elif not os.path.exists(pyLibsPath):
+    QMessageBox.critical(
+        None,
+        "Plugin Load Error",
+        f"Required library folder not found.\n\n"
+        "Please install the correct plugin version for your Prism Python version."
+        )
+    raise RuntimeError(f"Missing PythonLibs path: {pyLibsPath}")
+
+uiPath = os.path.join(PLUGINPATH, "Libs", "UserInterfaces")
+
 sys.path.append(PLUGINPATH)
+sys.path.append(pyLibsPath)
+sys.path.append(uiPath)
 sys.path.append(os.path.join(PLUGINPATH, "Libs"))
 
 

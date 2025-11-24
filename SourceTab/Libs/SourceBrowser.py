@@ -49,15 +49,13 @@
 
 
 import os
-import sys
 import subprocess
 import logging
 import json
-from collections import OrderedDict, deque, defaultdict
+from collections import deque, defaultdict
 from datetime import datetime
 from time import time
 from functools import partial
-import re
 from pathlib import Path
 
 
@@ -67,18 +65,11 @@ from qtpy.QtWidgets import *
 
 
 prismRoot = os.getenv("PRISM_ROOT")
-
-rootScripts = os.path.join(prismRoot, "Scripts")                                    #   TODO - CLEANUP
-pluginPath = os.path.dirname(os.path.dirname(__file__))
-pyLibsPath = os.path.join(pluginPath, "PythonLibs", "Python311")
-uiPath = os.path.join(pluginPath, "Libs", "UserInterfaces")
-iconDir = os.path.join(uiPath, "Icons")
-audioDir = os.path.join(uiPath, "Audio")
+PLUGINPATH = os.path.dirname(os.path.dirname(__file__))
+uiPath = os.path.join(PLUGINPATH, "Libs", "UserInterfaces")
+ICONDIR = os.path.join(uiPath, "Icons")
+AUDIODIR = os.path.join(uiPath, "Audio")
 KEYMAP = os.path.join(uiPath, "KeyMap.json")
-sys.path.append(os.path.join(rootScripts, "Libs"))
-sys.path.append(pyLibsPath)
-sys.path.append(pluginPath)
-sys.path.append(uiPath)
 
 
 #   Python Libs
@@ -88,7 +79,6 @@ from reportlab.lib.utils import ImageReader
 
 
 #   Prism Libs
-# from PrismUtils import PrismWidgets
 from PrismUtils.Decorators import err_catcher
 
 
@@ -111,8 +101,8 @@ COLOR_RED = QColor(200, 0, 0)
 COLOR_GREY = QColor(100, 100, 100)
 
 #   Sounds
-SOUND_SUCCESS = os.path.join(audioDir, "Success.wav")
-SOUND_ERROR = os.path.join(audioDir, "Error.wav")
+SOUND_SUCCESS = os.path.join(AUDIODIR, "Success.wav")
+SOUND_ERROR = os.path.join(AUDIODIR, "Error.wav")
 
 
 SOURCE_ITEM_HEIGHT = 70
@@ -129,8 +119,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         self.plugin = origin
         self.core = core
         self.projectBrowser = projectBrowser
-        self.pluginPath = pluginPath
-        self.iconDir = iconDir
+        self.pluginPath = PLUGINPATH
+        self.iconDir = ICONDIR
 
         self.core.parentWindow(self)
 
@@ -271,7 +261,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         ]
 
         for name in icon_names:
-            path = os.path.join(iconDir, f"{name}.png")
+            path = os.path.join(ICONDIR, f"{name}.png")
             icon = self.core.media.getColoredIcon(path)
             setattr(self, f"icon_{name}", icon)
 
@@ -279,19 +269,19 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     @err_catcher(name=__name__)
     def loadLayout(self):
         #   Set Icons
-        upIcon = Utils.getIconFromPath(os.path.join(iconDir, "up.png"))
-        dirIcon = Utils.getIconFromPath(os.path.join(iconDir, "folder.png"))
-        refreshIcon = Utils.getIconFromPath(os.path.join(iconDir, "reset.png"))
-        tipIcon = Utils.getIconFromPath(os.path.join(iconDir, "help.png"))
-        sortIcon = Utils.getIconFromPath(os.path.join(iconDir, "sort.png"))
-        durationIcon = Utils.getIconFromPath(os.path.join(iconDir, "duration.png"))
-        filtersIcon = Utils.getIconFromPath(os.path.join(iconDir, "filters.png"))
-        sequenceIcon = Utils.getIconFromPath(os.path.join(iconDir, "sequence.png"))
-        self.player_on_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_on.png"), 0.75)
-        self.player_off_Icon = Utils.getIconFromPath(os.path.join(iconDir, "screen_off.png"), 0.75)
-        pxyIcon = Utils.getIconFromPath(os.path.join(iconDir, "proxy.png"), 0.75)
-        ocioIcon = Utils.getIconFromPath(os.path.join(iconDir, "ocio.png"), 0.75)
-        cacheIcon = Utils.getIconFromPath(os.path.join(iconDir, "cache.png"), 0.75)
+        upIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "up.png"))
+        dirIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "folder.png"))
+        refreshIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "reset.png"))
+        tipIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "help.png"))
+        sortIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "sort.png"))
+        durationIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "duration.png"))
+        filtersIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "filters.png"))
+        sequenceIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "sequence.png"))
+        self.player_on_Icon = Utils.getIconFromPath(os.path.join(ICONDIR, "screen_on.png"), 0.75)
+        self.player_off_Icon = Utils.getIconFromPath(os.path.join(ICONDIR, "screen_off.png"), 0.75)
+        pxyIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "proxy.png"), 0.75)
+        ocioIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "ocio.png"), 0.75)
+        cacheIcon = Utils.getIconFromPath(os.path.join(ICONDIR, "cache.png"), 0.75)
 
         ##   Source Panel
         #   Set Button Icons

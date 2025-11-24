@@ -496,16 +496,16 @@ class ProxyPopup(QDialog):
     def setToolTips(self):
         tip = ("If not Empty, all Proxy files will be transferred to this directory.\n\n"
                "This can be an:\n"
-               "   Absolute Dir Path:  ( C:\some_path\Proxy ) or\n"
-               "   Relative Dir Path:   ( .\Proxy )")
+               "   Absolute Dir Path:  ( C:\\some_path\\Proxy ) or\n"
+               "   Relative Dir Path:   ( .\\Proxy )")
         self.l_ovrProxyDir.setToolTip(tip)
         self.le_ovrProxyDir.setToolTip(tip)
 
         tip = ("Directory to be Used if there are no Source Proxys to Resolve\n"
                "a Proxy Path from.\n\n"
                "This can be an:\n"
-               "   Absolute Dir Path:  ( C:\some_path\Proxy ) or\n"
-               "   Relative Dir Path:   ( .\Proxy )")
+               "   Absolute Dir Path:  ( C:\\some_path\\Proxy ) or\n"
+               "   Relative Dir Path:   ( .\\Proxy )")
         self.l_fallbackDir.setToolTip(tip)
         self.le_fallbackDir.setToolTip(tip)
 

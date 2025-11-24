@@ -2206,7 +2206,10 @@ class GLVideoDisplay(QOpenGLWidget):
     #   Computes Normalized Gl Window Size
     def recomputeScale(self, w, h):
         #   Ensure Valid GL Context
-        if glGetString(GL_VERSION) is None:
+        try:
+            if glGetString(GL_VERSION) is None:
+                return
+        except:
             return
         
         glViewport(0, 0, max(1, w), max(1, h))

@@ -345,11 +345,12 @@ def playSound(path:str) -> None:
 
     try:
         wave_obj = sa.WaveObject.from_wave_file(path)
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
+        wave_obj.play()
 
     except Exception:
         QApplication.beep()
+
+
 
 ##################################################
 ##################  FORMATTING  ##################
