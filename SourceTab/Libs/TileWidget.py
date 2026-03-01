@@ -506,6 +506,10 @@ class BaseTileItem(QWidget):
     #   Opens the File in the OS
     @err_catcher(name=__name__)
     def doubleClickFile(self, filepath):
+        #   Abort if Media no Longer Exists (such as ejected)
+        if not Utils.checkMediaExists(self.core, filepath):
+            return
+        
         self.browser.openInShell(filepath, prog="default")
 
 
@@ -719,6 +723,10 @@ class BaseTileItem(QWidget):
                 filePath = path
             else:
                 filePath = self.getSource_mainfilePath()
+
+            #   Abort if Media no Longer Exists (such as ejected)
+            if not Utils.checkMediaExists(self.core, filePath):
+                return            
 
             # Create Worker Thread
             worker_thumb = ThumbnailWorker(
@@ -999,11 +1007,14 @@ class BaseTileItem(QWidget):
                 return
             
             else:
-                logger.warning(f"ERROR:  File Type Not Supported in the Preview Viewer")
+                logger.warning("ERROR:  File Type Not Supported in the Preview Viewer")
                 return
 
             metadata = self.data
 
+            #   Abort if Media no Longer Exists (such as ejected)
+            if not Utils.checkMediaExists(self.core, sendFiles[0]):
+                return
 
             logger.debug("Sending Image(s) to Media Viewer")
 
@@ -1593,10 +1604,10 @@ class SourceFileTile(BaseTileItem):
 
             rcmenu.addAction(_separator())
 
-            funct = lambda: Utils.displayCombinedMetadata(self.getSource_mainfilePath())
+            funct = lambda: Utils.displayCombinedMetadata(self.core, self.getSource_mainfilePath())
             Utils.createMenuAction("Show MetaData (Main File)", sc, rcmenu, self.browser, funct)
 
-            funct = lambda: Utils.displayCombinedMetadata(self.getSource_proxyfilePath())
+            funct = lambda: Utils.displayCombinedMetadata(self.core, self.getSource_proxyfilePath())
             Utils.createMenuAction("Show MetaData (Proxy)", sc, rcmenu, self.browser, funct, enabled=hasProxy)
 
             Utils.createMenuAction("Show Data", sc, rcmenu, self.browser, self.TEST_SHOW_DATA)
@@ -2192,7 +2203,7 @@ class DestFileTile(BaseTileItem):
 
             rcmenu.addAction(_separator())
 
-            funct = lambda: Utils.displayCombinedMetadata(self.getDestMainPath())
+            funct = lambda: Utils.displayCombinedMetadata(self.core, self.getDestMainPath())
             Utils.createMenuAction("Show MetaData (Transferred File)", sc, rcmenu, self.browser, funct, enabled=destExists)
 
             funct = lambda: Utils.openInExplorer(self.core, self.getDestMainPath())

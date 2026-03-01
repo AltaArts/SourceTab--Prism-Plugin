@@ -181,6 +181,7 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
 
         #   Reset Total Prog Bar
         self.reset_ProgBar()
+
         #   Signal Connections
         self.connectEvents()
 
@@ -200,15 +201,10 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
         #   Add Callback for SourceTab
         self.core.callback(name="onSourceBrowserOpen", args=[self])
 
-
         #   Callbacks
         self.core.registerCallback("onProjectBrowserClose",
                                    self.onProjectBrowserClose,
                                    plugin=self.plugin)
-
-
-        if refresh:
-            self.entered()
 
         logger.debug("Initializing Source Browser")
 
@@ -222,16 +218,15 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def checkGpuAvailability(self):
         ctx = QOpenGLContext()
         return bool(ctx.create())
-        # return False                                           #   TESTING
     
 
+    #   Called from ProjectBrowser when Tab is Changed 
     @err_catcher(name=__name__)
     def entered(self, prevTab=None, navData=None):
+        #   Resize Splitter Panels at 1st Launch
         if not self.initialized:
             self.initialized = True
-
-            #   Resize Splitter Panels
-            QTimer.singleShot(10, lambda: self.setSplitterToThirds())
+            QTimer.singleShot(1000, lambda: self.setSplitterToThirds())
 
 
     #   Resizes Splitter Panels to Equal Thirds
@@ -239,7 +234,8 @@ class SourceBrowser(QWidget, SourceBrowser_ui.Ui_w_sourceBrowser):
     def setSplitterToThirds(self):
         totalWidth = self.splitter.size().width()
         oneThird = totalWidth // 3
-        self.splitter.setSizes([oneThird, oneThird, totalWidth - 2 * oneThird])
+        lastThird = totalWidth - (2 * oneThird)
+        self.splitter.setSizes([oneThird, oneThird, lastThird])
 
 
     #   Gets Called with Callback When ProjectBrowser Closes

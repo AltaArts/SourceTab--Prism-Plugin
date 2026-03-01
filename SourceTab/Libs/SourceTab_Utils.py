@@ -153,6 +153,17 @@ def getFileExtension(filePath=None, fileName=None):
     return extension.lower()
 
 
+def checkMediaExists(core, filePath:str) -> bool:
+    '''Returns Bool if Passed Media Exists'''
+
+    if not os.path.exists(filePath):
+        logger.warning(f"Media no longer exists:  {filePath}")
+        core.popup(f"Media no longer exists:\n\n {filePath}")
+        return False
+    
+    return True
+
+
 def isCodecSupported(codec:str) -> bool:
     '''Returns Bool if Codec is Supported by FFmpeg'''
     
@@ -224,6 +235,10 @@ def explorerDialogue(title: str = None,
 
 def openInExplorer(core, path:str) -> None:
     '''Opens Path in File Explorer'''
+
+    if not checkMediaExists(core, path):
+        return
+
     core.openFolder(path)
 
 
@@ -1065,8 +1080,11 @@ def getGroupedCombinedMetadata(filePath: str) -> dict:
     return ordered_grouped
 
 
-def displayCombinedMetadata(filePath: str) -> None:
+def displayCombinedMetadata(core, filePath: str) -> None:
     '''Displays Popup of Combined Metadata (FFprobe + ExifTool)'''
+
+    if not checkMediaExists(core, filePath):
+        return     
 
     metadata = getGroupedCombinedMetadata(filePath)
 

@@ -104,7 +104,7 @@ class PreviewPlayer_GPU(QWidget):
         self.sourceBrowser = browser
         self.core = browser.core
 
-        self.PreviewCache = FrameCacheManager(self.core, pWidth=400)
+        self.PreviewCache = FrameCacheManager(self, self.core, pWidth=400)
 
         self.iconPath = os.path.join(self.core.prismRoot, "Scripts", "UserInterfacesPrism")
         self.ffmpegPath = os.path.normpath(self.core.media.getFFmpeg(validate=True))
@@ -135,8 +135,6 @@ class PreviewPlayer_GPU(QWidget):
         self.connectEvents()
         self.loadSettings()
         self.resetImage()
-
-        self.enableControls(False)
 
         #   Connect Signal to Update Display
         self.frameReady.connect(self.DisplayWindow.displayFrame)
@@ -812,6 +810,10 @@ class PreviewPlayer_GPU(QWidget):
     def updatePreview(self, mediaFiles):
         if not self.previewEnabled:
             return
+
+        #   Abort if Media no Longer Exists (such as ejected)
+        if not Utils.checkMediaExists(self.core, mediaFiles[0]):
+            return
         
         #   Shows PXY Icon if Proxy
         self.l_pxyIcon.setVisible(self.isProxy)
@@ -1051,7 +1053,7 @@ class PreviewPlayer_GPU(QWidget):
         self.sl_previewImage.setValue(0)
         self.sp_current.setValue(0)
         self.updateCacheSlider(reset=True)
-
+        self.enableControls(False)
 
 
     @err_catcher(name=__name__)
@@ -1597,8 +1599,9 @@ class FrameCacheManager(QObject):
     firstFrameComplete = Signal(int)
 
 
-    def __init__(self, core, pWidth=400):
+    def __init__(self, previewPlayer, core, pWidth=400):
         super().__init__()
+        self.previewPlayer = previewPlayer
         self.core = core
         self.pWidth = int(pWidth)
 
@@ -1743,14 +1746,17 @@ class FrameCacheManager(QObject):
             Gets Frame from Cache if Available, or Decode and Insert into Cache.
         """
 
-        #   Return from Cache if Exists in Cache
-        frame = self.cache.get(frameIdx)
-        if frame is not None:
-            return frame
-
         if not self.mediaFiles:
+            logger.debug("Media no longer exists.")
+            self.previewPlayer.resetImage()
             return None
         
+        # Return from Cache if Exists in Cache
+        frame = self.cache.get(frameIdx)
+        
+        if frame is not None:
+            return frame
+                
         return self._generateFrame(frameIdx)
 
 
@@ -1959,7 +1965,7 @@ class GLVideoDisplay(QOpenGLWidget):
 
                     #   Check if LUT Path Exists
                     if not os.path.isfile(lut):
-                        errStr = f"LUT is not a Valid File.  Ignoring LUT"
+                        errStr = "LUT is not a Valid File.  Ignoring LUT"
                         logger.warning(errStr)
                         errors.append(errStr)
                     
